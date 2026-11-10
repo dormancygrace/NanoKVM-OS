@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,10 @@ import (
 type Service struct{}
 
 const TailscalePath = "/usr/bin/tailscale"
+
+// Package is the NanoKVM add-on: Tailscale built with the NanoKVM Go runtime
+// (addons/tailscale), in place of Alpine's tailscale and tailscale-openrc.
+const Package = "nanokvm-tailscale"
 
 var operationMutex sync.Mutex
 
@@ -48,7 +53,7 @@ func (s *Service) Install(c *gin.Context) {
 	}
 	defer endOperation()
 	if !isInstalled() {
-		if err := apkpkg.InstallCommunity("tailscale", "tailscale-openrc"); err != nil {
+		if err := apkpkg.InstallAddon(Package); err != nil {
 			rsp.ErrRsp(c, -1, "Tailscale installation failed: "+err.Error())
 			return
 		}
@@ -74,13 +79,17 @@ func (s *Service) Uninstall(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "Tailscale could not be stopped; package was kept: "+err.Error())
 		return
 	}
-	if err := apkpkg.Run("remove", "tailscale-openrc"); err != nil {
-		rsp.ErrRsp(c, -1, "Tailscale OpenRC removal failed: "+err.Error())
-		return
+	// A device that installed Tailscale before the add-on existed has
+	// Alpine's two packages.
+	names := []string{"tailscale-openrc", "tailscale"}
+	if osupdate.IsInstalledAddon(Package) {
+		names = []string{Package}
 	}
-	if err := apkpkg.Run("remove", "tailscale"); err != nil {
-		rsp.ErrRsp(c, -1, "Tailscale removal failed: "+err.Error())
-		return
+	for _, name := range names {
+		if err := apkpkg.Run("remove", name); err != nil {
+			rsp.ErrRsp(c, -1, "Tailscale removal failed: "+err.Error())
+			return
+		}
 	}
 	rsp.OkRsp(c)
 }

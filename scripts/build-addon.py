@@ -2,7 +2,8 @@
 """Build a NanoKVM add-on APK from its recipe, addons/NAME/addon.json.
 
 The add-on is either a static Go program in its own module (CGO off, so no
-device toolchain), or TPU models: files of a directory that
+device toolchain), which may be a program of a module that module requires
+(Tailscale), or TPU models: files of a directory that
 tpu/models/convert.sh and stage.sh made, installed below MODELS_PREFIX. Its
 files and lifecycle scripts go with it, packed by apk-tools 3 mkpkg. It has
 the recipe's version and the given revision, never the OS release's.
@@ -14,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,6 +26,10 @@ import addon_packages  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 ADDONS = ROOT / 'addons'
+# The packages of golang.org/x/crypto the NanoKVM Go runtime carries C906 code
+# for (firmware/cpu/sysmon-runtime/prepare.py puts it in the copy vendored
+# into the standard library).
+X_CRYPTO_C906 = ('chacha20', 'internal/poly1305')
 SCRIPTS = ('pre-install', 'post-install', 'pre-upgrade', 'post-upgrade', 'pre-deinstall', 'post-deinstall')
 # Where model add-ons install their models: the TPU programs of the core
 # package nanokvm-tpu read them there.
@@ -53,6 +59,23 @@ def recipe(name, addons=ADDONS):
             raise ValueError(f'{name}: bad model {path}')
     if 'models' in r and not r['models']:
         raise ValueError(f'{name}: no models')
+    go = r.get('go', {})
+    if not set(go) <= {'package', 'path', 'tags', 'experiment', 'stamps', 'x_crypto'}:
+        raise ValueError(f'{name}: unknown "go" key')
+    for key in ('tags', 'experiment'):
+        if not re.fullmatch(r'[a-z0-9_]+(,[a-z0-9_]+)*', go.get(key, 'x')):
+            raise ValueError(f'{name}: bad go.{key}')
+    for symbol, value in go.get('stamps', {}).items():
+        if not re.fullmatch(r'[A-Za-z0-9_./-]+', symbol) or not re.fullmatch(r'[A-Za-z0-9_.{}-]+', value):
+            raise ValueError(f'{name}: bad go.stamps entry {symbol}')
+    if not re.fullmatch(r'v[0-9]+[.][0-9]+[.][0-9]+', go.get('x_crypto', 'v0.0.0')):
+        raise ValueError(f'{name}: bad go.x_crypto')
+    for link, target in r.get('links', {}).items():
+        if not link.startswith('/') or not target.startswith('/') or '..' in Path(link).parts + Path(target).parts:
+            raise ValueError(f'{name}: bad link {link}')
+    for key in ('provides', 'replaces'):
+        if not re.fullmatch(r'[a-z0-9][a-z0-9+_.:=-]*( [a-z0-9][a-z0-9+_.:=-]*)*', r.get(key, 'x')):
+            raise ValueError(f'{name}: bad {key}')
     for path, item in r['files'].items():
         if not path.startswith('/') or '..' in Path(path).parts or not (directory / item['source']).is_file():
             raise ValueError(f'{name}: bad file {path}')
@@ -67,18 +90,59 @@ def recipe(name, addons=ADDONS):
     return r
 
 
-def build_go(r, go, output):
+def x_crypto_c906(r, go_root, version, env, stage):
+    """A go.mod for the recipe's module that replaces golang.org/x/crypto
+    VERSION by a copy with the C906 ChaCha20 and Poly1305 of the NanoKVM Go
+    runtime. A Go program is one static file: a program that takes
+    golang.org/x/crypto as a module (not the standard library's copy) gets
+    that code only this way. The module is the one go.sum pins; the runtime's
+    two packages replace the module's whole directories and import nothing
+    else of it but internal/alias, which both copies have."""
+    info = json.loads(subprocess.check_output(
+        [str(go_root / 'bin/go'), 'mod', 'download', '-json', f'golang.org/x/crypto@{version}'],
+        cwd=r['directory'], env=dict(env, GOOS='', GOARCH='', GOFLAGS='-mod=mod'), text=True))
+    copy = stage / 'x-crypto'
+    shutil.copytree(info['Dir'], copy)
+    for path in [copy, *copy.rglob('*')]:
+        path.chmod(path.stat().st_mode | 0o200)
+    for package in X_CRYPTO_C906:
+        ours = go_root / 'src/vendor/golang.org/x/crypto' / package
+        if not any(ours.glob('*_xtheadvector_riscv64.go')):
+            raise SystemExit(f'{ours}: not the NanoKVM Go runtime (firmware/cpu/sysmon-runtime/prepare.py)')
+        shutil.rmtree(copy / package)
+        shutil.copytree(ours, copy / package)
+    modfile = stage / 'go.mod'
+    modfile.write_text((r['directory'] / 'go.mod').read_text()
+                       + f'{chr(10)}replace golang.org/x/crypto {version} => {copy}{chr(10)}')
+    shutil.copyfile(r['directory'] / 'go.sum', stage / 'go.sum')
+    return modfile
+
+
+def build_go(r, go, output, version):
     """Cross-build the recipe's Go program for the device."""
     # Resolve GOROOT, not bin/go: the prepared NanoKVM runtime symlinks bin/
     # to the official toolchain (as scripts/build-server-existing-libs.py).
     go_root = go.absolute().parent.parent.resolve()
     env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='0',
                GOEXPERIMENT='', GOROOT=str(go_root), GOTOOLCHAIN='local')
-    binary = output / Path(r['go']['path']).name
-    subprocess.run([str(go_root / 'bin/go'), 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -buildid=',
-                    '-o', str(binary), r['go']['package']], cwd=r['directory'], env=env, check=True)
-    version = subprocess.check_output([str(go_root / 'bin/go'), 'version'], env=env, text=True).strip()
-    return binary, version
+    recipe = r['go']
+    if 'experiment' in recipe:
+        env['GOEXPERIMENT'] = recipe['experiment']
+    binary = output / Path(recipe['path']).name
+    ldflags = '-s -w -buildid=' + ''.join(f' -X {symbol}={value.format(version=version)}'
+                                          for symbol, value in sorted(recipe.get('stamps', {}).items()))
+    command = [str(go_root / 'bin/go'), 'build', '-trimpath', '-buildvcs=false', f'-ldflags={ldflags}']
+    if 'tags' in recipe:
+        command += ['-tags', recipe['tags']]
+    if 'x_crypto' in recipe:
+        command.append(f"-modfile={x_crypto_c906(r, go_root, recipe['x_crypto'], env, output)}")
+    subprocess.run(command + ['-o', str(binary), recipe['package']], cwd=r['directory'], env=env, check=True)
+    if 'x_crypto' in recipe:
+        # The program's own record of its modules names the replacement.
+        modules = subprocess.check_output([str(go_root / 'bin/go'), 'version', '-m', str(binary)], env=env, text=True)
+        if not re.search(r'dep\tgolang[.]org/x/crypto\t\S+\t?\n\t=>\t', modules):
+            raise SystemExit(f'{binary.name}: golang.org/x/crypto was not replaced')
+    return binary, subprocess.check_output([str(go_root / 'bin/go'), 'version'], env=env, text=True).strip()
 
 
 def converter():
@@ -123,6 +187,10 @@ def payload(r, binary, root, source, models=None):
         path.chmod(mode)
     if 'go' in r:
         install(binary, r['go']['path'], 0o755)
+    for link, target in r.get('links', {}).items():
+        path = root / link.lstrip('/')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.symlink_to(os.path.relpath(target, Path(link).parent))
     for path in r.get('models', []):
         install(models / path, f'{MODELS_PREFIX}/{path}', 0o644)
     for dest, item in r['files'].items():
@@ -144,7 +212,8 @@ def depends(r):
 def mkpkg(r, apk, files, output, version):
     command = [str(apk), 'mkpkg', '--files', str(files), '--output', str(output)]
     for value in [f"name:{r['name']}", f'version:{version}', 'arch:riscv64', f"license:{r['license']}",
-                  f"description:{r['description']}", f"depends:{depends(r)}", f"url:{r['url']}"]:
+                  f"description:{r['description']}", f"depends:{depends(r)}", f"url:{r['url']}",
+                  *(f'{key}:{r[key]}' for key in ('provides', 'replaces') if key in r)]:
         command += ['--info', value]
     for action, script in sorted(r['scripts'].items()):
         command += ['--script', f"{action}:{r['directory'] / script}"]
@@ -192,7 +261,8 @@ def main():
         source = {'commit': args.commit, 'url': args.source_url, 'package_version': version}
         binary = None
         if 'go' in r:
-            binary, source['go'] = build_go(r, args.go, stage)
+            binary, source['go'] = build_go(r, args.go, stage, r['version'])
+            source.update({key: r['go'][key] for key in ('tags', 'experiment', 'x_crypto') if key in r['go']})
         else:
             source['converter'] = converter()
             source['models'] = model_files(r, args.models.resolve())
@@ -201,9 +271,9 @@ def main():
         # mkpkg records file owners: never ship a developer's UID. Run under
         # fakeroot, or as root.
         for path in [files, *files.rglob('*')]:
-            if path.stat().st_uid != 0 or path.stat().st_gid != 0:
+            if path.lstat().st_uid != 0 or path.lstat().st_gid != 0:
                 try:
-                    os.chown(path, 0, 0)
+                    os.lchown(path, 0, 0)
                 except PermissionError:
                     raise SystemExit('Run this script with fakeroot for root:root APK ownership.')
         subprocess.run(mkpkg(r, args.apk.resolve(), files, apkfile, version), check=True)

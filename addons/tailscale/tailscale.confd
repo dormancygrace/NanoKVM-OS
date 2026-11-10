@@ -1,0 +1,13 @@
+# Configuration of /etc/init.d/tailscale
+
+# UDP port for WireGuard and peer-to-peer traffic; 0 selects one.
+#port=41641
+
+# Do not send logs to Tailscale Inc. (which also ends its technical support).
+#no_logs_no_support=yes
+
+# Where tailscaled writes its messages.
+#logfile=/var/log/tailscaled.log
+
+# More options for tailscaled.
+#command_args=

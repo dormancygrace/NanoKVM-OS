@@ -35,3 +35,8 @@ compatible.
 ## Tailscale
 
 Open the Tailscale submenu to use its existing installation/login controls.
+Install puts the `nanokvm-tailscale` add-on on the device: the same Tailscale
+release as Alpine's package, built with the NanoKVM Go runtime
+([addons/tailscale](../addons/tailscale/README.md)). A device that already has
+Alpine's `tailscale` keeps it until Tailscale is uninstalled and installed
+again.

@@ -15,7 +15,7 @@ import subprocess
 # workflow, the others by the add-on workflow (addon.yml). Pages indexes
 # them without an OS release. No published release pins one from the
 # archived NanoKVM-OS-packages repository.
-ADDONS = ('nanokvm-rustdesk', 'nanokvm-ipmi', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
+ADDONS = ('nanokvm-rustdesk', 'nanokvm-ipmi', 'nanokvm-tailscale', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
           'nanokvm-model-ocr-cyrillic', 'nanokvm-model-ocr-chinese', 'nanokvm-model-screen')
 RELEASES = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/'
 SOURCES = tuple(RELEASES + name + '-' for name in ADDONS)
@@ -40,6 +40,10 @@ def selected_builds(paths, changed_pins=()):
             selected.update(BUILD_ADDONS)
         elif path.startswith(('addons/ipmi/', 'firmware/cpu/sysmon-runtime/', 'server/pkg/bmc/')) or path in {'server/go.mod', 'server/go.sum'}:
             selected.add('nanokvm-ipmi')
+            if path.startswith('firmware/cpu/sysmon-runtime/'):
+                selected.add('nanokvm-tailscale')
+        elif path.startswith(('addons/tailscale/', 'firmware/cpu/go-crypto-c906/')):
+            selected.add('nanokvm-tailscale')
         elif path.startswith('addons/model-'):
             name = 'nanokvm-' + path.split('/')[1]
             if name in MODEL_ADDONS:
@@ -57,7 +61,7 @@ def selected_builds(paths, changed_pins=()):
     if 'tpu-runtime' in changed_pins:
         selected.update(MODEL_ADDONS)
     if 'go' in changed_pins:
-        selected.add('nanokvm-ipmi')
+        selected.update({'nanokvm-ipmi', 'nanokvm-tailscale'})
     return sorted(selected)
 
 

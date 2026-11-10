@@ -27,6 +27,7 @@ def dependabot_directories(text):
 # file that no longer exists fails, so the list cannot go stale.
 UNMONITORED = {
     'server/third_party/pion-ice/examples/nat-rules/Dockerfile': 'upstream example of the vendored fork; never built here',
+    'addons/tailscale/go.mod': "the module set of one Tailscale release; follows Alpine's package (upstream-watch.json)",
 }
 
 

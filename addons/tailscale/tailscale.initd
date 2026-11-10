@@ -1,0 +1,29 @@
+#!/sbin/openrc-run
+
+description="Tailscale node agent"
+
+: ${port:=41641}
+: ${no_logs_no_support:=yes}
+: ${logfile:=/var/log/tailscaled.log}
+
+command=/usr/sbin/tailscaled
+command_args="--socket=/run/tailscale/tailscaled.sock --state=/var/lib/tailscale/tailscaled.state --port=$port $command_args"
+command_background=true
+pidfile=/run/tailscale.pid
+supervisor=supervise-daemon
+output_log="$logfile"
+error_log="$logfile"
+
+# The firewall of NanoKVM OS is nftables; tailscaled's own detection prefers
+# iptables.
+export TS_DEBUG_FIREWALL_MODE=nftables
+
+depend() {
+    need net
+    use logger
+}
+
+start_pre() {
+    yesno "$no_logs_no_support" && command_args="$command_args --no-logs-no-support"
+    checkpath -d -m 0755 /run/tailscale
+}

@@ -87,12 +87,13 @@ The target repository list is:
 
 Alpine v3.24 `community` is off by default: the image needs nothing from it,
 and every apk run would parse its index too. The Software page switches it on
-(placed right after `main`, from the same mirror), and installing Tailscale or
-NetBird does so itself. The page refuses to switch it off while installed
+(placed right after `main`, from the same mirror), and installing NetBird
+does so itself. The page refuses to switch it off while installed
 packages come only from it, and names them.
 
-Tailscale and NetBird come from the stable Alpine `community` repository,
-OpenVPN from `main`. They are optional and absent from the default
+Tailscale is the `nanokvm-tailscale` add-on of the NanoKVM repository
+([addons/tailscale](../../addons/tailscale/README.md)), NetBird comes from the
+stable Alpine `community` repository, OpenVPN from `main`. They are optional and absent from the default
 `nanokvm-release` dependency set.
 
 The NanoKVM repository is a rolling package channel within the selected

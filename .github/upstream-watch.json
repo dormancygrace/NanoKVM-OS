@@ -490,6 +490,14 @@
         "id": "tpu-runtime",
         "mode": "review"
       }
+    },
+    {
+      "name": "Tailscale (Alpine 3.24 community)",
+      "path": "addons/tailscale/addon.json",
+      "pattern": "\"version\":\\s*\"([0-9.]+)\"",
+      "kind": "alpine-package",
+      "channel": "v3.24/community",
+      "package": "tailscale"
     }
   ]
 }

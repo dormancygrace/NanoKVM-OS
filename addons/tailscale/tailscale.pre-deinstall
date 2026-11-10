@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+[ -f /run/openrc/softlevel ] || exit 0
+if rc-service tailscale status >/dev/null 2>&1; then
+    rc-service tailscale stop
+fi
+rc-update del tailscale default >/dev/null 2>&1 || true
+# /var/lib/tailscale is the node's identity and is preserved by apk del.

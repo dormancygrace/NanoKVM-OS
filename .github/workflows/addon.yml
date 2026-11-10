@@ -10,7 +10,7 @@ on:
         description: 'Add-on, or all five model add-ons'
         default: nanokvm-ipmi
         type: choice
-        options: [nanokvm-ipmi, nanokvm-model-ocr, nanokvm-model-ocr-latin, nanokvm-model-ocr-cyrillic,
+        options: [nanokvm-ipmi, nanokvm-tailscale, nanokvm-model-ocr, nanokvm-model-ocr-latin, nanokvm-model-ocr-cyrillic,
                   nanokvm-model-ocr-chinese, nanokvm-model-screen, models]
       dry_run:
         description: 'Build and check only; publish nothing'
@@ -24,6 +24,8 @@ on:
       - scripts/addon_packages.py
       - scripts/next-addon-revision.py
       - addons/ipmi/**
+      - addons/tailscale/**
+      - firmware/cpu/go-crypto-c906/**
       - addons/model-*/**
       - tpu/models/**
       - tpu/helpers/cvimodel-dmabuf.c

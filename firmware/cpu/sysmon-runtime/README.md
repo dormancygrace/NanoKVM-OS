@@ -15,9 +15,10 @@ prepare.py also copies the std-vendored `golang.org/x/crypto/chacha20` and
 directories of symlinks), checks the pinned checksums of the vendored files it
 relies on, and adds the C906 XTheadVector ChaCha20 and the riscv64 Poly1305
 described in [go-crypto-c906](../go-crypto-c906/README.md). It also
-materializes `internal/cpu`, `crypto/internal/fips140deps/cpu`,
-`crypto/internal/fips140/sha256` and `crypto/sha1` for the T-Head SHA-1 and
-SHA-256 blocks described there (`cpu.RISCV64.HasXTheadBb`).
+materializes `crypto/internal/fips140/sha256`, `crypto/internal/fips140/sha512`,
+`crypto/sha1` and `crypto/internal/fips140/sha3` for the C906 SHA-1, SHA-256,
+SHA-512 and Keccak code described there, which replaces Go's without a
+selection at run time.
 nanokvm-manifest.json records the resulting vendored source checksums.
 
 `runtime.memmove` on riscv64 copies byte by byte whenever the source and

@@ -310,7 +310,7 @@ implemented in this version.
 
 ## C906 build
 
-The release build is the qualified C906 build: `cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl` with the existing cross-linker environment (the native Alpine recipe uses `--target riscv64-alpine-linux-musl`). The release profile selects optimization level 3, full LTO and one codegen unit; `.cargo/config.toml` enables static CRT and the scalar T-Head extensions every C906 implements for both targets, so no extra option is needed. Keep the explicit `--target`: it confines the flags to target code (build scripts and proc-macros are built for the host). These are the settings the `performance` profile of 0.5.3-r2 used, byte for byte; the separate generic profile is gone. The packaging builder records the exact flags and compiler identity in build-profile.json. This Rust backend does not implement RVV 0.7.1; the build is scalar.
+The release build is the qualified C906 build: `cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl` with the existing cross-linker environment (the native Alpine recipe uses `--target riscv64-alpine-linux-musl`). The release profile selects optimization level 3, full LTO and one codegen unit; `.cargo/config.toml` enables static CRT, the scalar T-Head extensions every C906 implements and unaligned loads and stores (the C906 executes them itself; without the flag LLVM reads a word at an unknown alignment byte by byte) for both targets, so no extra option is needed. Keep the explicit `--target`: it confines the flags to target code (build scripts and proc-macros are built for the host). The former separate generic and performance profiles are gone; the settings above now apply to every release build. The packaging builder records the exact flags and compiler identity in build-profile.json. This Rust backend does not implement RVV 0.7.1; the build is scalar.
 
 Local unpublished APK/source pairs can be built with --local-only instead of --source-url; source.json records the local archive digest and publication state. This avoids claiming a public download exists before publication.
 
@@ -323,8 +323,25 @@ nonce counter rules are retained. Buffers above 1 MiB are released after the
 frame; the maximum wire frame is 8 MiB.
 
 An explicit RVV 0.7.1 Salsa prototype was correct on C906 but mostly slower
-than the scalar in-place path. Production uses RustCrypto scalar
-XSalsa20-Poly1305; no vector feature or extra assembly compiler is required.
+than the scalar in-place path. Production uses the scalar XSalsa20-Poly1305 of
+`src/frame_crypto.rs`, plain Rust: Salsa20 with the 16 state words in
+registers and whole-word XOR, Poly1305 in radix 2^64 with 128-bit products. No
+vector feature or extra assembly compiler is required. It is tested byte for
+byte against `crypto_secretbox`, which it replaced, and like it wipes the key
+when the session ends and the per-frame key material after each frame.
+
+Measured on a NanoKVM PCIe, one frame in place, encrypt (decrypt is the same):
+
+| frame | `crypto_secretbox` | + unaligned loads | `frame_crypto.rs` + unaligned loads |
+| --- | ---: | ---: | ---: |
+| 64 bytes | 5.7 us | 5.4 us | 4.3 us |
+| 1400 bytes | 56.8 us | 49.5 us | 34.6 us |
+| 16 KiB | 625 us (26 MB/s) | 540 us (30 MB/s) | 370 us (44 MB/s) |
+| 256 KiB | 10.7 ms | 9.4 ms | 6.0 ms |
+
+Of the 370 us, Poly1305 takes 86 us (149 us in RustCrypto's) and Salsa20 the
+rest: 1.1 us per 64-byte block, about one instruction per cycle on its 960
+round instructions.
 
 On the qualified C906 build (then the `performance` profile), the actual writer benchmark measured
 34–37% less process CPU time for 16–256 KiB messages than the previous

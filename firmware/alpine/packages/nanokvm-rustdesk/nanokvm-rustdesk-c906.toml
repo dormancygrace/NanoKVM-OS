@@ -9,4 +9,4 @@ codegen-units = 1
 strip = "symbols"
 
 [target.riscv64-alpine-linux-musl]
-rustflags = ["-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync"]
+rustflags = ["-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync,+unaligned-scalar-mem"]

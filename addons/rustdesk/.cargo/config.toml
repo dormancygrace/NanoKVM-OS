@@ -1,5 +1,7 @@
-# Code generation for the NanoKVM SoC (SG2002/SG2000, T-Head C906): static CRT
-# and the scalar T-Head extensions every C906 implements. Cargo applies these
+# Code generation for the NanoKVM SoC (SG2002/SG2000, T-Head C906): static CRT,
+# the scalar T-Head extensions every C906 implements and unaligned loads and
+# stores (the C906 executes them itself; without unaligned-scalar-mem LLVM
+# reads a word at an unknown alignment byte by byte). Cargo applies these
 # to every build for these targets, so the cross build and the native Alpine
 # recipe both produce the qualified binary. No RVV 0.7.1 code is generated;
 # host builds and tests are unaffected. Build with an explicit --target, so the
@@ -15,7 +17,7 @@
 # scripts/build-rustdesk-addon.py provides it (see README, "Build and source").
 # The Alpine target always links Alpine's system musl.
 [target.riscv64gc-unknown-linux-musl]
-rustflags = ["-C", "link-self-contained=no", "-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync"]
+rustflags = ["-C", "link-self-contained=no", "-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync,+unaligned-scalar-mem"]
 
 [target.riscv64-alpine-linux-musl]
-rustflags = ["-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync"]
+rustflags = ["-C", "target-feature=+crt-static,+xtheadba,+xtheadbb,+xtheadbs,+xtheadcmo,+xtheadcondmov,+xtheadfmemidx,+xtheadmac,+xtheadmemidx,+xtheadmempair,+xtheadsync,+unaligned-scalar-mem"]

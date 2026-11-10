@@ -207,6 +207,8 @@ jobs:
           curl -fsSL "$(python3 gen_poly1305_c906.py --print-url)" -o "$RUNNER_TEMP/poly1305-riscv.pl"
           python3 gen_poly1305_c906.py --cryptogams "$RUNNER_TEMP/poly1305-riscv.pl" --binutils riscv64-linux-gnu- --check sum_c906_riscv64.s
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --go --check sum_vector_riscv64.s
+          python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --rust --check ../../../addons/rustdesk/src/poly1305_c906.S
+          python3 gen_salsa20_c906.py --binutils riscv64-linux-gnu- --check ../../../addons/rustdesk/src/salsa20_c906.S
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --linux --check ../../../platform/kernel/0077-crypto-riscv-xtheadvector-poly1305.patch
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --openssl --check ../../crypto/openssl-c906/0012-poly1305-c906.patch
       - name: OpenSSL pinned patches and C906 SHA-256/GHASH arithmetic

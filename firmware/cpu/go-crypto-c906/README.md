@@ -443,6 +443,43 @@ GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go test -c -o annexb.test ./internal/ann
 ./annexb.test -test.v && ./annexb.test -test.run XXX -test.bench .
 ```
 
+## AES block functions (`gen_aes_c906.py`)
+
+`gen_aes_c906.py --flavor linux` writes the AES block encryption and
+decryption of the kernel's `lib/crypto`
+(`platform/kernel/0080-crypto-riscv-c906-aes.patch`), which had only the
+generic C code on the C906: its RISC-V backend needs the vector crypto
+extensions.
+
+The C906 executes about one instruction per cycle on this code, so the
+functions are built for the instruction count. Each direction has four
+tables of 1 KiB; `th.extu` cuts a byte out of the state and `th.lrwu` loads
+the table word by index (XTheadBb, XTheadMemIdx), which makes 13 instructions
+per column and 52 per round, against 58 in OpenSSL's `aes-riscv64.pl`. Rounds
+are emitted in pairs, so two register sets swap roles without moves, and two
+columns are interleaved, so a loaded value is used no sooner than two
+instructions later. The round keys are the ones `lib/crypto/aes.c` prepares
+(the Equivalent Inverse Cipher to decrypt).
+
+Measured on the device for one block, in ns (AES-128 / AES-256): the kernel's
+C code, which keeps one table, rotates each word and reads the whole table
+before every block, 802 / 1072; OpenSSL's assembly 672 / 918; this code 599 /
+814 to encrypt and 592 / 807 to decrypt. Through the kernel API `ecb(aes)`
+with a 128-bit key takes 2.83 us for 64 bytes instead of 3.67 and 10.1 us for
+256 bytes instead of 13.4.
+
+Table lookups depend on the key and the data: like the code it replaces, this
+is not constant-time, and it does not read the whole table before a block,
+which the generic code does as a hardening measure without a guarantee.
+
+```sh
+python3 gen_aes_c906.py --selftest 30 --name aes_c906 --flavor linux --check ../../../platform/kernel/0080-crypto-riscv-c906-aes.patch lib/crypto/riscv/aes-riscv64-c906.S
+```
+
+`--selftest` checks the generator's own AES with the FIPS 197 examples and
+then executes the emitted instructions against it for all three key lengths,
+with `in` and `out` unaligned.
+
 ## SHA-256 and SHA-512 blocks (`gen_sha2_c906.py`)
 
 `--flavor linux` writes the same blocks for the kernel's `lib/crypto`

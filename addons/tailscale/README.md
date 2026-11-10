@@ -37,6 +37,9 @@ alone, without the module replacement, changes nothing.
   replaces its `chacha20` and `internal/poly1305` directories by the runtime's
   and builds with a temporary `go.mod` that points at the copy. The build stops
   if the program's module record does not name the replacement.
+- `LICENSE`, `THIRD-PARTY.md`: Tailscale's licence and the list of the modules
+  linked into it with links to their licences (copy both from the new release
+  when it changes).
 - `tailscale.initd`, `tailscale.confd`, `tailscale.modules-load`: the OpenRC
   service `tailscale` (root, nftables firewall mode, no logs to Tailscale Inc.
   unless `no_logs_no_support=no`), with the socket and state paths of Alpine's

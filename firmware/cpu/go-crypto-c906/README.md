@@ -400,6 +400,12 @@ ROC; crypto/hmac is used as pion/srtp does (Reset, Write, Write, Sum):
 
 The Go part (scheduling, segments, copies) takes about 1.4 us per packet.
 
+Since the CryptoDMA engine hashes the packets of a video frame in the same
+start that encrypts them (`HWCRYPTO_CTR_SHA1`, docs/ACCELERATORS.md), this
+kernel computes for them only the outer block of each HMAC
+(`Key.OuterBatch`, four per step), and whole HMACs for what the engine does
+not take: audio, retransmissions, RTCP, short packets.
+
 `vmacc.vx` rotates against shift, shift, or (2026-11-02, stand, server
 stopped, thread CPU per packet, medians of five interleaved rounds): video
 13 x 1200 B + 600 B 17.5 -> 15.9 us (-9%), audio 4 x 172 B 8.5 -> 7.6 us

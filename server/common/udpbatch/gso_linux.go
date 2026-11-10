@@ -17,37 +17,29 @@ type gsoDiagnostics struct {
 }
 
 // UDP_SEGMENT describes full-size datagrams followed by one optional short
-// datagram. Other shapes use the ordinary sendmmsg path unchanged.
+// datagram. Other shapes use the ordinary sendmmsg path unchanged. The
+// datagrams go to the kernel from their slots, one iovec each: it cuts the
+// concatenation at every segment size, so they need not be copied together.
 func (c *Conn) sendGSOLocked(count int) (int, error, bool) {
-	if c.gsoBuffer == nil || count < 2 {
+	if !c.gso || count < 2 {
 		return 0, nil, false
 	}
 	segment := c.slots[0].n
 	if segment <= 0 {
 		return 0, nil, false
 	}
-	total := 0
+	var iovs [maxBatchPackets]unix.Iovec
 	for i := 0; i < count; i++ {
 		n := c.slots[i].n
 		if n <= 0 || n > segment || (i != count-1 && n != segment) {
 			return 0, nil, false
 		}
-		total += n
+		iovs[i] = unix.Iovec{Base: &c.slots[i].data[0], Len: uint64(n)}
 	}
-	if total > len(c.gsoBuffer) {
-		return 0, nil, false
-	}
-	buffer := c.gsoBuffer
-	offset := 0
-	for i := 0; i < count; i++ {
-		offset += copy(buffer[offset:], c.slots[i].data[:c.slots[i].n])
-	}
-	defer clear(buffer[:total])
 
 	var messages [maxBatchPackets]mmsghdr
-	iov := unix.Iovec{Base: &buffer[0], Len: uint64(total)}
-	messages[0].msg.Iov = &iov
-	messages[0].msg.Iovlen = 1
+	messages[0].msg.Iov = &iovs[0]
+	messages[0].msg.Iovlen = uint64(count)
 	var addr4 unix.RawSockaddrInet4
 	var addr6 unix.RawSockaddrInet6
 	address := c.slots[0].addr
@@ -80,7 +72,7 @@ func (c *Conn) sendGSOLocked(count int) (int, error, bool) {
 	if sent == 0 && gsoUnsupported(err) {
 		// An unsuccessful atomic UDP send accepted no datagrams. Disable this
 		// optional path for the socket and retry through ordinary sendmmsg.
-		c.gsoBuffer = nil
+		c.gso = false
 		if c.gsoStats != nil {
 			c.gsoStats.fallbacks++
 		}

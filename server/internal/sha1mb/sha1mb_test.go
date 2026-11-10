@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
+	"encoding"
 	"encoding/hex"
 	"flag"
 
@@ -39,11 +40,38 @@ func impls() []impl {
 		l = append(l, impl{"vector", func(k *Key, t [][Size]byte, m []Message) { k.sumLanes(t, m, kernel) }})
 	}
 	l = append(l, impl{"SumBatch", (*Key).SumBatch})
+	// The outer block alone, for inner hashes an engine computed.
+	l = append(l,
+		impl{"OuterBatch", func(k *Key, t [][Size]byte, m []Message) { k.OuterBatch(t, innerHashes(k, m)) }},
+		impl{"outer model", func(k *Key, t [][Size]byte, m []Message) { k.outerLanes(t, innerHashes(k, m), kernelModel) }})
+	if haveVector() {
+		l = append(l, impl{"outer vector", func(k *Key, t [][Size]byte, m []Message) { k.outerLanes(t, innerHashes(k, m), kernel) }})
+	}
 	if *implFilter != "" {
 		re := regexp.MustCompile(*implFilter)
 		l = slices.DeleteFunc(l, func(im impl) bool { return !re.MatchString(im.name) })
 	}
 	return l
+}
+
+// innerHashes is the inner hash of each message from the key's inner state,
+// which must be the one crypto/sha1 has after the inner pad block.
+func innerHashes(k *Key, msgs []Message) [][Size]byte {
+	if s := k.InnerState(); !bytes.Equal(s[:], k.inner[4:4+Size]) {
+		panic("InnerState is not the state after the inner pad block")
+	}
+	out := make([][Size]byte, len(msgs))
+	h := sha1.New()
+	for i, m := range msgs {
+		if err := h.(encoding.BinaryUnmarshaler).UnmarshalBinary(k.inner); err != nil {
+			panic(err)
+		}
+		h.Write(m[0])
+		h.Write(m[1])
+		h.Write(m[2])
+		h.Sum(out[i][:0])
+	}
+	return out
 }
 
 func reference(key []byte, m Message) [Size]byte {

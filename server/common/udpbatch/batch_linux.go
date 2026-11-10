@@ -78,7 +78,7 @@ type Conn struct {
 	flushInterval time.Duration
 	sticky        error
 	sendmmsg      sendmmsgFunc
-	gsoBuffer     *[maxBatchPackets * maxPacketBytes]byte
+	gso           bool // UDP_SEGMENT works on this socket
 	gsoStats      *gsoDiagnostics
 }
 
@@ -111,7 +111,7 @@ func Wrap(c *net.UDPConn, onClose func()) (*Conn, bool) {
 	}
 	// UDP GSO halves the sender's CPU per packet on the SG2002 (stand,
 	// 2026-11-09: 1200-byte RTP, 12 packets per frame at 60 fps, 9.9% -> 4.8%).
-	wrapped.gsoBuffer = new([maxBatchPackets * maxPacketBytes]byte)
+	wrapped.gso = true
 	if os.Getenv("NANOKVM_WEBRTC_DIAGNOSTICS") == "1" {
 		wrapped.gsoStats = &gsoDiagnostics{}
 	}
@@ -316,9 +316,6 @@ func (c *Conn) Close() error {
 		c.sticky = net.ErrClosed
 		if s := c.gsoStats; s != nil && s.attempts != 0 {
 			log.Infof("WebRTC UDP GSO close: attempts=%d bundles=%d datagrams=%d fallbacks=%d", s.attempts, s.bundles, s.datagrams, s.fallbacks)
-		}
-		if c.gsoBuffer != nil {
-			clear(c.gsoBuffer[:])
 		}
 		for i := range c.slots {
 			c.slots[i] = packetSlot{}

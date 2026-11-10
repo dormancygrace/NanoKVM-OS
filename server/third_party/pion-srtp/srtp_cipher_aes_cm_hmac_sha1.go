@@ -29,6 +29,10 @@ type srtpCipherAesCmHmacSha1 struct {
 
 	// srtpAuthBatch authenticates whole frames when a batcher is registered.
 	srtpAuthBatch HMACSHA1Batcher
+	// srtpFrame encrypts and authenticates the packets of a frame when a
+	// protector is registered; framePackets is its reused argument.
+	srtpFrame    AESCMSHA1FrameProtector
+	framePackets []FramePacket
 
 	mki []byte
 
@@ -110,6 +114,9 @@ func newSrtpCipherAesCmHmacSha1(
 	srtpCipher.srtcpSessionAuth = hmac.New(sha1.New, srtcpSessionAuthTag)
 	srtpCipher.srtpSessionAuth = hmac.New(sha1.New, srtpSessionAuthTag)
 	srtpCipher.srtpAuthBatch = newHMACSHA1Batcher(srtpSessionAuthTag)
+	if encryptSRTP {
+		srtpCipher.srtpFrame = newFrameProtector(srtpSessionKey, srtpSessionAuthTag)
+	}
 
 	mkiLen := len(mki)
 	if mkiLen > 0 {

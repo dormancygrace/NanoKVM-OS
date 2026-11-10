@@ -56,6 +56,81 @@ func NewKey(key []byte) *Key {
 	return k
 }
 
+// InnerState returns the SHA-1 state after the key's inner pad block, as the
+// big-endian bytes of a digest: where the inner hash of every message under
+// this key starts.
+func (k *Key) InnerState() (state [Size]byte) {
+	for i, w := range k.states[0] {
+		binary.BigEndian.PutUint32(state[4*i:], w)
+	}
+	return state
+}
+
+// OuterBatch finishes HMAC-SHA1 for inner hashes computed elsewhere: tags[i]
+// is the SHA-1, from the key's outer pad state, of the 20 bytes inner[i]. It
+// panics if len(tags) != len(inner).
+func (k *Key) OuterBatch(tags, inner [][Size]byte) {
+	if len(tags) != len(inner) {
+		panic("sha1mb: len(tags) != len(inner)")
+	}
+	for len(inner) > 0 {
+		n := min(len(inner), maxBatch)
+		if n < minVector || !vector() {
+			for i := range n {
+				var b [blockSize]byte
+				copy(b[:], inner[i][:])
+				b[Size] = 0x80
+				binary.BigEndian.PutUint64(b[blockSize-8:], (blockSize+Size)*8)
+				state := k.states[1]
+				block(&state, &b)
+				for j, w := range state {
+					binary.BigEndian.PutUint32(tags[i][4*j:], w)
+				}
+			}
+		} else {
+			k.outerLanes(tags[:n], inner[:n], kernel)
+		}
+		tags, inner = tags[n:], inner[n:]
+	}
+}
+
+// outerLanes runs the outer blocks through the kernel, four per step: each is
+// a one-block message that starts from the outer pad state, which the kernel
+// takes here as its "inner" initial state.
+func (k *Key) outerLanes(tags, inner [][Size]byte, kern kernelFunc) {
+	w := workPool.Get().(*work)
+	defer workPool.Put(w)
+	n := len(inner)
+	if cap(w.segs) < n {
+		w.segs = make([]seg, n)
+	}
+	segs := w.segs[:n]
+	need := copyOff + blockSize*n
+	if cap(w.scratch) < need {
+		w.scratch = make([]byte, need, need+need/4)
+	}
+	scratch := w.scratch[:need]
+	clear(scratch)
+	// Lane j takes blocks j, j+4, ...: its segments are consecutive in segs.
+	c := 0
+	for j := range 4 {
+		first := c
+		for i := j; i < n; i += 4 {
+			off := copyOff + blockSize*i
+			b := scratch[off : off+blockSize]
+			copy(b, inner[i][:])
+			b[Size] = 0x80
+			binary.BigEndian.PutUint64(b[blockSize-8:], (blockSize+Size)*8)
+			segs[c] = seg{part: partScratch, off: uint32(off), n: 1, flags: flagInner | flagTag, tag: uint32(Size * i)}
+			c++
+		}
+		w.lanes[j] = [2]uint32{uint32(first), uint32(c)}
+	}
+	init := [2][5]uint32{k.states[1], k.states[1]}
+	var none Message
+	kern(&none, &scratch[0], &segs[0], &w.lanes, &init, &tags[0], (n+3)/4)
+}
+
 func marshal(pad []byte) []byte {
 	h := sha1.New()
 	h.Write(pad)

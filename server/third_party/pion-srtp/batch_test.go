@@ -52,6 +52,24 @@ func (h softwareHMAC) SumBatch(tags [][20]byte, msgs [][][]byte) {
 	}
 }
 
+// softwareFrame stands in for the engine's frame protector; it leaves the
+// last two packets of every frame to the per-packet path.
+type softwareFrame struct{ encryption, auth []byte }
+
+func (f softwareFrame) ProtectFrame(packets []FramePacket) int {
+	block, _ := aes.NewCipher(f.encryption)
+	n := max(len(packets)-2, 0)
+	for i := range n {
+		p := &packets[i]
+		cipher.NewCTR(block, p.IV[:]).XORKeyStream(p.Buf[p.HeaderLen:p.N], p.Buf[p.HeaderLen:p.N])
+		mac := hmac.New(sha1.New, f.auth)
+		mac.Write(p.Buf[:p.N])
+		mac.Write([]byte{byte(p.ROC >> 24), byte(p.ROC >> 16), byte(p.ROC >> 8), byte(p.ROC)})
+		copy(p.Tag[:], mac.Sum(nil))
+	}
+	return n
+}
+
 func batchTestKeys() (key, salt []byte) {
 	key = bytes.Repeat([]byte{0x11}, 16)
 	salt = bytes.Repeat([]byte{0x22}, 14)
@@ -76,10 +94,18 @@ func TestEncryptRTPBatchMatchesPerPacket(t *testing.T) {
 	defer SetHMACSHA1BatchFactory(nil)
 	key, salt := batchTestKeys()
 	for _, mode := range []struct {
-		name      string
-		aes, auth bool
-	}{{"software", false, false}, {"aes", true, false}, {"auth", false, true}, {"both", true, true}} {
+		name             string
+		aes, auth, frame bool
+	}{{"software", false, false, false}, {"aes", true, false, false}, {"auth", false, true, false},
+		{"both", true, true, false}, {"frame", true, true, true}} {
 		t.Run(mode.name, func(t *testing.T) {
+			SetAESCMSHA1FrameProtectorFactory(nil)
+			if mode.frame {
+				defer SetAESCMSHA1FrameProtectorFactory(nil)
+				SetAESCMSHA1FrameProtectorFactory(func(encryption, auth []byte) AESCMSHA1FrameProtector {
+					return softwareFrame{bytes.Clone(encryption), bytes.Clone(auth)}
+				})
+			}
 			var accel *softwareCTR
 			SetAESCTRAccelerator(nil)
 			if mode.aes {
@@ -119,9 +145,14 @@ func TestEncryptRTPBatchMatchesPerPacket(t *testing.T) {
 					assert.Truef(t, bytes.Equal(want[i], got[i]), "packet %d differs", i)
 				}
 			}
-			if mode.aes {
+			if mode.aes && !mode.frame {
 				// Both contexts use the accelerator: 33 payloads each.
 				assert.Equal(t, 66, accel.calls, "every payload offered to the accelerator")
+			}
+			if mode.frame {
+				// The batched context's accelerator sees the two packets of
+				// each frame that the frame protector left.
+				assert.Equal(t, 33+4, accel.calls)
 			}
 			if mode.auth {
 				assert.Equal(t, 2, authCalls)

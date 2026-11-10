@@ -47,5 +47,32 @@ struct hwcrypto_gcm_request {
  __u32 reserved[4];
 };
 #define HWCRYPTO_GCM _IOWR('K', 0xc4, struct hwcrypto_gcm_request)
+/* For each of count messages, in order: AES-128-CTR with key and the
+ * message's iv over crypt_length bytes (a nonzero multiple of 16) at
+ * crypt_offset (a multiple of 4), in place, then SHA-1 from the request's state over the first length
+ * bytes of the message as they are then (a multiple of 64, at most
+ * HWCRYPTO_MAX), the resulting state in the message's state. Both states are
+ * the canonical big-endian bytes; the caller pads the message and finishes
+ * the hash (for HMAC: the inner hash's padding in the message, the outer
+ * block itself). The engine runs the two as one chain, so the hash costs no
+ * second request. count returns the number of messages completed: if one
+ * after the first fails, the call succeeds with that prefix and leaves the
+ * others as they were.
+ */
+#define HWCRYPTO_CTR_SHA1_MAX 64
+struct hwcrypto_ctr_sha1_packet {
+ __aligned_u64 data;
+ __u32 length, crypt_offset, crypt_length, reserved;
+ __u8 iv[16], state[20];
+ __u32 reserved2;
+};
+struct hwcrypto_ctr_sha1_request {
+ __u32 version, count;
+ __u8 key[16], state[20];
+ __u32 reserved;
+ __aligned_u64 packets;
+ __u32 reserved2[4];
+};
+#define HWCRYPTO_CTR_SHA1 _IOWR('K', 0xc5, struct hwcrypto_ctr_sha1_request)
 #define HWCRYPTO_INFO _IOR('K', 0xc3, struct hwcrypto_info)
 #endif

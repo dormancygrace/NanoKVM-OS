@@ -54,14 +54,16 @@ static void __iomem *regs;
  * halves off: a sleeper takes it for each transaction only, from
  * crypto_start_locked() to crypto_finish_locked(), so a softirq never finds
  * the engine busy. `cur` is the set of the present owner; an atomic owner
- * restores it before it lets the interrupted sleeper continue.
+ * restores it before it lets the interrupted sleeper continue. Set 2 is a
+ * second one for sleepers, also under `lock`: HWCRYPTO_CTR_SHA1 fills it
+ * while the engine works on set 0, and the other way round.
  */
 struct sg2_set {
- u32 *d;
+ u32 *d, *d2;	/* d2: the second descriptor of a chain (HWCRYPTO_CTR_SHA1) */
  u8 *in, *out;
- dma_addr_t d_dma, in_dma, out_dma;
+ dma_addr_t d_dma, d2_dma, in_dma, out_dma;
 };
-static struct sg2_set sets[2], *cur = &sets[0];
+static struct sg2_set sets[3], *cur = &sets[0];
 static DEFINE_MUTEX(lock);
 static DEFINE_SPINLOCK(engine_lock);
 
@@ -157,6 +159,7 @@ static int engine_wait(u32 *status)
 #include "crypto_gcm.inc"
 #include "crypto_ccm.inc"
 #include "crypto_cmac.inc"
+#include "crypto_ctr_sha1.inc"
 
 static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -164,6 +167,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  u32 status = 0, size = 0;
  int err;
  if (cmd == HWCRYPTO_GCM) return crypto_gcm_ioctl(arg);
+ if (cmd == HWCRYPTO_CTR_SHA1) return crypto_ctr_sha1_ioctl(arg);
  if (cmd != HWCRYPTO_AES_CTR) return crypto_ioctl(cmd, arg);
  /* Snapshot the fixed header once. The payload copy below uses this length and
   * never rereads userspace metadata, even if the caller races with the ioctl. */
@@ -283,6 +287,7 @@ static void sg2_set_free(struct sg2_set *s)
 {
  sg2_dma_free(s->out, HWCRYPTO_OUT_MAX, s->out_dma);
  sg2_dma_free(s->in, HWCRYPTO_AES_MAX, s->in_dma);
+ sg2_dma_free(s->d2, DESC_BYTES, s->d2_dma);
  sg2_dma_free(s->d, DESC_BYTES, s->d_dma);
  memset(s, 0, sizeof(*s));
 }
@@ -290,9 +295,10 @@ static void sg2_set_free(struct sg2_set *s)
 static int sg2_set_alloc(struct sg2_set *s)
 {
  s->d = sg2_dma_alloc(DESC_BYTES, &s->d_dma);
+ s->d2 = sg2_dma_alloc(DESC_BYTES, &s->d2_dma);
  s->in = sg2_dma_alloc(HWCRYPTO_AES_MAX, &s->in_dma);
  s->out = sg2_dma_alloc(HWCRYPTO_OUT_MAX, &s->out_dma);
- return s->d && s->in && s->out ? 0 : -ENOMEM;
+ return s->d && s->d2 && s->in && s->out ? 0 : -ENOMEM;
 }
 
 static const struct file_operations ops = {
@@ -337,6 +343,7 @@ static int __init aes_init(void)
   */
  err = sg2_set_alloc(&sets[0]);
  if (!err) err = sg2_set_alloc(&sets[1]);
+ if (!err) err = sg2_set_alloc(&sets[2]);
  if (err) goto data;
  err = crypto_linux_register();
  if (err) goto crypto_data;
@@ -360,6 +367,7 @@ crypto_linux:
  crypto_linux_unregister();
 crypto_data:
 data:
+ sg2_set_free(&sets[2]);
  sg2_set_free(&sets[1]);
  sg2_set_free(&sets[0]);
 device:
@@ -379,6 +387,7 @@ static void __exit aes_exit(void)
   * after all opens close and each submitted descriptor has completed. */
  writel(0, regs + CTRL);
  writel(initial_mask, regs + MASK);
+ sg2_set_free(&sets[2]);
  sg2_set_free(&sets[1]);
  sg2_set_free(&sets[0]);
  platform_device_unregister(pdev);

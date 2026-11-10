@@ -443,18 +443,30 @@ GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go test -c -o annexb.test ./internal/ann
 ./annexb.test -test.v && ./annexb.test -test.run XXX -test.bench .
 ```
 
-## SHA-1 and SHA-256 blocks (`gen_sha_c906.py`)
+## SHA-256 and SHA-512 blocks (`gen_sha2_c906.py`)
 
-Go builds riscv64 for rva20u64. As a result, each `RORW` in its riscv64 SHA-1 and SHA-256 assembly becomes three instructions (`srliw`, `slliw`, `or`), and each message word is assembled from four byte loads.
+`gen_sha2_c906.py --flavor go` writes `sha256block_riscv64.s` and `sha512block_riscv64.s`, which `prepare.py` puts in place of Go's riscv64 assembly under the same name `block`: there is no selection at run time. It is the generator of OpenSSL's blocks (`firmware/crypto/openssl-c906`): rounds 0 to 15 once, then one body of 16 rounds run three or four times, about 4.5 KiB of code; w[i-1], w[i-2] and w[i-16] stay in registers and a loaded value is used no sooner than two instructions later. The XTheadBb instructions are `WORD`s, each checked against GNU as (`--binutils`); the instruction stream is the one the generator executes against a plain implementation in `--selftest`.
 
-`gen_sha_c906.py` expands the macros of Go's `sha1block_riscv64.s` and `sha256block_riscv64.s` from the pinned GOROOT. It writes `blockC906` copies that use:
+Measured on the device (`sha256.Sum256` and `sha512.Sum512`, MB/s at 16 / 64 / 1024 / 16384 bytes): SHA-256 with Go's block 3.1 / 7.2 / 15.1 / 16.0, with the previous unrolled C906 block 4.2 / 10.0 / 22.3 / 23.8, now 4.4 / 10.6 / 23.8 / 25.4; SHA-512 with Go's block 2.3 / 9.0 / 21.2 / 24.1, now 2.7 / 12.8 / 33.0 / 39.2. The tests of `crypto/sha256`, `crypto/sha512` and `crypto/hmac` pass on the device.
 
-- `th.srriw` (XTheadBb) for every `RORW`: 224 per SHA-1 block and 576 per SHA-256 block;
+```sh
+B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
+python3 gen_sha2_c906.py --selftest 40 --bits 256 --name block --flavor go --binutils $B --check-file sha256block_riscv64.s
+python3 gen_sha2_c906.py --bits 512 --name block --flavor go --binutils $B --check-file sha512block_riscv64.s
+```
+
+## SHA-1 block (`gen_sha_c906.py`)
+
+Go builds riscv64 for rva20u64. As a result, each `RORW` in its riscv64 SHA-1 assembly becomes three instructions (`srliw`, `slliw`, `or`), and each message word is assembled from four byte loads.
+
+`gen_sha_c906.py` expands the macros of Go's `sha1block_riscv64.s` from the pinned GOROOT. It writes a `blockC906` copy that uses:
+
+- `th.srriw` (XTheadBb) for every `RORW`: 224 per SHA-1 block;
 - `lwu` + `th.revw` for each message word, because misaligned loads are fast on the C906.
 
-Each instruction is a `WORD` that GNU as produced from the mnemonic, and objdump must decode it back. `--check` regenerates the file and compares. A SHA-256 block goes from 3848 to 2568 instructions.
+Each instruction is a `WORD` that GNU as produced from the mnemonic, and objdump must decode it back. `--check` regenerates the file and compares.
 
-`prepare.py` renames Go's block to `blockRV64` and adds `sha256block_riscv64.go` and `sha1block_riscv64.go`, which choose `blockC906` when `cpu.RISCV64.HasXTheadBb` is set.
+`prepare.py` renames Go's block to `blockRV64` and adds `sha1block_riscv64.go`, which chooses `blockC906` when `cpu.RISCV64.HasXTheadBb` is set.
 
 - Linux reports XTheadBb neither in `riscv_hwprobe` nor in `/proc/cpuinfo`. `internal/cpu` therefore sets it from the `mvendorid` that `riscv_hwprobe` returns: every T-Head RISC-V core (0x5b7) implements XTheadBb.
 - `GODEBUG=cpu.xtheadbb=off` selects Go's block.
@@ -464,9 +476,6 @@ Measured on the device with `go test -bench`: 1 s per benchmark, median of 3 int
 
 | | Go's block | C906 block | |
 | --- | ---: | ---: | ---: |
-| SHA-256, 8 bytes | 1.35 | 2.01 | 1.49x |
-| SHA-256, 1 KiB | 14.34 | 21.48 | 1.50x |
-| SHA-256, 8 KiB | 15.30 | 23.08 | 1.51x |
 | SHA-1, 8 bytes | 1.97 | 3.45 | 1.75x |
 | SHA-1, 1 KiB | 29.00 | 40.26 | 1.39x |
 | SHA-1, 8 KiB | 30.62 | 42.80 | 1.40x |
@@ -475,7 +484,6 @@ SRTP keeps the multi-buffer HMAC-SHA1 described above. crypto/sha1 covers single
 
 ```sh
 B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
-python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha256 --check sha256block_c906_riscv64.s
 python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha1 --check sha1block_c906_riscv64.s
 # Also build test binaries for crypto/sha1, crypto/hmac, crypto/tls (needs its testdata) and internal/cpu.
 GOROOT=$PREPARED GOOS=linux GOARCH=riscv64 go test -c -o sha256.test crypto/sha256

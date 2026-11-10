@@ -67,6 +67,7 @@ func main() {
 			users = append(users, w)
 		}
 	}
+	check(scanner.Err())
 	samples, sizes := map[string]int{}, map[string]uint64{}
 	edges := map[[2]string]int{} // caller, callee
 	total := 0
@@ -169,15 +170,16 @@ func main() {
 		return da > db || da == db && a < b
 	})
 	out := bufio.NewWriter(os.Stdout)
-	defer out.Flush()
 	count, code := 0, uint64(0)
 	for _, rep := range reps {
 		for _, m := range cluster[rep] {
-			fmt.Fprintln(out, m)
+			_, err := fmt.Fprintln(out, m)
+			check(err)
 			count++
 			code += sizes[m]
 		}
 	}
+	check(out.Flush())
 	fmt.Fprintf(os.Stderr, "%d functions, %d KiB, %.1f%% of %d samples, %d clusters\n",
 		count, code>>10, 100*float64(covered)/float64(total), total, len(reps))
 }

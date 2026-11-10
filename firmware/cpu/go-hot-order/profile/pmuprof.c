@@ -187,7 +187,8 @@ static int __init pmuprof_init(void)
 		csrno[i] = r.value & 0xfff;
 		last[i] = read_csr(csrno[i]);
 	}
-	proc_create_single("pmuprof", 0444, NULL, show);
+	/* The profile contains raw kernel and process instruction addresses. */
+	proc_create_single("pmuprof", 0400, NULL, show);
 	hrtimer_setup(&timer, tick, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);
 	hrtimer_start(&timer, ns_to_ktime((u64)period_us * 1000), HRTIMER_MODE_REL_HARD);
 	return 0;

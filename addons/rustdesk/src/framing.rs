@@ -229,10 +229,15 @@ where
     where
         M: ProstMessage,
     {
+        let offset = self.room();
+        let length = message
+            .encoded_len()
+            .checked_add(offset - HEADER_ROOM)
+            .filter(|&length| length <= MAX_PACKET_LENGTH)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "packet is too large"))?;
         let mut buffer = std::mem::take(&mut self.buffer);
         buffer.clear();
-        let offset = self.room();
-        buffer.reserve(offset + message.encoded_len());
+        buffer.reserve(HEADER_ROOM + length);
         buffer.resize(offset, 0);
         let result = match message.encode(&mut buffer) {
             Ok(()) => self.write_encoded(&mut buffer, offset).await,
@@ -258,7 +263,10 @@ where
     /// prefix go into the bytes before it (40 are always enough).
     pub async fn write_encoded(&mut self, frame: &mut [u8], start: usize) -> io::Result<()> {
         let room = self.room();
-        if start < room || frame.len() - start + room - HEADER_ROOM > MAX_PACKET_LENGTH {
+        if start < room
+            || start > frame.len()
+            || frame.len() - start > MAX_PACKET_LENGTH - (room - HEADER_ROOM)
+        {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "packet is too large",

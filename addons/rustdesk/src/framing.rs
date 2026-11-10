@@ -229,23 +229,49 @@ where
     where
         M: ProstMessage,
     {
-        self.buffer.clear();
-        let tag_length = if self.cipher.is_some() {
-            XSalsa20Poly1305::TAG_SIZE
-        } else {
-            0
-        };
-        let offset = HEADER_ROOM + tag_length;
+        let offset = self.room();
         let length = message
             .encoded_len()
-            .checked_add(tag_length)
+            .checked_add(offset - HEADER_ROOM)
             .filter(|&length| length <= MAX_PACKET_LENGTH)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "packet is too large"))?;
-        self.buffer.reserve(HEADER_ROOM + length);
-        self.buffer.resize(offset, 0);
-        message
-            .encode(&mut self.buffer)
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        let mut buffer = std::mem::take(&mut self.buffer);
+        buffer.clear();
+        buffer.reserve(HEADER_ROOM + length);
+        buffer.resize(offset, 0);
+        let result = match message.encode(&mut buffer) {
+            Ok(()) => self.write_encoded(&mut buffer, offset).await,
+            Err(error) => Err(io::Error::new(io::ErrorKind::InvalidData, error)),
+        };
+        release_oversized_buffer(&mut buffer);
+        self.buffer = buffer;
+        result
+    }
+
+    // The bytes write_encoded needs before a message.
+    fn room(&self) -> usize {
+        HEADER_ROOM
+            + if self.cipher.is_some() {
+                XSalsa20Poly1305::TAG_SIZE
+            } else {
+                0
+            }
+    }
+
+    /// Sends the encoded message at `frame[start..]` from the caller's own
+    /// buffer: it is encrypted where it is, and the tag and the length
+    /// prefix go into the bytes before it (40 are always enough).
+    pub async fn write_encoded(&mut self, frame: &mut [u8], start: usize) -> io::Result<()> {
+        let room = self.room();
+        if start < room
+            || start > frame.len()
+            || frame.len() - start > MAX_PACKET_LENGTH - (room - HEADER_ROOM)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "packet is too large",
+            ));
+        }
         if let Some(cipher) = &self.cipher {
             self.sequence = self.sequence.checked_add(1).ok_or_else(|| {
                 io::Error::new(
@@ -254,15 +280,13 @@ where
                 )
             })?;
             let tag = cipher
-                .encrypt(&nonce(self.sequence), &mut self.buffer[offset..])
+                .encrypt(&nonce(self.sequence), &mut frame[start..])
                 .map_err(|_| {
                     io::Error::new(io::ErrorKind::InvalidData, "frame encryption failed")
                 })?;
-            self.buffer[HEADER_ROOM..offset].copy_from_slice(&tag);
+            frame[start - tag.len()..start].copy_from_slice(&tag);
         }
-        let result = write_frame(&mut self.inner, &mut self.buffer).await;
-        release_oversized_buffer(&mut self.buffer);
-        result
+        write_frame(&mut self.inner, &mut frame[start - room..]).await
     }
 }
 

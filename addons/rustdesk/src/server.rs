@@ -29,11 +29,12 @@ use crate::{
     },
     identity::RustDeskIdentity,
     input::InputState,
-    nanokvm::{self, Codec, HidClient, Identity, MediaFrame, MediaSubscriber, VideoInfo},
+    nanokvm::{
+        self, Codec, HidClient, Identity, MediaFrame, MediaPayload, MediaSubscriber, VideoInfo,
+    },
     protocol::{
-        login_response, message, video_frame, DisplayInfo, EncodedVideoFrame, EncodedVideoFrames,
-        Features, Hash, IdPk, KeyEvent, LoginRequest, LoginResponse, Message, MouseEvent, PeerInfo,
-        SignedId, SupportedEncoding, VideoFrame,
+        login_response, message, DisplayInfo, Features, Hash, IdPk, KeyEvent, LoginRequest,
+        LoginResponse, Message, MouseEvent, PeerInfo, SignedId, SupportedEncoding,
     },
     rendezvous,
 };
@@ -1111,7 +1112,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 };
                 let frame_codec = frame.codec;
                 let frame_length = frame.payload.len();
-                let Some(video) = rustdesk_video_frame(frame) else {
+                let Some((mut video, start)) = rustdesk_video_frame(frame) else {
                     continue;
                 };
                 if first_video_frame {
@@ -1120,7 +1121,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                         codec_name(frame_codec)
                     );
                 }
-                if let Err(error) = write_union(&mut writer, message::Union::VideoFrame(video)).await {
+                if let Err(error) = writer.write_encoded(&mut video, start).await {
                     break Err(error);
                 }
                 if first_video_frame {
@@ -1314,26 +1315,50 @@ fn codec_name(codec: Codec) -> &'static str {
     }
 }
 
-fn rustdesk_video_frame(frame: MediaFrame) -> Option<VideoFrame> {
-    if frame.payload.is_empty() {
-        return None;
-    }
-    let frames = EncodedVideoFrames {
-        frames: vec![EncodedVideoFrame {
-            data: frame.payload,
-            key: frame.keyframe,
-            pts: frame.pts_usec / 1_000,
-        }],
-    };
-    let union = match frame.codec {
-        Codec::H264 => video_frame::Union::H264s(frames),
-        Codec::H265 => video_frame::Union::H265s(frames),
+// The RustDesk message of a video frame, encoded around the payload in the
+// frame's own buffer: the buffer and where the message starts in it. The
+// bytes are what prost writes for
+// Message { VideoFrame { H264s or H265s { frames: [{ data, key, pts }] } } }
+// (fields in tag order, false and zero left out), without copying the
+// payload into a second buffer.
+fn rustdesk_video_frame(frame: MediaFrame) -> Option<(Vec<u8>, usize)> {
+    use bytes::BufMut;
+    use prost::encoding::{encode_varint, encoded_len_varint};
+    const BYTES: u8 = 2; // wire type: length-delimited
+    let codec_field = match frame.codec {
+        Codec::H264 => 10,
+        Codec::H265 => 11,
         Codec::Mjpeg => return None,
     };
-    Some(VideoFrame {
-        union: Some(union),
-        display: 0,
-    })
+    let payload = frame.payload.len();
+    if payload == 0 {
+        return None;
+    }
+    let pts = frame.pts_usec / 1_000;
+    let mut buffer = frame.payload.into_buffer();
+    // EncodedVideoFrame: key = 2 and pts = 3 follow data = 1.
+    if frame.keyframe {
+        buffer.extend_from_slice(&[2 << 3, 1]);
+    }
+    if pts != 0 {
+        buffer.push(3 << 3);
+        encode_varint(pts as u64, &mut buffer);
+    }
+    // The headers, innermost first; each length covers all that follows it.
+    let mut length = buffer.len() - MediaPayload::FRONT;
+    let mut start = MediaPayload::FRONT;
+    for (field, length_of) in [(1, payload), (1, 0), (codec_field, 0), (6, 0)] {
+        // data's length is the payload's; the three messages' lengths are
+        // everything encoded so far.
+        let value = if length_of != 0 { length_of } else { length } as u64;
+        let size = 1 + encoded_len_varint(value);
+        start -= size;
+        let mut header = &mut buffer[start..start + size];
+        header.put_u8(field << 3 | BYTES);
+        encode_varint(value, &mut header);
+        length += size;
+    }
+    Some((buffer, start))
 }
 
 pub(crate) fn verify_password(password: &str, hash: &Hash, login: &LoginRequest) -> bool {
@@ -1940,31 +1965,46 @@ mod tests {
             assert_eq!(encoding.h264, codec == Codec::H264);
             assert_eq!(encoding.h265, codec == Codec::H265);
 
-            let video = rustdesk_video_frame(MediaFrame {
-                sequence: 1,
-                pts_usec: 1_234_000,
-                duration_usec: 16_667,
-                width: 1920,
-                height: 1080,
-                codec,
-                keyframe: true,
-                payload: vec![0, 0, 0, 1, 0x26].into(),
-            })
-            .unwrap();
-            match (codec, video.union) {
-                (Codec::H264, Some(message)) => {
-                    assert!(matches!(
-                        message,
-                        crate::protocol::video_frame::Union::H264s(_)
-                    ))
-                }
-                (Codec::H265, Some(message)) => {
-                    assert!(matches!(
-                        message,
-                        crate::protocol::video_frame::Union::H265s(_)
-                    ))
-                }
-                _ => panic!("video frame used the wrong RustDesk codec variant"),
+            // The message encoded around the payload is byte for byte what
+            // prost encodes, for every header length.
+            for (size, keyframe, pts_usec) in [
+                (5, true, 1_234_000),
+                (1, false, 0),
+                (100, false, 999),
+                (127, true, -5_000),
+                (16_383, false, 1_000),
+                (300_000, true, i64::MAX),
+            ] {
+                let payload: Vec<u8> = (0..size).map(|i| i as u8).collect();
+                let (buffer, start) = rustdesk_video_frame(MediaFrame {
+                    sequence: 1,
+                    pts_usec,
+                    duration_usec: 16_667,
+                    width: 1920,
+                    height: 1080,
+                    codec,
+                    keyframe,
+                    payload: payload.clone().into(),
+                })
+                .unwrap();
+                assert!(start >= 40, "room for the length prefix and the tag");
+                let frames = crate::protocol::EncodedVideoFrames {
+                    frames: vec![crate::protocol::EncodedVideoFrame {
+                        data: payload.into(),
+                        key: keyframe,
+                        pts: pts_usec / 1_000,
+                    }],
+                };
+                let expected = Message {
+                    union: Some(message::Union::VideoFrame(crate::protocol::VideoFrame {
+                        union: Some(match codec {
+                            Codec::H264 => crate::protocol::video_frame::Union::H264s(frames),
+                            _ => crate::protocol::video_frame::Union::H265s(frames),
+                        }),
+                        display: 0,
+                    })),
+                };
+                assert_eq!(buffer[start..], expected.encode_to_vec(), "{size} {keyframe}");
             }
         }
     }

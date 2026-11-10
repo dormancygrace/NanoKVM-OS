@@ -25,6 +25,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.11"
 tokio = { version = "1.44", features = ["io-util", "macros", "net", "rt", "signal", "sync", "time"] }
+zeroize = "1.8"
 
 [dev-dependencies]
 tokio = { version = "1.44", features = ["test-util"] }

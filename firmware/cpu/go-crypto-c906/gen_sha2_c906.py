@@ -189,10 +189,14 @@ def gen(bits, name, flavor='plain'):
         out.append(HEAD % dict(bits=bits, name=name, wbits=wb * 8, loops=(rounds - 16) // 16, size=ninsn * 4))
         out.append('\t.text\n\t.option push\n\t.option arch, +xtheadbb\n\t.globl %s\n\t.hidden %s\n\t.type %s,@function\n\t.p2align 2\n%s:'
                    % (name, name, name, name))
+    elif flavor == 'linux':
+        out.append(HEAD.replace('BSD-3-Clause', 'GPL-2.0-only OR BSD-3-Clause')
+                   % dict(bits=bits, name=name, wbits=wb * 8, loops=(rounds - 16) // 16, size=ninsn * 4))
+        out.append('#include <linux/linkage.h>\n\n\t.text\n\t.option push\n\t.option arch, +xtheadbb\nSYM_FUNC_START(%s)' % name)
     else:
         out.append('\t.text\n\t.option push\n\t.option arch, +xtheadbb\n\t.p2align 2\n\t.globl %s\n\t.type %s,@function\n%s:' % (name, name, name))
     out += body
-    out.append('\t.size %s, .-%s' % (name, name))
+    out.append('SYM_FUNC_END(%s)' % name if flavor == 'linux' else '\t.size %s, .-%s' % (name, name))
     out.append('\t.option pop')
     out.append('')
     out.append('\t.section .rodata')
@@ -495,7 +499,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--bits', type=int, choices=[256, 512])
     ap.add_argument('--name')
-    ap.add_argument('--flavor', choices=['openssl', 'plain', 'go'], default='openssl')
+    ap.add_argument('--flavor', choices=['openssl', 'linux', 'plain', 'go'], default='openssl')
     ap.add_argument('--output')
     ap.add_argument('--check-file', metavar='FILE', help='FILE must be the generated assembly')
     ap.add_argument('--binutils', metavar='PREFIX', help='with --flavor go: check every WORD against PREFIXas')

@@ -445,6 +445,12 @@ GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go test -c -o annexb.test ./internal/ann
 
 ## SHA-256 and SHA-512 blocks (`gen_sha2_c906.py`)
 
+`--flavor linux` writes the same blocks for the kernel's `lib/crypto`
+(`platform/kernel/0079-crypto-riscv-c906-sha2.patch`), which had only the
+generic C code on the C906: its RISC-V backends need the vector crypto
+extensions. One `sha256` digest of 4096 bytes through the kernel API takes
+160.3 us instead of 173.5 us.
+
 `gen_sha2_c906.py --flavor go` writes `sha256block_riscv64.s` and `sha512block_riscv64.s`, which `prepare.py` puts in place of Go's riscv64 assembly under the same name `block`: there is no selection at run time. It is the generator of OpenSSL's blocks (`firmware/crypto/openssl-c906`): rounds 0 to 15 once, then one body of 16 rounds run three or four times, about 4.5 KiB of code; w[i-1], w[i-2] and w[i-16] stay in registers and a loaded value is used no sooner than two instructions later. The XTheadBb instructions are `WORD`s, each checked against GNU as (`--binutils`); the instruction stream is the one the generator executes against a plain implementation in `--selftest`.
 
 Measured on the device (`sha256.Sum256` and `sha512.Sum512`, MB/s at 16 / 64 / 1024 / 16384 bytes): SHA-256 with Go's block 3.1 / 7.2 / 15.1 / 16.0, with the previous unrolled C906 block 4.2 / 10.0 / 22.3 / 23.8, now 4.4 / 10.6 / 23.8 / 25.4; SHA-512 with Go's block 2.3 / 9.0 / 21.2 / 24.1, now 2.7 / 12.8 / 33.0 / 39.2. The tests of `crypto/sha256`, `crypto/sha512` and `crypto/hmac` pass on the device.

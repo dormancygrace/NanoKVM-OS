@@ -7,32 +7,13 @@
 package sha3
 
 import (
-	"crypto/internal/fips140deps/cpu"
 	"math/rand/v2"
-	"os"
 	"testing"
 )
-
-// On a T-Head core the C906 permutation must be selected; otherwise every
-// other test here would pass on the generic code.
-func TestKeccakC906Selected(t *testing.T) {
-	if !cpu.RISCV64HasXTheadBb {
-		if os.Getenv("NANOKVM_REQUIRE_XTHEADBB") == "1" {
-			t.Fatal("XTheadBb not detected")
-		}
-		t.Skip("not a T-Head core")
-	}
-	if !useC906 {
-		t.Fatal("XTheadBb detected but the C906 permutation is not selected")
-	}
-}
 
 // Differential test against the generic permutation: random, all-zero and
 // all-one states, each also chained through a second permutation.
 func TestKeccakF1600C906(t *testing.T) {
-	if !cpu.RISCV64HasXTheadBb {
-		t.Skip("not a T-Head core")
-	}
 	rng := rand.New(rand.NewPCG(0xc906, 1600))
 	for n := 0; n < 20000; n++ {
 		var a, b [200]byte

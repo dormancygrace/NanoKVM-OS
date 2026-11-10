@@ -26,7 +26,7 @@
 
 
 // func block(dig *Digest, p []byte)
-TEXT ·blockC906(SB),NOSPLIT,$64-32
+TEXT ·block(SB),NOSPLIT,$64-32
 	MOV	p_base+8(FP), X29
 	MOV	p_len+16(FP), X30
 	SRL	$6, X30
@@ -1403,3 +1403,9 @@ end:
 	MOVW	X14, (4*4)(X20)
 
 	RET
+
+GLOBL	·_K(SB),RODATA,$16
+DATA	·_K+0(SB)/4, $0x5A827999
+DATA	·_K+4(SB)/4, $0x6ED9EBA1
+DATA	·_K+8(SB)/4, $0x8F1BBCDC
+DATA	·_K+12(SB)/4, $0xCA62C1D6

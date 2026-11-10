@@ -2,8 +2,6 @@ package srtpaccel
 
 import (
 	"NanoKVM-Server/internal/hwcrypto"
-	"os"
-	"strings"
 	"sync"
 
 	"github.com/pion/srtp/v3"
@@ -12,32 +10,12 @@ import (
 
 var hardwareAESOnce sync.Once
 
-// The module, and until the first boot of 3.7.0 the one named before it.
-var hardwareAESCapabilityFiles = []string{"/sys/module/nanokvm_hwcrypto/parameters/out_of_place_burst4",
-	"/sys/module/sg2002_aes_probe/parameters/out_of_place_burst4"}
-
-// Read the loaded module, not its replacement on disk: component updates
-// must not send video traffic to an old CryptoDMA implementation before reboot.
-func hardwareAESDriverReady() bool {
-	for _, file := range hardwareAESCapabilityFiles {
-		if data, err := os.ReadFile(file); err == nil {
-			return strings.TrimSpace(string(data)) == "Y"
-		}
-	}
-	return false
-}
-
 func initializeHardwareAES() {
 	hardwareAESOnce.Do(func() {
 		// Process-wide selection: the descriptor is retained for the server's
 		// lifetime. It is closed automatically on exit or the first ioctl error.
-		// CryptoDMA is the measured default (S95nanokvm shipped it); software
-		// remains only for a stale module before reboot, a missing device and
-		// host builds.
-		if !hardwareAESDriverReady() {
-			log.Warn("SRTP AES-CTR: loaded CryptoDMA module lacks out-of-place/burst4 support; using software until the updated module is loaded and the app restarts")
-			return
-		}
+		// CryptoDMA is the measured default; software remains only for a
+		// missing device (the driver disabled or failed) and host builds.
 		device, err := hwcrypto.Open(func(err error) {
 			log.WithError(err).Warn("SRTP AES-CTR: hardware disabled; using software")
 		})

@@ -459,20 +459,16 @@ python3 gen_sha2_c906.py --bits 512 --name block --flavor go --binutils $B --che
 
 Go builds riscv64 for rva20u64. As a result, each `RORW` in its riscv64 SHA-1 assembly becomes three instructions (`srliw`, `slliw`, `or`), and each message word is assembled from four byte loads.
 
-`gen_sha_c906.py` expands the macros of Go's `sha1block_riscv64.s` from the pinned GOROOT. It writes a `blockC906` copy that uses:
+`gen_sha_c906.py` expands the macros of Go's `sha1block_riscv64.s` from the pinned GOROOT. It writes `sha1block_riscv64.s`, the same function `block` with:
 
 - `th.srriw` (XTheadBb) for every `RORW`: 224 per SHA-1 block;
 - `lwu` + `th.revw` for each message word, because misaligned loads are fast on the C906.
 
 Each instruction is a `WORD` that GNU as produced from the mnemonic, and objdump must decode it back. `--check` regenerates the file and compares.
 
-`prepare.py` renames Go's block to `blockRV64` and adds `sha1block_riscv64.go`, which chooses `blockC906` when `cpu.RISCV64.HasXTheadBb` is set.
+`prepare.py` puts the file in place of Go's. NanoKVM OS runs only on the C906, so there is no selection at run time and no `internal/cpu` flag for XTheadBb (Linux reports it neither in `riscv_hwprobe` nor in `/proc/cpuinfo`).
 
-- Linux reports XTheadBb neither in `riscv_hwprobe` nor in `/proc/cpuinfo`. `internal/cpu` therefore sets it from the `mvendorid` that `riscv_hwprobe` returns: every T-Head RISC-V core (0x5b7) implements XTheadBb.
-- `GODEBUG=cpu.xtheadbb=off` selects Go's block.
-- Both blocks are registered with `crypto/internal/impl`, so the crypto tests run each of them.
-
-Measured on the device with `go test -bench`: 1 s per benchmark, median of 3 interleaved runs, the same binary with and without `GODEBUG=cpu.xtheadbb=off`. Rates are in MB/s.
+Measured on the device with `go test -bench` when both blocks were in one binary: 1 s per benchmark, median of 3 interleaved runs. Rates are in MB/s.
 
 | | Go's block | C906 block | |
 | --- | ---: | ---: | ---: |
@@ -484,12 +480,11 @@ SRTP keeps the multi-buffer HMAC-SHA1 described above. crypto/sha1 covers single
 
 ```sh
 B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
-python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha1 --check sha1block_c906_riscv64.s
-# Also build test binaries for crypto/sha1, crypto/hmac, crypto/tls (needs its testdata) and internal/cpu.
-GOROOT=$PREPARED GOOS=linux GOARCH=riscv64 go test -c -o sha256.test crypto/sha256
+python3 gen_sha_c906.py --binutils $B --goroot $BASE_GOROOT --algo sha1 --check sha1block_riscv64.s
+# Also build test binaries for crypto/sha1, crypto/hmac and crypto/tls (needs its testdata).
+GOROOT=$PREPARED GOOS=linux GOARCH=riscv64 go test -c -o sha1.test crypto/sha1
 # on the device:
-./sha256.test -test.v -test.short | grep XTheadBb
-GODEBUG=cpu.xtheadbb=off ./sha256.test -test.run XXX -test.bench Hash
+./sha1.test -test.short
 ```
 
 ## Keccak-f[1600] (`gen_keccak_c906.py`)
@@ -528,23 +523,19 @@ alternating runs of each binary, medians:
 | ML-KEM-768 encapsulation | 2.026 ms | 1.778 ms | −12% |
 | ML-KEM-768 decapsulation | 1.903 ms | 1.801 ms | −5% |
 
-The permutation is measured in one binary. The other rows compare the default
-with `GODEBUG=cpu.xtheadbb=off` in the same binary. A TLS server
+The permutation is measured in one binary. The other rows compared the C906
+permutation with the generic one in the same binary. A TLS server
 encapsulates once per `X25519MLKEM768` handshake, so the saving is about
 0.25 ms of CPU per handshake, around 1% of a full handshake.
 
 `--binutils` checks every `th.srri` WORD against GNU as. `--check`
 regenerates the file and compares. CI does both.
 
-`prepare.py` adds `sha3_riscv64.go`:
-
-- It selects `keccakF1600C906` when `cpu.RISCV64.HasXTheadBb` is set, and
-  registers it with `crypto/internal/impl`, so the crypto tests run both
-  permutations.
-- `GODEBUG=cpu.xtheadbb=off` selects the generic permutation.
+`prepare.py` adds `sha3_riscv64.go`, which calls `keccakF1600C906` always;
+the generic permutation stays in the package for the test below.
 
 `tests/sha3` compares both permutations on 20,000 random, all-zero and
-all-one states. It fails if a T-Head core does not select the C906 path.
+all-one states.
 
 ```sh
 curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o keccak1600-riscv.pl

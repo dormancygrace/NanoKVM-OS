@@ -1670,9 +1670,24 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
 
 // JPEG readers (the MJPEG stream, screenshots, MCP) take turns: one encodes
 // outside vi_mutex (frame_to_jpeg), and another must not take its output's
-// frame slot meanwhile. Lock order: jpeg_reader_mutex -> vi_mutex -> the JPEG
-// hold (kvm_mmf). Video reads take vi_mutex only.
+// frame slot meanwhile. Lock order: jpeg_reader_mutex -> vi_gate -> vi_mutex
+// -> the JPEG hold (kvm_mmf). Video reads pass vi_gate and take vi_mutex.
 static pthread_mutex_t jpeg_reader_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// A video read holds vi_mutex while its frame is in the encoder (15 of every
+// 16.7 ms at 2560x1440 and 60 Hz) and its thread takes the mutex again at
+// once, before a waiter runs. A JPEG read on its own output takes vi_mutex
+// twice for a short time and waited a video frame each time. The gate gives
+// it the next turn: it holds vi_gate while it waits for vi_mutex, and a video
+// read passes vi_gate before it takes vi_mutex. Never taken with vi_mutex held.
+static pthread_mutex_t vi_gate = PTHREAD_MUTEX_INITIALIZER;
+
+static void vi_lock_jpeg(void)
+{
+    pthread_mutex_lock(&vi_gate);
+    pthread_mutex_lock(&vi_mutex);
+    pthread_mutex_unlock(&vi_gate);
+}
 
 static int kvmv_read_img(uint16_t _width, uint16_t _height, uint8_t _type, uint16_t _qlty)
 {
@@ -1694,7 +1709,11 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     ts.tv_sec += 1;
+    if (pthread_mutex_timedlock(&vi_gate, &ts) != 0) return -5;
+    // A video read only passes the gate; a JPEG read keeps it while it waits.
+    if (_type != VENC_MJPEG) pthread_mutex_unlock(&vi_gate);
     int mutex_res = pthread_mutex_timedlock(&vi_mutex, &ts);
+    if (_type == VENC_MJPEG) pthread_mutex_unlock(&vi_gate);
     if(mutex_res != 0){
         return -5;
     }
@@ -1933,7 +1952,7 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
                 native_result = mmf_vi_frame_pop_own(native_vi_ch, &native_len, &native_width,
                         &native_height, &native_format);
                 mmf_jpg_unhold();
-                pthread_mutex_lock(&vi_mutex);
+                vi_lock_jpeg();
                 if (native_result == 0 ? !mmf_vi_frame_leased(native_vi_ch)
                         : !cam->has_format(nanokvm::nv16_format())) {
                     native_vi_ch = -1;
@@ -2048,10 +2067,15 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
                 const bool own_output = native_format == nanokvm::nv16_format();
                 int ret = frame_to_jpeg(native_vi_ch, native_width, native_height, &frame,
                     maxmin_data(99, 20, (int)_qlty), own_output);
-                if (own_output) pthread_mutex_lock(&vi_mutex);
-                if (ret < 0 && own_output && ret == IMG_VENC_ERROR && !tile_request)
+                // On its own output frame_to_jpeg returned with vi_mutex
+                // released; only a failure needs it again.
+                if (own_output && ret == IMG_VENC_ERROR && !tile_request) {
+                    vi_lock_jpeg();
                     disable_mjpeg_422("native JPEG encoding failed");
-                pthread_mutex_unlock(&vi_mutex);
+                    pthread_mutex_unlock(&vi_mutex);
+                } else if (!own_output) {
+                    pthread_mutex_unlock(&vi_mutex);
+                }
                 return ret;
             }
             if (tile_request) mmf_tile_map_reset(); // a copied frame bypasses the map

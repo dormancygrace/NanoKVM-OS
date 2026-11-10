@@ -119,7 +119,7 @@ func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data
 		if k.closed {
 			return nil, -1
 		}
-		defer k.pauseCaptureLocked()()
+		// No pause of the video stream: see pauseCaptureLocked.
 		return readMjpegIntoOwnedStorage(width, height, quality)
 	})
 	// A refusal repeats on every tick while the input is 3840x2160.
@@ -139,7 +139,6 @@ func (k *KvmVision) ReadMjpegTiles(width, height, quality uint16, key bool, maxT
 		if k.closed {
 			return nil, -1
 		}
-		defer k.pauseCaptureLocked()()
 		return readMjpegTilesIntoOwnedStorage(width, height, quality, key, maxTiles)
 	})
 	if result < 0 && result != MjpegBlockedResult && result != MjpegTilesUnsupported {
@@ -226,9 +225,20 @@ func (k *KvmVision) captureWorkerLocked() *videoCaptureWorker {
 }
 
 // Go-paced reads held k.mutex for their whole duration. The native-paced
-// stream reads without it, so every other native operation pauses the stream
-// and waits for its read in flight. The caller holds k.mutex (either mode)
-// and calls the returned function when done.
+// stream reads without it, so a native operation that changes the capture
+// pauses the stream and waits for its read in flight. The caller holds
+// k.mutex (either mode) and calls the returned function when done.
+//
+// A JPEG read is not such an operation: the library runs it beside a video
+// read under its own locks (vi_mutex, the JPEG reader mutex and the JPEG
+// hold), and on MJPEG's own output it waits for its frame and encodes with
+// vi_mutex released so that the video stream reads on. Pausing the stream for
+// every JPEG read made the two take turns: a 2560x1440 H.265 stream (15 ms a
+// frame in the encoder) beside an MJPEG viewer (about 22 ms a read: its frame
+// at 33 fps, the change map, the JPEG) ran at 27 fps each, with a third of the
+// CPU idle. Without the pause the video stream keeps 59 to 60 fps there and
+// MJPEG gets 23 to 26 (the library gives a waiting JPEG read the next turn
+// at its capture lock), with the CPU 91 to 93 % busy.
 func (k *KvmVision) pauseCaptureLocked() func() {
 	if k.capture == nil {
 		return func() {}

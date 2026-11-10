@@ -17,8 +17,9 @@
 //   - runs at nice 19 when it only reads the indexes, so streaming and HTTP
 //     requests keep the CPU.
 //
-// Package transactions keep the caller's priority: package scripts and the
-// commit hook start and restart services, which would inherit nice 19.
+// Package transactions and installed-only queries run at nice 0, dropping
+// the server's inherited boost. Package scripts and the commit hook start
+// and restart services, which must inherit neither nice -5 nor nice 19.
 // Queries of the installed database only (info -e) need about 7 MiB and well
 // under a second; they skip the lock, so status pages stay responsive while a
 // long upgrade runs.
@@ -216,9 +217,11 @@ func (c *Cmd) run() error {
 	// longer than this to load anything, and nothing else can fail here.
 	pid := cmd.Process.Pid
 	_ = oomscore.Set(pid, oomscore.Expendable)
+	priority := 0
 	if kind == indexQuery {
-		_ = unix.Setpriority(unix.PRIO_PROCESS, pid, 19)
+		priority = 19
 	}
+	_ = unix.Setpriority(unix.PRIO_PROCESS, pid, priority)
 	return cmd.Wait()
 }
 

@@ -112,7 +112,7 @@ func Release() {
 		return
 	}
 	released = true
-	log.Infof("start priority released; the server stays at nice %d", Steady)
+	log.Infof("start priority released; steady target nice %d", Steady)
 }
 
 // niceOf reads a thread's nice value (field 19 of its stat line); it is 0

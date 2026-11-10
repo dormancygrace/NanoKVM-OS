@@ -43,7 +43,7 @@ static int sg2_ccm_fallback(struct aead_request *req, bool encrypt)
 	return encrypt ? crypto_aead_encrypt(sub) : crypto_aead_decrypt(sub);
 }
 
-/* buffer contains whole, padded blocks; caller holds lock. */
+/* cur->in contains whole, padded blocks; the caller owns the set. */
 static int sg2_ccm_mac_locked(struct hwcrypto_request *r, u8 mac[16])
 {
 	int err;
@@ -53,7 +53,7 @@ static int sg2_ccm_mac_locked(struct hwcrypto_request *r, u8 mac[16])
 	memcpy(r->iv, mac, 16);
 	err = crypto_run_locked(r);
 	if (!err)
-		memcpy(mac, crypto_output + r->length - 16, 16);
+		memcpy(mac, cur->out + r->length - 16, 16);
 	return err;
 }
 
@@ -92,27 +92,27 @@ static int sg2_ccm_auth_start(struct aead_request *req,
 					 req->assoclen - pos);
 
 		r->length = ALIGN(head + n, 16);
-		mutex_lock(&lock);
+		sg2_own();
 		if (poisoned) {
 			err = -EIO;
 			goto unlock;
 		}
-		memcpy(buffer, prefix, head);
-		if (n && sg_pcopy_to_buffer(req->src, in_nents, buffer + head, n, pos) != n) {
+		memcpy(cur->in, prefix, head);
+		if (n && sg_pcopy_to_buffer(req->src, in_nents, cur->in + head, n, pos) != n) {
 			err = -EINVAL;
 			goto clean;
 		}
-		memset(buffer + head + n, 0, r->length - head - n);
+		memset(cur->in + head + n, 0, r->length - head - n);
 		err = sg2_ccm_mac_locked(r, mac);
 clean:
 		crypto_clean_locked(r);
 unlock:
-		mutex_unlock(&lock);
+		sg2_disown();
 		if (err)
 			break;
 		pos += n;
 		head = 0;
-		cond_resched();
+		sg2_resched();
 	} while (pos < req->assoclen);
 	memzero_explicit(prefix, sizeof(prefix));
 	return err;
@@ -152,29 +152,29 @@ static int sg2_ccm_process(struct aead_request *req, bool encrypt)
 		unsigned int n = min_t(unsigned int, HWCRYPTO_MAX - lead,
 					 cryptlen - pos);
 
-		mutex_lock(&lock);
+		sg2_own();
 		if (poisoned) {
 			err = -EIO;
 			goto unlock;
 		}
-		/* Encryption first MACs plaintext in buffer[0..n). */
+		/* Encryption first MACs plaintext in cur->in[0..n). */
 		r.length = lead + n;
 		if (n && sg_pcopy_to_buffer(req->src, in_nents,
-				buffer + (encrypt ? 0 : lead), n,
+				cur->in + (encrypt ? 0 : lead), n,
 				req->assoclen + pos) != n) {
 			err = -EINVAL;
 			goto clean;
 		}
 		if (encrypt && n) {
 			r.length = ALIGN(n, 16);
-			memset(buffer + n, 0, r.length - n);
+			memset(cur->in + n, 0, r.length - n);
 			err = sg2_ccm_mac_locked(&r, mac);
 			if (err)
 				goto clean;
 			if (lead)
-				memmove(buffer + lead, buffer, n);
+				memmove(cur->in + lead, cur->in, n);
 		}
-		memset(buffer, 0, lead);
+		memset(cur->in, 0, lead);
 		r.mode = HWCRYPTO_MODE_CTR;
 		r.length = lead + n;
 		r.output_length = r.length;
@@ -183,17 +183,17 @@ static int sg2_ccm_process(struct aead_request *req, bool encrypt)
 		if (err)
 			goto clean;
 		if (first)
-			memcpy(s0, crypto_output, 16);
+			memcpy(s0, cur->out, 16);
 		if (n && sg_pcopy_from_buffer(req->dst, out_nents,
-				crypto_output + lead, n, req->assoclen + pos) != n) {
+				cur->out + lead, n, req->assoclen + pos) != n) {
 			err = -EINVAL;
 			goto clean;
 		}
 		sg2_inc_counter(ctr + 16 - l, l, DIV_ROUND_UP(r.length, 16));
 		if (!encrypt && n) {
-			memcpy(buffer, crypto_output + lead, n);
+			memcpy(cur->in, cur->out + lead, n);
 			r.length = ALIGN(n, 16);
-			memset(buffer + n, 0, r.length - n);
+			memset(cur->in + n, 0, r.length - n);
 			err = sg2_ccm_mac_locked(&r, mac);
 		}
 clean:
@@ -202,12 +202,12 @@ clean:
 		r.length = lead + n;
 		crypto_clean_locked(&r);
 unlock:
-		mutex_unlock(&lock);
+		sg2_disown();
 		if (err)
 			goto out;
 		pos += n;
 		first = false;
-		cond_resched();
+		sg2_resched();
 	} while (pos < cryptlen);
 	crypto_xor(mac, s0, 16);
 	if (encrypt)
@@ -255,7 +255,7 @@ static int sg2_ccm_submit(struct aead_request *req, bool encrypt)
 		return -EOVERFLOW;
 	if (sg2_use_fallback(ctx->fallback))
 		return sg2_ccm_fallback(req, encrypt);
-	if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP)
+	if ((req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) || sg2_inline())
 		return sg2_ccm_process(req, encrypt);
 	err = sg2_async_enter(req->base.flags);
 	if (err)

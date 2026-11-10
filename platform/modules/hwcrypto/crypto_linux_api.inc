@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Linux Crypto API frontend. One shared DMA owner; atomic callers are queued. */
+/* Linux Crypto API frontend. Callers that may sleep, and AES callers in
+ * atomic context, run the engine themselves (sg2_own()); other atomic callers
+ * are queued. */
 #include <crypto/internal/skcipher.h>
 #include <crypto/internal/hash.h>
 #include <crypto/internal/des.h>
@@ -9,10 +11,10 @@
 
 static struct workqueue_struct *crypto_api_wq;
 
-/* Requests from atomic context wait on one ordered workqueue. Bound them: a
- * flood (ovpn decrypts every received packet in softirq) must not queue
- * without end. A caller that allows a backlog waits for its completion and
- * is not refused; the others get -ENOSPC and drop the request.
+/* DES, 3DES, SM4 and hash requests from atomic context, and any request with
+ * interrupts off, wait on one ordered workqueue. Bound them: a flood must not
+ * queue without end. A caller that allows a backlog waits for its completion
+ * and is not refused; the others get -ENOSPC and drop the request.
  */
 #define SG2_ASYNC_MAX 64
 static atomic_t sg2_async_queued = ATOMIC_INIT(0);
@@ -33,14 +35,29 @@ static void sg2_async_leave(void) { atomic_dec(&sg2_async_queued); }
  * with bottom halves disabled, as crypto/cryptd.c does. */
 #define sg2_complete(fn, req, err) do { local_bh_disable(); fn(req, err); local_bh_enable(); } while (0)
 
-/* After the poison latch (crypto_finish_locked) the engine is never used
- * again. Requests then go to the synchronous software implementation of the
- * same algorithm, where one is built (not DES, 3DES or SM4): new and queued
+/* After the poison latch (sg2_poison()) the engine is never used again.
+ * Requests then go to the synchronous software implementation of the same
+ * algorithm, where one is built (not DES, 3DES or SM4), which also serves the
+ * AES requests too short for the engine: new and queued
  * requests work again; only the request that met the failure fails. The
  * algorithms here are marked NEED_FALLBACK, so that a fallback never finds
  * them, nor a template built for one (gcm over ctr(aes)).
  */
 static bool sg2_use_fallback(const void *fallback) { return fallback && READ_ONCE(poisoned); }
+
+/* An AES request from softirq, or from a task with bottom halves or preemption
+ * off, runs on the engine at once: for a 1400-byte packet the ordered
+ * workqueue cost more than the encryption (ovpn with AES-256-GCM: 64 Mbit/s
+ * queued, 70 with the software gcm, measured on the SG2002). spin_lock_bh()
+ * needs interrupts on. */
+static bool sg2_inline(void) { return !in_hardirq() && !irqs_disabled(); }
+
+/* A request costs the engine about 4.5 us before the first byte (SG2002,
+ * AES-128): the software AES is faster up to five blocks of ECB, CBC or CTR
+ * (1.2 us for 16 bytes, 4.6 us for 80), and up to 47 bytes of GCM text
+ * (AES-256: 5.9 us against 6.7 for 32 bytes, 8.7 against 7.5 for 64). */
+#define SG2_AES_SOFT_MAX 80
+#define SG2_GCM_SOFT_MAX 47
 
 struct sg2_cipher_alg {
  struct skcipher_alg alg;
@@ -78,21 +95,21 @@ static int sg2_cipher_process(struct skcipher_request *req, bool encrypt)
  while (pos < req->cryptlen) {
   r.length = min_t(unsigned int, HWCRYPTO_MAX, req->cryptlen - pos);
   r.output_length = r.length;
-  mutex_lock(&lock);
-  if (poisoned) { err = -EIO; mutex_unlock(&lock); break; }
-  if (sg_pcopy_to_buffer(req->src, in_nents, buffer, r.length, pos) != r.length) { err = -EINVAL; goto chunk_done; }
-  if (a->mode == HWCRYPTO_MODE_CBC && !encrypt) memcpy(next_iv, buffer + r.length - a->block, a->block);
+  sg2_own();
+  if (poisoned) { err = -EIO; sg2_disown(); break; }
+  if (sg_pcopy_to_buffer(req->src, in_nents, cur->in, r.length, pos) != r.length) { err = -EINVAL; goto chunk_done; }
+  if (a->mode == HWCRYPTO_MODE_CBC && !encrypt) memcpy(next_iv, cur->in + r.length - a->block, a->block);
   err = crypto_run_locked(&r);
   if (err) goto chunk_done;
-  if (sg_pcopy_from_buffer(req->dst, out_nents, crypto_output, r.length, pos) != r.length) { err = -EINVAL; goto chunk_done; }
-  if (a->mode == HWCRYPTO_MODE_CBC) memcpy(r.iv, encrypt ? crypto_output + r.length - a->block : next_iv, a->block);
+  if (sg_pcopy_from_buffer(req->dst, out_nents, cur->out, r.length, pos) != r.length) { err = -EINVAL; goto chunk_done; }
+  if (a->mode == HWCRYPTO_MODE_CBC) memcpy(r.iv, encrypt ? cur->out + r.length - a->block : next_iv, a->block);
   if (a->mode == HWCRYPTO_MODE_CTR) sg2_inc_counter(r.iv, a->block, DIV_ROUND_UP(r.length, a->block));
 chunk_done:
   crypto_clean_locked(&r);
-  mutex_unlock(&lock);
+  sg2_disown();
   if (err) break;
   pos += r.length;
-  cond_resched();
+  sg2_resched();
  }
  if (!err && a->mode) memcpy(req->iv, r.iv, a->block);
  memzero_explicit(next_iv, sizeof(next_iv)); memzero_explicit(&r, sizeof(r));
@@ -116,7 +133,10 @@ static int sg2_cipher_submit(struct skcipher_request *req, bool encrypt)
  if (!ctx->keylen || (ctx->alg->mode != HWCRYPTO_MODE_CTR && req->cryptlen % ctx->alg->block)) return -EINVAL;
  if (!req->cryptlen) return 0;
  if (sg2_use_fallback(ctx->fallback)) return sg2_cipher_fallback(req, encrypt);
+ if (ctx->fallback && ctx->alg->hardware == HWCRYPTO_ALG_AES && req->cryptlen <= SG2_AES_SOFT_MAX)
+  return sg2_cipher_fallback(req, encrypt);
  if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) return sg2_cipher_process(req, encrypt);
+ if (ctx->alg->hardware == HWCRYPTO_ALG_AES && sg2_inline()) return sg2_cipher_process(req, encrypt);
  err = sg2_async_enter(req->base.flags);
  if (err) return err;
  r->req = req; r->encrypt = encrypt; INIT_WORK(&r->work, sg2_cipher_work);
@@ -220,14 +240,14 @@ static int sg2_hash_blocks(struct ahash_request *req, int nents, unsigned int of
   .algorithm = crypto_ahash_digestsize(crypto_ahash_reqtfm(req)) == 32 ? HWCRYPTO_ALG_SHA256 : HWCRYPTO_ALG_SHA1, .length = len };
  int err;
  memcpy(r.state, ctx->hash.state, sizeof(r.state));
- mutex_lock(&lock);
+ sg2_own();
  if (poisoned) { err = -EIO; goto unlock; }
- if (tail) { memcpy(buffer, tail, len); err = 0; } else err = sg2_hash_read(req, nents, offset, buffer, len);
+ if (tail) { memcpy(cur->in, tail, len); err = 0; } else err = sg2_hash_read(req, nents, offset, cur->in, len);
  if (!err) err = crypto_run_locked(&r);
  if (!err) memcpy(ctx->hash.state, r.state, sizeof(r.state));
  crypto_clean_locked(&r);
 unlock:
- mutex_unlock(&lock); memzero_explicit(&r, sizeof(r)); return err;
+ sg2_disown(); memzero_explicit(&r, sizeof(r)); return err;
 }
 static int sg2_hash_process(struct ahash_request *req, bool final, bool consume)
 {
@@ -258,7 +278,7 @@ static int sg2_hash_process(struct ahash_request *req, bool final, bool consume)
    err = sg2_hash_blocks(req, nents, pos, NULL, n); if (err) goto failed;
    pos += n; remaining -= n;
   }
-  cond_resched();
+  sg2_resched();
  }
  if (!final) return 0;
  if (!req->result) { err = -EINVAL; goto failed; }

@@ -229,6 +229,10 @@ against 3.3 MiB/s. The background fetch of the next block, against a local
 HTTP server throttled to 10 MiB/s and a consumer taking 40 ms per MiB like the
 USB side: a sequential read 6.8 to 7.1 against 5.3 MiB/s, a stream with a seek
 every 5 MiB 6.1 against 7.3 s for 300 reads, random reads unchanged.
+End to end, the image mounted from an HTTP server on a PC in the LAN (100
+Mbit/s Ethernet, a plain download runs at 11.2 MiB/s) and a 192 MiB file read
+from the USB drive on that PC: 10.1 and 10.2 MiB/s against 8.1 and 7.8 MiB/s
+without the background fetch.
 These are source benchmarks, not USB-throughput
 guarantees; server latency, video load and access pattern affect actual speed.
 Unsigned mode was used only for comparison; this interface always requires

@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 
 	"testing"
+	"time"
 )
 
 func curlDestination(t *testing.T) *os.File {
@@ -59,6 +60,42 @@ func TestCurlAESOnlyFallbackStillVerifiesTLS(t *testing.T) {
 	body, _ := os.ReadFile(f.Name())
 	if string(body) != "verified AES fallback" {
 		t.Fatal("fallback body differs")
+	}
+}
+
+func TestCurlContinuesAfterLostConnection(t *testing.T) {
+	body := bytes.Repeat([]byte("resumable image\n"), 8192)
+	sum := sha256.Sum256(body)
+	imageRetryDelay = time.Millisecond
+	for _, mode := range []string{"dropped", "changed", "no-tag", "down"} {
+		t.Run(mode, func(t *testing.T) {
+			requests := 0
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				if mode != "no-tag" {
+					w.Header().Set("ETag", fmt.Sprintf(`"version%d"`, min(requests, map[string]int{"changed": 2}[mode]+1)))
+				}
+				if requests == 1 || mode == "down" {
+					w.Header().Set("Content-Length", fmt.Sprint(len(body)))
+					if requests == 1 {
+						w.Write(body[:len(body)/2])
+					}
+					panic(http.ErrAbortHandler)
+				}
+				http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(body))
+			}))
+			f := curlDestination(t)
+			err := downloadCurlTransfer(context.Background(), s.URL, f, sum[:], nil, &imageResume{})
+			s.Close()
+			got, _ := os.ReadFile(f.Name())
+			if mode == "dropped" {
+				if err != nil || !bytes.Equal(got, body) || requests != 2 {
+					t.Fatal(err, len(got), requests)
+				}
+			} else if want := map[string]int{"changed": 2, "no-tag": 1, "down": 1 + imageRetryLimit}[mode]; err == nil || len(got) != len(body)/2 || requests != want {
+				t.Fatal(err, len(got), requests)
+			}
+		})
 	}
 }
 

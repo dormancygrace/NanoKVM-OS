@@ -8,12 +8,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"path"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -30,8 +31,10 @@ type HTTPOptions struct {
 	Password string `json:"password"`
 }
 
-// HTTPSource stores at most one MiB of image data, in memory only. It keeps the
+// HTTPSource stores at most two MiB of image data, in memory only. It keeps the
 // URL (including signed query parameters) and credentials out of public state.
+// The window runs one fetch at a time, which owns client, transport, chacha
+// and url.
 type HTTPSource struct {
 	Name                       string
 	Size                       uint64
@@ -39,18 +42,38 @@ type HTTPSource struct {
 	cancel                     context.CancelFunc
 	client                     *http.Client
 	transport                  *http.Transport
+	chacha                     bool
 	url                        *url.URL
 	originalURL                *url.URL
 	attemptTimeout, readBudget time.Duration
 	authOrigin                 string
 	username, password         string
 	etag, modified             string
-	mu                         sync.Mutex
-	buffer                     []byte
-	start                      uint64
-	valid                      int
-	next                       uint64
-	streak                     uint8
+	window                     *window
+}
+
+// Software AES-GCM is several times slower on the C906 than ChaCha20-Poly1305.
+// TLS 1.3 already lists ChaCha20 first without AES hardware and its suites
+// cannot be configured; a TLS 1.2 server chooses from the suites offered here.
+// A server without ChaCha20 gets Go's default suites instead.
+func (s *HTTPSource) setTransport(chacha bool) {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.Proxy = nil // A device-side mount uses the explicitly selected server.
+	t.DisableCompression = true
+	t.MaxConnsPerHost = 1
+	t.MaxIdleConnsPerHost = 1
+	t.MaxResponseHeaderBytes = 32 << 10
+	t.ResponseHeaderTimeout = httpReadTimeout
+	if chacha {
+		if t.TLSClientConfig == nil {
+			t.TLSClientConfig = &tls.Config{}
+		}
+		t.TLSClientConfig.CipherSuites = []uint16{tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256}
+	}
+	if s.transport != nil {
+		s.transport.CloseIdleConnections()
+	}
+	s.transport, s.client.Transport, s.chacha = t, t, chacha
 }
 
 func ValidateHTTPOptions(o HTTPOptions) error {
@@ -83,17 +106,12 @@ func OpenHTTP(ctx context.Context, o HTTPOptions) (*HTTPSource, error) {
 	}
 	u, _ := url.Parse(o.URL)
 	ctx, cancel := context.WithCancel(ctx)
-	t := http.DefaultTransport.(*http.Transport).Clone()
-	t.Proxy = nil // A device-side mount uses the explicitly selected server.
-	t.DisableCompression = true
-	t.MaxConnsPerHost = 1
-	t.MaxIdleConnsPerHost = 1
-	t.MaxResponseHeaderBytes = 32 << 10
-	t.ResponseHeaderTimeout = httpReadTimeout
-	s := &HTTPSource{ctx: ctx, cancel: cancel, transport: t, url: u, originalURL: u, attemptTimeout: httpReadTimeout, readBudget: httpReadBudget,
-		authOrigin: httpOrigin(u), username: o.Username, password: o.Password,
-		buffer: make([]byte, MaxRead), next: ^uint64(0)}
-	s.client = &http.Client{Transport: t, Timeout: httpReadTimeout, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+	s := &HTTPSource{ctx: ctx, cancel: cancel, url: u, originalURL: u, attemptTimeout: httpReadTimeout, readBudget: httpReadBudget,
+		authOrigin: httpOrigin(u), username: o.Username, password: o.Password}
+	s.window = newWindow(ctx, func(ctx context.Context, _ time.Time, offset uint64, target []byte) error {
+		return s.fetch(ctx, offset, target, false)
+	})
+	s.client = &http.Client{Timeout: httpReadTimeout, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		// A signed query is a credential too; do not copy it into Referer.
 		req.Header.Del("Referer")
 		if len(via) >= 5 || !validHTTPURL(req.URL) || (via[len(via)-1].URL.Scheme == "https" && req.URL.Scheme != "https") {
@@ -106,11 +124,12 @@ func OpenHTTP(ctx context.Context, o HTTPOptions) (*HTTPSource, error) {
 	}}
 	// Probe an actual range. HEAD and Accept-Ranges alone do not establish that
 	// the server supports random access. This also works when HEAD is disabled.
-	if err := s.fetch(0, s.buffer[:2048], true); err != nil {
+	s.setTransport(true)
+	if err := s.fetch(ctx, 0, s.window.buffers[0][:2048], true); err != nil {
 		s.Close()
 		return nil, err
 	}
-	s.valid = 2048
+	s.window.size, s.window.valid = s.Size, 2048
 	s.Name = path.Base(s.url.Path)
 	if !utf8.ValidString(s.Name) || len(s.Name) > 200 || strings.IndexFunc(s.Name, unicode.IsControl) >= 0 || !strings.EqualFold(path.Ext(s.Name), ".iso") {
 		s.Name = "remote.iso"
@@ -155,6 +174,7 @@ type httpReadFailure struct {
 	message string
 	retry   bool
 	expired bool
+	suites  bool // a TLS handshake failed, but not on the certificate or a timeout
 }
 
 func (e *httpReadFailure) Error() string { return e.message }
@@ -181,8 +201,9 @@ func httpStatusFailure(code int) error {
 
 // At most two attempts share one budget below the kernel's 20-second NBD
 // timeout. Never expose URL-bearing transport errors or retry changed data.
-func (s *HTTPSource) fetch(offset uint64, target []byte, probe bool) error {
-	ctx, cancel := context.WithTimeout(s.ctx, s.readBudget)
+// parent is the source context, or that of a prefetch which can be discarded.
+func (s *HTTPSource) fetch(parent context.Context, offset uint64, target []byte, probe bool) error {
+	ctx, cancel := context.WithTimeout(parent, s.readBudget)
 	defer cancel()
 	targetURL := s.url
 	for attempt := 0; ; attempt++ {
@@ -199,7 +220,15 @@ func (s *HTTPSource) fetch(offset uint64, target []byte, probe bool) error {
 			return errors.New("Remote HTTP read timed out")
 		}
 		var failure *httpReadFailure
-		if attempt == 1 || !errors.As(err, &failure) {
+		if errors.As(err, &failure) && failure.suites && s.chacha {
+			// Servers without a ChaCha20 suite answer with an alert, a reset
+			// or a close. Offer the default suites for the rest of the mount;
+			// this happens once and does not use up an attempt.
+			s.setTransport(false)
+			attempt = -1
+			continue
+		}
+		if attempt == 1 || failure == nil {
 			return err
 		}
 		if failure.expired && !probe && targetURL.String() != s.originalURL.String() {
@@ -217,6 +246,12 @@ func (s *HTTPSource) fetch(offset uint64, target []byte, probe bool) error {
 }
 
 func (s *HTTPSource) fetchOnce(ctx context.Context, targetURL *url.URL, offset uint64, target []byte, probe bool) error {
+	var handshakeFailed atomic.Bool
+	ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
+		if err != nil {
+			handshakeFailed.Store(true)
+		}
+	}})
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL.String(), nil)
 	if err != nil {
 		return errors.New("Invalid image request")
@@ -241,11 +276,14 @@ func (s *HTTPSource) fetchOnce(ctx context.Context, targetURL *url.URL, offset u
 		var connectionError *net.OpError
 		retry := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
 			(errors.As(err, &networkError) && networkError.Timeout()) || errors.As(err, &connectionError)
+		timeout := errors.As(err, &networkError) && networkError.Timeout()
 		var certificateError *tls.CertificateVerificationError
-		if errors.As(err, &certificateError) {
+		certificate := errors.As(err, &certificateError)
+		if certificate {
 			retry = false
 		}
-		return &httpReadFailure{message: "Remote HTTP request failed; check the connection and TLS certificate", retry: retry}
+		return &httpReadFailure{message: "Remote HTTP request failed; check the connection and TLS certificate", retry: retry,
+			suites: handshakeFailed.Load() && !certificate && !timeout}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusPartialContent {
@@ -296,36 +334,13 @@ func (s *HTTPSource) fetchOnce(ctx context.Context, targetURL *url.URL, offset u
 }
 
 func (s *HTTPSource) ReadBlock(offset uint64, length uint32) ([]byte, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ctx.Err(); err != nil {
-		return nil, err
-	}
-	if length == 0 || length > MaxRead || offset > s.Size || uint64(length) > s.Size-offset {
-		return nil, errors.New("Invalid image read bounds")
-	}
-	if offset == s.next && length >= 64<<10 {
-		s.streak = min(s.streak+1, 2)
-	} else {
-		s.streak = 0
-	}
-	s.next = offset + uint64(length)
-	if offset >= s.start && offset-s.start+uint64(length) <= uint64(s.valid) {
-		return s.buffer[offset-s.start : offset-s.start+uint64(length)], nil
-	}
-	s.valid = 0
-	count := uint64(length)
-	if s.streak >= 2 {
-		count = min(uint64(MaxRead), s.Size-offset)
-	}
-	if err := s.fetch(offset, s.buffer[:count], false); err != nil {
-		return nil, err
-	}
-	s.start, s.valid = offset, int(count)
-	return s.buffer[:length], nil
+	return s.window.read(offset, length)
 }
 
+// Cancellation ends any request; the transport is touched only after the
+// read and the prefetch which could replace it have returned.
 func (s *HTTPSource) Close() {
 	s.cancel()
+	s.window.close()
 	s.transport.CloseIdleConnections()
 }

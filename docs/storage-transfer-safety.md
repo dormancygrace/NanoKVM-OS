@@ -90,9 +90,10 @@ checks the range, total size and body length; compressed responses are rejected.
 The existing optical size/alignment limits apply, including the kernel's DVD
 capability check. This source presents a read-only CD/DVD, not a writable disk.
 
-The device fetches blocks on demand. It retains at most 1 MiB of image data in
-RAM, reusing the same buffer; after two sequential transitions of at least
-64 KiB it fills a window up to 1 MiB. There is no image file, persistent cache
+The device fetches blocks on demand. It retains at most 2 MiB of image data in
+RAM, reusing the same two buffers; after two sequential transitions of at least
+64 KiB it fetches the following block of up to 1 MiB in the background while
+the current one is read. A seek discards that block. There is no image file, persistent cache
 or full-image download on the SD card. Network availability and latency remain
 part of each uncached read. Each request, including its response body, has a
 8-second timeout; disconnect cancels an outstanding request immediately.
@@ -189,8 +190,9 @@ on servers which select GCM.
 Keep the ISO unchanged for the whole session. File size and modification time
 are checked before each uncached read with kernel caching disabled
 (`cache=none,actimeo=0`); changes preserving both values cannot be detected.
-Cached blocks are not revalidated. Sequential reads use an adaptive 1 MiB RAM
-window. No image data is cached on the SD card.
+Cached blocks are not revalidated. Sequential reads fetch the following block
+of up to 1 MiB in the background; at most 2 MiB of image data is held in RAM.
+No image data is cached on the SD card.
 
 An isolated reader process owns kernel filesystem calls. Opening and each
 uncached read have a 10-second deadline. Disconnect closes IPC and the owned TCP relay, then kills the

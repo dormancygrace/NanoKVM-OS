@@ -183,10 +183,13 @@ func OpenSMB(ctx context.Context, o SMBOptions) (*SMBSource, error) {
 	_ = conn.SetDeadline(time.Time{})
 	lifetime, cancel := context.WithCancel(ctx)
 	s := &SMBSource{Name: path.Base(name), Size: size, ctx: lifetime, cancel: cancel,
-		close: closeReader, buffer: make([]byte, MaxRead), next: ^uint64(0)}
+		close: closeReader}
 	s.stop = context.AfterFunc(lifetime, closeReader)
-	s.read = func(p []byte, offset uint64) error {
-		_ = conn.SetDeadline(time.Now().Add(smbTimeout))
+	// The reader answers one request at a time and cannot cancel one, so a
+	// read after a seek first waits for the prefetch. Counting the deadline
+	// from the start of that NBD read keeps both below the NBD timeout.
+	s.window = newWindow(lifetime, func(_ context.Context, started time.Time, offset uint64, p []byte) error {
+		_ = conn.SetDeadline(started.Add(smbTimeout))
 		defer conn.SetDeadline(time.Time{})
 		binary.BigEndian.PutUint64(header[:8], offset)
 		binary.BigEndian.PutUint32(header[8:], uint32(len(p)))
@@ -205,7 +208,8 @@ func OpenSMB(ctx context.Context, o SMBOptions) (*SMBSource, error) {
 			return smbError(lifetime, "SMB ISO read failed or timed out")
 		}
 		return nil
-	}
+	})
+	s.window.size = size
 	ok, transferred = true, true
 	return s, nil
 }

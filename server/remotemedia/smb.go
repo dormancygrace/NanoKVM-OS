@@ -66,24 +66,19 @@ type smbFile interface {
 	Stat() (os.FileInfo, error)
 }
 
-// SMBSource owns a cancellable kernel CIFS reader and a bounded payload window.
-// The reader lives in a child process so a stalled filesystem syscall cannot
-// block NBD/USB teardown or write into a buffer after cancellation.
+// SMBSource owns a cancellable kernel CIFS reader and a bounded payload window
+// of at most two MiB. The reader lives in a child process so a stalled
+// filesystem syscall cannot block NBD/USB teardown or write into a buffer
+// after cancellation.
 type SMBSource struct {
 	Name   string
 	Size   uint64
 	ctx    context.Context
 	cancel context.CancelFunc
 	stop   func() bool
-	read   func([]byte, uint64) error
 	close  func()
 	once   sync.Once
-	mu     sync.Mutex
-	buffer []byte
-	start  uint64
-	valid  int
-	next   uint64
-	streak uint8
+	window *window
 }
 
 func smbError(ctx context.Context, message string) error {
@@ -95,43 +90,17 @@ func smbError(ctx context.Context, message string) error {
 }
 
 func (s *SMBSource) ReadBlock(offset uint64, length uint32) ([]byte, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.ctx.Err(); err != nil {
-		return nil, err
-	}
-	if length == 0 || length > MaxRead || offset > s.Size || uint64(length) > s.Size-offset {
-		return nil, errors.New("Invalid image read bounds")
-	}
-	if offset == s.next && length >= 64<<10 {
-		s.streak = min(s.streak+1, 2)
-	} else {
-		s.streak = 0
-	}
-	s.next = offset + uint64(length)
-	if offset >= s.start && offset-s.start+uint64(length) <= uint64(s.valid) {
-		return s.buffer[offset-s.start : offset-s.start+uint64(length)], nil
-	}
-	s.valid = 0
-	count := uint64(length)
-	if s.streak >= 2 {
-		count = min(uint64(MaxRead), s.Size-offset)
-	}
-	if err := s.read(s.buffer[:count], offset); err != nil {
-		return nil, err
-	}
-	if err := s.ctx.Err(); err != nil {
-		return nil, err
-	}
-	s.start, s.valid = offset, int(count)
-	return s.buffer[:length], nil
+	return s.window.read(offset, length)
 }
 
+// Closing the reader fails a pending request, so the read and the prefetch
+// return before the window is joined.
 func (s *SMBSource) Close() {
 	s.once.Do(func() {
 		s.cancel()
 		s.stop()
 		s.close()
+		s.window.close()
 	})
 }
 

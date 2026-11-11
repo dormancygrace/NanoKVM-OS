@@ -52,8 +52,8 @@ type HTTPSource struct {
 	window                     *window
 }
 
-// AES-GCM in software takes four times the CPU of ChaCha20-Poly1305 on the
-// C906 (a megabyte of an Ubuntu ISO: 490 ms against 110 ms). The suites of
+// AES-GCM takes half as much CPU again as ChaCha20-Poly1305 on the C906 (a
+// megabyte of an Ubuntu ISO: 116 to 128 ms against 80 ms). The suites of
 // TLS 1.3 cannot be configured, and its servers choose by their own order:
 // with ChaCha20 listed first, releases.ubuntu.com, cdimage.debian.org and
 // others still take AES-GCM. A TLS 1.2 server has to choose from the suites

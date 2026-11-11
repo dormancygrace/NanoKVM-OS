@@ -236,9 +236,9 @@ releases.ubuntu.com, cdimage.ubuntu.com, cdimage.debian.org,
 download.fedoraproject.org and mirror.yandex.ru took AES-GCM, only
 dl-cdn.alpinelinux.org and GitHub took ChaCha20. Reading the first 96 MiB of an
 Ubuntu ISO from releases.ubuntu.com on the device, bytes compared with a plain
-download: TLS 1.3 with AES-256-GCM cost 484 to 494 ms of CPU per MiB and ran at
-0.9 to 1.0 MiB/s, TLS 1.2 with ChaCha20 cost 107 to 123 ms per MiB and ran at
-1.4 to 2.0 MiB/s over the same internet link. A server that cannot do TLS 1.2
+download: TLS 1.3 with AES-256-GCM cost 116 to 128 ms of CPU per MiB, TLS 1.2
+with ChaCha20 80 to 82 ms; the internet link limited both to about 2 MiB/s. A
+server that cannot do TLS 1.2
 with ChaCha20 gets Go's defaults after its first failed handshake.
 End to end, the image mounted from an HTTP server on a PC in the LAN (100
 Mbit/s Ethernet, a plain download runs at 11.2 MiB/s) and a 192 MiB file read

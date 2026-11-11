@@ -190,15 +190,28 @@ static int crypto_run_locked(struct hwcrypto_request *r)
  int err = crypto_start_locked(r, &s);
  return err ? err : crypto_finish_locked(r, &s);
 }
+/*
+ * After a request: clear the descriptor (key and IV) and the first SG2_SCRUB
+ * bytes of both buffers. That head is where key material passes through them:
+ * the block that derives the GHASH key or the CMAC subkeys, E(J0) and S0 of
+ * GCM and CCM, the key pad block of an HMAC. The rest of a request is the
+ * caller's text and stays in the buffers, which only this driver reads, until
+ * the next request of that set overwrites it or the module is unloaded
+ * (sg2_dma_free()). Clearing all of it took 0.84 ms of the 7.77 ms of a
+ * megabyte of ctr(aes) and 0.30 of the 4.58 ms of one of sha256. Nothing
+ * relies on a zeroed buffer: every request clears its own padding and lead.
+ */
+#define SG2_SCRUB 256u
 static void crypto_clean_locked(const struct hwcrypto_request *r)
 {
+ u32 n = min(ALIGN(r->length, 16), SG2_SCRUB);
  /* Never touch the set whose DMA ownership is uncertain. */
  if (cur == lost) return;
- memzero_explicit(cur->in, ALIGN(r->length, 16));
+ memzero_explicit(cur->in, n);
  if (r->algorithm == HWCRYPTO_ALG_BASE64)
-  memzero_explicit(cur->out, r->encrypt ? DIV_ROUND_UP(r->length, 3)*4 : r->length/4*3);
+  memzero_explicit(cur->out, min(r->encrypt ? DIV_ROUND_UP(r->length, 3)*4 : r->length/4*3, SG2_SCRUB));
  else if (!crypto_is_hash(r->algorithm))
-  memzero_explicit(cur->out, ALIGN(r->length, 16));
+  memzero_explicit(cur->out, n);
  memzero_explicit(cur->d, DESC_BYTES);
 }
 static long crypto_ioctl(unsigned int cmd, unsigned long arg)

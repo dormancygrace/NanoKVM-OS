@@ -72,15 +72,17 @@ func (d *sha256Hybrid) Reset() {
 	d.n, d.total = 0, 0
 }
 
-// Write keeps the last chunk buffered until more data arrives, so that a
-// message of exactly 4 KiB stays in software.
+// Write sends a write longer than a chunk to the engine down to its last
+// whole block: io.Copy's 32 KiB writes are one request each. (When the last
+// chunk was kept back, each cost a second request of 4 KiB and a copy of
+// it: 110 MB/s against 135.) A shorter write is buffered, so that a message
+// of at most 4 KiB stays in software.
 func (d *sha256Hybrid) Write(p []byte) (int, error) {
 	n := len(p)
 	d.total += uint64(n)
 	for len(p) > 0 {
 		if d.n == 0 && len(p) > shaChunk {
-			// Every whole chunk but the last byte's, in one request if it fits.
-			c := min((len(p)-1)&^(shaChunk-1), d.engine.max)
+			c := min(len(p)&^(sha256.BlockSize-1), d.engine.max)
 			d.blocks(p[:c])
 			p = p[c:]
 			continue

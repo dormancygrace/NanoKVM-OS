@@ -286,6 +286,10 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 		if copyErr == nil {
 			partCloseErr = part.Close()
 		}
+		// The bytes must be on the card before the rename publishes the name.
+		if copyErr == nil {
+			copyErr = out.Sync()
+		}
 		outCloseErr := out.Close()
 		if errors.Is(copyErr, errSHA256Mismatch) {
 			finalStatus = downloadStatusChecksumFailed
@@ -462,6 +466,9 @@ func (s *Service) downloadRemoteImage(
 		copyErr = downloadCurlTransfer(ctx, rawURL, tempFile, expectedSHA256, onProgress, job)
 	} else {
 		copyErr = downloadGoImage(ctx, rawURL, tempFile, expectedSHA256, onProgress)
+	}
+	if copyErr == nil && ctx.Err() == nil {
+		copyErr = tempFile.Sync()
 	}
 	closeErr := tempFile.Close()
 	if ctx.Err() != nil {

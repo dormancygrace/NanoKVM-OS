@@ -161,7 +161,7 @@ export const CatalogStatus = ({
   const { t, i18n } = useTranslation();
   const timePreferences = useAtomValue(timePreferencesAtom);
   const tr = (key: string, options?: Record<string, string>) =>
-    t(`settings.software.addons.${key}`, options);
+    t(`settings.software.addons.${key}`, options ?? {});
   const running = checking || catalog?.state === 'checking';
   const checked = catalog?.checkedAt
     ? tr('listChecked', {

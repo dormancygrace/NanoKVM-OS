@@ -25,7 +25,7 @@ export const Fold = ({ title, children }: { title: string; children: ReactNode }
 export const ComponentList = ({ components }: { components?: Components }) => {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, string>) =>
-    t(`settings.updates.components.${key}`, options);
+    t(`settings.updates.components.${key}`, options ?? {});
   const kernelChanges =
     !!components?.bootKernel && !!components.kernel && components.bootKernel !== components.kernel;
   return (

@@ -42,7 +42,7 @@ export const UpdateCard = ({
 }) => {
   const { t, i18n } = useTranslation();
   const tr = useCallback(
-    (key: string, options?: Record<string, string>) => t(`settings.updates.${key}`, options),
+    (key: string, options?: Record<string, string>) => t(`settings.updates.${key}`, options ?? {}),
     [t]
   );
   const timePreferences = useAtomValue(timePreferencesAtom);

@@ -52,7 +52,7 @@ export const WifiCountry = ({
 }) => {
   const { t, i18n } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
-    t(`settings.network.wifi.${key}`, options);
+    t(`settings.network.wifi.${key}`, options ?? {});
   const [value, setValue] = useState<api.WifiCountry>();
   const [ap, setAP] = useState<api.WifiAPStatus>();
   const [saving, setSaving] = useState(false);

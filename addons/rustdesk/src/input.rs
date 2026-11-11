@@ -512,11 +512,12 @@ fn linux_xorg_keycode_to_hid(value: u32) -> Option<HidKey> {
         13 => 0x2e,
         14 => 0x2a,
         15 => 0x2b,
-        16..=25 => 0x14 + (evdev - 16) as u8,
+        // The letter rows by position; USB usages follow the alphabet.
+        16..=25 => b"\x14\x1a\x08\x15\x17\x1c\x18\x0c\x12\x13"[(evdev - 16) as usize],
         26 => 0x2f,
         27 => 0x30,
         28 => 0x28,
-        30..=38 => 0x04 + (evdev - 30) as u8,
+        30..=38 => b"\x04\x16\x07\x09\x0a\x0b\x0d\x0e\x0f"[(evdev - 30) as usize],
         39 => 0x33,
         40 => 0x34,
         41 => 0x35,
@@ -531,6 +532,7 @@ fn linux_xorg_keycode_to_hid(value: u32) -> Option<HidKey> {
         51 => 0x36,
         52 => 0x37,
         53 => 0x38,
+        55 => 0x55,
         57 => 0x2c,
         58 => 0x39,
         59..=68 => 0x3a + (evdev - 59) as u8,
@@ -584,6 +586,18 @@ mod tests {
         assert_eq!(linux_xorg_keycode_to_hid(38), Some(HidKey::Usage(0x04)));
         assert_eq!(linux_xorg_keycode_to_hid(36), Some(HidKey::Usage(0x28)));
         assert_eq!(linux_xorg_keycode_to_hid(94), Some(HidKey::Usage(0x64)));
+        // The three letter rows, left to right, give their letters.
+        let usages = |codes: std::ops::RangeInclusive<u32>| -> String {
+            codes
+                .map(|code| match linux_xorg_keycode_to_hid(code) {
+                    Some(HidKey::Usage(usage)) => char::from(b'a' + usage - 0x04),
+                    _ => '?',
+                })
+                .collect()
+        };
+        assert_eq!(usages(24..=33), "qwertyuiop");
+        assert_eq!(usages(38..=46), "asdfghjkl");
+        assert_eq!(usages(52..=58), "zxcvbnm");
     }
 
     #[test]

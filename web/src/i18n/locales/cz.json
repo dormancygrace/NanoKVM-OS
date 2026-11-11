@@ -1768,6 +1768,8 @@
       "install": "Nainstalovat",
       "permanent": "Trvalé",
       "settings": "RustDesk",
+      "localPointer": "Ukazatel klienta",
+      "localPointerHint": "Klient RustDesk kreslí přes obraz vlastní ukazatel, který se pohybuje okamžitě; kurzor počítače jej následuje se zpožděním videa. Vypnuto: je vidět jen kurzor počítače.",
       "transmitAudio": "Přenášet zvuk",
       "temporaryPassword": "Dočasné heslo",
       "absent": "Nenainstalováno",

@@ -720,7 +720,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     write_union(
         &mut writer,
         message::Union::LoginResponse(LoginResponse {
-            union: Some(login_response::Union::PeerInfo(peer_info(&video_info))),
+            union: Some(login_response::Union::PeerInfo(peer_info(&video_info, config.local_pointer))),
             enable_trusted_devices: false,
         }),
     )
@@ -1252,7 +1252,7 @@ fn viewer_key(peer: std::net::SocketAddr, secure: bool, client_id: &str) -> Stri
     }
 }
 
-fn peer_info(video: &VideoInfo) -> PeerInfo {
+fn peer_info(video: &VideoInfo, local_pointer: bool) -> PeerInfo {
     PeerInfo {
         username: "NanoKVM".to_owned(),
         hostname: "NanoKVM".to_owned(),
@@ -1267,11 +1267,12 @@ fn peer_info(video: &VideoInfo) -> PeerInfo {
             height: i32::from(video.height),
             name: "KVM capture".to_owned(),
             online: true,
-            // The HDMI capture contains the target cursor, but it arrives with
-            // the video pipeline latency. Advertising it as the only cursor
-            // makes RustDesk hide the immediate local pointer. Keep the local
-            // pointer visible for responsive KVM control.
-            cursor_embedded: false,
+            // The HDMI capture contains the target's cursor, which arrives
+            // with the delay of the video. A client told so draws none of its
+            // own. Told otherwise it draws a pointer that moves at once, a
+            // blue dot as it gets no cursor shape, and the target's cursor
+            // follows it: the local_pointer setting.
+            cursor_embedded: !local_pointer,
             scale: 1.0,
         }],
         current_display: 0,
@@ -1955,12 +1956,15 @@ mod tests {
         assert!(client_supports_codec(&modern_login, Codec::H265));
 
         for codec in [Codec::H264, Codec::H265] {
-            let info = peer_info(&VideoInfo {
+            let info = peer_info(
+                &VideoInfo {
                 codec,
                 width: 1920,
                 height: 1080,
                 fps: 60,
-            });
+            },
+                false,
+            );
             let encoding = info.encoding.unwrap();
             assert_eq!(encoding.h264, codec == Codec::H264);
             assert_eq!(encoding.h265, codec == Codec::H265);
@@ -2471,7 +2475,7 @@ mod tests {
             panic!("server did not send peer info");
         };
         assert_eq!(peer_info.platform, "NanoKVM");
-        assert!(!peer_info.displays[0].cursor_embedded);
+        assert!(peer_info.displays[0].cursor_embedded);
         let keyboard_permission: Message = read_message(&mut client).await.unwrap();
         assert!(matches!(
             keyboard_permission.union,

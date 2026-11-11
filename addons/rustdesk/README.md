@@ -51,6 +51,11 @@ and the app's selected pointer translation. Enabled remote access prepares USB
 keyboard and both mouse interfaces through the existing validated composition;
 unrelated functions are preserved.
 
+The picture contains the target's cursor, and the client is told so: it draws
+no pointer of its own. With `local_pointer` (Client pointer in the settings)
+the client draws one that moves at once, a blue dot as it gets no cursor
+shape, and the target's cursor follows it with the delay of the video.
+
 ## Package and settings
 
 nanokvm-rustdesk is an optional riscv64 package, absent from the base image list.

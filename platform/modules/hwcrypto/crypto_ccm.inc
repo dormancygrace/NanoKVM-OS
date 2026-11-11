@@ -88,7 +88,7 @@ static int sg2_ccm_auth_start(struct aead_request *req,
 		}
 	}
 	do {
-		unsigned int n = min_t(unsigned int, HWCRYPTO_MAX - head,
+		unsigned int n = min_t(unsigned int, sg2_room() - head,
 					 req->assoclen - pos);
 
 		r->length = ALIGN(head + n, 16);
@@ -149,7 +149,7 @@ static int sg2_ccm_process(struct aead_request *req, bool encrypt)
 		goto out;
 	do {
 		unsigned int lead = first ? 16 : 0;
-		unsigned int n = min_t(unsigned int, HWCRYPTO_MAX - lead,
+		unsigned int n = min_t(unsigned int, sg2_room() - lead,
 					 cryptlen - pos);
 
 		sg2_own();

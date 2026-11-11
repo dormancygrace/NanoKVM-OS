@@ -37,7 +37,8 @@ func Open(onError func(error)) (*Device, error) {
 			// sleeps only beyond that. A runtime-visible syscall that long lets
 			// sysmon hand the only P to another thread; on the C906 that doubled
 			// the CPU cost of a 1200-byte packet (64 to 30 us). Contention for the
-			// module lock (other Crypto API users) is bounded by their 4 KiB chunks.
+			// module lock is bounded by one piece of another Crypto API user:
+			// 64 KiB, about 0.7 ms for CCM (an encrypted SMB share being read).
 			_, _, errno := syscall.RawSyscall(syscall.SYS_IOCTL, fd, command, uintptr(unsafe.Pointer(r)))
 			runtime.KeepAlive(r)
 			if errno != 0 {

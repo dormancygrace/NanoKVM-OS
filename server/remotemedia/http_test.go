@@ -3,6 +3,7 @@ package remotemedia
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 
 	"net/http"
 	"net/http/httptest"
@@ -146,6 +147,26 @@ func TestHTTPRejectsHTTPSDowngrade(t *testing.T) {
 	if calls.Load() != 0 {
 		t.Fatal("insecure redirect target received a request")
 	}
+}
+
+// A TLS 1.2 server with AES alone must still mount, through the default suites.
+func TestHTTPStreamAndCipherFallback(t *testing.T) {
+	data := httpImage()
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { rangeResponse(w, r, data) }))
+	server.TLS = &tls.Config{MaxVersion: tls.VersionTLS12, CipherSuites: []uint16{tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256}}
+	server.StartTLS()
+	defer server.Close()
+	original := http.DefaultTransport
+	trusted := original.(*http.Transport).Clone()
+	trusted.TLSClientConfig = server.Client().Transport.(*http.Transport).TLSClientConfig.Clone()
+	http.DefaultTransport = trusted
+	s, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL})
+	http.DefaultTransport = original
+	if err != nil || s.chacha {
+		t.Fatal("AES-only server did not get the default suites", err)
+	}
+	defer s.Close()
+	readStream(t, s.ReadBlock, data, 0, len(data))
 }
 
 func TestHTTPOptionsAndRangeParsing(t *testing.T) {

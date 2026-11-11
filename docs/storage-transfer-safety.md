@@ -90,9 +90,10 @@ checks the range, total size and body length; compressed responses are rejected.
 The existing optical size/alignment limits apply, including the kernel's DVD
 capability check. This source presents a read-only CD/DVD, not a writable disk.
 
-The device fetches blocks on demand. It retains at most 1 MiB of image data in
-RAM, reusing the same buffer; after two sequential transitions of at least
-64 KiB it fills a window up to 1 MiB. There is no image file, persistent cache
+The device fetches blocks on demand. It retains at most 2 MiB of image data in
+RAM, reusing the same two buffers; after two sequential transitions of at least
+64 KiB it fetches the following block of up to 1 MiB in the background while
+the current one is read. A seek discards that block. There is no image file, persistent cache
 or full-image download on the SD card. Network availability and latency remain
 part of each uncached read. Each request, including its response body, has a
 8-second timeout; disconnect cancels an outstanding request immediately.
@@ -182,15 +183,21 @@ synchronous CPU provider before key setup, avoiding DMA overhead entirely.
 Messages of 320 bytes or more use the highest-priority provider, normally
 `nanokvm-cmac-aes`; software remains available when hardware AES is disabled.
 The threshold counts all header vectors and payload bytes in the signature.
-Cipher negotiation is unchanged: the CCM driver is selected
-when the SMB server and client negotiate CCM; its presence does not force CCM
-on servers which select GCM.
+For SMB 3.1.1 encryption the client offers AES-128-CCM alone (kernel patch
+0082, module parameter `ccm_only`): a server chooses from the offer by its own
+preference, which is GCM, and the engine runs all of CCM while GCM leaves
+GHASH to the CPU. A server with CCM disabled takes none of the offered
+ciphers, and a share that requires encryption then refuses the mount with the
+status of a wrong password; the kernel records the refused offer in
+`ccm_refused`, and only then does the reader mount once more with the upstream
+offer (GCM first). A wrong password is not tried twice.
 
 Keep the ISO unchanged for the whole session. File size and modification time
 are checked before each uncached read with kernel caching disabled
 (`cache=none,actimeo=0`); changes preserving both values cannot be detected.
-Cached blocks are not revalidated. Sequential reads use an adaptive 1 MiB RAM
-window. No image data is cached on the SD card.
+Cached blocks are not revalidated. Sequential reads fetch the following block
+of up to 1 MiB in the background; at most 2 MiB of image data is held in RAM.
+No image data is cached on the SD card.
 
 An isolated reader process owns kernel filesystem calls. Opening and each
 uncached read have a 10-second deadline. Disconnect closes IPC and the owned TCP relay, then kills the
@@ -210,6 +217,33 @@ relay and IPC, measured 7.97–8.03 MiB/s with CCM against 6.81–7.04 MiB/s wit
 CIFS and 8.65–8.72 MiB/s through the complete reader, versus about 5.8 MiB/s
 for software signing (about 50% faster). Full-image SHA-256 matched in every
 server-reader run.
+
+With a Samba server on the device itself (one core for client and server, so
+the rates are low; share with encryption required, 64 MiB image, hash matched
+in every run): the upstream offer negotiated AES-128-GCM and read 2.9 to
+3.0 MiB/s, the CCM offer negotiated AES-128-CCM and read 3.3 to 3.7 MiB/s; a
+server limited to AES-128-GCM refused the mount, set `ccm_refused`, and
+mounted with `ccm_only=n`. Through the reader process, with the payload read
+straight into the shared window instead of passing the socket pair: 3.6
+against 3.3 MiB/s. The background fetch of the next block, against a local
+HTTP server throttled to 10 MiB/s and a consumer taking 40 ms per MiB like the
+USB side: a sequential read 6.8 to 7.1 against 5.3 MiB/s, a stream with a seek
+every 5 MiB 6.1 against 7.3 s for 300 reads, random reads unchanged.
+HTTPS: the source first offers TLS 1.2 with the ChaCha20-Poly1305 suites
+alone, because a TLS 1.3 server chooses the cipher by its own order and its
+suites cannot be configured in Go: with ChaCha20 listed first,
+releases.ubuntu.com, cdimage.ubuntu.com, cdimage.debian.org,
+download.fedoraproject.org and mirror.yandex.ru took AES-GCM, only
+dl-cdn.alpinelinux.org and GitHub took ChaCha20. Reading the first 96 MiB of an
+Ubuntu ISO from releases.ubuntu.com on the device, bytes compared with a plain
+download: TLS 1.3 with AES-256-GCM cost 116 to 128 ms of CPU per MiB, TLS 1.2
+with ChaCha20 80 to 82 ms; the internet link limited both to about 2 MiB/s. A
+server that cannot do TLS 1.2
+with ChaCha20 gets Go's defaults after its first failed handshake.
+End to end, the image mounted from an HTTP server on a PC in the LAN (100
+Mbit/s Ethernet, a plain download runs at 11.2 MiB/s) and a 192 MiB file read
+from the USB drive on that PC: 10.1 and 10.2 MiB/s against 8.1 and 7.8 MiB/s
+without the background fetch.
 These are source benchmarks, not USB-throughput
 guarantees; server latency, video load and access pattern affect actual speed.
 Unsigned mode was used only for comparison; this interface always requires

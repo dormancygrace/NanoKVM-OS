@@ -109,7 +109,7 @@ static int sg2_cipher_process(struct skcipher_request *req, bool encrypt)
  memcpy(r.key, ctx->key, ctx->keylen);
  if (a->mode) memcpy(r.iv, req->iv, a->block);
  while (pos < req->cryptlen) {
-  r.length = min_t(unsigned int, HWCRYPTO_MAX, req->cryptlen - pos);
+  r.length = min_t(unsigned int, sg2_room(), req->cryptlen - pos);
   r.output_length = r.length;
   sg2_own();
   if (poisoned) { err = -EIO; sg2_disown(); break; }
@@ -291,7 +291,7 @@ static int sg2_hash_process(struct ahash_request *req, bool final, bool consume)
     s->used = 0; memzero_explicit(s->tail, sizeof(s->tail));
    }
   } else {
-   n = min_t(unsigned int, HWCRYPTO_MAX, remaining & ~63U);
+   n = min_t(unsigned int, sg2_room(), remaining & ~63U);
    err = sg2_hash_blocks(req, nents, pos, NULL, n); if (err) goto failed;
    pos += n; remaining -= n;
   }

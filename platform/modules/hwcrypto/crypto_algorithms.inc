@@ -23,8 +23,8 @@ static int crypto_validate(struct hwcrypto_request *r)
  if (r->version != HWCRYPTO_ABI || r->algorithm < 1 ||
      r->algorithm >= HWCRYPTO_ALG_COUNT || r->encrypt > 1 ||
      memchr_inv(r->reserved, 0, sizeof(r->reserved))) return -EINVAL;
- if (!r->length || r->length > HWCRYPTO_MAX || !r->input) return -EINVAL;
- if (r->output_length > HWCRYPTO_OUT_MAX) return -EINVAL;
+ if (!r->length || r->length > SG2_LARGE || !r->input) return -EINVAL;
+ if (r->output_length > SG2_LARGE) return -EINVAL;
  if (crypto_is_hash(r->algorithm)) {
   if (r->length % 64 || r->key_length || r->mode || r->encrypt ||
       r->output_length) return -EINVAL;
@@ -208,7 +208,7 @@ static long crypto_ioctl(unsigned int cmd, unsigned long arg)
  if (cmd == HWCRYPTO_INFO) {
   struct hwcrypto_info info = { .version = HWCRYPTO_ABI,
    .algorithms = GENMASK(HWCRYPTO_ALG_COUNT-1, 1),
-   .max_input = HWCRYPTO_MAX, .max_output = HWCRYPTO_OUT_MAX };
+   .max_input = SG2_LARGE, .max_output = SG2_LARGE };
   err = mutex_lock_interruptible(&lock); if (err) return err;
   info.poisoned = poisoned;
   memcpy(info.submitted, crypto_submitted, sizeof(crypto_submitted));

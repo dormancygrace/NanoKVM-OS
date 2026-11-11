@@ -5,6 +5,8 @@
 #include <linux/ioctl.h>
 
 #define HWCRYPTO_ABI 1
+/* One message of HWCRYPTO_CTR_SHA1 and one chunk of HWCRYPTO_GCM. HWCRYPTO_RUN
+ * takes up to max_input of HWCRYPTO_INFO (64 KiB). */
 #define HWCRYPTO_MAX 4096
 #define HWCRYPTO_OUT_MAX 8192
 enum hwcrypto_algorithm {

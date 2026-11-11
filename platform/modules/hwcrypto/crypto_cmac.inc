@@ -145,7 +145,7 @@ static int sg2_cmac_process(struct ahash_request *req, unsigned int operation)
 			s->used = 0;
 			memzero_explicit(s->tail, sizeof(s->tail));
 		} else {
-			n = min_t(unsigned int, HWCRYPTO_MAX, (remaining - 1) & ~15U);
+			n = min_t(unsigned int, sg2_room(), (remaining - 1) & ~15U);
 			err = sg2_cmac_blocks(req, nents, pos, NULL, n);
 			if (err)
 				goto failed;

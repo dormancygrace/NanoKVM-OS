@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include "nanokvm_hwcrypto.h"
+#include "hwcrypto.h"
 
 #define BASE 0x02060000
 #define CTRL 0x00
@@ -63,9 +64,25 @@ static void __iomem *regs;
 struct sg2_set {
  u32 *d, *d2;	/* d2: the second descriptor of a chain (HWCRYPTO_CTR_SHA1) */
  u8 *in, *out;
+ u32 in_size, out_size;
  dma_addr_t d_dma, d2_dma, in_dma, out_dma;
 };
 static struct sg2_set sets[3], *cur = &sets[0];
+/*
+ * A request of a caller that may sleep is cut into pieces of SG2_LARGE bytes,
+ * the room of set 0; one in atomic context into pieces of HWCRYPTO_MAX, the
+ * room of set 1. The engine takes a descriptor of a megabyte at the rate of
+ * 4 KiB (AES 333 MB/s, SHA-256 367 MB/s), and each piece costs 15 to 44 us
+ * around its transaction (the copies, the cache maintenance, the locks): at
+ * 4 KiB that was two thirds of the time of a megabyte of AES-CTR. A piece of
+ * 64 KiB keeps the engine, with bottom halves off, for 200 us; SRTP's
+ * HWCRYPTO_CTR_SHA1 waits for `lock` that long plus the copies of the piece.
+ * GCM keeps HWCRYPTO_MAX in either context: the CPU computes GHASH while the
+ * engine holds the piece, and for 64 KiB that is over a millisecond with
+ * bottom halves off.
+ */
+#define SG2_LARGE 65536
+static unsigned int sg2_room(void) { return preemptible() ? SG2_LARGE : HWCRYPTO_MAX; }
 static DEFINE_MUTEX(lock);
 static DEFINE_SPINLOCK(engine_lock);
 
@@ -287,8 +304,8 @@ static void sg2_dma_free(void *p, size_t size, dma_addr_t dma)
 }
 static void sg2_set_free(struct sg2_set *s)
 {
- sg2_dma_free(s->out, HWCRYPTO_OUT_MAX, s->out_dma);
- sg2_dma_free(s->in, HWCRYPTO_AES_MAX, s->in_dma);
+ sg2_dma_free(s->out, s->out_size, s->out_dma);
+ sg2_dma_free(s->in, s->in_size, s->in_dma);
  sg2_dma_free(s->d2, DESC_BYTES, s->d2_dma);
  sg2_dma_free(s->d, DESC_BYTES, s->d_dma);
  memset(s, 0, sizeof(*s));
@@ -296,10 +313,13 @@ static void sg2_set_free(struct sg2_set *s)
 /* On failure the caller frees the set. */
 static int sg2_set_alloc(struct sg2_set *s)
 {
+ /* Set 0 is the sleepers' (sg2_room()); the others hold one HWCRYPTO_MAX request. */
+ s->in_size = s == &sets[0] ? SG2_LARGE : HWCRYPTO_MAX;
+ s->out_size = s == &sets[0] ? SG2_LARGE : HWCRYPTO_OUT_MAX;
  s->d = sg2_dma_alloc(DESC_BYTES, &s->d_dma);
  s->d2 = sg2_dma_alloc(DESC_BYTES, &s->d2_dma);
- s->in = sg2_dma_alloc(HWCRYPTO_AES_MAX, &s->in_dma);
- s->out = sg2_dma_alloc(HWCRYPTO_OUT_MAX, &s->out_dma);
+ s->in = sg2_dma_alloc(s->in_size, &s->in_dma);
+ s->out = sg2_dma_alloc(s->out_size, &s->out_dma);
  return s->d && s->d2 && s->in && s->out ? 0 : -ENOMEM;
 }
 

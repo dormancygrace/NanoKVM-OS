@@ -63,44 +63,68 @@ func TestSMBHelperRejectsOversizedOptionsBeforeMount(t *testing.T) {
 	for _, length := range []uint32{0, 8193, ^uint32(0)} {
 		var input bytes.Buffer
 		binary.Write(&input, binary.BigEndian, length)
-		err := serveSMBHelper(&input, func(smbMountOptions) (*os.File, error) { t.Fatal("invalid message reached mount"); return nil, nil })
+		err := serveSMBHelper(&input, nil, func(smbMountOptions) (*os.File, error) { t.Fatal("invalid message reached mount"); return nil, nil })
 		if err == nil {
 			t.Fatal("invalid options size accepted")
 		}
 	}
 }
 
-func TestSMBHelperRejectsReadBounds(t *testing.T) {
-	for _, tc := range []struct {
-		off    uint64
-		length uint32
-	}{{0, 0}, {0, MaxRead + 1}, {^uint64(0), 512}, {4096, 512}} {
-		name := filepath.Join(t.TempDir(), "test.iso")
-		if err := os.WriteFile(name, make([]byte, 4096), 0600); err != nil {
-			t.Fatal(err)
-		}
+// The reader fills the named part of the memory it shares with the server and
+// nothing else; a part outside one window buffer ends it without a read.
+func TestSMBHelperReadsIntoSharedMemory(t *testing.T) {
+	memory, parent, err := newSMBShared()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer memory.Close()
+	defer unix.Munmap(parent)
+	reader, err := unix.Mmap(int(memory.Fd()), 0, 2*MaxRead, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+	image := httpImage()[:8192]
+	name := filepath.Join(t.TempDir(), "test.iso")
+	if err == nil {
+		defer unix.Munmap(reader)
+		err = os.WriteFile(name, image, 0600)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := parent[MaxRead:][:4096]
+	at, inside := smbSharedOffset(parent, target)
+	_, crossing := smbSharedOffset(parent, parent[MaxRead-512:MaxRead+512])
+	if _, foreign := smbSharedOffset(parent, make([]byte, 512)); !inside || at != MaxRead || crossing || foreign {
+		t.Fatal("window buffer not located", at, inside, crossing, foreign)
+	}
+	for i, tc := range [][3]uint64{{4096, 4096, uint64(at)}, {0, 0, 0}, {0, MaxRead + 1, 0}, {^uint64(0), 512, 0}, {8192, 512, 0},
+		{0, 512, 2 * MaxRead}, {0, 512, 2*MaxRead - 256}, {0, 512, MaxRead - 256}} {
 		client, child := net.Pipe()
 		done := make(chan error, 1)
 		go func() {
 			defer child.Close()
-			done <- serveSMBHelper(child, func(smbMountOptions) (*os.File, error) { return os.Open(name) })
+			done <- serveSMBHelper(child, reader, func(smbMountOptions) (*os.File, error) { return os.Open(name) })
 		}()
 		client.SetDeadline(time.Now().Add(time.Second))
-		binary.Write(client, binary.BigEndian, uint32(2))
-		client.Write([]byte("{}"))
-		var h [12]byte
-		if _, err := io.ReadFull(client, h[:]); err != nil {
+		client.Write([]byte{0, 0, 0, 2, '{', '}'})
+		var h [16]byte
+		if _, err := io.ReadFull(client, h[:12]); err != nil {
 			t.Fatal(err)
 		}
-		binary.BigEndian.PutUint64(h[:8], tc.off)
-		binary.BigEndian.PutUint32(h[8:], tc.length)
+		binary.BigEndian.PutUint64(h[:8], tc[0])
+		binary.BigEndian.PutUint32(h[8:12], uint32(tc[1]))
+		binary.BigEndian.PutUint32(h[12:], uint32(tc[2]))
 		client.Write(h[:])
-		if _, err := client.Read(h[:]); err == nil {
-			t.Fatal("invalid read accepted")
+		// Only the first request is valid.
+		if _, err := io.ReadFull(client, h[:4]); (err == nil && binary.BigEndian.Uint32(h[:4]) == smbOK) != (i == 0) {
+			t.Fatal("read request", tc, err)
 		}
 		client.Close()
 		if err := <-done; err == nil {
-			t.Fatal("invalid read not rejected")
+			t.Fatal("reader did not stop")
 		}
+	}
+	seen := bytes.Equal(target, image[4096:])
+	clear(target)
+	if !seen || !bytes.Equal(parent, make([]byte, 2*MaxRead)) {
+		t.Fatal("block not in the server's buffer, or written outside it", seen)
 	}
 }

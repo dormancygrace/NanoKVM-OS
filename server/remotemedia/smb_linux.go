@@ -10,10 +10,12 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"strconv"
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
@@ -35,10 +37,12 @@ var smbReaderSlot = make(chan struct{}, 1)
 func init() {
 	if len(os.Args) == 2 && os.Args[1] == smbHelperArg {
 		peer := os.NewFile(3, "smb-control")
-		if peer == nil {
+		shared, err := unix.Mmap(4, 0, 2*MaxRead, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+		unix.Close(4) // not close-on-exec: keep it from modprobe
+		if peer == nil || err != nil {
 			os.Exit(1)
 		}
-		err := serveSMBHelper(peer, mountSMBFile)
+		err = serveSMBHelper(peer, shared, mountSMBFile)
 		peer.Close()
 		if err != nil {
 			os.Exit(1)
@@ -60,6 +64,49 @@ func smbStatusError(status uint32) error {
 	default:
 		return errors.New("SMB ISO read failed or returned an incomplete block")
 	}
+}
+
+// newSMBShared makes the memory of the two window buffers, which the reader
+// maps from the returned memfd and fills in place of sending the payload. The
+// pages are allocated here and the seals keep the size, so neither process can
+// fault on its mapping.
+//
+// Each reader has its own memory and no later one maps it. A read is given up
+// only by closing the reader, after which this source fetches nothing more and
+// serves nothing from the buffer that read was filling; a reader that is still
+// inside the kernel then writes memory nobody reads.
+func newSMBShared() (*os.File, []byte, error) {
+	fd, err := unix.MemfdCreate("smb-window", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING)
+	if err != nil {
+		return nil, nil, err
+	}
+	memory := os.NewFile(uintptr(fd), "smb-window")
+	if err = unix.Fallocate(fd, 0, 0, 2*MaxRead); err == nil {
+		_, err = unix.FcntlInt(uintptr(fd), unix.F_ADD_SEALS, unix.F_SEAL_SHRINK|unix.F_SEAL_GROW|unix.F_SEAL_SEAL)
+	}
+	var shared []byte
+	if err == nil {
+		shared, err = unix.Mmap(fd, 0, 2*MaxRead, unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
+	}
+	if err != nil {
+		memory.Close()
+		return nil, nil, err
+	}
+	return memory, shared, nil
+}
+
+// A read fills part of one window buffer and never crosses into the other.
+func smbSharedRange(shared []byte, at, length uint32) bool {
+	return length != 0 && length <= MaxRead && at%MaxRead+length <= MaxRead && uint64(at)+uint64(length) <= uint64(len(shared))
+}
+
+// smbSharedOffset finds a fetch target of the window in the shared memory.
+func smbSharedOffset(shared, target []byte) (uint32, bool) {
+	at := uintptr(unsafe.Pointer(unsafe.SliceData(target))) - uintptr(unsafe.Pointer(unsafe.SliceData(shared)))
+	if at >= uintptr(len(shared)) || len(target) > MaxRead || !smbSharedRange(shared, uint32(at), uint32(len(target))) {
+		return 0, false
+	}
+	return uint32(at), true
 }
 
 // OpenSMB invokes this same binary in reader mode. Credentials travel only over
@@ -93,6 +140,16 @@ func OpenSMB(ctx context.Context, o SMBOptions) (*SMBSource, error) {
 			relay.Close()
 		}
 	}()
+	memory, shared, err := newSMBShared()
+	if err != nil {
+		return nil, errors.New("Could not start the SMB reader")
+	}
+	defer memory.Close()
+	defer func() {
+		if !transferred {
+			_ = unix.Munmap(shared) // no window yet: nothing is lent
+		}
+	}()
 	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
 	if err != nil {
 		return nil, errors.New("Could not start the SMB reader")
@@ -111,7 +168,7 @@ func OpenSMB(ctx context.Context, o SMBOptions) (*SMBSource, error) {
 		return nil, errors.New("Could not locate the SMB reader")
 	}
 	cmd := exec.Command(exe, smbHelperArg)
-	cmd.ExtraFiles = []*os.File{peer}
+	cmd.ExtraFiles = []*os.File{peer, memory}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL}
 	if err = cmd.Start(); err != nil {
 		conn.Close()
@@ -188,28 +245,39 @@ func OpenSMB(ctx context.Context, o SMBOptions) (*SMBSource, error) {
 	// The reader answers one request at a time and cannot cancel one, so a
 	// read after a seek first waits for the prefetch. Counting the deadline
 	// from the start of that NBD read keeps both below the NBD timeout.
-	s.window = newWindow(lifetime, func(_ context.Context, started time.Time, offset uint64, p []byte) error {
+	//
+	// The reader fills p, a part of the shared memory, before it answers. Any
+	// request left without an answer closes the reader for good.
+	var read [16]byte
+	fetch := func(_ context.Context, started time.Time, offset uint64, p []byte) error {
+		at, inside := smbSharedOffset(shared, p)
+		if !inside {
+			return errors.New("SMB read buffer is outside the reader memory")
+		}
 		_ = conn.SetDeadline(started.Add(smbTimeout))
 		defer conn.SetDeadline(time.Time{})
-		binary.BigEndian.PutUint64(header[:8], offset)
-		binary.BigEndian.PutUint32(header[8:], uint32(len(p)))
-		_, err := conn.Write(header[:])
+		binary.BigEndian.PutUint64(read[:8], offset)
+		binary.BigEndian.PutUint32(read[8:12], uint32(len(p)))
+		binary.BigEndian.PutUint32(read[12:], at)
+		_, err := conn.Write(read[:])
 		if err == nil {
-			_, err = io.ReadFull(conn, header[:4])
-		}
-		if err == nil {
-			if status := binary.BigEndian.Uint32(header[:4]); status != smbOK {
-				return smbStatusError(status)
-			}
-			_, err = io.ReadFull(conn, p)
+			_, err = io.ReadFull(conn, read[:4])
 		}
 		if err != nil {
 			closeReader()
 			return smbError(lifetime, "SMB ISO read failed or timed out")
 		}
+		if status := binary.BigEndian.Uint32(read[:4]); status != smbOK {
+			return smbStatusError(status)
+		}
 		return nil
-	})
+	}
+	s.window = newWindowOver(lifetime, fetch, [2][]byte{shared[:MaxRead:MaxRead], shared[MaxRead:]})
 	s.window.size = size
+	// The NBD writer may still hold a lent slice when Close returns, and it
+	// reaches the window through its read callback. The memory is therefore
+	// unmapped only when the window is unreachable.
+	runtime.AddCleanup(s.window, func(shared []byte) { _ = unix.Munmap(shared) }, shared)
 	ok, transferred = true, true
 	return s, nil
 }
@@ -310,8 +378,11 @@ func mountSMBOnce(o smbMountOptions) (*os.File, error) {
 	return os.NewFile(uintptr(fd), "smb-iso"), nil
 }
 
-func serveSMBHelper(peer io.ReadWriter, mount func(smbMountOptions) (*os.File, error)) error {
-	var header [12]byte
+// serveSMBHelper answers a read request (file offset, 8 bytes; length, 4;
+// offset in shared, 4; big-endian) with a 4-byte status, after it has read the
+// file into that part of shared.
+func serveSMBHelper(peer io.ReadWriter, shared []byte, mount func(smbMountOptions) (*os.File, error)) error {
+	var header [16]byte
 	if _, err := io.ReadFull(peer, header[:4]); err != nil {
 		return err
 	}
@@ -352,25 +423,25 @@ func serveSMBHelper(peer io.ReadWriter, mount func(smbMountOptions) (*os.File, e
 		}
 	}
 	binary.BigEndian.PutUint32(header[:4], status)
-	binary.BigEndian.PutUint64(header[4:], reader.size)
-	if _, err = peer.Write(header[:]); err != nil {
+	binary.BigEndian.PutUint64(header[4:12], reader.size)
+	if _, err = peer.Write(header[:12]); err != nil {
 		return err
 	}
 	if status != smbOK {
 		return errors.New("SMB reader could not open image")
 	}
-	buffer := make([]byte, MaxRead)
 	for {
 		if _, err = io.ReadFull(peer, header[:]); err != nil {
 			return err
 		}
 		offset := binary.BigEndian.Uint64(header[:8])
-		length := binary.BigEndian.Uint32(header[8:])
-		if length == 0 || length > MaxRead || offset > reader.size || uint64(length) > reader.size-offset {
+		length := binary.BigEndian.Uint32(header[8:12])
+		at := binary.BigEndian.Uint32(header[12:])
+		if !smbSharedRange(shared, at, length) || offset > reader.size || uint64(length) > reader.size-offset {
 			return errors.New("invalid SMB reader bounds")
 		}
 		status = smbOK
-		if err = reader.read(buffer[:length], offset); err != nil {
+		if err = reader.read(shared[at:at+length], offset); err != nil {
 			status = smbReadFailed
 			if errors.Is(err, errSMBChanged) {
 				status = smbChanged
@@ -382,9 +453,6 @@ func serveSMBHelper(peer io.ReadWriter, mount func(smbMountOptions) (*os.File, e
 		}
 		if status != smbOK {
 			return errors.New("SMB reader failed")
-		}
-		if _, err = peer.Write(buffer[:length]); err != nil {
-			return err
 		}
 	}
 }

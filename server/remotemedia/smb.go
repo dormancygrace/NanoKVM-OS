@@ -68,8 +68,9 @@ type smbFile interface {
 
 // SMBSource owns a cancellable kernel CIFS reader and a bounded payload window
 // of at most two MiB. The reader lives in a child process so a stalled
-// filesystem syscall cannot block NBD/USB teardown or write into a buffer
-// after cancellation.
+// filesystem syscall cannot block NBD/USB teardown. It reads into the window
+// memory, which it shares with this process and with no other source: a read
+// that ends after it was given up writes memory that is never served again.
 type SMBSource struct {
 	Name   string
 	Size   uint64

@@ -27,7 +27,7 @@ type window struct {
 	size    uint64
 	fetch   fetchBlock
 	mu      sync.Mutex // serializes read and close; a prefetch never takes it
-	buffers [2][]byte  // the second is allocated with the first prefetch
+	buffers [2][]byte  // a missing second is allocated with the first prefetch
 	current int
 	start   uint64
 	valid   int
@@ -47,9 +47,13 @@ type prefetch struct {
 }
 
 func newWindow(ctx context.Context, fetch fetchBlock) *window {
-	w := &window{ctx: ctx, fetch: fetch, next: ^uint64(0)}
-	w.buffers[0] = make([]byte, MaxRead)
-	return w
+	return newWindowOver(ctx, fetch, [2][]byte{make([]byte, MaxRead)})
+}
+
+// newWindowOver uses the buffers of the source, each of MaxRead bytes. Every
+// fetch target is the front of one of them.
+func newWindowOver(ctx context.Context, fetch fetchBlock, buffers [2][]byte) *window {
+	return &window{ctx: ctx, fetch: fetch, buffers: buffers, next: ^uint64(0)}
 }
 
 func (w *window) read(offset uint64, length uint32) ([]byte, error) {

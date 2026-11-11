@@ -138,4 +138,23 @@ While the engine works on a message the driver moves its neighbours: the previou
 
 Streaming 2560x1440 H.265 at 60 fps over WebRTC (21 Mbit/s, 2100 packets a second), the busy share of the core over 15 s windows went from 39.5-40.5% to 35.0-36.3% (36.4-38.6% before the copies overlapped the engine), and the instructions executed from 1540 to 1190 million per window.
 
+**Everything the engine does.** The vendor publishes two headers (the FSBL's `cryptodma.h` and the Linux driver of the Milk-V Duo SDK); the SDK of the newer CV184x names more bits. Every code was run on an SG2002 and compared with OpenSSL, with a single descriptor and the application stopped (a code the engine does not know makes it stop answering until a reboot; this took more than twenty):
+
+| Selection | What it is | 4 KiB | Rate |
+| --- | --- | ---: | ---: |
+| class bit 8 | copy ("bypass") | 2.8 us | 1.5 to 1.7 GB/s |
+| class bit 9, key field `d[1]` bits 5/4/3 | AES-128/192/256; ECB, CBC (`d[1]` bit 1), CTR (bit 2) | 13.2 us (128, ECB), 16.9 us (256, CTR) | 240 to 330 MB/s |
+| class bit 10 | DES; with `d[1]` bit 3, 3DES | 20 us, 59 us | 200, 70 MB/s |
+| class bit 11 | SM4; ECB, CBC, CTR | 237 us | 17 MB/s |
+| class bit 12, `d[1]` bit 1 clear | SHA-1 | 13.9 us | 295 MB/s |
+| class bit 12, `d[1]` bit 1 set | SHA-256 | 11.6 us | 350 to 370 MB/s |
+| class bit 13 | Base64 | | |
+
+- **Hashes.** `d[1]` bit 0 says that the caller gives the chaining state (bit 19: in the descriptor); with it clear the engine starts from the standard initial value. The result is in the registers at 0x1c0.
+- **One descriptor may be long.** 8 KiB, 64 KiB and 1 MiB run at the same rate as 4 KiB (AES-128-CTR 1 MiB in 3.15 ms, SHA-256 in 2.86 ms, a copy in 0.62 ms). The 4 KiB of a request is the driver's limit.
+- **Key and IV slots.** Class bits 16 to 18 take the key from the registers at 0x100 (written and read back; slot 0 verified), bits 20 to 22 the IV from the registers at 0x180, bit 19 and bit 23 from the descriptor. With none of the key bits the key is all zeros.
+- **The IV comes back.** With bit 24 the engine leaves the next IV in slot 0: the last ciphertext block after CBC, the counter advanced by the number of blocks after CTR. A CTR descriptor that takes its IV from slot 0 continues the stream (verified).
+- **Not in this engine:** SM3 (class bit 14 in the CV184x; here it never answers, with that SDK's descriptor too, and the result registers at 0x1e0 read zero), MD5, SHA-224, SHA-384/512, a CRC, and any AES mode beyond ECB, CBC and CTR: the other bits of `d[1]` change nothing (bit 3 with SM4, OFB in the CV184x, is plain ECB here). The OTP key (bit 27 in the CV184x) gives the result of the zero key.
+- **What it does not survive,** besides the three cases above: a hash selection with `d[1]` bit 2 or 3 set (values 4 to 8), an AES key field of zero, a class bit it does not know alone (14, 15, 17, 18), and the copy together with a hash. Unknown class bits beside a known class are ignored.
+
 There is no `/dev/crypto`: the cryptodev module was removed in 4.0.0, since nothing in NanoKVM OS used it and Alpine's OpenSSL has no devcrypto engine. Each request through it cost an `ioctl`, so it was faster than the CPU only for large blocks. Measured on the stand through an OpenSSL devcrypto engine (Linux 7.2), AES-256-CBC took 1 KiB at 14 MB/s and 8 KiB at 47 MB/s against about 8 MB/s in software, and blocks of 16–256 bytes were 7–25 times slower than software.

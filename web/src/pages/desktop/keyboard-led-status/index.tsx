@@ -51,7 +51,7 @@ export function KeyboardLedStatus() {
 
   return (
     <div
-      className="flex h-full w-[40px] flex-col items-start justify-center rounded bg-neutral-800/80"
+      className="flex h-full w-[16px] flex-col items-start justify-center rounded bg-neutral-800/80 sm:w-[40px]"
       aria-label={t('settings.keyboardLedStatus.groupLabel')}
       role="group"
     >

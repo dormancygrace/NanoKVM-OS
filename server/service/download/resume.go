@@ -183,6 +183,9 @@ func (s *Service) resumeImageDownload() {
 			expected = nil
 		}
 		err := downloadCurlTransfer(ctx, job.URL, f, expected, func(p transferProgress) { s.setDownloadProgress(done, p) }, job)
+		if err == nil {
+			err = f.Sync()
+		}
 		closeErr := f.Close()
 		if err == nil {
 			err = closeErr

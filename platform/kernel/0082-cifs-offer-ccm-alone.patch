@@ -8,7 +8,8 @@ to the CPU: reads of an encrypted share are about 15% faster with CCM. Offer
 CCM alone; ccm_only=n restores the upstream offer for a server that has CCM
 disabled. Such a server takes none of the offered ciphers; ccm_refused
 records that, so that the caller of a failed mount knows to try again with
-ccm_only=n.
+ccm_only=n. A session setup refused with anything but access denied (a wrong
+password) clears it: that mount is not worth a second logon.
 
 --- a/fs/smb/client/cifsfs.c
 +++ b/fs/smb/client/cifsfs.c
@@ -69,3 +70,18 @@ ccm_only=n.
  		server->cipher_type = 0;
  		server->capabilities &= ~SMB2_GLOBAL_CAP_ENCRYPTION;
  		pr_warn_once("Server does not support requested encryption types\n");
+@@ -1658,6 +1668,14 @@
+ 			    &sess_data->buf0_type,
+ 			    CIFS_LOG_ERROR | CIFS_SESS_OP, &rsp_iov);
+ 	cifs_small_buf_release(sess_data->iov[0].iov_base);
++	/* A refused logon is not a refused cipher offer: no second mount for it. */
++	if (rc && rsp_iov.iov_base) {
++		__le32 status = ((struct smb2_hdr *)rsp_iov.iov_base)->Status;
++
++		if (status != STATUS_ACCESS_DENIED &&
++		    status != STATUS_MORE_PROCESSING_REQUIRED)
++			ccm_refused = false;
++	}
+ 	if (rc == 0)
+ 		sess_data->ses->expired_pwd = false;
+ 	else if ((rc == -EACCES) || (rc == -EKEYEXPIRED) || (rc == -EKEYREVOKED)) {

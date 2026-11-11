@@ -52,7 +52,7 @@ const duration = (seconds: number) => {
 export const WifiAccessPoint = ({ onChanged }: { onChanged?: () => void }) => {
   const { t } = useTranslation();
   const tr = (key: string, options?: Record<string, unknown>) =>
-    t(`settings.network.wifiAp.${key}`, options);
+    t(`settings.network.wifiAp.${key}`, options ?? {});
   const [status, setStatus] = useState<api.WifiAPStatus>();
   const [form, setForm] = useState<api.WifiAP>();
   const [password, setPassword] = useState('');

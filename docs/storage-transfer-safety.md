@@ -183,9 +183,14 @@ synchronous CPU provider before key setup, avoiding DMA overhead entirely.
 Messages of 320 bytes or more use the highest-priority provider, normally
 `nanokvm-cmac-aes`; software remains available when hardware AES is disabled.
 The threshold counts all header vectors and payload bytes in the signature.
-Cipher negotiation is unchanged: the CCM driver is selected
-when the SMB server and client negotiate CCM; its presence does not force CCM
-on servers which select GCM.
+For SMB 3.1.1 encryption the client offers AES-128-CCM alone (kernel patch
+0082, module parameter `ccm_only`): a server chooses from the offer by its own
+preference, which is GCM, and the engine runs all of CCM while GCM leaves
+GHASH to the CPU. A server with CCM disabled takes none of the offered
+ciphers, and a share that requires encryption then refuses the mount with the
+status of a wrong password; the kernel records the refused offer in
+`ccm_refused`, and only then does the reader mount once more with the upstream
+offer (GCM first). A wrong password is not tried twice.
 
 Keep the ISO unchanged for the whole session. File size and modification time
 are checked before each uncached read with kernel caching disabled
@@ -212,6 +217,18 @@ relay and IPC, measured 7.97–8.03 MiB/s with CCM against 6.81–7.04 MiB/s wit
 CIFS and 8.65–8.72 MiB/s through the complete reader, versus about 5.8 MiB/s
 for software signing (about 50% faster). Full-image SHA-256 matched in every
 server-reader run.
+
+With a Samba server on the device itself (one core for client and server, so
+the rates are low; share with encryption required, 64 MiB image, hash matched
+in every run): the upstream offer negotiated AES-128-GCM and read 2.9 to
+3.0 MiB/s, the CCM offer negotiated AES-128-CCM and read 3.3 to 3.7 MiB/s; a
+server limited to AES-128-GCM refused the mount, set `ccm_refused`, and
+mounted with `ccm_only=n`. Through the reader process, with the payload read
+straight into the shared window instead of passing the socket pair: 3.6
+against 3.3 MiB/s. The background fetch of the next block, against a local
+HTTP server throttled to 10 MiB/s and a consumer taking 40 ms per MiB like the
+USB side: a sequential read 6.8 to 7.1 against 5.3 MiB/s, a stream with a seek
+every 5 MiB 6.1 against 7.3 s for 300 reads, random reads unchanged.
 These are source benchmarks, not USB-throughput
 guarantees; server latency, video load and access pattern affect actual speed.
 Unsigned mode was used only for comparison; this interface always requires

@@ -222,7 +222,34 @@ type smbMountOptions struct {
 	Address string
 }
 
+const (
+	cifsCCMOnly    = "/sys/module/cifs/parameters/ccm_only"
+	cifsCCMRefused = "/sys/module/cifs/parameters/ccm_refused"
+)
+
+// The kernel offers AES-128-CCM alone for SMB 3.1.1 encryption: the CryptoDMA
+// engine runs all of CCM, and a server picks GCM wherever it is offered. A
+// server with CCM disabled takes no cipher, so a share that requires
+// encryption refuses the mount; the kernel notes that in ccm_refused, and
+// only then is the mount tried once more with the upstream offer. A wrong
+// password is not such a case and is not tried twice.
 func mountSMBFile(o smbMountOptions) (*os.File, error) {
+	_ = os.WriteFile(cifsCCMRefused, []byte("N"), 0)
+	file, err := mountSMBOnce(o)
+	if err == nil {
+		return file, nil
+	}
+	if refused, _ := os.ReadFile(cifsCCMRefused); len(refused) == 0 || refused[0] != 'Y' {
+		return nil, err
+	}
+	if os.WriteFile(cifsCCMOnly, []byte("N"), 0) != nil {
+		return nil, err
+	}
+	defer os.WriteFile(cifsCCMOnly, []byte("Y"), 0)
+	return mountSMBOnce(o)
+}
+
+func mountSMBOnce(o smbMountOptions) (*os.File, error) {
 	_, share, name, err := parseSMBOptions(o.SMBOptions)
 	if err != nil {
 		return nil, smbStatusError(smbOpenFailed)

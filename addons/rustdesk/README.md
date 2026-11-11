@@ -20,7 +20,10 @@ the SoC. Maximum 1440x2560 portrait output uses H.265 and requires client suppor
 Files, clipboard, chat and ATX are not implemented. RustDesk 1.5
 sessions attempt encrypted direct TCP by ID using LAN address exchange and NAT
 punching, then fall back to encrypted relay. IPv6-only direct-by-ID currently
-uses relay. The explicit IP listener remains loopback by default.
+uses relay. The explicit IP listener remains loopback by default; "Connect by
+address" in the settings (`listen_address` 0.0.0.0) opens it on the device's
+addresses. A client that connects by address has no key of the device to
+check, so such a session is not encrypted; the password is still asked for.
 
 The ID server only passes on the relay and peer addresses a controller asks
 for, so the daemon checks them before it connects. A relay must be the

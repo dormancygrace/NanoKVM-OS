@@ -2203,6 +2203,8 @@
       "inputDefaults": "Turning remote access on switches USB to the RustDesk composition (keyboard, both mouse modes, virtual disk and, with sound, USB audio); turning it off restores the previous one, unless it was changed in the meantime.",
       "localPointer": "Client pointer",
       "localPointerHint": "The RustDesk client draws its own pointer over the picture, which moves at once; the computer's cursor follows it with the delay of the video. Off: only the computer's cursor is shown.",
+      "lanAccess": "Connect by address",
+      "lanAccessHint": "The RustDesk client can connect by the device's IP address, without an ID server. Connections by address are not encrypted: use it in a trusted network only. Off: by ID only.",
       "transmitAudio": "Transmit sound",
       "audioHint": "Enables USB audio automatically. Select NanoKVM as the sound output on the connected computer.",
       "audioMuted": "Sound transmission through RustDesk is disabled.",

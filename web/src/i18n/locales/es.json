@@ -2203,6 +2203,8 @@
       "inputDefaults": "Activar el acceso remoto cambia el USB a la composición de RustDesk (teclado, ambos modos de ratón, disco virtual y, con sonido, audio USB); desactivarlo restaura la anterior, salvo que se haya cambiado mientras tanto.",
       "localPointer": "Puntero del cliente",
       "localPointerHint": "El cliente RustDesk dibuja sobre la imagen su propio puntero, que se mueve al instante; el cursor del equipo lo sigue con el retraso del vídeo. Desactivado: solo se ve el cursor del equipo.",
+      "lanAccess": "Conexión por dirección",
+      "lanAccessHint": "El cliente RustDesk puede conectarse por la dirección IP del dispositivo, sin servidor de ID. Las conexiones por dirección no están cifradas: úselo solo en una red de confianza. Desactivado: solo por ID.",
       "transmitAudio": "Transmitir sonido",
       "audioHint": "Activa el audio USB automáticamente. Selecciona NanoKVM como salida de sonido en el equipo conectado.",
       "audioMuted": "La transmisión de sonido a través de RustDesk está desactivada.",

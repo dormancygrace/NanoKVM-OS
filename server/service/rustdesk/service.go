@@ -34,8 +34,11 @@ var ConfigDir = "/etc/nanokvm-rustdesk"
 var ConfigFile = ConfigDir + "/config.json"
 
 type Config struct {
-	AudioEnabled *bool  `json:"audio_enabled,omitempty"`
-	LocalPointer *bool  `json:"local_pointer,omitempty"`
+	AudioEnabled *bool `json:"audio_enabled,omitempty"`
+	LocalPointer *bool `json:"local_pointer,omitempty"`
+	// The address of the direct listener; the add-on listens on the loopback
+	// one without it.
+	Listen       string `json:"listen_address,omitempty"`
 	WebRTC       bool   `json:"webrtc_enabled,omitempty"`
 	Enabled      bool   `json:"service_enabled"`
 	Official     bool   `json:"use_official_id_server"`
@@ -602,6 +605,9 @@ func validateConfig(c *Config) error {
 	if c.MaxClients < 1 || c.MaxClients > 8 {
 		return errors.New("client limit must be between 1 and 8")
 	}
+	if c.Listen != "" && net.ParseIP(c.Listen) == nil {
+		return errors.New("listen address must be an IP address")
+	}
 	if c.PasswordMode != "temporary" && c.PasswordMode != "permanent" {
 		return errors.New("password mode must be temporary or permanent")
 	}
@@ -777,6 +783,9 @@ func (s *Service) configureLocked(candidate Config) error {
 	}
 	if candidate.LocalPointer == nil {
 		candidate.LocalPointer = current.LocalPointer
+	}
+	if candidate.Listen == "" {
+		candidate.Listen = current.Listen
 	}
 	if candidate.PasswordMode == "temporary" || candidate.Password == "" {
 		candidate.Password = current.Password

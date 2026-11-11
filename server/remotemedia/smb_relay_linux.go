@@ -10,17 +10,20 @@ import (
 // The relay owns the TCP connection, while CIFS still owns the SMB protocol and
 // crypto. Closing it breaks a kernel read/close immediately, including on server
 // process exit. TCP-to-TCP io.Copy uses Linux splice rather than payload buffers.
-// It accepts one kernel connection only; reconnecting requires a new ISO session.
+// It serves one kernel connection, and while the session is opening one more
+// after that: the mount tried again with the other cipher offer, which gets a
+// new connection to the server. Reconnecting later requires a new ISO session.
 type smbRelay struct {
 	listener net.Listener
-	upstream net.Conn
 	mu       sync.Mutex
+	upstream net.Conn
 	client   net.Conn
 	closed   bool
 }
 
-func newSMBRelay(ctx context.Context, address string) (*smbRelay, error) {
-	upstream, err := (&net.Dialer{}).DialContext(ctx, "tcp", address)
+// opening ends when the session is open or has failed.
+func newSMBRelay(opening context.Context, address string) (*smbRelay, error) {
+	upstream, err := (&net.Dialer{}).DialContext(opening, "tcp", address)
 	if err != nil {
 		return nil, err
 	}
@@ -30,24 +33,38 @@ func newSMBRelay(ctx context.Context, address string) (*smbRelay, error) {
 		return nil, err
 	}
 	r := &smbRelay{listener: listener, upstream: upstream}
+	context.AfterFunc(opening, func() { listener.Close() })
 	go func() {
-		client, err := listener.Accept()
-		listener.Close()
-		if err != nil {
-			r.Close()
-			return
-		}
-		r.mu.Lock()
-		if r.closed {
+		defer r.Close()
+		for second := false; ; second = true {
+			client, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			if second {
+				listener.Close()
+				if upstream, err = (&net.Dialer{}).DialContext(opening, "tcp", address); err != nil {
+					client.Close()
+					return
+				}
+			}
+			r.mu.Lock()
+			if r.closed {
+				r.mu.Unlock()
+				client.Close()
+				upstream.Close()
+				return
+			}
+			r.upstream, r.client = upstream, client
 			r.mu.Unlock()
+			go func() { _, _ = io.Copy(client, upstream); client.Close() }()
+			_, _ = io.Copy(upstream, client)
+			upstream.Close()
 			client.Close()
-			return
+			if second || opening.Err() != nil {
+				return
+			}
 		}
-		r.client = client
-		r.mu.Unlock()
-		go func() { _, _ = io.Copy(upstream, client); r.Close() }()
-		_, _ = io.Copy(client, upstream)
-		r.Close()
 	}()
 	return r, nil
 }

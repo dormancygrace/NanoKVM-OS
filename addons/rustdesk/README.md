@@ -54,8 +54,9 @@ unrelated functions are preserved.
 ## Package and settings
 
 nanokvm-rustdesk is an optional riscv64 package, absent from the base image list.
-It depends on bridge, WebRTC, audio, auto-codec and USB-defaults capability version
-1 supplied by the updated nanokvm-app, plus OpenRC. Upgrade the application before
+It depends on bridge capability version 2 (the control channel described under
+"Remote access USB defaults") and WebRTC, audio, auto-codec and USB-defaults
+capability version 1 supplied by the updated nanokvm-app, plus OpenRC. Upgrade the application before
 this package. Installation alone leaves it stopped. Upgrade restarts only a service
 that was running; removal stops it and removes its runlevel entry.
 
@@ -280,7 +281,7 @@ disables RustDesk sound and client permission while leaving shared USB audio
 available to other viewers. Enabling it prepares USB audio automatically. The
 source computer must select the NanoKVM speaker output. Keyboard/mouse errors
 disable that session's input without ending video/audio; reconnect after restoring
-USB input. Individual HID requests time out after three seconds.
+USB input. Individual HID frames time out after three seconds.
 
 When the USB profile exposes only the relative mouse, the application bridge
 converts Android absolute positions into screen pixel deltas, preserves small
@@ -291,14 +292,39 @@ not hold input indefinitely. Login announces the negotiated keyboard permission
 on every connection. The application waits up to two seconds for the first
 usable encoder frame without changing HDMI power intent.
 
-The HID HTTP client keeps its write half open until the server response. The
-Content-Length header delimits each report; sending an early EOF would cancel
-Go net/http request contexts and disable input while video continues.
+Input goes to the app bridge on control.sock, like the other three sockets
+reachable by root only (directory 0700, socket 0600, peer uid 0); the bridge
+asks for nothing more. Each RustDesk session keeps one connection, opened with
+its first frame: `OKHC`, version 1, three reserved bytes and the 16-byte
+session id. A frame is a count of 1 to 8 and that many 8-byte records, a kind
+and 7 payload bytes:
 
-HID preparation, heartbeat and close requests send no body: the Go bridge answers
-these routes immediately, so a separate unused JSON body write could race its
-connection close and disable input with `Broken pipe`. HTTP headers and any report
-body are sent together.
+| Kind | Payload |
+| --- | --- |
+| 1 keyboard | modifiers, six key usages |
+| 2 relative pointer | buttons, x, y, wheel (signed bytes, x and y within ±127) |
+| 3 absolute pointer | buttons, x and y (u16 little-endian, 0 to 32767), wheel |
+| 4 heartbeat | |
+| 5 close | |
+| 6 prepare USB | belongs to no session; alone in its frame |
+
+The bridge answers every frame with one status byte: 0 done, 1 another
+controller holds input (the session waits for it), 2 the session lost input,
+3 invalid record, 4 timed out, 5 the USB write or preparation failed. The
+records of a frame run in order within two seconds altogether and the first
+failure ends the frame. Only a report takes the input lease; the bridge keeps
+a session, with what it holds, until its close record or ten seconds without
+a frame, whether or not its connection is still open. The steps of one
+relative movement share a frame, written at once.
+
+A connection that fails is replaced within the same three seconds and the
+frame is sent once more; a frame that timed out or was refused is not
+repeated. Keyboard and absolute pointer reports carry the whole state, so a
+repeated one changes nothing, and a relative frame can at most move the
+pointer twice. The bridge closes connections only when the app stops, which
+also releases every held key and button. An app that is killed releases
+nothing, with or without this channel; the session's next keyboard or
+pointer report then sets the state right.
 
 ## Display association
 
@@ -323,8 +349,9 @@ that buffer in place. The existing tag-prefix wire format, KX directions and
 nonce counter rules are retained. Buffers above 1 MiB are released after the
 frame; the maximum wire frame is 8 MiB.
 
-A video frame is not copied on its way: the bridge reader allocates its buffer
-with room around the payload and reads into it without filling it first, the
+A video frame is not copied on its way: the bridge reader takes a buffer with
+room around the payload, that of an earlier frame unless it grew above 1 MiB,
+and reads into it without filling it first, the
 session writes the RustDesk message headers into that room, and the same
 buffer is encrypted and sent. A test compares the message with what prost
 encodes.

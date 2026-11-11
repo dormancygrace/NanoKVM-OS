@@ -219,8 +219,11 @@ the add-on starts to use something newer of the OS. A beta has the APK version
 `3.5.0_beta1`, below 3.5.0: a minimum of `3.5.0` excludes the betas of 3.5.0;
 name the first beta (`3.5.0_beta1`) when the add-on already works there, and
 the stable release satisfies it too. RustDesk states its needs
-as capabilities of `nanokvm` instead (`nanokvm-rustdesk-bridge=1`, ...), which
-3.4.0 already provides.
+as capabilities of `nanokvm` instead (`nanokvm-rustdesk-bridge=2`, ...). Each
+is the version of one contract between the add-on and the server (bridge 2:
+input over the binary control channel, not HTTP requests): increment it in
+both recipes together when the two sides stop understanding each other, so
+that apk installs the add-on only next to a server it can talk to.
 
 Devices find add-ons in the index, without a list of their own: an add-on is
 any `nanokvm-*` package of a NanoKVM repository (an `/etc/apk/repositories`

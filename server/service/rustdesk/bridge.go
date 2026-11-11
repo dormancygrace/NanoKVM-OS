@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,10 +17,8 @@ import (
 	"time"
 
 	"NanoKVM-Server/common"
-	"NanoKVM-Server/service/controlmode"
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/inputcontrol"
-	"NanoKVM-Server/service/picoclaw"
 	"NanoKVM-Server/service/stream"
 	"NanoKVM-Server/service/stream/audio"
 	"NanoKVM-Server/service/ws"
@@ -35,21 +32,22 @@ const Binary = "/usr/bin/nanokvm-rustdesk"
 // Bridge has no network listener. Socket mode and SO_PEERCRED restrict access
 // to the local root-owned add-on service.
 type Bridge struct {
-	mu               sync.Mutex
-	media            net.Listener
-	audio            net.Listener
-	control          *http.Server
-	rtc              *rtcBridge
-	sessions         map[string]*hidSession
-	videoConnections map[net.Conn]struct{}
-	audioConnections map[net.Conn]struct{}
-	audioEnabled     func() bool
-	audioSubscribe   func() (audioSource, error)
-	prepareUSB       func() error
+	mu                 sync.Mutex
+	media              net.Listener
+	audio              net.Listener
+	control            net.Listener
+	rtc                *rtcBridge
+	sessions           map[string]*hidSession
+	videoConnections   map[net.Conn]struct{}
+	audioConnections   map[net.Conn]struct{}
+	controlConnections map[net.Conn]struct{}
+	audioEnabled       func() bool
+	audioSubscribe     func() (audioSource, error)
+	prepareUSB         func() error
 }
 
 func NewBridge() *Bridge {
-	return &Bridge{sessions: make(map[string]*hidSession), videoConnections: make(map[net.Conn]struct{}), audioConnections: make(map[net.Conn]struct{}), audioEnabled: audio.Enabled, audioSubscribe: func() (audioSource, error) { return audio.Subscribe() }}
+	return &Bridge{sessions: make(map[string]*hidSession), videoConnections: make(map[net.Conn]struct{}), audioConnections: make(map[net.Conn]struct{}), controlConnections: make(map[net.Conn]struct{}), audioEnabled: audio.Enabled, audioSubscribe: func() (audioSource, error) { return audio.Subscribe() }}
 }
 
 func rootPeer(conn net.Conn) bool {
@@ -148,8 +146,8 @@ func (b *Bridge) Start() error {
 	b.audio = audioListener
 	go b.acceptAudio(audioListener)
 	b.media = media
-	b.control = &http.Server{Handler: http.HandlerFunc(b.serveHID), ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 3 * time.Second, WriteTimeout: 55 * time.Second, MaxHeaderBytes: 4096}
-	go b.control.Serve(control)
+	b.control = control
+	go b.acceptControl(control)
 	go func() {
 		for {
 			c, err := media.Accept()
@@ -186,6 +184,9 @@ func (b *Bridge) Stop() {
 		c.Close()
 	}
 	for c := range b.audioConnections {
+		c.Close()
+	}
+	for c := range b.controlConnections {
 		c.Close()
 	}
 	b.mu.Unlock()
@@ -460,15 +461,11 @@ func (s *hidSession) close() {
 	ws.GetManager().ReleaseExternalInput(s.id)
 }
 
+// A browser or another add-on session holds input. That may end soon, so the
+// add-on waits for the lease instead of giving input up.
+var errLeaseHeld = errors.New("another session holds input control")
+
 func (b *Bridge) session(id string, create bool) (*hidSession, error) {
-	if len(id) != 32 {
-		return nil, errors.New("invalid session")
-	}
-	for _, c := range id {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
-			return nil, errors.New("invalid session")
-		}
-	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if s := b.sessions[id]; s != nil {
@@ -482,9 +479,7 @@ func (b *Bridge) session(id string, create bool) (*hidSession, error) {
 	}
 	s := &hidSession{id: id, touched: time.Now(), writeHID: writeUSBReport, manual: inputcontrol.NewManualSession(nil, nil)}
 	if !ws.GetManager().AcquireExternalInput(id, s.close) {
-		// The RustDesk add-on matches this text (addons/rustdesk/src/nanokvm.rs)
-		// and waits for the lease after a quick reconnect.
-		return nil, errors.New("another session holds input control")
+		return nil, errLeaseHeld
 	}
 	device := hid.GetHid()
 	device.Open()
@@ -513,162 +508,6 @@ func (b *Bridge) expire() {
 	for _, s := range expired {
 		s.close()
 	}
-}
-
-func (b *Bridge) serveHID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "POST required", 405)
-		return
-	}
-	path := r.URL.Path
-	if path == "/api/hid/prepare" {
-		b.mu.Lock()
-		prepare := b.prepareUSB
-		b.mu.Unlock()
-		if prepare == nil {
-			http.Error(w, "USB preparation is unavailable", 503)
-			return
-		}
-		if err := prepare(); err != nil {
-			http.Error(w, err.Error(), 409)
-			return
-		}
-		w.WriteHeader(204)
-		return
-	}
-	heartbeat, closeSession := path == "/api/hid/heartbeat", path == "/api/hid/close"
-	if !heartbeat && !closeSession && path != "/api/hid/keyboard" && path != "/api/hid/mouse" && path != "/api/hid/mouse/absolute" {
-		http.NotFound(w, r)
-		return
-	}
-	id := r.Header.Get("X-NanoKVM-Session")
-	s, err := b.session(id, !heartbeat && !closeSession)
-	if err != nil {
-		http.Error(w, err.Error(), 409)
-		return
-	}
-	if closeSession {
-		if s != nil {
-			s.close()
-			b.mu.Lock()
-			delete(b.sessions, id)
-			b.mu.Unlock()
-		}
-		w.WriteHeader(204)
-		return
-	}
-	if s == nil {
-		w.WriteHeader(204)
-		return
-	}
-	s.mu.Lock()
-	if s.closed.Load() {
-		s.mu.Unlock()
-		http.Error(w, "session was preempted", 409)
-		return
-	}
-	s.touched = time.Now()
-	if heartbeat {
-		s.mu.Unlock()
-		w.WriteHeader(204)
-		return
-	}
-	defer s.mu.Unlock()
-	var body struct {
-		Modifiers uint8
-		Keys      []uint8
-		Buttons   uint8
-		X         int32
-		Y         int32
-		Wheel     int8
-	}
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&body); err != nil {
-		http.Error(w, "invalid report", 400)
-		return
-	}
-	var report []byte
-	var extraReports [][]byte
-	kind := inputcontrol.ManualRelativeMouse
-	if path == "/api/hid/keyboard" {
-		if len(body.Keys) > 6 {
-			http.Error(w, "keyboard rollover", 400)
-			return
-		}
-		report = make([]byte, 8)
-		report[0] = body.Modifiers
-		copy(report[2:], body.Keys)
-		kind = inputcontrol.ManualKeyboard
-	} else if path == "/api/hid/mouse/absolute" {
-		if body.X < 0 || body.X > 32767 || body.Y < 0 || body.Y > 32767 {
-			http.Error(w, "invalid coordinates", 400)
-			return
-		}
-		report = make([]byte, 7)
-		report[0] = body.Buttons
-		binary.LittleEndian.PutUint16(report[1:3], uint16(body.X))
-		binary.LittleEndian.PutUint16(report[3:5], uint16(body.Y))
-		report[5] = byte(body.Wheel)
-		kind = inputcontrol.ManualAbsoluteMouse
-		if s.relativeOnly {
-			reports := s.relativePointer.reports(body.Buttons, body.X, body.Y, body.Wheel)
-			report, extraReports = reports[0], reports[1:]
-			kind = inputcontrol.ManualRelativeMouse
-		}
-	} else {
-		if body.X < -127 || body.X > 127 || body.Y < -127 || body.Y > 127 {
-			http.Error(w, "invalid movement", 400)
-			return
-		}
-		report = []byte{body.Buttons, byte(int8(body.X)), byte(int8(body.Y)), byte(body.Wheel), 0}
-	}
-	held := reportHeld(kind, report)
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-	allow := func(mode controlmode.Mode) bool {
-		return ws.GetManager().AllowsInputLease(id) && (mode != controlmode.ModePicoclaw || !picoclaw.GetSessionLock().BlocksManualInput())
-	}
-	reservation, err := s.manual.Reserve(ctx, kind, held, allow)
-	if err != nil {
-		http.Error(w, err.Error(), 409)
-		return
-	}
-	// The RustDesk input task already serializes events. Execute USB writes in
-	// this request instead of adding another scheduling hop through HID workers.
-	started := false
-	err = reservation.Execute(func() error {
-		for _, next := range append([][]byte{report}, extraReports...) {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			if s.closed.Load() || !ws.GetManager().AllowsInputLease(id) {
-				return inputcontrol.ErrManualInputBlocked
-			}
-			started = true
-			if err := s.writeReport(kind, next); err != nil {
-				if cleanupErr := s.releaseHeld(); cleanupErr != nil {
-					log.Errorf("RustDesk HID write cleanup failed: %s", cleanupErr)
-				}
-				return err
-			}
-		}
-		return nil
-	})
-	reservation.Complete(err == nil)
-	if err != nil {
-		log.Errorf("RustDesk HID request failed: path=%s started=%t error=%s", path, started, err)
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			http.Error(w, "HID request timed out", 504)
-		} else if errors.Is(err, inputcontrol.ErrManualInputBlocked) {
-			http.Error(w, "input control was revoked", 409)
-		} else {
-			http.Error(w, "USB HID write failed", 503)
-		}
-		return
-	}
-
-	w.WriteHeader(204)
 }
 
 // Runtime dimensions must fit the RustDesk frame header without wrapping.

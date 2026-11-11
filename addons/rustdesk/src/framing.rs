@@ -11,7 +11,7 @@ pub(crate) const MAX_PACKET_LENGTH: usize = 8 << 20;
 // hundred bytes each. The limit keeps unauthenticated peers from making the
 // server allocate full-size packets.
 pub(crate) const MAX_LOGIN_PACKET_LENGTH: usize = 64 << 10;
-const MAX_RETAINED_BUFFER: usize = 1 << 20;
+pub(crate) const MAX_RETAINED_BUFFER: usize = 1 << 20;
 // Room for the longest length prefix in front of a frame, so the prefix and
 // the payload go out in one write.
 const HEADER_ROOM: usize = 4;

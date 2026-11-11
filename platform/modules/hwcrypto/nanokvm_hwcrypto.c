@@ -33,15 +33,17 @@
  * bytes per second and 1920x1080@100. Bursts of 4 ran without a hang there
  * (15 min) and with 3840x2160 H.265 over WebRTC with hardware SRTP (13 min),
  * for 2.6 % fewer 1216-byte requests per second. Reads (hashes) never hung.
+ *
+ * Bursts of 4 hung too once the load grew: 2560x1440@60 H.265 over WebRTC
+ * with every packet on the engine (2100 a second) beside an MJPEG viewer
+ * (scaler and JPEG encoder working as well) stopped the SoC twice in about
+ * 2.5 hours, without a word in the log, until the watchdog. Bursts of 2 ran
+ * that load plus 2800 4 KiB AES requests a second for 2 h 56 min, and those
+ * requests alone at 26800 a second (110 MB/s) for 2.5 hours more. The stream
+ * rates and the busy share did not change against bursts of 4.
  */
-#define DMA_CTRL_VALUE ((4 << 24) | (16 << 16) | 3)
+#define DMA_CTRL_VALUE ((2 << 24) | (16 << 16) | 3)
 #define DESC_BYTES 128
-/* Runtime capability for app-only upgrades: old modules have no marker.
- * Read-only after load; this identifies the out-of-place/write-burst-4 path.
- */
-static bool out_of_place_burst4 = true;
-module_param(out_of_place_burst4, bool, 0444);
-MODULE_PARM_DESC(out_of_place_burst4, "Out-of-place CryptoDMA with four-beat write bursts");
 
 static struct platform_device *pdev;
 static void __iomem *regs;

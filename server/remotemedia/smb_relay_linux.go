@@ -57,7 +57,10 @@ func newSMBRelay(opening context.Context, address string) (*smbRelay, error) {
 			}
 			r.upstream, r.client = upstream, client
 			r.mu.Unlock()
-			go func() { _, _ = io.Copy(client, upstream); client.Close() }()
+			go func(upstream net.Conn) {
+				_, _ = io.Copy(client, upstream)
+				client.Close()
+			}(upstream)
 			_, _ = io.Copy(upstream, client)
 			upstream.Close()
 			client.Close()

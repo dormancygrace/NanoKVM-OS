@@ -1228,8 +1228,11 @@ impl KeyframeRequests {
 }
 
 // The client's refresh, at most this often: the encoder is shared, and a
-// client whose queue is full asks with every frame it receives.
+// client whose queue is full asks with every frame it receives. One that
+// keeps asking is on a link that cannot take the keyframes, each as much as
+// a second of video there, so the wait doubles up to the longer one.
 const CLIENT_REFRESH_INTERVAL: Duration = Duration::from_secs(1);
+const CLIENT_REFRESH_MAX_INTERVAL: Duration = Duration::from_secs(8);
 
 async fn forward_media(
     mut media: MediaSubscriber,
@@ -1239,6 +1242,7 @@ async fn forward_media(
     let mut dropping = false;
     let mut requests = KeyframeRequests::default();
     let mut refreshed: Option<time::Instant> = None;
+    let mut refresh_wait = CLIENT_REFRESH_INTERVAL;
     loop {
         let frame = match media.read_frame().await {
             Ok(frame) => frame,
@@ -1251,10 +1255,19 @@ async fn forward_media(
         // The request is seen with the next frame, 17 ms later at most while
         // the encoder runs.
         let now = time::Instant::now();
-        if refresh_wanted.load(Ordering::Relaxed)
-            && refreshed.is_none_or(|at| now - at >= CLIENT_REFRESH_INTERVAL)
+        if dropping {
+            // The session asks for its own keyframes already.
+            refresh_wanted.store(false, Ordering::Relaxed);
+        } else if refresh_wanted.load(Ordering::Relaxed)
+            && refreshed.is_none_or(|at| now - at >= refresh_wait)
         {
             refresh_wanted.store(false, Ordering::Relaxed);
+            refresh_wait = match refreshed {
+                Some(at) if now - at < refresh_wait * 2 => {
+                    (refresh_wait * 2).min(CLIENT_REFRESH_MAX_INTERVAL)
+                }
+                _ => CLIENT_REFRESH_INTERVAL,
+            };
             refreshed = Some(now);
             if let Err(error) = media.request_key_frame().await {
                 let _ = sender.send(Err(error)).await;

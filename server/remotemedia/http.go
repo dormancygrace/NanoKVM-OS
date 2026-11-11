@@ -52,10 +52,13 @@ type HTTPSource struct {
 	window                     *window
 }
 
-// Software AES-GCM is several times slower on the C906 than ChaCha20-Poly1305.
-// TLS 1.3 already lists ChaCha20 first without AES hardware and its suites
-// cannot be configured; a TLS 1.2 server chooses from the suites offered here.
-// A server without ChaCha20 gets Go's default suites instead.
+// AES-GCM in software takes four times the CPU of ChaCha20-Poly1305 on the
+// C906 (a megabyte of an Ubuntu ISO: 490 ms against 110 ms). The suites of
+// TLS 1.3 cannot be configured, and its servers choose by their own order:
+// with ChaCha20 listed first, releases.ubuntu.com, cdimage.debian.org and
+// others still take AES-GCM. A TLS 1.2 server has to choose from the suites
+// offered, so the first transport offers ChaCha20 alone and no TLS 1.3. A
+// server that cannot do that gets Go's defaults, TLS 1.3 included.
 func (s *HTTPSource) setTransport(chacha bool) {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.Proxy = nil // A device-side mount uses the explicitly selected server.
@@ -69,6 +72,7 @@ func (s *HTTPSource) setTransport(chacha bool) {
 			t.TLSClientConfig = &tls.Config{}
 		}
 		t.TLSClientConfig.CipherSuites = []uint16{tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256}
+		t.TLSClientConfig.MaxVersion = tls.VersionTLS12
 	}
 	if s.transport != nil {
 		s.transport.CloseIdleConnections()

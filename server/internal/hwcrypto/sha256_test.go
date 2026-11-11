@@ -19,12 +19,12 @@ type fakeEngine struct {
 }
 
 func (f *fakeEngine) engine() *shaEngine {
-	return &shaEngine{run: func(state *[32]byte, blocks []byte) error {
+	return &shaEngine{max: shaRequest, run: func(state *[32]byte, blocks []byte) error {
 		f.calls++
 		if f.calls == f.failAt {
 			return f.err
 		}
-		if len(blocks) == 0 || len(blocks)%64 != 0 || len(blocks) > shaChunk {
+		if len(blocks) == 0 || len(blocks)%64 != 0 || len(blocks) > shaRequest {
 			return errors.New("bad request length")
 		}
 		var h [8]uint32

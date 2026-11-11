@@ -50,11 +50,11 @@ func openSHAEngine() *shaEngine {
 		return nil
 	}
 	run := ioc(3, unsafe.Sizeof(cryptoRequest{}), 0xc2)
-	return &shaEngine{run: func(state *[32]byte, blocks []byte) error {
+	return &shaEngine{max: min(shaRequest, int(info.MaxInput)) &^ (shaChunk - 1), run: func(state *[32]byte, blocks []byte) error {
 		r := cryptoRequest{Version: cryptoABI, Algorithm: cryptoAlgSHA256, State: *state,
 			Length: uint32(len(blocks)), Input: uint64(uintptr(unsafe.Pointer(&blocks[0])))}
-		// Unlike SRTP packets, bulk hashing uses Syscall: a 4 KiB request
-		// keeps the engine busy for about 30 us, and the only P should go to
+		// Unlike SRTP packets, bulk hashing uses Syscall: a request keeps the
+		// engine busy for 30 us (4 KiB) to 0.2 ms (64 KiB), and the only P should go to
 		// the video sender meanwhile rather than wait for the loop to end.
 		_, _, errno := syscall.Syscall(syscall.SYS_IOCTL, fd, run, uintptr(unsafe.Pointer(&r)))
 		runtime.KeepAlive(blocks)

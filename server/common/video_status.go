@@ -142,7 +142,8 @@ var viewerRate struct {
 }
 
 // ViewerRateLimit is the frame rate one viewer asked for. Close ends it.
-type ViewerRateLimit struct{}
+// closed also gives each live limit a distinct allocation for the map key.
+type ViewerRateLimit struct{ closed bool }
 
 func NewViewerRateLimit() *ViewerRateLimit { return &ViewerRateLimit{} }
 
@@ -150,6 +151,9 @@ func NewViewerRateLimit() *ViewerRateLimit { return &ViewerRateLimit{} }
 func (l *ViewerRateLimit) Set(fps int) {
 	viewerRate.Lock()
 	defer viewerRate.Unlock()
+	if l.closed {
+		return
+	}
 	if viewerRate.limits == nil {
 		viewerRate.limits = map[*ViewerRateLimit]int{}
 	}
@@ -160,6 +164,7 @@ func (l *ViewerRateLimit) Set(fps int) {
 func (l *ViewerRateLimit) Close() {
 	viewerRate.Lock()
 	defer viewerRate.Unlock()
+	l.closed = true
 	delete(viewerRate.limits, l)
 	storeLowestViewerRate()
 }

@@ -1090,7 +1090,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             }
                         } else {
                             // Our probe, back from the client.
-                            last_delay = (unix_millis() - delay.time).clamp(0, 60_000) as u32;
+                            last_delay = unix_millis().saturating_sub(delay.time).clamp(0, 60_000) as u32;
                         }
                     }
                     Some(Ok(_)) => {}

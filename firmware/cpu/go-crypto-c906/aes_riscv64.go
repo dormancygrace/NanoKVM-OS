@@ -92,6 +92,17 @@ func checkGenericIsExpected() {}
 // counter are a big-endian 32-bit counter that wraps and is advanced. dst
 // and src have the same length, a positive multiple of the block size, and
 // overlap entirely or not at all.
+// KeyC906 writes the key of c to key and returns its length: the crypto
+// engine takes the key itself (crypto/internal/fips140/aes/gcm).
+func KeyC906(c *Block, key *[32]byte) int {
+	n := c.rounds*4 - 24
+	for i := 0; i < n/4; i++ {
+		w := c.enc[i]
+		key[4*i], key[4*i+1], key[4*i+2], key[4*i+3] = byte(w>>24), byte(w>>16), byte(w>>8), byte(w)
+	}
+	return n
+}
+
 func CTR32BlocksC906(c *Block, dst, src []byte, counter *[BlockSize]byte) {
 	ctr32BlocksC906(&c.encLE[0], c.rounds, &dst[0], &src[0], len(src)/BlockSize, counter, &c906Enc[0])
 }

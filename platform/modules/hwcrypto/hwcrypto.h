@@ -41,6 +41,13 @@ struct hwcrypto_info {
  * come back advanced over the returned length. If a chunk after the first
  * fails, the call succeeds with the completed prefix in length. Associated
  * data, partial blocks, lengths and the tag stay with the caller.
+ *
+ * A failed call leaves the output as it was, with one exception, here and in
+ * HWCRYPTO_RUN: when input and output are the same buffer and the driver has
+ * the engine work on its pages (16-byte alignment; 8 KiB and more here,
+ * 16 KiB and more for HWCRYPTO_RUN with AES), EIO or ETIMEDOUT means the
+ * engine was lost in the request and the buffer is partly written. The
+ * caller must fail its operation then.
  */
 struct hwcrypto_gcm_request {
  __u32 version, encrypt, key_length, length;

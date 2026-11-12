@@ -1,5 +1,9 @@
 // NanoKVM OS adaptation, 2026-10-03. SPDX-License-Identifier: AGPL-3.0-only
 use std::io;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
 
 use crate::frame_crypto::FrameCipher;
 use crypto_secretbox::{Key, Nonce, Tag, XSalsa20Poly1305};
@@ -101,6 +105,8 @@ pub struct FrameWriter<W> {
     cipher: Option<FrameCipher>,
     sequence: u64,
     buffer: Vec<u8>,
+    // Every byte written to the stream so far, length prefixes and tags included.
+    written: Arc<AtomicU64>,
 }
 
 impl<R> FrameReader<R>
@@ -222,7 +228,13 @@ where
             cipher: key.map(|key| FrameCipher::new(Key::from_slice(&key.send))),
             sequence: 0,
             buffer: Vec::new(),
+            written: Arc::default(),
         }
+    }
+
+    /// The count of bytes written to the stream, which the writer keeps up to date.
+    pub fn written(&self) -> Arc<AtomicU64> {
+        Arc::clone(&self.written)
     }
 
     pub async fn write<M>(&mut self, message: &M) -> io::Result<()>
@@ -286,7 +298,9 @@ where
                 })?;
             frame[start - tag.len()..start].copy_from_slice(&tag);
         }
-        write_frame(&mut self.inner, &mut frame[start - room..]).await
+        let bytes = write_frame(&mut self.inner, &mut frame[start - room..]).await?;
+        self.written.fetch_add(bytes as u64, Ordering::Relaxed);
+        Ok(())
     }
 }
 
@@ -325,7 +339,7 @@ where
     message
         .encode(&mut frame)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    write_frame(writer, &mut frame).await
+    write_frame(writer, &mut frame).await.map(|_| ())
 }
 
 async fn read_payload<R: AsyncRead + Unpin>(
@@ -359,20 +373,21 @@ fn release_oversized_buffer(buffer: &mut Vec<u8>) {
 
 // Writes a frame whose payload starts after HEADER_ROOM unused bytes: the
 // length prefix goes into the end of that room, and the prefix and the
-// payload leave in one write.
-async fn write_frame<W: AsyncWrite + Unpin>(writer: &mut W, frame: &mut [u8]) -> io::Result<()> {
+// payload leave in one write. Returns how many bytes went to the stream.
+async fn write_frame<W: AsyncWrite + Unpin>(writer: &mut W, frame: &mut [u8]) -> io::Result<usize> {
     let (encoded, bytes) = encoded_length(frame.len() - HEADER_ROOM)?;
     let start = HEADER_ROOM - bytes;
     frame[start..HEADER_ROOM].copy_from_slice(&encoded.to_le_bytes()[..bytes]);
     writer.write_all(&frame[start..]).await?;
-    writer.flush().await
+    writer.flush().await?;
+    Ok(frame.len() - start)
 }
 
 #[cfg(test)]
 async fn write_payload<W: AsyncWrite + Unpin>(writer: &mut W, payload: &[u8]) -> io::Result<()> {
     let mut frame = vec![0; HEADER_ROOM];
     frame.extend_from_slice(payload);
-    write_frame(writer, &mut frame).await
+    write_frame(writer, &mut frame).await.map(|_| ())
 }
 
 async fn read_length<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<usize> {

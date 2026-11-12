@@ -82,14 +82,14 @@ void ossl_hwcrypto_end(int fd) { REQUIRE(fd==37);closes++; }
 int ossl_hwcrypto_run(int fd, struct hwcrypto_request *r) {
     uint32_t h[8];
     REQUIRE(fd==37 && r->algorithm==HWCRYPTO_ALG_SHA256);
-    REQUIRE(r->length>=512 && r->length<=4096 && r->length%64==0);
+    REQUIRE(r->length>=512 && r->length<=65536 && r->length%64==0);
     if (calls++==fail_after) return 0;
     for(int i=0;i<8;i++)h[i]=be32(r->state+4*i);
     reference(h,(const unsigned char *)(uintptr_t)r->input,r->length/64);
     for(int i=0;i<8;i++)for(int j=0;j<4;j++)r->state[4*i+j]=h[i]>>(24-8*j);
     return 1;
 }
-static unsigned char data[200*64+16], saved[sizeof data];
+static unsigned char data[2056*64+16], saved[sizeof data];
 static void one_case(size_t blocks, unsigned offset, int wrapper) {
     struct { uint64_t before[2]; SHA256_CTX ctx; uint64_t after[2]; } got,want;
     unsigned char *bytes=(unsigned char *)&got;
@@ -113,7 +113,8 @@ int main(void) {
     for(size_t i=0;i<sizeof data;i++)data[i]=(unsigned char)random_word();
     memcpy(saved,data,sizeof data);
     for(size_t blocks=0;blocks<=130;blocks++)for(unsigned off=0;off<16;off++)one_case(blocks,off,0);
-    const size_t lengths[]={0,1,63,64,65,71,72,73,127,128,129,135,136,200};
+    const size_t lengths[]={0,1,63,64,65,71,72,73,127,128,129,135,136,200,
+        1023,1024,1025,1031,1032,1033,2047,2048,2049,2055,2056};
     for(size_t i=0;i<sizeof lengths/sizeof *lengths;i++)for(unsigned off=0;off<16;off++)
         for(fail_after=-2;fail_after<=3;fail_after++)one_case(lengths[i],off,1);
     return 0;

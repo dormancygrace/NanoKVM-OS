@@ -186,7 +186,7 @@ jobs:
           python3 ../sysmon-runtime/gen_memmove_c906.py --binutils riscv64-linux-gnu- --check ../sysmon-runtime/nanokvm_memmove_riscv64.s
           python3 ../sysmon-runtime/gen_memclr_c906.py --binutils riscv64-linux-gnu- --check ../sysmon-runtime/nanokvm_memclr_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
-          python3 gen_ghash_table.py --selftest 50 --flavor linux --tables 2 --name ghash_blocks_c906 --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+          python3 gen_ghash_table.py --selftest 50 --flavor linux --tables 4 --name ghash_blocks_c906 --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
           python3 gen_ghash_table.py --flavor openssl --tables 2 --name ossl_ghash_blocks_c906 --check ../../crypto/openssl-c906/0010-ghash-c906.patch
           python3 ../../../server/logs/check-encodings.py --prefix riscv64-linux-gnu-
           python3 ../../crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check

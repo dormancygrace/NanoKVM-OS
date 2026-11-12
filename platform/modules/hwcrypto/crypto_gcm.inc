@@ -253,7 +253,7 @@ static struct aead_alg sg2_gcm_alg = {
  * Each chunk of up to HWCRYPTO_MAX bytes is started on the engine, and while
  * it runs the CPU hashes ciphertext from a kernel copy: this chunk's input
  * when decrypting, the previous chunk's output when encrypting. One caller at
- * a time: the prepared hash key (two tables of 4 KiB) and the copy are
+ * a time: the prepared hash key (four tables of 4 KiB) and the copy are
  * shared, and the engine serializes callers anyway.
  */
 static DEFINE_MUTEX(gcm_user_lock);

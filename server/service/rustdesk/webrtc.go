@@ -32,6 +32,24 @@ const rtcMaxFragment = 60000
 const rtcMaxSignal = 64 << 10
 const rtcMaxInbound = 256 << 10
 
+// What may wait in the data channel beyond what SCTP has in flight (its
+// congestion window): one fragment. The channel counts a byte as buffered
+// until the peer has acknowledged it, so a fixed limit is either seconds of
+// video on a slow path (the 2 MiB this replaces: 1.5 s at 12 Mbit/s) or less
+// than the window of a fast one, which then goes unused. What is in flight is
+// in the network already; only what waits behind it is delay the sender adds,
+// and the add-on drops late video and keeps sound flowing only when it sees
+// the channel full.
+const rtcMaxQueue = 64 << 10
+
+// How much the congestion window grows in a round trip without loss: eight
+// packets. SCTP's rule is one (RFC 9260 7.2.2), with half the window gone at
+// every loss: on a path that loses a packet now and then the window stays far
+// below what the path carries. Measured with packets dropped at random on the
+// stand's Wi-Fi, received Mbit/s, one -> eight: 12.3 -> 17.0 at 1 %,
+// 16.0 -> 22.6 at 0.3 %, 28 both ways without loss; sixteen adds nothing at 1 %.
+const rtcCwndStep = 8 * 1200
+
 type rtcCommand struct {
 	Op        string `json:"op"`
 	Offer     string `json:"offer,omitempty"`
@@ -244,6 +262,7 @@ func (b *rtcBridge) answer(endpoint string) (*rtcSession, string, string, string
 	setting := webrtc.SettingEngine{}
 	setting.SetSCTPMaxMessageSize(65536)
 	setting.SetSCTPMaxReceiveBufferSize(256 << 10)
+	setting.SetSCTPCwndCAStep(rtcCwndStep)
 	// The DTLS policy of every NanoKVM peer. The bridge carries data
 	// channels only, so the SRTP and RTP path settings do not apply.
 	// The SCTP sender writes every packet of a message with its own system
@@ -394,7 +413,7 @@ func (b *rtcBridge) attach(c net.Conn, token string) {
 				fragment[0] = flag
 				copy(fragment[1:], payload[offset:end])
 				deadline := time.Now().Add(3 * time.Second)
-				for s.channel.BufferedAmount() > 2<<20 {
+				for s.channel.BufferedAmount() > uint64(s.pc.SCTP().Stats().CongestionWindow)+rtcMaxQueue {
 					select {
 					case <-s.ctx.Done():
 						return

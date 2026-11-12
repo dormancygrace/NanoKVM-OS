@@ -1,20 +1,18 @@
 {
   "component": "Node (selected LTS)",
-  "current": "24.22.2",
-  "candidate": "26.13.0",
-  "candidate_key": "26.13.0",
-  "status": "pending-review",
+  "current": "26.13.0",
+  "candidate": "26.13.1",
+  "candidate_key": "26.13.1",
+  "status": "qualified",
   "upstream": "https://nodejs.org/dist/index.json",
   "source_path": "platform/sources.lock",
   "strategy": "archive-pin",
   "evidence": {
-    "archive": "https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.xz",
-    "sha256": "d28a96af6c38596f6d9d97c0ee531c13d238d757742387d1928de822d959e997"
+    "archive": "https://nodejs.org/dist/v26.13.1/node-v26.13.1-linux-x64.tar.xz",
+    "sha256": "5c063e46bab0fbc1c17cc445d7ff129cbdcd0471be6ed83b6ab864f8143bc864",
+    "review": "Node 26.13.1 security release reviewed; archive SHA256 matches the official SHASUMS256. Production platform/build.sh web step passed using the pinned Node 26.13.1 and pnpm 12.8.1, with type-checking, formatting, lint and 32 Node tests passing. All 95 Brotli and 95 gzip assets decoded to their originals using independent host decoders."
   },
   "pin_files_updated": [
-    "platform/sources.lock",
-    ".nvmrc",
-    "web/package.json",
-    "web/pnpm-lock.yaml"
+    "platform/sources.lock"
   ]
 }

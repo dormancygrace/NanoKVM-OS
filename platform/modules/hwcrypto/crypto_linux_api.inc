@@ -95,6 +95,7 @@ static void sg2_inc_counter(u8 *v, unsigned int bytes, unsigned int blocks)
 {
  while (blocks--) { unsigned int i = bytes; while (i && !++v[--i]); }
 }
+#include "crypto_direct.inc"
 static int sg2_cipher_process(struct skcipher_request *req, bool encrypt)
 {
  struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
@@ -103,6 +104,7 @@ static int sg2_cipher_process(struct skcipher_request *req, bool encrypt)
   .mode = a->mode, .encrypt = encrypt, .key_length = ctx->keylen };
  u8 next_iv[16]; unsigned int pos = 0; int err = 0, in_nents, out_nents;
  if (!req->cryptlen) return 0;
+ if (sg2_direct_ok(req, a, encrypt)) return sg2_cipher_direct(req, encrypt);
  in_nents = sg_nents_for_len(req->src, req->cryptlen);
  out_nents = sg_nents_for_len(req->dst, req->cryptlen);
  if (in_nents < 0 || out_nents < 0) return -EINVAL;

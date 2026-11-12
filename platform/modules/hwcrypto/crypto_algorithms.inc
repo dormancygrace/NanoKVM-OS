@@ -214,6 +214,7 @@ static void crypto_clean_locked(const struct hwcrypto_request *r)
   memzero_explicit(cur->out, n);
  memzero_explicit(cur->d, DESC_BYTES);
 }
+static int sg2_run_direct(struct hwcrypto_request *r);	/* crypto_direct.inc */
 static long crypto_ioctl(unsigned int cmd, unsigned long arg)
 {
  struct hwcrypto_request r = {};
@@ -232,6 +233,12 @@ static long crypto_ioctl(unsigned int cmd, unsigned long arg)
  if (cmd != HWCRYPTO_RUN) return -ENOTTY;
  if (copy_from_user(&r, (void __user *)arg, sizeof(r))) { err = -EFAULT; goto clear; }
  err = crypto_validate(&r); if (err) goto clear;
+ /* On the pages of the user's buffers when the request qualifies. */
+ err = sg2_run_direct(&r);
+ if (err != -EAGAIN) {
+  if (!err && copy_to_user((void __user *)arg, &r, sizeof(r))) err = -EFAULT;
+  goto clear;
+ }
  err = mutex_lock_interruptible(&lock); if (err) goto clear;
  if (poisoned) { err = -EIO; goto unlock; }
  if (copy_from_user(cur->in, u64_to_user_ptr(r.input), r.length)) { err = -EFAULT; goto clean; }

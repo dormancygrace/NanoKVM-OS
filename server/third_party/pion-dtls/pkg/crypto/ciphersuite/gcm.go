@@ -57,6 +57,12 @@ func (g *GCM) Encrypt(pkt *recordlayer.RecordLayer, raw []byte) ([]byte, error) 
 	return g.aead.encrypt(pkt, raw)
 }
 
+// SealApplicationData appends to dst the encrypted record of one application-data payload (DTLS 1.2, no
+// connection ID): the bytes Encrypt returns for the marshaled record. dst must not overlap payload.
+func (g *GCM) SealApplicationData(dst []byte, epoch uint16, sequenceNumber uint64, payload []byte) []byte {
+	return g.aead.sealApplicationData(dst, epoch, sequenceNumber, payload)
+}
+
 // Decrypt decrypts a DTLS RecordLayer message.
 func (g *GCM) Decrypt(header recordlayer.Header, in []byte) ([]byte, error) {
 	return g.aead.decrypt(header, in)

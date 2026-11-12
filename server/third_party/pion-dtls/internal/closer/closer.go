@@ -39,6 +39,11 @@ func (c *Closer) Done() <-chan struct{} {
 	return c.ctx.Done()
 }
 
+// Context returns the context that Close cancels.
+func (c *Closer) Context() context.Context {
+	return c.ctx
+}
+
 // Err returns an error of the context.
 func (c *Closer) Err() error {
 	return c.ctx.Err()

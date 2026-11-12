@@ -172,26 +172,43 @@ func (p *packet) unmarshal(doChecksum bool, raw []byte) error { //nolint:cyclop
 }
 
 func (p *packet) marshal(doChecksum bool) ([]byte, error) {
-	raw := make([]byte, packetHeaderSize)
+	return p.marshalInto(nil, doChecksum)
+}
+
+// marshalInto is marshal that writes into the memory of buf when the packet
+// fits there (buf's content is not kept) and writes DATA chunks straight into
+// the packet, where marshal copies each of them three times.
+func (p *packet) marshalInto(buf []byte, doChecksum bool) ([]byte, error) {
+	if buf == nil {
+		size := packetHeaderSize
+		for _, c := range p.chunks {
+			if data, ok := c.(*chunkPayloadData); ok {
+				size += data.chunkSizeInPacket()
+			}
+		}
+		buf = make([]byte, 0, size)
+	}
 
 	// Populate static headers
 	// 8-12 is Checksum which will be populated when packet is complete
+	raw := append(buf[:0], make([]byte, packetHeaderSize)...)
 	binary.BigEndian.PutUint16(raw[0:], p.sourcePort)
 	binary.BigEndian.PutUint16(raw[2:], p.destinationPort)
 	binary.BigEndian.PutUint32(raw[4:], p.verificationTag)
 
 	// Populate chunks
 	for _, c := range p.chunks {
-		chunkRaw, err := c.marshal()
-		if err != nil {
-			return nil, err
+		if data, ok := c.(*chunkPayloadData); ok {
+			raw = data.appendTo(raw)
+		} else {
+			chunkRaw, err := c.marshal()
+			if err != nil {
+				return nil, err
+			}
+			raw = append(raw, chunkRaw...)
 		}
-		raw = append(raw, chunkRaw...) //nolint:makezero // todo:fix
 
-		paddingNeeded := getPadding(len(raw))
-		if paddingNeeded != 0 {
-			raw = append(raw, make([]byte, paddingNeeded)...) //nolint:makezero // todo:fix
-		}
+		raw = append(raw, fourZeroes[:getPadding(len(raw))]...)
 	}
 
 	if doChecksum {

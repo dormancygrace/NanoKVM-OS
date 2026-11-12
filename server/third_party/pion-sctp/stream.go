@@ -401,18 +401,28 @@ func (s *Stream) packetize(raw []byte, ppi PayloadProtocolIdentifier) ([]*chunkP
 		}
 	}
 
-	var chunks []*chunkPayloadData
+	// Copy the userdata since we'll have to store it until acked
+	// and the caller may re-use the buffer in the mean time.
+	// One copy and one array of chunks for the message, not one of each for
+	// every fragment: they stay until the message's last fragment is acked.
+	stored := make([]byte, len(raw))
+	copy(stored, raw)
+	fragments := 0
+	if maxPayloadSize != 0 {
+		fragments = int((remaining + maxPayloadSize - 1) / maxPayloadSize)
+	}
+	slab := make([]chunkPayloadData, fragments)
+	chunks := make([]*chunkPayloadData, 0, fragments)
+
 	var head *chunkPayloadData
 	fsn := uint32(0)
 	for remaining != 0 {
 		fragmentSize := min32(maxPayloadSize, remaining)
 
-		// Copy the userdata since we'll have to store it until acked
-		// and the caller may re-use the buffer in the mean time
-		userData := make([]byte, fragmentSize)
-		copy(userData, raw[offset:offset+fragmentSize])
+		userData := stored[offset : offset+fragmentSize : offset+fragmentSize]
 
-		chunk := &chunkPayloadData{
+		chunk := &slab[len(chunks)]
+		*chunk = chunkPayloadData{
 			associationGeneration:  s.associationGeneration,
 			stream:                 s,
 			streamIdentifier:       s.streamIdentifier,
@@ -453,7 +463,9 @@ func (s *Stream) packetize(raw []byte, ppi PayloadProtocolIdentifier) ([]*chunkP
 	}
 
 	s.bufferedAmount += uint64(len(raw))
-	s.log.Tracef("[%s] bufferedAmount = %d", s.name, s.bufferedAmount)
+	if traceLog {
+		s.log.Tracef("[%s] bufferedAmount = %d", s.name, s.bufferedAmount)
+	}
 
 	return chunks, unordered
 }
@@ -542,7 +554,9 @@ func (s *Stream) onBufferReleased(nBytesReleased int) {
 		s.bufferedAmount -= uint64(nBytesReleased)
 	}
 
-	s.log.Tracef("[%s] bufferedAmount = %d", s.name, s.bufferedAmount)
+	if traceLog {
+		s.log.Tracef("[%s] bufferedAmount = %d", s.name, s.bufferedAmount)
+	}
 
 	if s.onBufferedAmountLow != nil && fromAmount > s.bufferedAmountLow && s.bufferedAmount <= s.bufferedAmountLow {
 		f := s.onBufferedAmountLow

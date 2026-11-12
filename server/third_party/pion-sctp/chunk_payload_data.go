@@ -258,6 +258,54 @@ func (p *chunkPayloadData) marshal() ([]byte, error) { //nolint:cyclop
 	return p.chunkHeader.marshal()
 }
 
+// appendTo appends the chunk to dst: the bytes marshal returns, without its
+// two intermediate copies of the user data. As marshal, it sets the chunk's
+// type and flags; it leaves chunkHeader.raw alone (marshal keeps a copy of
+// the whole value there, which nothing reads for a chunk that is sent).
+func (p *chunkPayloadData) appendTo(dst []byte) []byte {
+	flags := uint8(0)
+	if p.endingFragment {
+		flags = 1
+	}
+	if p.beginningFragment {
+		flags |= 1 << 1
+	}
+	if p.unordered {
+		flags |= 1 << 2
+	}
+	if p.immediateSack {
+		flags |= 1 << 3
+	}
+	p.chunkHeader.flags = flags
+
+	if p.isIData() {
+		p.chunkHeader.typ = ctIData
+		dst = append(dst, uint8(ctIData), flags)
+		dst = binary.BigEndian.AppendUint16(dst, uint16(chunkHeaderSize+iDataHeaderSize+len(p.userData))) //nolint:gosec // G115
+		dst = binary.BigEndian.AppendUint32(dst, p.tsn)
+		dst = binary.BigEndian.AppendUint16(dst, p.streamIdentifier)
+		dst = binary.BigEndian.AppendUint16(dst, 0)
+		dst = binary.BigEndian.AppendUint32(dst, p.messageIdentifier)
+		if p.beginningFragment {
+			dst = binary.BigEndian.AppendUint32(dst, uint32(p.payloadType))
+		} else {
+			dst = binary.BigEndian.AppendUint32(dst, p.fragmentSequenceNumber)
+		}
+
+		return append(dst, p.userData...)
+	}
+
+	p.chunkHeader.typ = ctPayloadData
+	dst = append(dst, uint8(ctPayloadData), flags)
+	dst = binary.BigEndian.AppendUint16(dst, uint16(chunkHeaderSize+payloadDataHeaderSize+len(p.userData))) //nolint:gosec // G115
+	dst = binary.BigEndian.AppendUint32(dst, p.tsn)
+	dst = binary.BigEndian.AppendUint16(dst, p.streamIdentifier)
+	dst = binary.BigEndian.AppendUint16(dst, p.streamSequenceNumber)
+	dst = binary.BigEndian.AppendUint32(dst, uint32(p.payloadType))
+
+	return append(dst, p.userData...)
+}
+
 func (p *chunkPayloadData) check() (abort bool, err error) {
 	return false, nil
 }

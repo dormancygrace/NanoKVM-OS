@@ -248,11 +248,40 @@ func getAssociationStateString(assoc uint32) string {
 // association is "CLOSED" its TCB SHOULD be removed.
 // Note: By nature of an Association being constructed with one net.Conn,
 // it is not a multi-home supporting implementation of SCTP.
+// traceLog compiles the Tracef calls in. They sit on the path of every packet
+// sent and acknowledged, and each one allocates for its arguments (they become
+// interface values) before the logger can drop the message: about ten
+// allocations for a DATA packet. Set it to see them.
+const traceLog = false
+
+// One gatherOutbound takes at most maxGatherPackets new DATA packets from the
+// pending queue and wakes the write loop for the rest. Upstream takes all the
+// congestion window allows, hundreds of packets when the sender is the
+// bottleneck, and marshals them all before the first is written: by then
+// they have left the CPU cache, and the acknowledgements that arrive meanwhile
+// wait behind the association lock.
+//
+// The packets of one gatherOutbound are marshaled into buffers the
+// association keeps: at most maxKeptPackets of them, none larger than
+// maxKeptPacketSize.
+const (
+	maxGatherPackets  = 16
+	maxKeptPackets    = 32
+	maxKeptPacketSize = 2048
+)
+
 type Association struct {
 	bytesReceived uint64
 	bytesSent     uint64
 
 	lock sync.RWMutex
+
+	// The buffers gatherOutbound's packets are marshaled into (marshalGathered),
+	// and how many of them the last gatherOutbound has taken. writeLoop has
+	// written the packets of one gatherOutbound before it calls the next, and
+	// the connection must not keep what Write was given (the io.Writer rule).
+	keptPackets [][]byte
+	keptNext    int
 
 	netConn          net.Conn
 	netConnCloseOnce sync.Once
@@ -893,8 +922,10 @@ func createAssociationFromConfigWithTsn(cfg *Config, tsn uint32) *Association {
 	}
 
 	assoc.setCWND(min32(4*assoc.MTU(), max32(2*assoc.MTU(), 4380)))
-	assoc.log.Tracef("[%s] updated cwnd=%d ssthresh=%d inflight=%d (INI)",
-		assoc.name, assoc.CWND(), assoc.ssthresh, assoc.inflightQueue.getNumBytes())
+	if traceLog {
+		assoc.log.Tracef("[%s] updated cwnd=%d ssthresh=%d inflight=%d (INI)",
+			assoc.name, assoc.CWND(), assoc.ssthresh, assoc.inflightQueue.getNumBytes())
+	}
 
 	assoc.srtt.Store(float64(0))
 	assoc.t1Init = newRTXTimer(timerT1Init, assoc, maxInitRetrans, rtoMax)
@@ -1345,6 +1376,29 @@ func (a *Association) marshalPacket(p *packet) ([]byte, error) {
 	return p.marshal(p.verificationTag != a.peerVerificationTag || !a.sendZeroChecksum || chunkMandatoryChecksum(p.chunks))
 }
 
+// marshalGathered is marshalPacket for a packet of the gatherOutbound that
+// runs now: into one of the association's kept buffers. The caller holds the
+// lock.
+func (a *Association) marshalGathered(p *packet) ([]byte, error) {
+	doChecksum := p.verificationTag != a.peerVerificationTag || !a.sendZeroChecksum || chunkMandatoryChecksum(p.chunks)
+	if a.keptNext >= maxKeptPackets {
+		return p.marshal(doChecksum)
+	}
+	if a.keptNext == len(a.keptPackets) {
+		a.keptPackets = append(a.keptPackets, nil)
+	}
+	raw, err := p.marshalInto(a.keptPackets[a.keptNext], doChecksum)
+	if err != nil {
+		return nil, err
+	}
+	if cap(raw) <= maxKeptPacketSize {
+		a.keptPackets[a.keptNext] = raw[:0]
+		a.keptNext++
+	}
+
+	return raw, nil
+}
+
 func (a *Association) unmarshalPacket(raw []byte) (*packet, error) {
 	p := &packet{}
 	// If we advertised ZCA via (recvZeroChecksum), accept packets that
@@ -1389,7 +1443,7 @@ func (a *Association) handleInbound(raw []byte) error {
 // The caller should hold the lock.
 func (a *Association) gatherDataPacketsToRetransmit(rawPackets [][]byte, budgetUnits *int64, consumed *bool) [][]byte {
 	for _, p := range a.getDataPacketsToRetransmit(budgetUnits, consumed) {
-		raw, err := a.marshalPacket(p)
+		raw, err := a.marshalGathered(p)
 		if err != nil {
 			a.log.Warnf("[%s] failed to serialize a DATA packet to be retransmitted", a.name)
 
@@ -1411,7 +1465,7 @@ func (a *Association) gatherOutboundReconfigPackets(rawPackets [][]byte) [][]byt
 	a.log.Debugf("[%s] retransmit %d RECONFIG chunk(s)", a.name, len(a.reconfigs))
 	for _, c := range a.reconfigs {
 		p := a.createPacket([]chunk{c})
-		raw, err := a.marshalPacket(p)
+		raw, err := a.marshalGathered(p)
 		if err != nil {
 			a.log.Warnf("[%s] failed to serialize a RECONFIG packet to be retransmitted", a.name)
 		} else {
@@ -1436,10 +1490,12 @@ func (a *Association) gatherOutboundDataAndReconfigPackets(
 
 	if len(chunks) > 0 {
 		// Start timer. (noop if already started)
-		a.log.Tracef("[%s] T3-rtx timer start (pt1)", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] T3-rtx timer start (pt1)", a.name)
+		}
 		a.t3RTX.start(a.rtoMgr.getRTO())
 		for _, p := range a.bundleDataChunksIntoPackets(chunks) {
-			raw, err := a.marshalPacket(p)
+			raw, err := a.marshalGathered(p)
 			if err != nil {
 				a.log.Warnf("[%s] failed to serialize a DATA packet", a.name)
 
@@ -1468,7 +1524,7 @@ func (a *Association) gatherOutboundDataAndReconfigPackets(
 			a.log.Debugf("[%s] sending RECONFIG: rsn=%d tsn=%d streams=%v",
 				a.name, rsn, a.myNextTSN-1, sisToReset)
 			p := a.createPacket([]chunk{c})
-			raw, err := a.marshalPacket(p)
+			raw, err := a.marshalGathered(p)
 			if err != nil {
 				a.log.Warnf("[%s] failed to serialize a RECONFIG packet to be transmitted", a.name)
 			} else {
@@ -1585,8 +1641,10 @@ func (a *Association) gatherOutboundFastRetransmissionPackets( //nolint:gocognit
 
 		a.checkPartialReliabilityStatus(chunkPayload)
 		toFastRetrans = append(toFastRetrans, chunkPayload)
-		a.log.Tracef("[%s] fast-retransmit: tsn=%d sent=%d htna=%d",
-			a.name, chunkPayload.tsn, chunkPayload.nSent, a.fastRecoverExitPoint)
+		if traceLog {
+			a.log.Tracef("[%s] fast-retransmit: tsn=%d sent=%d htna=%d",
+				a.name, chunkPayload.tsn, chunkPayload.nSent, a.fastRecoverExitPoint)
+		}
 	}
 
 	if len(toFastRetrans) == 0 {
@@ -1594,7 +1652,7 @@ func (a *Association) gatherOutboundFastRetransmissionPackets( //nolint:gocognit
 	}
 
 	for _, p := range a.bundleDataChunksIntoPackets(toFastRetrans) {
-		raw, err := a.marshalPacket(p)
+		raw, err := a.marshalGathered(p)
 		if err != nil {
 			a.log.Warnf("[%s] failed to serialize a DATA packet to be fast-retransmitted", a.name)
 
@@ -1613,7 +1671,7 @@ func (a *Association) gatherOutboundSackPackets(rawPackets [][]byte) [][]byte {
 		sack := a.createSelectiveAckChunk()
 		a.stats.incSACKsSent()
 		a.log.Debugf("[%s] sending SACK: %s", a.name, sack)
-		raw, err := a.marshalPacket(a.createPacket([]chunk{sack}))
+		raw, err := a.marshalGathered(a.createPacket([]chunk{sack}))
 		if err != nil {
 			a.log.Warnf("[%s] failed to serialize a SACK packet", a.name)
 		} else {
@@ -1638,7 +1696,7 @@ func (a *Association) gatherOutboundForwardTSNPackets(rawPackets [][]byte) [][]b
 			if fwdtsn == nil {
 				return rawPackets
 			}
-			raw, err := a.marshalPacket(a.createPacket([]chunk{fwdtsn}))
+			raw, err := a.marshalGathered(a.createPacket([]chunk{fwdtsn}))
 			if err != nil {
 				a.log.Warnf("[%s] failed to serialize a Forward TSN packet", a.name)
 			} else {
@@ -1661,7 +1719,7 @@ func (a *Association) gatherOutboundShutdownPackets(rawPackets [][]byte) ([][]by
 
 		shutdownComplete := &chunkShutdownComplete{}
 
-		raw, err := a.marshalPacket(a.createPacket([]chunk{shutdownComplete}))
+		raw, err := a.marshalGathered(a.createPacket([]chunk{shutdownComplete}))
 		if err != nil {
 			a.log.Warnf("[%s] failed to serialize a ShutdownComplete packet", a.name)
 		} else {
@@ -1674,7 +1732,7 @@ func (a *Association) gatherOutboundShutdownPackets(rawPackets [][]byte) ([][]by
 
 		shutdownAck := &chunkShutdownAck{}
 
-		raw, err := a.marshalPacket(a.createPacket([]chunk{shutdownAck}))
+		raw, err := a.marshalGathered(a.createPacket([]chunk{shutdownAck}))
 		if err != nil {
 			a.log.Warnf("[%s] failed to serialize a ShutdownAck packet", a.name)
 		} else {
@@ -1688,7 +1746,7 @@ func (a *Association) gatherOutboundShutdownPackets(rawPackets [][]byte) ([][]by
 			cumulativeTSNAck: a.peerLastTSN(),
 		}
 
-		raw, err := a.marshalPacket(a.createPacket([]chunk{shutdown}))
+		raw, err := a.marshalGathered(a.createPacket([]chunk{shutdown}))
 		if err != nil {
 			a.log.Warnf("[%s] failed to serialize a Shutdown packet", a.name)
 		} else {
@@ -1712,7 +1770,7 @@ func (a *Association) gatherAbortPacket() ([]byte, error) {
 		abort.errorCauses = []errorCause{cause}
 	}
 
-	raw, err := a.marshalPacket(a.createPacket([]chunk{abort}))
+	raw, err := a.marshalGathered(a.createPacket([]chunk{abort}))
 
 	return raw, err
 }
@@ -1770,6 +1828,9 @@ func (a *Association) gatherOutbound() ([][]byte, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
+	// The packets of the previous call have been written: their buffers are free.
+	a.keptNext = 0
+
 	rawPackets, ok, terminal := a.gatherOutboundPriorityPackets()
 	if terminal {
 		return rawPackets, ok
@@ -1777,7 +1838,7 @@ func (a *Association) gatherOutbound() ([][]byte, bool) {
 
 	if a.controlQueue.size() > 0 {
 		for _, p := range a.controlQueue.popAll() {
-			raw, err := a.marshalPacket(p)
+			raw, err := a.marshalGathered(p)
 			if err != nil {
 				a.log.Warnf("[%s] failed to serialize a control packet", a.name)
 
@@ -2386,8 +2447,10 @@ func (a *Association) handleInitAck(pkt *packet, initChunkAck *chunkInitAck) err
 	//     example, implementations MAY use the size of the receiver
 	//     advertised window).
 	a.ssthresh = a.RWND()
-	a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d inflight=%d (INI)",
-		a.name, a.CWND(), a.ssthresh, a.inflightQueue.getNumBytes())
+	if traceLog {
+		a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d inflight=%d (INI)",
+			a.name, a.CWND(), a.ssthresh, a.inflightQueue.getNumBytes())
+	}
 
 	a.t1Init.stop()
 	a.storedInit = nil
@@ -2425,7 +2488,9 @@ func (a *Association) handleInitAck(pkt *packet, initChunkAck *chunkInitAck) err
 
 // The caller should hold the lock.
 func (a *Association) handleHeartbeat(c *chunkHeartbeat) []*packet {
-	a.log.Tracef("[%s] chunkHeartbeat", a.name)
+	if traceLog {
+		a.log.Tracef("[%s] chunkHeartbeat", a.name)
+	}
 
 	if len(c.params) == 0 {
 		a.log.Warnf("[%s] Heartbeat without ParamHeartbeatInfo (no params)", a.name)
@@ -2456,7 +2521,9 @@ func (a *Association) handleHeartbeat(c *chunkHeartbeat) []*packet {
 
 // The caller should hold the lock.
 func (a *Association) handleHeartbeatAck(c *chunkHeartbeatAck) {
-	a.log.Tracef("[%s] chunkHeartbeatAck", a.name)
+	if traceLog {
+		a.log.Tracef("[%s] chunkHeartbeatAck", a.name)
+	}
 
 	if len(c.params) == 0 {
 		return
@@ -2491,8 +2558,10 @@ func (a *Association) handleHeartbeatAck(c *chunkHeartbeatAck) {
 
 			a.rack.rackMinRTTWnd.Push(now, now.Sub(sent))
 
-			a.log.Tracef("[%s] HB RTT: measured=%.3fms srtt=%.3fms rto=%.3fms",
-				a.name, rttMs, srtt, a.rtoMgr.getRTO())
+			if traceLog {
+				a.log.Tracef("[%s] HB RTT: measured=%.3fms srtt=%.3fms rto=%.3fms",
+					a.name, rttMs, srtt, a.rtoMgr.getRTO())
+			}
 		}
 	}
 }
@@ -2643,8 +2712,10 @@ func (a *Association) handleData(chunkPayload *chunkPayloadData) []*packet {
 		return nil
 	}
 
-	a.log.Tracef("[%s] DATA: tsn=%d immediateSack=%v len=%d",
-		a.name, chunkPayload.tsn, chunkPayload.immediateSack, len(chunkPayload.userData))
+	if traceLog {
+		a.log.Tracef("[%s] DATA: tsn=%d immediateSack=%v len=%d",
+			a.name, chunkPayload.tsn, chunkPayload.immediateSack, len(chunkPayload.userData))
+	}
 	a.stats.incDATAs()
 
 	if state == shutdownSent {
@@ -2758,7 +2829,9 @@ func (a *Association) handlePeerLastTSNAndAcknowledgement(sackImmediately bool) 
 
 	hasPacketLoss := (a.payloadQueue.size() > 0)
 	if hasPacketLoss {
-		a.log.Tracef("[%s] packetloss: %s", a.name, a.payloadQueue.getGapAckBlocksString())
+		if traceLog {
+			a.log.Tracef("[%s] packetloss: %s", a.name, a.payloadQueue.getGapAckBlocksString())
+		}
 	}
 
 	// RFC 4960 $6.7: SHOULD ack immediately when detecting a gap.
@@ -3004,7 +3077,9 @@ func (a *Association) processSelectiveAck(selectiveAckChunk *chunkSelectiveAck) 
 					bytesAckedPerStream[stream] += nBytesAcked
 				}
 
-				a.log.Tracef("[%s] tsn=%d has been sacked", a.name, chunkPayload.tsn)
+				if traceLog {
+					a.log.Tracef("[%s] tsn=%d has been sacked", a.name, chunkPayload.tsn)
+				}
 
 				a.measureRTT(chunkPayload, now)
 
@@ -3036,8 +3111,10 @@ func (a *Association) measureRTT(c *chunkPayloadData, now time.Time) {
 	a.srtt.Store(srtt)
 	// Keep a windowed minimum so RACK can adapt when the path RTT changes.
 	a.rack.rackMinRTTWnd.Push(now, rtt)
-	a.log.Tracef("[%s] SACK: measured-rtt=%f srtt=%f new-rto=%f",
-		a.name, rtt.Seconds()*1000, srtt, a.rtoMgr.getRTO())
+	if traceLog {
+		a.log.Tracef("[%s] SACK: measured-rtt=%f srtt=%f new-rto=%f",
+			a.name, rtt.Seconds()*1000, srtt, a.rtoMgr.getRTO())
+	}
 }
 
 // The caller should hold the association lock.
@@ -3055,12 +3132,16 @@ func (a *Association) onCumulativeTSNAckPointAdvanced(totalBytesAcked int) {
 	//   R2)  Whenever all outstanding data sent to an address have been
 	//        acknowledged, turn off the T3-rtx timer of that address.
 	if a.inflightQueue.size() == 0 {
-		a.log.Tracef("[%s] SACK: no more packet in-flight (pending=%d)", a.name, a.pendingQueue.size())
+		if traceLog {
+			a.log.Tracef("[%s] SACK: no more packet in-flight (pending=%d)", a.name, a.pendingQueue.size())
+		}
 		a.t3RTX.stop()
 		a.stopPTOTimer()
 		a.stopRackTimer()
 	} else {
-		a.log.Tracef("[%s] T3-rtx timer start (pt2)", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] T3-rtx timer start (pt2)", a.name)
+		}
 		a.t3RTX.start(a.rtoMgr.getRTO())
 	}
 
@@ -3081,11 +3162,15 @@ func (a *Association) onCumulativeTSNAckPointAdvanced(totalBytesAcked int) {
 			a.pendingQueue.size() > 0 {
 			a.setCWND(a.CWND() + min32(uint32(totalBytesAcked), a.CWND())) //nolint:gosec // G115
 			// a.cwnd += min32(uint32(totalBytesAcked), a.MTU()) // SCTP way (slow)
-			a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d acked=%d (SS)",
-				a.name, a.CWND(), a.ssthresh, totalBytesAcked)
+			if traceLog {
+				a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d acked=%d (SS)",
+					a.name, a.CWND(), a.ssthresh, totalBytesAcked)
+			}
 		} else {
-			a.log.Tracef("[%s] cwnd did not grow: cwnd=%d ssthresh=%d acked=%d FR=%v pending=%d",
-				a.name, a.CWND(), a.ssthresh, totalBytesAcked, a.inFastRecovery, a.pendingQueue.size())
+			if traceLog {
+				a.log.Tracef("[%s] cwnd did not grow: cwnd=%d ssthresh=%d acked=%d FR=%v pending=%d",
+					a.name, a.CWND(), a.ssthresh, totalBytesAcked, a.inFastRecovery, a.pendingQueue.size())
+			}
 		}
 	} else {
 		// RFC 4960, sec 7.2.2.  Congestion Avoidance
@@ -3105,8 +3190,10 @@ func (a *Association) onCumulativeTSNAckPointAdvanced(totalBytesAcked int) {
 			a.partialBytesAcked -= a.CWND()
 			step := max(a.MTU(), a.cwndCAStep)
 			a.setCWND(a.CWND() + step)
-			a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d acked=%d (CA)",
-				a.name, a.CWND(), a.ssthresh, totalBytesAcked)
+			if traceLog {
+				a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d acked=%d (CA)",
+					a.name, a.CWND(), a.ssthresh, totalBytesAcked)
+			}
 		}
 	}
 }
@@ -3167,8 +3254,10 @@ func (a *Association) processFastRetransmission( //nolint:gocognit
 						a.partialBytesAcked = 0
 						a.willRetransmitFast = true
 
-						a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d inflight=%d (FR)",
-							a.name, a.CWND(), a.ssthresh, a.inflightQueue.getNumBytes())
+						if traceLog {
+							a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d inflight=%d (FR)",
+								a.name, a.CWND(), a.ssthresh, a.inflightQueue.getNumBytes())
+						}
 					}
 				}
 			}
@@ -3228,10 +3317,12 @@ func (a *Association) processAcknowledgement(
 
 	cumTSNAckPointAdvanced := false
 	if sna32LT(a.cumulativeTSNAckPoint, selectiveAckChunk.cumulativeTSNAck) {
-		a.log.Tracef("[%s] SACK: cumTSN advanced: %d -> %d",
-			a.name,
-			a.cumulativeTSNAckPoint,
-			selectiveAckChunk.cumulativeTSNAck)
+		if traceLog {
+			a.log.Tracef("[%s] SACK: cumTSN advanced: %d -> %d",
+				a.name,
+				a.cumulativeTSNAckPoint,
+				selectiveAckChunk.cumulativeTSNAck)
+		}
 
 		a.cumulativeTSNAckPoint = selectiveAckChunk.cumulativeTSNAck
 		cumTSNAckPointAdvanced = true
@@ -3303,10 +3394,12 @@ func (a *Association) finishAcknowledgement(
 //
 //nolint:cyclop
 func (a *Association) handleSack(selectiveAckChunk *chunkSelectiveAck) error {
-	a.log.Tracef(
-		"[%s] SACK: cumTSN=%d a_rwnd=%d",
-		a.name, selectiveAckChunk.cumulativeTSNAck, selectiveAckChunk.advertisedReceiverWindowCredit,
-	)
+	if traceLog {
+		a.log.Tracef(
+			"[%s] SACK: cumTSN=%d a_rwnd=%d",
+			a.name, selectiveAckChunk.cumulativeTSNAck, selectiveAckChunk.advertisedReceiverWindowCredit,
+		)
+	}
 	state := a.getState()
 	if state != established && state != shutdownPending && state != shutdownReceived {
 		return nil
@@ -3361,7 +3454,9 @@ func (a *Association) postprocessSack(state uint32, shouldAwakeWriteLoop bool) {
 	switch {
 	case a.inflightQueue.size() > 0:
 		// Start timer. (noop if already started)
-		a.log.Tracef("[%s] T3-rtx timer start (pt3)", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] T3-rtx timer start (pt3)", a.name)
+		}
 		a.t3RTX.start(a.rtoMgr.getRTO())
 	case a.pendingQueue.size() > 0:
 		// The SACK opened room for DATA accepted before shutdown started.
@@ -3603,10 +3698,12 @@ func (a *Association) createForwardTSN() *chunkForwardTSN {
 			sequence:   ssn,
 		})
 	}
-	a.log.Tracef(
-		"[%s] building fwdtsn: newCumulativeTSN=%d cumTSN=%d - %s",
-		a.name, fwdtsn.newCumulativeTSN, a.cumulativeTSNAckPoint, streamStr.String(),
-	)
+	if traceLog {
+		a.log.Tracef(
+			"[%s] building fwdtsn: newCumulativeTSN=%d cumTSN=%d - %s",
+			a.name, fwdtsn.newCumulativeTSN, a.cumulativeTSNAckPoint, streamStr.String(),
+		)
+	}
 
 	return fwdtsn
 }
@@ -3670,7 +3767,9 @@ func (a *Association) createPacket(cs []chunk) *packet {
 
 // The caller should hold the lock.
 func (a *Association) handleReconfig(reconfigChunk *chunkReconfig) ([]*packet, error) {
-	a.log.Tracef("[%s] handleReconfig", a.name)
+	if traceLog {
+		a.log.Tracef("[%s] handleReconfig", a.name)
+	}
 
 	pp := make([]*packet, 0)
 
@@ -3697,7 +3796,9 @@ func (a *Association) handleReconfig(reconfigChunk *chunkReconfig) ([]*packet, e
 
 // The caller should hold the lock.
 func (a *Association) handleForwardTSN(chunkTSN *chunkForwardTSN) []*packet {
-	a.log.Tracef("[%s] FwdTSN: %s", a.name, chunkTSN.String())
+	if traceLog {
+		a.log.Tracef("[%s] FwdTSN: %s", a.name, chunkTSN.String())
+	}
 
 	if a.useInterleaving {
 		a.abortProtocolViolation("received FORWARD-TSN with interleaving enabled")
@@ -3728,10 +3829,14 @@ func (a *Association) handleForwardTSN(chunkTSN *chunkForwardTSN) []*packet {
 	//   send a SACK to its peer (the sender of the FORWARD TSN) since such a
 	//   duplicate may indicate the previous SACK was lost in the network.
 
-	a.log.Tracef("[%s] should send ack? newCumTSN=%d peerLastTSN=%d",
-		a.name, chunkTSN.newCumulativeTSN, a.peerLastTSN())
+	if traceLog {
+		a.log.Tracef("[%s] should send ack? newCumTSN=%d peerLastTSN=%d",
+			a.name, chunkTSN.newCumulativeTSN, a.peerLastTSN())
+	}
 	if sna32LTE(chunkTSN.newCumulativeTSN, a.peerLastTSN()) {
-		a.log.Tracef("[%s] sending ack on Forward TSN", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] sending ack on Forward TSN", a.name)
+		}
 		a.ackState = ackStateImmediate
 		a.ackTimer.stop()
 		a.awakeWriteLoop()
@@ -3774,7 +3879,9 @@ func (a *Association) handleForwardTSN(chunkTSN *chunkForwardTSN) []*packet {
 
 // The caller should hold the lock.
 func (a *Association) handleIForwardTSN(chunkTSN *chunkIForwardTSN) []*packet {
-	a.log.Tracef("[%s] I-FwdTSN: %s", a.name, chunkTSN.String())
+	if traceLog {
+		a.log.Tracef("[%s] I-FwdTSN: %s", a.name, chunkTSN.String())
+	}
 
 	if !a.useIForwardTSN {
 		a.abortProtocolViolation("received I-FORWARD-TSN without support")
@@ -3782,10 +3889,14 @@ func (a *Association) handleIForwardTSN(chunkTSN *chunkIForwardTSN) []*packet {
 		return nil
 	}
 
-	a.log.Tracef("[%s] should send ack? newCumTSN=%d peerLastTSN=%d",
-		a.name, chunkTSN.newCumulativeTSN, a.peerLastTSN())
+	if traceLog {
+		a.log.Tracef("[%s] should send ack? newCumTSN=%d peerLastTSN=%d",
+			a.name, chunkTSN.newCumulativeTSN, a.peerLastTSN())
+	}
 	if sna32LTE(chunkTSN.newCumulativeTSN, a.peerLastTSN()) {
-		a.log.Tracef("[%s] sending ack on I-Forward TSN", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] sending ack on I-Forward TSN", a.name)
+		}
 		a.ackState = ackStateImmediate
 		a.ackTimer.stop()
 		a.awakeWriteLoop()
@@ -3839,7 +3950,9 @@ func (a *Association) sendResetRequest(streamIdentifier uint16) error {
 func (a *Association) handleReconfigParam(raw param) (*packet, error) {
 	switch par := raw.(type) {
 	case *paramOutgoingResetRequest:
-		a.log.Tracef("[%s] handleReconfigParam (OutgoingResetRequest)", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] handleReconfigParam (OutgoingResetRequest)", a.name)
+		}
 		if a.peerLastTSN() < par.senderLastTSN && len(a.reconfigRequests) >= maxReconfigRequests {
 			// We have too many reconfig requests outstanding. Drop the request and let
 			// the peer retransmit. A well behaved peer should only have 1 outstanding
@@ -3861,7 +3974,9 @@ func (a *Association) handleReconfigParam(raw param) (*packet, error) {
 
 		return nil, nil //nolint:nilnil
 	case *paramReconfigResponse:
-		a.log.Tracef("[%s] handleReconfigParam (ReconfigResponse)", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] handleReconfigParam (ReconfigResponse)", a.name)
+		}
 		if par.result == reconfigResultInProgress {
 			// RFC 6525: https://www.rfc-editor.org/rfc/rfc6525.html#section-5.2.7
 			//
@@ -3957,17 +4072,19 @@ func (a *Association) movePendingDataChunkToInflightQueue(chunkPayload *chunkPay
 
 	a.checkPartialReliabilityStatus(chunkPayload)
 
-	a.log.Tracef(
-		"[%s] sending ppi=%d tsn=%d ssn=%d sent=%d len=%d (%v,%v)",
-		a.name,
-		chunkPayload.payloadType,
-		chunkPayload.tsn,
-		chunkPayload.streamSequenceNumber,
-		chunkPayload.nSent,
-		len(chunkPayload.userData),
-		chunkPayload.beginningFragment,
-		chunkPayload.endingFragment,
-	)
+	if traceLog {
+		a.log.Tracef(
+			"[%s] sending ppi=%d tsn=%d ssn=%d sent=%d len=%d (%v,%v)",
+			a.name,
+			chunkPayload.payloadType,
+			chunkPayload.tsn,
+			chunkPayload.streamSequenceNumber,
+			chunkPayload.nSent,
+			len(chunkPayload.userData),
+			chunkPayload.beginningFragment,
+			chunkPayload.endingFragment,
+		)
+	}
 
 	a.inflightQueue.pushNoCheck(chunkPayload)
 
@@ -3989,6 +4106,7 @@ func (a *Association) popPendingDataChunksToSend( //nolint:cyclop,gocognit
 
 	// track current packet size for MTU bundling so budgeting is accurate.
 	bytesInPacket := 0
+	packets := 0 // new DATA packets of this call, at most maxGatherPackets
 
 	if a.pendingQueue.size() > 0 { //nolint:nestif
 		// RFC 4960 sec 6.1.  Transmission of DATA Chunks
@@ -4029,6 +4147,13 @@ func (a *Association) popPendingDataChunksToSend( //nolint:cyclop,gocognit
 			// ensure MTU bundling matches bundleDataChunksIntoPackets().
 			addBytes := chunkBytes
 			if bytesInPacket == 0 {
+				if packets == maxGatherPackets {
+					// The rest goes with the next gatherOutbound, at once.
+					a.awakeWriteLoop()
+
+					break
+				}
+
 				addBytes += int(commonHeaderSize)
 				if addBytes > int(a.MTU()) {
 					break
@@ -4040,6 +4165,7 @@ func (a *Association) popPendingDataChunksToSend( //nolint:cyclop,gocognit
 				}
 
 				bytesInPacket = int(commonHeaderSize)
+				packets++
 			} else {
 				// if it doesn't fit, start a new packet and retry same chunk.
 				if bytesInPacket+chunkBytes > int(a.MTU()) {
@@ -4079,7 +4205,9 @@ func (a *Association) popPendingDataChunksToSend( //nolint:cyclop,gocognit
 	}
 
 	if a.blockWrite && len(chunks) > 0 && a.pendingQueue.size() == 0 {
-		a.log.Tracef("[%s] all pending data have been sent, notify writable", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] all pending data have been sent, notify writable", a.name)
+		}
 		a.notifyBlockWritable()
 	}
 
@@ -4206,26 +4334,32 @@ func (a *Association) checkPartialReliabilityStatus(chunkPayload *chunkPayloadDa
 			if chunkPayload.nSent > stream.reliabilityValue {
 				chunkPayload.setAbandoned(true)
 				a.rackRemove(chunkPayload)
-				a.log.Tracef(
-					"[%s] marked as abandoned: tsn=%d ppi=%d (remix: %d)",
-					a.name, chunkPayload.tsn, chunkPayload.payloadType, chunkPayload.nSent,
-				)
+				if traceLog {
+					a.log.Tracef(
+						"[%s] marked as abandoned: tsn=%d ppi=%d (remix: %d)",
+						a.name, chunkPayload.tsn, chunkPayload.payloadType, chunkPayload.nSent,
+					)
+				}
 			}
 		} else if stream.reliabilityType == ReliabilityTypeTimed {
 			elapsed := int64(time.Since(chunkPayload.since).Seconds() * 1000)
 			if elapsed >= int64(stream.reliabilityValue) {
 				chunkPayload.setAbandoned(true)
 				a.rackRemove(chunkPayload)
-				a.log.Tracef(
-					"[%s] marked as abandoned: tsn=%d ppi=%d (timed: %d)",
-					a.name, chunkPayload.tsn, chunkPayload.payloadType, elapsed,
-				)
+				if traceLog {
+					a.log.Tracef(
+						"[%s] marked as abandoned: tsn=%d ppi=%d (timed: %d)",
+						a.name, chunkPayload.tsn, chunkPayload.payloadType, elapsed,
+					)
+				}
 			}
 		}
 		stream.lock.RUnlock()
 	} else {
 		// Remote has reset its send side of the stream, we can still send data.
-		a.log.Tracef("[%s] stream %d not found, remote reset", a.name, chunkPayload.streamIdentifier)
+		if traceLog {
+			a.log.Tracef("[%s] stream %d not found, remote reset", a.name, chunkPayload.streamIdentifier)
+		}
 	}
 }
 
@@ -4296,10 +4430,12 @@ func (a *Association) getDataPacketsToRetransmit(budgetScaled *int64, consumed *
 
 		a.checkPartialReliabilityStatus(chunkPayload)
 
-		a.log.Tracef(
-			"[%s] retransmitting tsn=%d ssn=%d sent=%d",
-			a.name, chunkPayload.tsn, chunkPayload.streamSequenceNumber, chunkPayload.nSent,
-		)
+		if traceLog {
+			a.log.Tracef(
+				"[%s] retransmitting tsn=%d ssn=%d sent=%d",
+				a.name, chunkPayload.tsn, chunkPayload.streamSequenceNumber, chunkPayload.nSent,
+			)
+		}
 
 		chunks = append(chunks, chunkPayload)
 	}
@@ -4546,8 +4682,10 @@ func (a *Association) onRetransmissionTimeout(id int, nRtos uint) { //nolint:cyc
 
 		a.ssthresh = max32(a.CWND()/2, 4*a.MTU())
 		a.setCWND(a.MTU())
-		a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d inflight=%d (RTO)",
-			a.name, a.CWND(), a.ssthresh, a.inflightQueue.getNumBytes())
+		if traceLog {
+			a.log.Tracef("[%s] updated cwnd=%d ssthresh=%d inflight=%d (RTO)",
+				a.name, a.CWND(), a.ssthresh, a.inflightQueue.getNumBytes())
+		}
 		// If not in Fast Recovery, enter Fast Recovery and mark the highest outstanding TSN as the Fast Recovery exit point.
 		// When a SACK acknowledges all TSNs up to and including this exit point, Fast Recovery is exited.
 		// https://www.rfc-editor.org/rfc/rfc4960#section-7.2.4
@@ -4652,7 +4790,9 @@ func (a *Association) onAckTimeout() {
 		return
 	}
 
-	a.log.Tracef("[%s] ack timed out (ackState: %d)", a.name, a.ackState)
+	if traceLog {
+		a.log.Tracef("[%s] ack timed out (ackState: %d)", a.name, a.ackState)
+	}
 	a.stats.incAckTimeouts()
 
 	a.ackState = ackStateImmediate
@@ -4893,7 +5033,9 @@ func (a *Association) onRackAfterSACK( // nolint:gocognit,cyclop,gocyclo
 		a.rackReoWnd += max(a.rackMinRTT/4, a.rack.rackReoWndFloor)
 		// keep inflated for 16 loss recoveries before reset
 		a.rackKeepInflatedRecoveries = 16
-		a.log.Tracef("[%s] RACK: DSACK/dupTSN seen, inflate reoWnd to %v", a.name, a.rackReoWnd)
+		if traceLog {
+			a.log.Tracef("[%s] RACK: DSACK/dupTSN seen, inflate reoWnd to %v", a.name, a.rackReoWnd)
+		}
 	}
 
 	// decrement the keep inflated counter when we leave recovery
@@ -4948,8 +5090,10 @@ func (a *Association) onRackAfterSACK( // nolint:gocognit,cyclop,gocyclo
 			// Remove from xmit-time list: we no longer need RACK for this TSN.
 			a.rackRemove(chunk)
 
-			a.log.Tracef("[%s] RACK: mark lost tsn=%d (sent=%v, delivered=%v, reoWnd=%v)",
-				a.name, chunk.tsn, chunk.since, a.rackDeliveredTime, a.rackReoWnd)
+			if traceLog {
+				a.log.Tracef("[%s] RACK: mark lost tsn=%d (sent=%v, delivered=%v, reoWnd=%v)",
+					a.name, chunk.tsn, chunk.since, a.rackDeliveredTime, a.rackReoWnd)
+			}
 
 			chunk = next
 		}
@@ -5063,7 +5207,9 @@ func (a *Association) onRackTimeoutLocked() { //nolint:cyclop
 		marked = true
 		a.rackRemove(chunk)
 
-		a.log.Tracef("[%s] RACK timer: mark lost tsn=%d", a.name, chunk.tsn)
+		if traceLog {
+			a.log.Tracef("[%s] RACK timer: mark lost tsn=%d", a.name, chunk.tsn)
+		}
 
 		chunk = next
 	}
@@ -5089,7 +5235,9 @@ func (a *Association) onPTOTimerLocked() {
 	// use PTO as a chance to probe RTT via HEARTBEAT instead of retransmitting DATA.
 	if a.inflightQueue.size() == 0 {
 		a.stopPTOTimer()
-		a.log.Tracef("[%s] PTO idle: sending active HEARTBEAT for RTT probe", a.name)
+		if traceLog {
+			a.log.Tracef("[%s] PTO idle: sending active HEARTBEAT for RTT probe", a.name)
+		}
 		a.sendActiveHeartbeatLocked()
 
 		return
@@ -5127,7 +5275,9 @@ func (a *Association) onPTOTimerLocked() {
 
 	if latest != nil && !latest.retransmit {
 		latest.retransmit = true
-		a.log.Tracef("[%s] PTO fired: probe tsn=%d", a.name, latest.tsn)
+		if traceLog {
+			a.log.Tracef("[%s] PTO fired: probe tsn=%d", a.name, latest.tsn)
+		}
 		a.awakeWriteLoop()
 	}
 }

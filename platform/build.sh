@@ -666,7 +666,7 @@ server() {
     local s=$out/server
     rm -rf "$s" "${img:?}/server"
     mkdir -p "$s" "$img/server" "$dl/go-mod"
-    tar -xzf "$dl/go1.27.3.linux-amd64.tar.gz" -C "$s"
+    tar -xzf "$dl/go1.27.4.linux-amd64.tar.gz" -C "$s"
     "$host/python3" "$repo/firmware/cpu/sysmon-runtime/prepare.py" --base "$s/go" --output "$s/goroot" > /dev/null
     # The server's hot functions are linked first, together
     # (firmware/cpu/go-hot-order): the linker gets the option for that.

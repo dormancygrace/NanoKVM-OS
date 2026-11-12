@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useKeyboardLedStatus } from './use-keyboard-led-status';
 
+const LOCK_SYMBOLS = { numLock: '1', capsLock: 'A', scrollLock: '⤓' } as const;
+
 type LockIndicatorProps = {
   labelKey: 'numLock' | 'capsLock' | 'scrollLock';
   active: boolean;
@@ -27,7 +29,7 @@ function LockIndicator({ labelKey, active, known, disabled }: LockIndicatorProps
         <span
           aria-hidden="true"
           className={clsx(
-            'flex h-2 w-2 items-center justify-center rounded-full text-[7px] leading-none',
+            'flex h-2 w-2 shrink-0 items-center justify-center rounded-full text-[7px] leading-none',
             known
               ? active
                 ? 'bg-emerald-400'
@@ -35,7 +37,15 @@ function LockIndicator({ labelKey, active, known, disabled }: LockIndicatorProps
               : 'border border-dashed border-neutral-500 text-neutral-300'
           )}
         >
-          {!known && (disabled ? '–' : '?')}
+          {known ? (
+            <span className={clsx('sm:hidden', active ? 'text-neutral-900' : 'text-neutral-100')}>
+              {LOCK_SYMBOLS[labelKey]}
+            </span>
+          ) : disabled ? (
+            '–'
+          ) : (
+            '?'
+          )}
         </span>
         <span className="hidden sm:inline">{shortLabel}</span>
       </div>

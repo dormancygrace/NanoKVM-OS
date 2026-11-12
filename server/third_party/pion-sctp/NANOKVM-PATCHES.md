@@ -26,6 +26,7 @@ and what goes on the wire are unchanged.
   Upstream takes all the congestion window allows, hundreds of packets when
   the sender is the bottleneck, and marshals them all before the first is
   written, under the association lock.
+- **A burst goes to the connection in one call** when the connection has `WriteBatch` (the DTLS fork's has: it seals the records of the burst together on the crypto engine) and the burst has no ABORT, which the write loop tells apart. Any other connection gets a `Write` for every packet, as upstream.
 - **One copy of a message and one array of its chunks** in `Stream.packetize`
   instead of one allocation of each for every fragment. They stay until the
   last fragment of the message is acknowledged.

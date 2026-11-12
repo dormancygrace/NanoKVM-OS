@@ -314,6 +314,7 @@ func (b *Bridge) serveMedia(c net.Conn) {
 	startup, cancelStartup := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelStartup()
 	ready := false
+	var failing time.Time
 	for seq := uint64(1); ; seq++ {
 		var frame stream.VideoFrame
 		var ok bool
@@ -322,10 +323,21 @@ func (b *Bridge) serveMedia(c net.Conn) {
 		} else {
 			frame, ok = waitInitialMediaFrame(startup, subscription.NextContext)
 		}
+		// A stream rate that starts or stops thinning the input changes the
+		// capture path: the encoder's next frame fails and a new encoder
+		// follows with a keyframe. The other viewers skip such a frame too.
+		if ok && ready && frame.Result < 0 && (failing.IsZero() || time.Since(failing) < 2*time.Second) {
+			if failing.IsZero() {
+				failing = time.Now()
+			}
+			seq--
+			continue
+		}
 		if !ok || frame.Result < 0 || len(frame.Data) > 8<<20 {
 			writeMediaError(c, "HDMI encoder is unavailable")
 			return
 		}
+		failing = time.Time{}
 		width, height := mediaDimensions()
 		if width == 0 || height == 0 {
 			if !ready && startup.Err() == nil {

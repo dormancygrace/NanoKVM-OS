@@ -6,33 +6,24 @@ import (
 	"bytes"
 	"hash/crc32"
 	"testing"
-	"time"
 )
 
 // crc32cUpdate is hash/crc32 with the Castagnoli polynomial for every length and alignment. On riscv64 it is the
-// fork's own loop: run this test there (go test -c with GOARCH=riscv64). With -v it prints the cost of a packet.
+// fork's own loop: run this test there (go test -c with GOARCH=riscv64).
 func TestCRC32cMatchesHashCRC32(t *testing.T) {
 	buf := make([]byte, 1300)
 	for i := range buf {
 		buf[i] = byte(i*i>>3 + i)
 	}
 	for start := range 9 {
-		for n := 0; n+start <= len(buf); n += 1 + n/7 {
+		for n := 0; n+start <= len(buf); n++ {
 			p := buf[start : start+n]
 			if got, want := crc32cUpdate(0x1234, p), crc32.Update(0x1234, castagnoliTable, p); got != want {
 				t.Fatalf("%d bytes at +%d: %#x, hash/crc32 says %#x", n, start, got, want)
 			}
 		}
 	}
-	best := time.Duration(1 << 62)
-	for range 5 {
-		start := time.Now()
-		for range 300 {
-			crc32cUpdate(0, buf[:1228])
-		}
-		best = min(best, time.Since(start))
-	}
-	t.Logf("%.1f ns for a byte of a 1228-byte packet", float64(best.Nanoseconds())/300/1228)
+
 }
 
 // marshalInto must make the bytes upstream's marshal made: the packet header, every chunk's own marshal, each

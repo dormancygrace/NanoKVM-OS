@@ -63,7 +63,12 @@ export const RustDeskControls = () => {
       const next = response.data;
       setStatus(next);
       if (!dirty.current)
-        form.setFieldsValue({ audio_enabled: true, ...next.config, password: '' });
+        form.setFieldsValue({
+          audio_enabled: true,
+          local_pointer: false,
+          ...next.config,
+          password: ''
+        });
       setError('');
     } catch {
       if (started === generation.current && !controller.signal.aborted) setError(t('failed'));
@@ -189,7 +194,12 @@ export const RustDeskControls = () => {
         >
           <Form
             form={form}
-            initialValues={{ audio_enabled: true, ...status.config, password: '' }}
+            initialValues={{
+              audio_enabled: true,
+              local_pointer: false,
+              ...status.config,
+              password: ''
+            }}
             layout="vertical"
             disabled={busy}
             onValuesChange={() => {
@@ -210,6 +220,16 @@ export const RustDeskControls = () => {
                 label={t('transmitAudio')}
                 valuePropName="checked"
                 extra={t('audioHint')}
+              >
+                <Switch />
+              </Form.Item>
+            )}
+            {status.supports_pointer_settings && (
+              <Form.Item
+                name="local_pointer"
+                label={t('localPointer')}
+                valuePropName="checked"
+                extra={t('localPointerHint')}
               >
                 <Switch />
               </Form.Item>

@@ -65,6 +65,8 @@ pub struct Config {
     pub service_enabled: bool,
     #[serde(default = "audio_enabled")]
     pub audio_enabled: bool,
+    // The client draws a pointer of its own over the picture.
+    pub local_pointer: bool,
     #[serde(default = "listen_address")]
     pub listen_address: String,
     #[serde(default = "port")]
@@ -99,6 +101,7 @@ impl Default for Config {
         Self {
             service_enabled: enabled(),
             audio_enabled: audio_enabled(),
+            local_pointer: false,
             listen_address: listen_address(),
             port: port(),
             access_control_enabled: true,

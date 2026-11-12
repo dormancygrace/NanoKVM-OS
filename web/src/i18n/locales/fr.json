@@ -2203,6 +2203,8 @@
       "inputDefaults": "Activer l'accès à distance bascule l'USB sur la composition RustDesk (clavier, les deux modes de souris, disque virtuel et, avec le son, audio USB) ; le désactiver rétablit la précédente, sauf si elle a été modifiée entre-temps.",
       "localPointer": "Pointeur du client",
       "localPointerHint": "Le client RustDesk dessine sur l'image son propre pointeur, qui se déplace aussitôt ; le curseur de l'ordinateur le suit avec le retard de la vidéo. Désactivé : seul le curseur de l'ordinateur est visible.",
+      "lanAccess": "Connexion par adresse",
+      "lanAccessHint": "Le client RustDesk peut se connecter par l'adresse IP de l'appareil, sans serveur d'ID. Les connexions par adresse ne sont pas chiffrées : à n'utiliser que sur un réseau de confiance. Désactivé : par ID uniquement.",
       "transmitAudio": "Transmettre le son",
       "audioHint": "Active automatiquement l'audio USB. Sélectionnez NanoKVM comme sortie son sur l'ordinateur connecté.",
       "audioMuted": "La transmission du son via RustDesk est désactivée.",

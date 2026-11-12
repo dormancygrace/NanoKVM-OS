@@ -4,6 +4,8 @@ export type RustDeskConfig = {
   service_enabled: boolean;
   audio_enabled?: boolean;
   local_pointer?: boolean;
+  // The direct listener: 127.0.0.1 unless connecting by address is on.
+  listen_address?: string;
   webrtc_enabled?: boolean;
   use_official_id_server: boolean;
   rendezvous_server: string;

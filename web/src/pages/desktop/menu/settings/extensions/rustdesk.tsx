@@ -234,6 +234,16 @@ export const RustDeskControls = () => {
                 <Switch />
               </Form.Item>
             )}
+            <Form.Item
+              name="listen_address"
+              label={t('lanAccess')}
+              extra={t('lanAccessHint')}
+              valuePropName="checked"
+              getValueProps={(value) => ({ checked: !!value && value !== '127.0.0.1' })}
+              normalize={(checked) => (checked ? '0.0.0.0' : '127.0.0.1')}
+            >
+              <Switch />
+            </Form.Item>
             {status.supports_audio && (
               <Alert
                 type="info"

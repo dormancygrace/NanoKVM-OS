@@ -1770,6 +1770,8 @@
       "settings": "RustDesk",
       "localPointer": "Ukazatel klienta",
       "localPointerHint": "Klient RustDesk kreslí přes obraz vlastní ukazatel, který se pohybuje okamžitě; kurzor počítače jej následuje se zpožděním videa. Vypnuto: je vidět jen kurzor počítače.",
+      "lanAccess": "Připojení přes adresu",
+      "lanAccessHint": "Klient RustDesk se může připojit přes IP adresu zařízení, bez ID serveru. Připojení přes adresu nejsou šifrována: používejte jen v důvěryhodné síti. Vypnuto: pouze přes ID.",
       "transmitAudio": "Přenášet zvuk",
       "temporaryPassword": "Dočasné heslo",
       "absent": "Nenainstalováno",

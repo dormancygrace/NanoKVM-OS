@@ -338,12 +338,24 @@ two and four tables measured the same and one table was slower from 4 KiB, so
 OpenSSL uses two.
 
 The kernel's gcm(aes) hashes while the crypto engine encrypts, so GHASH is
-what a record waits for. Measured there beside a 20 Mbit/s video stream
-(encrypt / decrypt, AES-256, two tables -> four): 64 KiB 792 / 788 ->
-704 / 736 us, 4080 bytes 77 / 65 -> 66 / 60 us, 1400 bytes 39 / 33 ->
-37 / 33 us, 256 bytes from an atomic caller 16.0 / 13.2 -> 12.7 / 11.8 us.
-An OpenVPN DCO tunnel (AES-256-GCM, UDP) carried the same with either: 65-67
-Mbit/s in, 44-45 out. The kernel uses four; a key takes 16 KiB.
+what a record waits for. Measured there with the application stopped (the
+driver that works on the caller's memory; means of three loads of the module
+for an atomic caller, two for one that may sleep; encrypt / decrypt, AES-256,
+us, two tables -> four):
+
+| | atomic caller | caller that may sleep |
+|---|---|---|
+| 256 B | 13.6 / 12.1 -> 13.3 / 11.7 | 16.7 / 12.6 -> 16.1 / 12.7 |
+| 512 B | 18.0 / 15.5 -> 17.4 / 14.8 | 22.2 / 19.5 -> 21.4 / 16.7 |
+| 1024 B | 26.1 / 21.1 -> 24.3 / 19.8 | 28.7 / 25.4 -> 27.3 / 24.2 |
+| 1400 B | 33.8 / 26.6 -> 31.8 / 24.4 | 36.0 / 30.6 -> 34.0 / 28.4 |
+| 4080 B | 72.8 / 54.5 -> 66.1 / 47.2 | 71.3 / 64.1 -> 64.1 / 56.8 |
+| 16 KiB | 217 / 199 -> 196 / 178 | 205 / 195 -> 187 / 174 |
+| 64 KiB | 806 / 809 -> 732 / 734 | 740 / 775 -> 660 / 672 |
+
+An OpenVPN DCO tunnel (AES-256-GCM, UDP) beside a 20 Mbit/s video stream
+carried the same with either: 65-67 Mbit/s in, 44-45 out. The kernel uses
+four; a key takes 16 KiB.
 
 The generator runs every variant it can emit on random keys and messages
 against a bit-serial GHASH (an interpreter of the instructions it uses), and

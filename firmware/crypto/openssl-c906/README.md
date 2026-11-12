@@ -255,7 +255,17 @@ kernel is older than the library after an update, until the reboot. The
 library remembers that and keeps the AES-CTR path (same speed and output as
 before).
 
-The AES PR is based directly on the SHA-256 patch. SHA-1, DES, TDES and SM4
+`0004-sha1-dma.patch` sends the whole blocks of SHA-1 to the engine as
+`0003` does for SHA-256, from 2 KiB (at 1 KiB the C code is faster: 46 MB/s
+against 34). Both hand the driver up to 64 KiB per request. `openssl speed
+-elapsed`, the application stopped, MB/s, before -> after:
+
+| | 1024 B | 2048 B | 4096 B | 8192 B | 16 KiB | 64 KiB |
+|---|---|---|---|---|---|---|
+| SHA-1 | 46 -> 46 | 52 -> 58 | 56 -> 97 | 58 -> 142 | 59 -> 189 | 57 -> 196 |
+| SHA-256 | 34 -> 33 | 56 -> 63 | 102 -> 104 | 127 -> 159 | 154 -> 200 | 160 -> 220 |
+
+The AES PR is based directly on the SHA-256 patch. DES, TDES and SM4
 OpenSSL offloads are not included. The AES helper rejects other algorithm IDs,
 and the legacy provider does not link the SG2002 transport.
 

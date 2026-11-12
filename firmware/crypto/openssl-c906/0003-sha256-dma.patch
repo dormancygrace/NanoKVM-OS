@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/crypto/sha/sha256_hwcrypto.c
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,51 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +/* SG2002 SHA-256 compression only. OpenSSL owns buffering, padding and length. */
 +#include <stdint.h>
@@ -8,9 +8,11 @@
 +#include <openssl/sha.h>
 +#include "crypto/hwcrypto_transport.h"
 +
-+/* Requests of at most 4 KiB; DMA from 1 KiB (wall-clock break-even with the
-+ * scalar C906 compressor), descriptor reused for tails of at least 512 B. */
-+#define DMA_BLOCKS (HWCRYPTO_MAX / SHA256_CBLOCK)
++/* Requests of at most 64 KiB, the driver's buffers (one request of 64 KiB
++ * takes less than half the time of sixteen of 4 KiB); DMA from 1 KiB
++ * (wall-clock break-even with the scalar C906 compressor), descriptor reused
++ * for tails of at least 512 B. */
++#define DMA_BLOCKS (65536 / SHA256_CBLOCK)
 +#define START_BLOCKS 16
 +#define CONTINUE_BLOCKS 8
 +

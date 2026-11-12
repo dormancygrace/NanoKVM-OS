@@ -49,6 +49,7 @@ updates:
       - /addons/ipmi
       - /server/third_party/pion-dtls
       - /server/third_party/pion-ice
+      - /server/third_party/pion-sctp
       - /server/third_party/pion-srtp
     schedule:
       interval: daily

@@ -81,6 +81,21 @@ func TestWriteBatchSealsRecordsThePeerOpens(t *testing.T) {
 	}
 	expect(20, 21)
 
+	// A payload larger than the function takes: the records are written one by one, the function is not asked.
+	big := bytes.Repeat([]byte{0xb1}, gcmBatchPayload+1)
+	if err = server.WriteBatch([][]byte{big, payload(1)}); err != nil {
+		t.Fatal(err)
+	}
+	bigBuf := make([]byte, 2*gcmBatchPayload)
+	_ = client.SetReadDeadline(time.Now().Add(5 * time.Second))
+	if n, err := client.Read(bigBuf); err != nil || !bytes.Equal(bigBuf[:n], big) {
+		t.Fatalf("large payload: %d bytes, %v", n, err)
+	}
+	expect(1, 2)
+	if calls != 2 {
+		t.Fatalf("%d calls: a batch with a payload over %d bytes went to the function", calls, gcmBatchPayload)
+	}
+
 	fail = true
 	if err = server.WriteBatch([][]byte{payload(21), payload(22), payload(23)}); err != nil {
 		t.Fatal(err)

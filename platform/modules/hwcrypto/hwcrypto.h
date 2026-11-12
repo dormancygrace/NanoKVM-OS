@@ -60,7 +60,10 @@ struct hwcrypto_gcm_request {
 #define HWCRYPTO_GCM _IOWR('K', 0xc4, struct hwcrypto_gcm_request)
 /* AES-GCM encryption of count whole messages (at most HWCRYPTO_GCM_BATCH_MAX,
  * each of 1 to HWCRYPTO_MAX bytes) with one key in one start of the engine:
- * the DTLS records of a burst. For each record: j0 is the counter block of
+ * the DTLS records of a burst. A message takes its length rounded up to 16
+ * and 16 bytes more of the driver's buffer, and all of them at most
+ * HWCRYPTO_GCM_BATCH_BYTES: 16 messages of up to 4080 bytes, 15 of
+ * HWCRYPTO_MAX; a larger batch is EINVAL. For each record: j0 is the counter block of
  * its nonce (the 12-byte nonce, then 00 00 00 01), aad its associated data;
  * length bytes at data are encrypted in place and the 16-byte tag is written
  * after them, so data has length + 16 bytes. h is the hash key E_K(0^128).
@@ -69,6 +72,7 @@ struct hwcrypto_gcm_request {
  * none. A caller that gets an error must not send any of the records.
  */
 #define HWCRYPTO_GCM_BATCH_MAX 16
+#define HWCRYPTO_GCM_BATCH_BYTES 65536
 struct hwcrypto_gcm_batch_record {
  __u8 j0[16], aad[16];
  __u32 aad_length, length;

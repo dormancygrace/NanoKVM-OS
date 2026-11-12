@@ -13,6 +13,14 @@ import (
 // GCMBatchMax is the largest number of records WriteBatch seals in one call of the installed function.
 const GCMBatchMax = 16
 
+// What the installed function takes in one call (the limits of HWCRYPTO_GCM_BATCH): a payload of at most
+// gcmBatchPayload bytes, and all payloads, each rounded up to 16 with 16 bytes more, in gcmBatchBytes.
+// Payloads beyond that are written one by one.
+const (
+	gcmBatchPayload = 4096
+	gcmBatchBytes   = 64 << 10
+)
+
 // GCMRecord is one record for the function of SetGCMRecordBatch. Its layout is that of struct
 // hwcrypto_gcm_batch_record of the NanoKVM crypto driver, so the slice can go to the driver as it is: the
 // counter block J0 (the nonce, then 00 00 00 01), the associated data, its length, the text's length, and where
@@ -73,6 +81,16 @@ func (c *Conn) writeGCMBatch(payloads [][]byte) (bool, error) {
 		return false, nil
 	}
 	if _, set := c.writeDeadline.Deadline(); set {
+		return false, nil
+	}
+	room := 0
+	for _, payload := range payloads {
+		if len(payload) == 0 || len(payload) > gcmBatchPayload {
+			return false, nil
+		}
+		room += 16 + (len(payload)+15)&^15
+	}
+	if room > gcmBatchBytes {
 		return false, nil
 	}
 	if c.isConnectionClosed() {

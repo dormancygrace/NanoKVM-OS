@@ -32,7 +32,9 @@ var gcmBatchDevice struct { //nolint:gochecknoglobals
 // the DTLS records of a burst. records points to count structures laid out as struct hwcrypto_gcm_batch_record:
 // the counter block J0 (16 bytes: the nonce, then 00 00 00 01), the associated data (16 bytes), its length and
 // the text's length (uint32 each), and a pointer to the text, which is encrypted in place and has room for the
-// 16-byte tag behind it. h is the hash key E_K(0). After an error no record may be sent as it is; the driver
+// 16-byte tag behind it. h is the hash key E_K(0). A text is at most 4096 bytes, and all of them, each rounded
+// up to 16 with 16 bytes more, at most 64 KiB: more is EINVAL. After an error no record may be sent as it is;
+// the driver
 // then has written none of them.
 func GCMBatch(key []byte, h *[16]byte, records unsafe.Pointer, count int) error {
 	d := &gcmBatchDevice

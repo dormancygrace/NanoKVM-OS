@@ -103,6 +103,9 @@ static long crypto_gcm_batch_ioctl(unsigned long arg)
   b->off[i] = total;
   total += 16 + ALIGN(r->length, 16);
  }
+ /* The records lie one after another in the large set's input and output. */
+ BUILD_BUG_ON(HWCRYPTO_GCM_BATCH_BYTES > SG2_LARGE);
+ if (total > HWCRYPTO_GCM_BATCH_BYTES) goto clear;
  k = (struct sg2_dkey){ q.key, q.key_length, HWCRYPTO_MODE_CTR, true };
 
  err = mutex_lock_interruptible(&gcm_user_lock);

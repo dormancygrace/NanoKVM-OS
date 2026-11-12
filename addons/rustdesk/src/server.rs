@@ -5,7 +5,7 @@ use std::{
     io,
     net::{IpAddr, Ipv6Addr, SocketAddr},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex,
     },
     time::Duration,
@@ -905,12 +905,19 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // Sent frame buffers return to the reader for reuse.
     let (spare_sender, spare_receiver) = mpsc::channel(2);
     let refresh_wanted = Arc::new(AtomicBool::new(false));
+    // The frame rate the client asked for and the encoder was not told yet.
+    // A client that gets more frames than it decodes fills its queue, asks
+    // to refresh and discards the queue, again and again.
+    let fps_wanted = Arc::new(AtomicU32::new(
+        login.option.as_ref().map_or(0, |option| option.custom_fps.max(0) as u32),
+    ));
     let backlog = backlog_fd.map(|fd| Arc::new(Backlog::new(fd, writer.written())));
     let media_task = tokio::spawn(forward_media(
         media,
         media_sender,
         spare_receiver,
         Arc::clone(&refresh_wanted),
+        Arc::clone(&fps_wanted),
         backlog.clone(),
     ));
     // FrameReader::read also uses read_exact internally and has the same
@@ -964,6 +971,9 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             union: Some(crate::protocol::misc::Union::Option(option)),
                         })),
                 }) => {
+                    if option.custom_fps > 0 {
+                        fps_wanted.store(option.custom_fps as u32, Ordering::Relaxed);
+                    }
                     if matches!(option.disable_audio, 1 | 2) {
                         let next = can_audio && option.disable_audio == 1;
                         audio_desired.send_if_modified(|value| {
@@ -1310,6 +1320,7 @@ async fn forward_media(
     sender: mpsc::Sender<io::Result<MediaFrame>>,
     mut spares: mpsc::Receiver<Vec<u8>>,
     refresh_wanted: Arc<AtomicBool>,
+    fps_wanted: Arc<AtomicU32>,
     backlog: Option<Arc<Backlog>>,
 ) {
     let mut dropping = false;
@@ -1328,6 +1339,13 @@ async fn forward_media(
                 return;
             }
         };
+        let fps = fps_wanted.swap(0, Ordering::Relaxed);
+        if fps != 0 {
+            if let Err(error) = media.request_fps(fps).await {
+                let _ = sender.send(Err(error)).await;
+                return;
+            }
+        }
         // A client that asked to refresh discards frames until a keyframe.
         // The request is seen with the next frame, 17 ms later at most while
         // the encoder runs.
@@ -3316,6 +3334,7 @@ mod tests {
             sender,
             spares,
             Arc::clone(&refresh),
+            Arc::new(std::sync::atomic::AtomicU32::new(0)),
             None,
         ));
         let frame = |marker: u8| [0, 0, 0, 1, 0x65, marker];

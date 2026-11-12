@@ -287,6 +287,8 @@ func (b *Bridge) serveMedia(c net.Conn) {
 	codec := subscription.Config().Codec
 	c.SetReadDeadline(time.Time{})
 	done := make(chan struct{})
+	rate := common.NewViewerRateLimit()
+	defer rate.Close()
 	go func() {
 		defer close(done)
 		defer subscription.Close()
@@ -297,6 +299,15 @@ func (b *Bridge) serveMedia(c net.Conn) {
 			}
 			if string(line) == "{\"request\":\"keyframe\"}\n" {
 				stream.RequestKeyframe()
+				continue
+			}
+			// The frame rate the RustDesk client asked for.
+			var request struct {
+				Request string
+				FPS     int
+			}
+			if json.Unmarshal(line, &request) == nil && request.Request == "fps" && request.FPS > 0 {
+				rate.Set(request.FPS)
 			}
 		}
 	}()

@@ -133,6 +133,47 @@ var sourceTiming struct {
 	height  int
 }
 
+// The encoder is shared, so the rate one viewer cannot keep up with is the
+// rate of all of them while that viewer is there.
+var viewerRate struct {
+	sync.Mutex
+	limits map[*ViewerRateLimit]int
+	lowest atomic.Int32
+}
+
+// ViewerRateLimit is the frame rate one viewer asked for. Close ends it.
+type ViewerRateLimit struct{}
+
+func NewViewerRateLimit() *ViewerRateLimit { return &ViewerRateLimit{} }
+
+// Set limits the capture rate to fps, at least the lowest rate there is.
+func (l *ViewerRateLimit) Set(fps int) {
+	viewerRate.Lock()
+	defer viewerRate.Unlock()
+	if viewerRate.limits == nil {
+		viewerRate.limits = map[*ViewerRateLimit]int{}
+	}
+	viewerRate.limits[l] = validateFPS(fps)
+	storeLowestViewerRate()
+}
+
+func (l *ViewerRateLimit) Close() {
+	viewerRate.Lock()
+	defer viewerRate.Unlock()
+	delete(viewerRate.limits, l)
+	storeLowestViewerRate()
+}
+
+func storeLowestViewerRate() {
+	lowest := 0
+	for _, fps := range viewerRate.limits {
+		if lowest == 0 || fps < lowest {
+			lowest = fps
+		}
+	}
+	viewerRate.lowest.Store(int32(lowest))
+}
+
 // Cache reads away from the frame hot path. Native code independently enforces
 // the same QHD cap immediately under its capture mutex.
 func GetCaptureScreen() *Screen {
@@ -149,6 +190,9 @@ func GetCaptureScreen() *Screen {
 	limit := CaptureRateLimit(sourceWidth, sourceHeight)
 	if outputLimit := CaptureRateLimit(int(next.Width), int(next.Height)); outputLimit < limit {
 		limit = outputLimit
+	}
+	if viewer := int(viewerRate.lowest.Load()); viewer != 0 && viewer < limit {
+		limit = viewer
 	}
 	if next.FPS > limit {
 		next.FPS = limit

@@ -158,7 +158,7 @@ static int sg2_gcm_direct_core(const struct sg2_dkey *k, struct scatterlist *src
   if (poisoned) { sg2_disown(); err = -EIO; break; }
   p = cur->plan;
   p->descs = p->spans = p->fixes = p->bounce = p->bytes = 0;
-  p->tail_in = p->lost = false;
+  p->tail_in = false;
   room = min_t(unsigned int, sg2_room(), SG2_GCM_PIECE);
   if (cryptlen >= SG2_GCM_CUT) {
    unsigned int cut = min_t(unsigned int, ALIGN(left / 4, 16), SG2_GCM_SHORT);
@@ -532,7 +532,6 @@ static int sg2_gcm_user_direct(struct hwcrypto_gcm_request *q, struct ghash_ctx 
   }
   memcpy(ctr0, ctr, 16);
   err = sg2_gcm_direct_core(&k, same ? gcm_user.dsg : gcm_user.ssg, gcm_user.dsg, 0, win, q->encrypt, same, ctr, g, NULL);
-  /* A lost engine holds its own references to the pages (sg2_direct_done()). */
   if (!same) unpin_user_pages(gcm_user.ip, n);
   unpin_user_pages_dirty_lock(gcm_user.op, n, !err);
   if (err) {
@@ -636,8 +635,9 @@ static long crypto_gcm_ioctl(unsigned long arg)
  g.acc.hi = cpu_to_le64(get_unaligned_be64(&q.xi[0]));
 
  err = sg2_gcm_user_direct(&q, &g, r.iv, &pos);
- /* In place on the caller's pages the engine has written over part of the
-  * window that failed (it is lost: nothing else fails there): there is no
+ /* In place on the caller's pages the engine has written over the windows
+  * before the one that failed (the engine was given up meanwhile, by a
+  * request through the copies: nothing else fails there): there is no
   * prefix the caller could continue from in software. */
  spoiled = err && err != -EAGAIN && q.input == q.output;
  if (err == -EAGAIN && q.length >= SG2_GCM_USER_MIN) err = sg2_gcm_user_copy(&q, &g, r.iv, &pos);

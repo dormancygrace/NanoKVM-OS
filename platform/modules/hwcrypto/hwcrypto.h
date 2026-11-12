@@ -45,9 +45,11 @@ struct hwcrypto_info {
  * A failed call leaves the output as it was, with one exception, here and in
  * HWCRYPTO_RUN: when input and output are the same buffer and the driver has
  * the engine work on its pages (16-byte alignment; 8 KiB and more here,
- * 16 KiB and more for HWCRYPTO_RUN with AES), EIO or ETIMEDOUT means the
- * engine was lost in the request and the buffer is partly written. The
- * caller must fail its operation then.
+ * 16 KiB and more for HWCRYPTO_RUN with AES), EIO means the engine was given
+ * up while the request ran (another request lost it) and the buffer is partly
+ * written. The caller must fail its operation then. An engine that does not
+ * finish its work on the caller's pages stops the system: see
+ * docs/ACCELERATORS.md.
  */
 struct hwcrypto_gcm_request {
  __u32 version, encrypt, key_length, length;

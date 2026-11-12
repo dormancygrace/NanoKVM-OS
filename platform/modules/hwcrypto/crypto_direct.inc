@@ -37,7 +37,7 @@ struct sg2_span { struct page *page; dma_addr_t dma; u32 len; enum dma_data_dire
 struct sg2_fix { u8 *to; u32 off, len; };
 struct sg2_direct {
  u32 descs, spans, fixes, bounce, bytes;
- bool tail_in, lost;
+ bool tail_in;
  struct sg2_span span[2 * SG2_CHAIN_MAX];
  struct sg2_fix fix[2 * SG2_CHAIN_MAX];
 };
@@ -219,18 +219,28 @@ static int sg2_direct_start(struct sg2_direct *p)
  return 0;
 }
 
-/* Wait for the chain started by sg2_direct_start(). */
+/*
+ * Wait for the chain started by sg2_direct_start().
+ *
+ * An engine that does not report the chain done may still read and write the
+ * caller's memory, and nothing here can stop it or tell when it has stopped:
+ * the block has no reset or abort that the driver knows. The request must not
+ * be completed then. Its memory is the caller's: a slab object or an skb goes
+ * back to its allocator when the caller is told, whatever page references
+ * are held, and a late write of the engine would land in what is put there
+ * next; a process would go on using its buffer. Keeping the caller from ever
+ * returning is not possible either (it may be a softirq). So the system stops
+ * here, with the memory still the request's, and restarts (kernel.panic).
+ * Through the copies the engine only ever has the driver's own buffers, and a
+ * lost engine is given up without that (sg2_poison()).
+ */
 static int sg2_direct_finish(struct sg2_direct *p)
 {
  u32 status = 0;
  int err = engine_wait(&status);
- if (err || status != 1) {
-  sg2_poison();
-  sg2_engine_unlock();
-  p->lost = true;
-  pr_err("hwcrypto_crypto: direct chain of %u DMA uncertain status=%#x timeout=%d; pinned until reboot\n", p->descs, status, err);
-  return err ? err : -EIO;
- }
+ if (err || status != 1)
+  panic("nanokvm_hwcrypto: the engine did not finish a chain of %u on a caller's memory (status %#x, %d)",
+        p->descs, status, err);
  writel(7, regs + STATUS); writel(initial_mask, regs + MASK);
  sg2_engine_unlock();
  dma_rmb();
@@ -248,12 +258,6 @@ static int sg2_direct_run(struct sg2_direct *p)
 static void sg2_direct_done(struct sg2_direct *p, int err, u8 *first16)
 {
  u32 i;
- if (p->lost) {
-  /* The engine may still write to the caller's pages: they are never
-   * unmapped and never freed. The set stays with it too (sg2_poison()). */
-  for (i = 0; i < p->spans; i++) get_page(p->span[i].page);
-  return;
- }
  for (i = 0; i < p->spans; i++)
   dma_unmap_page(&pdev->dev, p->span[i].dma, p->span[i].len, p->span[i].dir);
  if (p->descs) dma_sync_single_for_cpu(&pdev->dev, cur->chain_dma, p->descs * DESC_BYTES, DMA_BIDIRECTIONAL);
@@ -269,9 +273,8 @@ static void sg2_direct_done(struct sg2_direct *p, int err, u8 *first16)
  if (p->tail_in) memzero_explicit(cur->in, 2 * SG2_LINE);
 }
 
-/* All of a request, in as many starts as its ranges need. iv is advanced.
- * *lost: the engine did not answer and still owns the caller's memory. */
-static int sg2_direct_all(const struct sg2_dkey *k, struct sg2_walk *w, u8 *iv, bool *lost)
+/* All of a request, in as many starts as its ranges need. iv is advanced. */
+static int sg2_direct_all(const struct sg2_dkey *k, struct sg2_walk *w, u8 *iv)
 {
  int err = 0;
  while (w->left && !err) {
@@ -281,7 +284,7 @@ static int sg2_direct_all(const struct sg2_dkey *k, struct sg2_walk *w, u8 *iv, 
   if (poisoned) { sg2_disown(); return -EIO; }
   p = cur->plan;
   p->descs = p->spans = p->fixes = p->bounce = p->bytes = 0;
-  p->tail_in = p->lost = false;
+  p->tail_in = false;
   room = sg2_room();
   /* A range takes at most four descriptors, two mappings and three lines of
    * the output buffer. */
@@ -295,7 +298,6 @@ static int sg2_direct_all(const struct sg2_dkey *k, struct sg2_walk *w, u8 *iv, 
   }
   if (!err) err = sg2_direct_run(p);
   sg2_direct_done(p, err, NULL);
-  if (p->lost && lost) *lost = true;
   sg2_disown();
   if (!err) sg2_resched();
  }
@@ -311,7 +313,7 @@ static int sg2_cipher_direct(struct skcipher_request *req, bool encrypt)
  int err;
 
  if (k.mode) memcpy(iv, req->iv, 16);
- err = sg2_direct_all(&k, &w, iv, NULL);
+ err = sg2_direct_all(&k, &w, iv);
  if (!err && k.mode) memcpy(req->iv, iv, 16);
  memzero_explicit(iv, sizeof(iv));
  return err;
@@ -332,7 +334,7 @@ static int sg2_run_direct(struct hwcrypto_request *r)
  unsigned long in = r->input, out = r->output;
  unsigned int len = r->length, nin, nout;
  struct sg2_walk w = { .ip = ip, .op = op, .ioff = offset_in_page(in), .ooff = offset_in_page(out), .left = len };
- bool same = in == out, lost = false;
+ bool same = in == out;
  u8 iv[16];
  int got, err;
 
@@ -350,13 +352,10 @@ static int sg2_run_direct(struct hwcrypto_request *r)
   if (got != nin) { if (got > 0) unpin_user_pages(ip, got); unpin_user_pages(op, nout); return -EAGAIN; }
  }
  memcpy(iv, r->iv, 16);
- err = sg2_direct_all(&k, &w, iv, &lost);
+ err = sg2_direct_all(&k, &w, iv);
  memzero_explicit(iv, sizeof(iv));
- /* A lost engine keeps the pages pinned for good. */
- if (!lost) {
-  if (!same) unpin_user_pages(ip, nin);
-  unpin_user_pages_dirty_lock(op, nout, !err);
- }
+ if (!same) unpin_user_pages(ip, nin);
+ unpin_user_pages_dirty_lock(op, nout, !err);
  if (!err) r->output_length = len;
  return err;
 }

@@ -462,9 +462,14 @@ static struct aead_alg sg2_gcm_alg = {
  */
 static DEFINE_MUTEX(gcm_user_lock);
 static struct {
- u8 h[GHASH_BLOCK_SIZE];	/* the key the tables were built for */
- bool valid;
- struct ghash_key key;
+ /* The tables of the last two hash keys: a TLS connection has one per
+  * direction, and building them takes about as long as hashing 1 KiB. */
+ struct {
+  u8 h[GHASH_BLOCK_SIZE];	/* the key the tables were built for */
+  bool valid;
+  struct ghash_key key;
+ } keys[2];
+ unsigned int recent;	/* the one of keys[] used last */
  u8 text[HWCRYPTO_MAX];
  /* The window of sg2_gcm_user_direct(). */
  struct page *ip[SG2_PIN_PAGES], *op[SG2_PIN_PAGES];
@@ -598,6 +603,7 @@ static long crypto_gcm_ioctl(unsigned long arg)
  u8 __user *out;
  struct ghash_ctx g, saved;
  unsigned int pos = 0, pending = 0;	/* pending: encrypted bytes in gcm_user.text not hashed yet */
+ unsigned int k;
  bool spoiled = false;
  int err = -EINVAL;
 
@@ -613,12 +619,15 @@ static long crypto_gcm_ioctl(unsigned long arg)
  err = mutex_lock_interruptible(&gcm_user_lock);
  if (err) goto clear;
  /* A TLS connection sends all its records with one key. */
- if (!gcm_user.valid || crypto_memneq(gcm_user.h, q.h, GHASH_BLOCK_SIZE)) {
-  ghash_preparekey(&gcm_user.key, q.h);
-  memcpy(gcm_user.h, q.h, GHASH_BLOCK_SIZE);
-  gcm_user.valid = true;
+ k = gcm_user.recent;
+ if (!gcm_user.keys[k].valid || crypto_memneq(gcm_user.keys[k].h, q.h, GHASH_BLOCK_SIZE)) k ^= 1;
+ gcm_user.recent = k;
+ if (!gcm_user.keys[k].valid || crypto_memneq(gcm_user.keys[k].h, q.h, GHASH_BLOCK_SIZE)) {
+  ghash_preparekey(&gcm_user.keys[k].key, q.h);
+  memcpy(gcm_user.keys[k].h, q.h, GHASH_BLOCK_SIZE);
+  gcm_user.keys[k].valid = true;
  }
- ghash_init(&g, &gcm_user.key);
+ ghash_init(&g, &gcm_user.keys[k].key);
  /* GHASH byte order to the POLYVAL-format accumulator of lib/crypto. */
  g.acc.lo = cpu_to_le64(get_unaligned_be64(&q.xi[8]));
  g.acc.hi = cpu_to_le64(get_unaligned_be64(&q.xi[0]));

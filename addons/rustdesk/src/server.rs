@@ -1043,8 +1043,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let mut video_bytes = 0u64;
     let mut video_since = time::Instant::now();
     let mut audio_updates_open = true;
-    let mut audio_permission = None;
-    let mut audio_generation = 0;
+    let mut audio_sent = AudioSent::default();
     let mut input_updates_open = true;
     // Input may be enabled by the controller after login.
     let mut lease_updates_open = can_control;
@@ -1053,25 +1052,8 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             changed=audio_state.changed(), if audio_updates_open => {
                 if changed.is_err(){audio_updates_open=false;continue;}
                 let state=audio_state.borrow_and_update().clone();
-                if let Some(available)=state.available {
-                    if audio_permission!=Some(available) {
-                        let permission=crate::protocol::PermissionInfo{permission:3,enabled:available};
-                        if let Err(error)=write_union(&mut writer,message::Union::Misc(crate::protocol::Misc{union:Some(crate::protocol::misc::Union::PermissionInfo(permission))})).await{break Err(error);}
-                        audio_permission=Some(available);
-                    }
-                }
-                if state.available==Some(true) && *audio_current.borrow() && state.generation!=0 {
-                    if audio_generation!=state.generation {
-                        let format=crate::protocol::AudioFormat{sample_rate:crate::audio::SAMPLE_RATE,channels:crate::audio::CHANNELS};
-                        if let Err(error)=write_union(&mut writer,message::Union::Misc(crate::protocol::Misc{union:Some(crate::protocol::misc::Union::AudioFormat(format))})).await{break Err(error);}
-                        audio_generation=state.generation;
-                    }
-                    if let Some((received,data))=state.packet {
-                        if received.elapsed()<=crate::audio::MAX_AGE {
-                            if let Err(error)=write_union(&mut writer,message::Union::AudioFrame(crate::protocol::AudioFrame{data})).await{break Err(error);}
-                        }
-                    }
-                }
+                let wanted=*audio_current.borrow();
+                if let Err(error)=write_audio(&mut writer,state,wanted,&mut audio_sent).await{break Err(error);}
             }
             _ = peer_tick.tick() => {
                 // kbit/s: bytes * 8 / ms.
@@ -1139,6 +1121,14 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                         "RustDesk client {peer} sending first {} video frame ({frame_length} bytes)",
                         codec_name(frame_codec)
                     );
+                }
+                // Sound first: a frame can take longer to write than several of its packets last.
+                if audio_updates_open && audio_state.has_changed().unwrap_or(false) {
+                    let state = audio_state.borrow_and_update().clone();
+                    let wanted = *audio_current.borrow();
+                    if let Err(error) = write_audio(&mut writer, state, wanted, &mut audio_sent).await {
+                        break Err(error);
+                    }
                 }
                 if let Err(error) = writer.write_encoded(&mut video, start).await {
                     break Err(error);
@@ -1547,6 +1537,52 @@ async fn send_error<W: AsyncWrite + Unpin>(
         }),
     )
     .await
+}
+
+/// What of the audio a session has told its client.
+#[derive(Default)]
+struct AudioSent {
+    permission: Option<bool>,
+    generation: u64,
+    number: u64,
+}
+
+/// Sends what the audio state holds and the client has not been sent: the permission, the format of a new
+/// capture, and the packets after the last one sent that are not older than MAX_AGE.
+async fn write_audio<W: AsyncWrite + Unpin>(
+    writer: &mut FrameWriter<W>,
+    state: crate::audio::State,
+    wanted: bool,
+    sent: &mut AudioSent,
+) -> io::Result<()> {
+    if let Some(available) = state.available {
+        if sent.permission != Some(available) {
+            let permission = crate::protocol::PermissionInfo { permission: 3, enabled: available };
+            write_union(writer, message::Union::Misc(crate::protocol::Misc {
+                union: Some(crate::protocol::misc::Union::PermissionInfo(permission)),
+            })).await?;
+            sent.permission = Some(available);
+        }
+    }
+    if state.available == Some(true) && wanted && state.generation != 0 {
+        if sent.generation != state.generation {
+            let format = crate::protocol::AudioFormat {
+                sample_rate: crate::audio::SAMPLE_RATE,
+                channels: crate::audio::CHANNELS,
+            };
+            write_union(writer, message::Union::Misc(crate::protocol::Misc {
+                union: Some(crate::protocol::misc::Union::AudioFormat(format)),
+            })).await?;
+            sent.generation = state.generation;
+        }
+        for (number, received, data) in state.packets {
+            if number > sent.number && received.elapsed() <= crate::audio::MAX_AGE {
+                write_union(writer, message::Union::AudioFrame(crate::protocol::AudioFrame { data })).await?;
+            }
+            sent.number = sent.number.max(number);
+        }
+    }
+    Ok(())
 }
 
 async fn write_union<W: AsyncWrite + Unpin>(

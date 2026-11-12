@@ -2,6 +2,7 @@
 package rustdesk
 
 import (
+	"NanoKVM-Server/common/udpbatch"
 	"NanoKVM-Server/service/stream/iceservers"
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"context"
@@ -11,6 +12,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/pion/transport/v5"
+	"github.com/pion/transport/v5/stdnet"
 	"github.com/pion/webrtc/v4"
 	"io"
 	"net"
@@ -243,6 +246,12 @@ func (b *rtcBridge) answer(endpoint string) (*rtcSession, string, string, string
 	setting.SetSCTPMaxReceiveBufferSize(256 << 10)
 	// The DTLS policy of every NanoKVM peer. The bridge carries data
 	// channels only, so the SRTP and RTP path settings do not apply.
+	// The SCTP sender writes every packet of a message with its own system
+	// call, about 830 for a megabyte: a quarter of what the server spends on
+	// the session over Wi-Fi. They leave in bursts of up to 16 instead.
+	if base, netErr := stdnet.NewNet(); netErr == nil {
+		setting.SetNet(batchNet{base})
+	}
 	if err = webrtcdtls.Configure(&setting); err != nil {
 		close(s.pcReady)
 		return failed(err)
@@ -329,6 +338,26 @@ func (b *rtcBridge) answer(endpoint string) (*rtcSession, string, string, string
 	}
 	return s, "webrtc://" + base64.StdEncoding.EncodeToString(data), fingerprint, key, nil
 }
+
+// batchNet opens the peer connection's UDP sockets with burst sending of the
+// data channel's packets.
+type batchNet struct{ transport.Net }
+
+func (n batchNet) ListenUDP(network string, addr *net.UDPAddr) (transport.UDPConn, error) {
+	conn, err := n.Net.ListenUDP(network, addr)
+	if err != nil {
+		return nil, err
+	}
+	// The mDNS socket stays as it is.
+	if udp, ok := conn.(*net.UDPConn); ok && (addr == nil || (addr.Port != 5353 && !addr.IP.IsMulticast())) {
+		if wrapped, ok := udpbatch.Wrap(udp, nil); ok {
+			wrapped.BatchRecords()
+			return wrapped, nil
+		}
+	}
+	return conn, nil
+}
+
 func (b *rtcBridge) attach(c net.Conn, token string) {
 	b.mu.Lock()
 	s := b.sessions[token]

@@ -1047,8 +1047,14 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     );
 
     let mut first_video_frame = true;
-    let mut peer_tick = time::interval(Duration::from_secs(10));
+    // The client's quality monitor shows what the probes carry: the round
+    // trip of the last one it answered and the video rate since the one
+    // before, every second as the RustDesk host sends them.
+    let mut peer_tick = time::interval(Duration::from_secs(1));
     peer_tick.tick().await;
+    let mut last_delay = 0u32;
+    let mut video_bytes = 0u64;
+    let mut video_since = time::Instant::now();
     let mut audio_updates_open = true;
     let mut audio_permission = None;
     let mut audio_generation = 0;
@@ -1081,9 +1087,13 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 }
             }
             _ = peer_tick.tick() => {
-                let delay = crate::protocol::TestDelay { time: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as i64,
-                    from_client: false, ..Default::default() };
+                // kbit/s: bytes * 8 / ms.
+                let elapsed = video_since.elapsed().as_millis().max(1) as u64;
+                let target_bitrate = (video_bytes * 8 / elapsed) as u32;
+                video_bytes = 0;
+                video_since = time::Instant::now();
+                let delay = crate::protocol::TestDelay { time: unix_millis(),
+                    from_client: false, last_delay, target_bitrate };
                 if let Err(error) = write_union(&mut writer, message::Union::TestDelay(delay)).await {
                     break Err(error);
                 }
@@ -1096,6 +1106,9 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             if let Err(error) = write_union(&mut writer, message::Union::TestDelay(delay)).await {
                                 break Err(error);
                             }
+                        } else {
+                            // Our probe, back from the client.
+                            last_delay = unix_millis().saturating_sub(delay.time).clamp(0, 60_000) as u32;
                         }
                     }
                     Some(Ok(_)) => {}
@@ -1130,6 +1143,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 };
                 let frame_codec = frame.codec;
                 let frame_length = frame.payload.len();
+                video_bytes += frame_length as u64;
                 let Some((mut video, start)) = rustdesk_video_frame(frame) else {
                     continue;
                 };
@@ -1162,6 +1176,13 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let _ = input_shutdown_sender.send(true);
     retire_input(input_task, session_permit).await;
     result
+}
+
+fn unix_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
 }
 
 // The session, and with it its viewer slot, ends only once the input task

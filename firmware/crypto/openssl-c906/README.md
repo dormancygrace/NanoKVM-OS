@@ -196,6 +196,23 @@ full-width and GCM counters. GCM installs the AES-CTR callback for every record;
 below the 512-byte DMA minimum it encrypts one AES block per call with 64-bit XOR
 and a register counter.
 
+ECB, CBC and CTR hand the driver up to 64 KiB per `HWCRYPTO_RUN` (its
+buffers); the AES-CTR callback of GCM stays at 4 KiB. Measured with
+`openssl speed -elapsed`, the application stopped, MB/s, 4 KiB per RUN -> 64 KiB:
+
+| | 4096 B | 8192 B | 16 KiB | 64 KiB |
+|---|---|---|---|---|
+| AES-256-CTR | 99 -> 99 | 102 -> 141 | 105 -> 145 | 96 -> 163 |
+| AES-128-CBC encrypt | 107 -> 105 | 114 -> 155 | 118 -> 172 | 105 -> 196 |
+| AES-128-ECB | 109 -> 101 | 115 -> 168 | 119 -> 170 | 110 -> 196 |
+
+A RUN in place of up to 4 KiB goes through a stack scratch, so that a late
+failure leaves the input for the software fallback. A longer one goes to the
+driver as it is; if the driver answers EIO or ETIMEDOUT (its engine is lost
+until the reboot) the cipher operation fails instead of continuing in software,
+because a driver that works on the caller's pages may have written part of the
+output. `HWCRYPTO_GCM` in place is treated the same way.
+
 From 4 KiB, a GCM update hands its whole blocks to the driver's
 `HWCRYPTO_GCM` ioctl instead (the driver's ABI header is copied into
 `0002`). The driver runs AES-CTR on the engine in 4 KiB chunks and, while

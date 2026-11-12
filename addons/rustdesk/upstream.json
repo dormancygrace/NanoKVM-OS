@@ -1,7 +1,7 @@
 {
-  "rustdesk_version": "1.5.1",
+  "rustdesk_version": "1.5.3",
   "basis": "protocol-reference",
-  "rustdesk_commit": "23e5bb471a040d62f0a6ad52591fb30784265b73",
+  "rustdesk_commit": "95cca3f661f635b3cc85c04935fe8d96d8f432ef",
   "hbb_common_commit": "fae47e024dd83cef6aaecde0aa7d11731df11649",
   "kx_version": 1,
   "transports": [
@@ -14,6 +14,7 @@
     "direct_tcp_by_id": true,
     "audio": true,
     "audio_settings": true,
+    "pointer_settings": true,
     "usb_defaults": true
   }
 }

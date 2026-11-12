@@ -45,6 +45,8 @@ enum HidKey {
 }
 
 pub struct InputState {
+    // The last letter typed from a text sequence was Russian.
+    russian_text: bool,
     hid: HidClient,
     width: u16,
     height: u16,
@@ -72,6 +74,7 @@ impl InputState {
             pointer_mode: PointerMode::Absolute,
             pointer_mode_announced: false,
             lease_wait: None,
+            russian_text: false,
         }
     }
 
@@ -271,10 +274,20 @@ impl InputState {
                     HidKey::Usage(usage) => (Some(usage), 0),
                 }
             }
-            Some(key_event::Union::Chr(value)) => char_to_hid(char::from_u32(value)),
-            Some(key_event::Union::Unicode(value)) => char_to_hid(char::from_u32(value)),
-            Some(key_event::Union::Seq(sequence)) if sequence.chars().count() == 1 => {
-                char_to_hid(sequence.chars().next())
+            Some(key_event::Union::Chr(value)) => self.text_key(char::from_u32(value)),
+            Some(key_event::Union::Unicode(value)) => self.text_key(char::from_u32(value)),
+            // Text, as the keyboard of a phone sends it, in one event: a
+            // press of the key each character is on. Which keys those are
+            // depends on the layout the target has switched on, which is not
+            // known here, as with a real keyboard: Latin text comes out right
+            // under a Latin layout, Russian text under the Russian one.
+            Some(key_event::Union::Seq(sequence)) => {
+                for character in sequence.chars() {
+                    if let (Some(usage), modifier) = self.text_key(Some(character)) {
+                        self.apply_usage(usage, false, true, modifier).await?;
+                    }
+                }
+                return Ok(());
             }
             _ => (None, 0),
         };
@@ -283,6 +296,26 @@ impl InputState {
                 .await?;
         }
         Ok(())
+    }
+
+    // The key of a character of text, however the client sent it.
+    fn text_key(&mut self, character: Option<char>) -> (Option<u8>, u8) {
+        let Some(character) = character else {
+            return (None, 0);
+        };
+        // The character is what the client's keyboard produced, Shift and
+        // all: a phone marks every letter of a word begun with a capital as
+        // typed with Shift, the small ones too. The key's own Shift decides.
+        self.modifiers &= !0x22;
+        let key = match russian_to_hid(character, self.russian_text) {
+            Some((0, _)) => (None, 0),
+            Some((usage, modifier)) => (Some(usage), modifier),
+            None => char_to_hid(Some(character)),
+        };
+        if key.0.is_some() && character.is_alphabetic() {
+            self.russian_text = !character.is_ascii();
+        }
+        key
     }
 
     pub async fn release_all(&mut self) {
@@ -489,6 +522,39 @@ fn char_to_hid(value: Option<char>) -> (Option<u8>, u8) {
     (Some(usage), if shift { 0x02 } else { 0 })
 }
 
+// The key of a Russian letter in the Russian layout (the letter rows of the
+// US layout in the same order), and, after Russian text, of the punctuation
+// that the Russian layout has elsewhere.
+fn russian_to_hid(character: char, after_russian: bool) -> Option<(u8, u8)> {
+    const LETTERS: &str = "йцукенгшщзхъфывапролджэячсмитьбюё";
+    const KEYS: &str = "qwertyuiop[]asdfghjkl;'zxcvbnm,.`";
+    let lower = character.to_lowercase().next()?;
+    if let Some(index) = LETTERS.chars().position(|letter| letter == lower) {
+        let (usage, _) = char_to_hid(KEYS.chars().nth(index));
+        return Some((usage?, if character.is_uppercase() { 0x02 } else { 0 }));
+    }
+    if !after_russian {
+        return None;
+    }
+    Some(match character {
+        '.' => (0x38, 0),
+        ',' => (0x38, 0x02),
+        '?' => (0x24, 0x02),
+        ';' => (0x21, 0x02),
+        ':' => (0x23, 0x02),
+        '"' => (0x1f, 0x02),
+        '№' => (0x20, 0x02),
+        '/' => (0x31, 0x02),
+        // Right Alt and 8.
+        '₽' => (0x25, 0x40),
+        // Not on the Russian layout: their US keys would type something
+        // else, so nothing is typed.
+        '#' | '&' | '@' | '$' | '^' | '[' | ']' | '{' | '}' | '<' | '>' | '`' | '~' | '|'
+        | '\'' => (0, 0),
+        _ => return None,
+    })
+}
+
 fn linux_xorg_keycode_to_hid(value: u32) -> Option<HidKey> {
     let evdev = value.checked_sub(8)?;
     let modifier = match evdev {
@@ -512,11 +578,12 @@ fn linux_xorg_keycode_to_hid(value: u32) -> Option<HidKey> {
         13 => 0x2e,
         14 => 0x2a,
         15 => 0x2b,
-        16..=25 => 0x14 + (evdev - 16) as u8,
+        // The letter rows by position; USB usages follow the alphabet.
+        16..=25 => b"\x14\x1a\x08\x15\x17\x1c\x18\x0c\x12\x13"[(evdev - 16) as usize],
         26 => 0x2f,
         27 => 0x30,
         28 => 0x28,
-        30..=38 => 0x04 + (evdev - 30) as u8,
+        30..=38 => b"\x04\x16\x07\x09\x0a\x0b\x0d\x0e\x0f"[(evdev - 30) as usize],
         39 => 0x33,
         40 => 0x34,
         41 => 0x35,
@@ -531,6 +598,7 @@ fn linux_xorg_keycode_to_hid(value: u32) -> Option<HidKey> {
         51 => 0x36,
         52 => 0x37,
         53 => 0x38,
+        55 => 0x55,
         57 => 0x2c,
         58 => 0x39,
         59..=68 => 0x3a + (evdev - 59) as u8,
@@ -584,6 +652,18 @@ mod tests {
         assert_eq!(linux_xorg_keycode_to_hid(38), Some(HidKey::Usage(0x04)));
         assert_eq!(linux_xorg_keycode_to_hid(36), Some(HidKey::Usage(0x28)));
         assert_eq!(linux_xorg_keycode_to_hid(94), Some(HidKey::Usage(0x64)));
+        // The three letter rows, left to right, give their letters.
+        let usages = |codes: std::ops::RangeInclusive<u32>| -> String {
+            codes
+                .map(|code| match linux_xorg_keycode_to_hid(code) {
+                    Some(HidKey::Usage(usage)) => char::from(b'a' + usage - 0x04),
+                    _ => '?',
+                })
+                .collect()
+        };
+        assert_eq!(usages(24..=33), "qwertyuiop");
+        assert_eq!(usages(38..=46), "asdfghjkl");
+        assert_eq!(usages(52..=58), "zxcvbnm");
     }
 
     #[test]
@@ -592,6 +672,17 @@ mod tests {
         assert_eq!(linux_xorg_keycode_to_hid(50), Some(HidKey::Modifier(0x02)));
         assert_eq!(linux_xorg_keycode_to_hid(108), Some(HidKey::Modifier(0x40)));
         assert_eq!(linux_xorg_keycode_to_hid(134), Some(HidKey::Modifier(0x80)));
+    }
+
+    #[test]
+    fn russian_text_takes_the_keys_of_the_russian_layout() {
+        use super::russian_to_hid;
+        // п and Ф are on G and A; the full stop is on the slash key there.
+        assert_eq!(russian_to_hid('п', false), Some((0x0a, 0)));
+        assert_eq!(russian_to_hid('Ф', false), Some((0x04, 0x02)));
+        assert_eq!(russian_to_hid('.', true), Some((0x38, 0)));
+        assert_eq!(russian_to_hid('.', false), None);
+        assert_eq!(russian_to_hid('a', true), None);
     }
 
     #[test]

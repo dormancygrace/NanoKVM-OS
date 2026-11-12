@@ -3,6 +3,9 @@ import { http } from '@/lib/http';
 export type RustDeskConfig = {
   service_enabled: boolean;
   audio_enabled?: boolean;
+  local_pointer?: boolean;
+  // The direct listener: 127.0.0.1 unless connecting by address is on.
+  listen_address?: string;
   webrtc_enabled?: boolean;
   use_official_id_server: boolean;
   rendezvous_server: string;
@@ -20,6 +23,7 @@ export type RustDeskStatus = {
   video_transport?: 'direct' | 'webrtc' | 'mjpeg';
   supports_audio?: boolean;
   supports_audio_settings?: boolean;
+  supports_pointer_settings?: boolean;
   usb_audio_enabled?: boolean;
   version?: string;
   rustdesk_version?: string;

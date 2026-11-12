@@ -87,6 +87,10 @@ type Conn struct {
 	directDeadline    context.Context //nolint:containedctx // the deadline context that is watched
 	readWatched       context.Context //nolint:containedctx // readDirect: the reader context that is watched
 
+	// WriteBatch: a batch failed (records are sealed one by one from then on), and the buffer of that path.
+	gcmBatchFailed atomic.Bool
+	gcmBatchSpare  []byte
+
 	encryptedPackets []addrPkt
 
 	connectionClosedByUser bool

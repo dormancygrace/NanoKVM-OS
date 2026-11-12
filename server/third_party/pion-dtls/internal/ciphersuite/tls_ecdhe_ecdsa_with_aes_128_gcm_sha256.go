@@ -105,6 +105,13 @@ func (c *TLSEcdheEcdsaWithAes128GcmSha256) Encrypt(pkt *recordlayer.RecordLayer,
 	return cipherSuite.Encrypt(pkt, raw)
 }
 
+// GCMBatch returns the suite's cipher for sealing records in batches, once it has its keys.
+func (c *TLSEcdheEcdsaWithAes128GcmSha256) GCMBatch() (*ciphersuite.GCM, bool) {
+	cipherSuite, ok := c.gcm.Load().(*ciphersuite.GCM)
+
+	return cipherSuite, ok
+}
+
 // SealApplicationData appends the encrypted record of one application-data payload to dst.
 func (c *TLSEcdheEcdsaWithAes128GcmSha256) SealApplicationData(
 	dst []byte, epoch uint16, sequenceNumber uint64, payload []byte,

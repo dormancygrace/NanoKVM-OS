@@ -52,6 +52,8 @@ sent (SCTP's acknowledgements), so it is as frequent as the write side:
 - A record is copied for the handshake fragment buffer only when it is a
   handshake record; the buffer only looks at any other.
 
+`Conn.WriteBatch` (`nanokvm_gcm_batch.go`) writes several payloads as records, in order, as `Write` does for each. With an AES-GCM suite and a function installed by `SetGCMRecordBatch` it builds up to 16 records in the write buffer, plaintext in place and room for each tag, and has the function seal them together; the NanoKVM server installs the crypto engine's `HWCRYPTO_GCM_BATCH` there. Without a function, with another suite, a connection ID or a write deadline it is `Write` for every payload. When the function fails, nothing was sealed and nothing sent: the same records, with the sequence numbers they were given, are sealed one by one, and the connection does not ask the function again. `nanokvm_gcm_batch_test.go` has a function that seals with `crypto/cipher` from exactly what it is given, a peer that opens the records, and a function that fails.
+
 `Conn.WriteCopies` is an empty method that says what is true of `Write` here
 and upstream: the payload has been copied or sent when it returns. The SCTP
 fork reuses its packet buffers only for a connection that says so.

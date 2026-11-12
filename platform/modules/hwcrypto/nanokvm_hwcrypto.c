@@ -185,6 +185,7 @@ static int engine_wait(u32 *status)
 #include "crypto_ccm.inc"
 #include "crypto_cmac.inc"
 #include "crypto_ctr_sha1.inc"
+#include "crypto_gcm_batch.inc"
 
 static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -192,6 +193,7 @@ static long aes_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  u32 status = 0, size = 0;
  int err;
  if (cmd == HWCRYPTO_GCM) return crypto_gcm_ioctl(arg);
+ if (cmd == HWCRYPTO_GCM_BATCH) return crypto_gcm_batch_ioctl(arg);
  if (cmd == HWCRYPTO_CTR_SHA1) return crypto_ctr_sha1_ioctl(arg);
  if (cmd != HWCRYPTO_AES_CTR) return crypto_ioctl(cmd, arg);
  /* Snapshot the fixed header once. The payload copy below uses this length and

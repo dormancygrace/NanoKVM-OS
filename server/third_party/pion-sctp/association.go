@@ -1271,6 +1271,24 @@ loop:
 	for {
 		rawPackets, ok := a.gatherOutbound()
 
+		// A connection that takes a burst in one call (the DTLS connection under a data channel seals
+		// its records together then) gets it so, unless an ABORT is in it: that one is told apart below.
+		if batch, isBatch := a.netConn.(batchWriter); isBatch && len(rawPackets) > 1 && !hasAbort(rawPackets) {
+			if err := batch.WriteBatch(rawPackets); err != nil {
+				if !errors.Is(err, io.EOF) {
+					a.log.Warnf("[%s] failed to write packets on netConn: %v", a.name, err)
+				}
+				_ = a.closeNetConn()
+
+				break loop
+			}
+			for _, raw := range rawPackets {
+				atomic.AddUint64(&a.bytesSent, uint64(len(raw)))
+				a.stats.incPacketsSent()
+			}
+			rawPackets = nil
+		}
+
 		for _, raw := range rawPackets {
 			isAbortPacket := len(raw) > int(commonHeaderSize) && raw[commonHeaderSize] == byte(ctAbort)
 			_, err := a.netConn.Write(raw)
@@ -1319,6 +1337,21 @@ loop:
 
 	a.setState(closed)
 	a.closeAllTimers()
+}
+
+// batchWriter is a connection that writes several packets in one call, each as Write would, in order.
+type batchWriter interface {
+	WriteBatch(packets [][]byte) error
+}
+
+func hasAbort(rawPackets [][]byte) bool {
+	for _, raw := range rawPackets {
+		if len(raw) > int(commonHeaderSize) && raw[commonHeaderSize] == byte(ctAbort) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (a *Association) awakeWriteLoop() {

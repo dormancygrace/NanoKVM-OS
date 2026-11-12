@@ -32,9 +32,7 @@ use crate::{
     },
     identity::RustDeskIdentity,
     input::InputState,
-    nanokvm::{
-        self, Codec, HidClient, Identity, MediaFrame, MediaPayload, MediaSubscriber, VideoInfo,
-    },
+    nanokvm::{self, Codec, HidClient, MediaFrame, MediaPayload, MediaSubscriber, VideoInfo},
     protocol::{
         login_response, message, DisplayInfo, Features, Hash, IdPk, KeyEvent, LoginRequest,
         LoginResponse, Message, MouseEvent, PeerInfo, SignedId, SupportedEncoding,
@@ -296,24 +294,20 @@ impl PendingPointerMove {
     async fn flush(self, input: &mut InputState) -> io::Result<()> {
         match self {
             Self::Absolute(event) => input.handle_mouse(event).await,
-            Self::Relative {
-                mut x,
-                mut y,
-                mut template,
-            } => {
+            Self::Relative { mut x, mut y, .. } => {
                 // Match the web client limiter: preserve the complete relative
-                // displacement and split it into HID-safe signed-byte chunks.
-                // A zero movement is still sent so InputState can learn that
-                // the RustDesk client switched to relative pointer mode.
-                let mut first = true;
-                while first || x != 0 || y != 0 {
-                    first = false;
+                // displacement and split it into HID-safe signed-byte chunks,
+                // which go to the bridge together. A zero movement is still
+                // sent so InputState can learn that the RustDesk client
+                // switched to relative pointer mode.
+                let mut moves = [(0, 0); (MAX_RELATIVE_MOVE as usize).div_ceil(127)];
+                let mut count = 0;
+                while count < moves.len() && (count == 0 || x != 0 || y != 0) {
                     let (chunk_x, chunk_y) = take_relative_chunk(&mut x, &mut y);
-                    template.x = chunk_x;
-                    template.y = chunk_y;
-                    input.handle_mouse(template.clone()).await?;
+                    moves[count] = (chunk_x as i8, chunk_y as i8);
+                    count += 1;
                 }
-                Ok(())
+                input.handle_relative_moves(&moves[..count]).await
             }
         }
     }
@@ -349,11 +343,7 @@ fn take_relative_chunk(x: &mut i64, y: &mut i64) -> (i32, i32) {
     (chunk_x, chunk_y)
 }
 
-pub async fn run(
-    config: Config,
-    identity: Identity,
-    rustdesk_identity: RustDeskIdentity,
-) -> io::Result<()> {
+pub async fn run(config: Config, rustdesk_identity: RustDeskIdentity) -> io::Result<()> {
     let address = SocketAddr::new(
         config
             .listen_address
@@ -364,21 +354,18 @@ pub async fn run(
     let listener = TcpListener::bind(address).await?;
     let limits = ClientLimits::new(config.max_clients);
     let config = Arc::new(config);
-    let identity = Arc::new(identity);
     let rustdesk_identity = Arc::new(rustdesk_identity);
     let (shutdown_sender, shutdown_receiver) = watch::channel(false);
     let mut sessions = JoinSet::new();
 
     if !config.rendezvous_server.trim().is_empty() {
         let rendezvous_config = Arc::clone(&config);
-        let rendezvous_app = Arc::clone(&identity);
         let rendezvous_identity = Arc::clone(&rustdesk_identity);
         let rendezvous_shutdown = shutdown_receiver.clone();
         let rendezvous_limits = limits.clone();
         sessions.spawn(async move {
             rendezvous::run(
                 rendezvous_config,
-                rendezvous_app,
                 rendezvous_identity,
                 rendezvous_shutdown,
                 rendezvous_limits,
@@ -432,12 +419,11 @@ pub async fn run(
                     continue;
                 };
                 let config = Arc::clone(&config);
-                let identity = Arc::clone(&identity);
                 let rustdesk_identity = Arc::clone(&rustdesk_identity);
                 let shutdown = shutdown_receiver.clone();
                 let limits = limits.clone();
                 sessions.spawn(async move {
-                    if let Err(error) = serve(stream, peer, config, identity, rustdesk_identity, false, shutdown, limits, pending_permit).await {
+                    if let Err(error) = serve(stream, peer, config, rustdesk_identity, false, shutdown, limits, pending_permit).await {
                         if !is_peer_disconnect(&error) {
                             crate::connlog::connection_log!("RustDesk client {peer}: {error}");
                         }
@@ -474,7 +460,6 @@ pub(crate) async fn serve(
     stream: TcpStream,
     peer: SocketAddr,
     config: Arc<Config>,
-    identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     secure: bool,
     shutdown: watch::Receiver<bool>,
@@ -486,7 +471,6 @@ pub(crate) async fn serve(
         stream,
         peer,
         config,
-        identity,
         rustdesk_identity,
         secure.then_some(String::new()),
         shutdown,
@@ -502,7 +486,6 @@ pub(crate) async fn serve_webrtc(
     fingerprint: String,
     peer: SocketAddr,
     config: Arc<Config>,
-    identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     shutdown: watch::Receiver<bool>,
     limits: ClientLimits,
@@ -518,7 +501,6 @@ pub(crate) async fn serve_webrtc(
         stream,
         peer,
         config,
-        identity,
         rustdesk_identity,
         Some(fingerprint),
         shutdown,
@@ -533,7 +515,6 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     mut stream: S,
     peer: SocketAddr,
     config: Arc<Config>,
-    identity: Arc<Identity>,
     rustdesk_identity: Arc<RustDeskIdentity>,
     secure: Option<String>,
     mut shutdown: watch::Receiver<bool>,
@@ -682,7 +663,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
 
     let video_info = time::timeout(
         MEDIA_TIMEOUT,
-        nanokvm::query_video_info(&config.media_socket, &identity),
+        nanokvm::query_video_info(&config.media_socket),
     )
     .await
     .unwrap_or_else(|_| {
@@ -755,20 +736,15 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     );
     let media = time::timeout(
         MEDIA_TIMEOUT,
-        MediaSubscriber::connect(
-            &config.media_socket,
-            &identity,
-            "encoded",
-            Some(&video_profile),
-        ),
+        MediaSubscriber::connect(&config.media_socket, "encoded", Some(&video_profile)),
     )
     .await
     .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "video subscription timed out"))??;
-    let hid = HidClient::new(config.admin_socket.clone(), (*identity).clone());
+    let hid = HidClient::new(config.admin_socket.clone());
     let mut input = InputState::new(hid, video_info.width, video_info.height);
-    // HID requests use a separate Unix HTTP exchange for every event. Process
-    // them serially in their own task so a slow HID response cannot stall the
-    // video writer. Pointer movement follows the web UI limiter: at most one
+    // Each HID frame waits for the bridge's answer. Process them serially in
+    // their own task so a slow HID response cannot stall the video writer.
+    // Pointer movement follows the web UI limiter: at most one
     // flush starts per 16 ms window, absolute moves keep the newest position,
     // and relative moves accumulate without losing displacement. Keyboard,
     // button, and wheel events flush pending movement before being handled.
@@ -920,10 +896,13 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // header whenever a client input message won the race. Keep the media read
     // in its own task and pass only complete frames to the session loop.
     let (media_sender, mut media_receiver) = mpsc::channel(1);
+    // Sent frame buffers return to the reader for reuse.
+    let (spare_sender, spare_receiver) = mpsc::channel(2);
     let refresh_wanted = Arc::new(AtomicBool::new(false));
     let media_task = tokio::spawn(forward_media(
         media,
         media_sender,
+        spare_receiver,
         Arc::clone(&refresh_wanted),
     ));
     // FrameReader::read also uses read_exact internally and has the same
@@ -1156,6 +1135,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 if let Err(error) = writer.write_encoded(&mut video, start).await {
                     break Err(error);
                 }
+                let _ = spare_sender.try_send(MediaPayload::spare(video));
                 if first_video_frame {
                     eprintln!("RustDesk client {peer} sent first video frame");
                     first_video_frame = false;
@@ -1255,17 +1235,24 @@ impl KeyframeRequests {
 const CLIENT_REFRESH_INTERVAL: Duration = Duration::from_secs(1);
 const CLIENT_REFRESH_MAX_INTERVAL: Duration = Duration::from_secs(8);
 
+// Each frame is read into the buffer of an earlier one, of a dropped frame or
+// from spares, where the session returns the buffers of the frames it sent.
 async fn forward_media(
     mut media: MediaSubscriber,
     sender: mpsc::Sender<io::Result<MediaFrame>>,
+    mut spares: mpsc::Receiver<Vec<u8>>,
     refresh_wanted: Arc<AtomicBool>,
 ) {
     let mut dropping = false;
     let mut requests = KeyframeRequests::default();
+    let mut spare = Vec::new();
     let mut refreshed: Option<time::Instant> = None;
     let mut refresh_wait = CLIENT_REFRESH_INTERVAL;
     loop {
-        let frame = match media.read_frame().await {
+        if spare.capacity() == 0 {
+            spare = spares.try_recv().unwrap_or_default();
+        }
+        let frame = match media.read_frame(std::mem::take(&mut spare)).await {
             Ok(frame) => frame,
             Err(error) => {
                 let _ = sender.send(Err(error)).await;
@@ -1303,9 +1290,16 @@ async fn forward_media(
                     dropping = false;
                     continue;
                 }
-                Err(mpsc::error::SendTimeoutError::Timeout(_)) => dropping = true,
+                Err(mpsc::error::SendTimeoutError::Timeout(frame)) => {
+                    dropping = true;
+                    if let Ok(frame) = frame {
+                        spare = MediaPayload::spare(frame.payload.into_buffer());
+                    }
+                }
                 Err(mpsc::error::SendTimeoutError::Closed(_)) => return,
             }
+        } else {
+            spare = MediaPayload::spare(frame.payload.into_buffer());
         }
         if requests.dropped(time::Instant::now()) {
             if let Err(error) = media.request_key_frame().await {
@@ -1605,7 +1599,7 @@ mod tests {
         config::Config,
         framing::{read_message, write_message, FrameReader, FrameWriter},
         identity::RustDeskIdentity,
-        nanokvm::{Codec, Identity, MediaFrame, VideoInfo},
+        nanokvm::{Codec, MediaFrame, VideoInfo},
         protocol::{
             login_response, message, Hash, LoginRequest, LoginResponse, Message, MouseEvent,
             OptionMessage, SupportedDecoding, TestDelay,
@@ -2175,10 +2169,6 @@ mod tests {
                 audio_socket: audio_path.to_string_lossy().into_owned(),
                 ..Config::default()
             });
-            let identity = Arc::new(Identity {
-                extension_id: "rustdesk".into(),
-                token: "a".repeat(64),
-            });
             let rustdesk_identity =
                 Arc::new(RustDeskIdentity::load_from(&directory.join("identity")).unwrap());
             let (_shutdown, shutdown) = watch::channel(false);
@@ -2189,7 +2179,6 @@ mod tests {
                 stream,
                 peer,
                 config,
-                identity,
                 rustdesk_identity,
                 false,
                 shutdown,
@@ -2362,7 +2351,8 @@ mod tests {
     }
     #[tokio::test]
     async fn hid_rejection_disables_input_without_ending_video_or_peer_messages() {
-        for status in [409, 504] {
+        // The bridge's statuses for a revoked session and a timed-out report.
+        for status in [2, 4] {
             bridge_mock_with_hid_failure(true, false, false, Some(status)).await;
         }
     }
@@ -2373,7 +2363,7 @@ mod tests {
         can_control: bool,
         initially_disabled: bool,
         toggle: bool,
-        failure_status: Option<u16>,
+        failure_status: Option<u8>,
     ) {
         let input_allowed = can_control && (!initially_disabled || toggle);
         let directory = temporary_directory();
@@ -2415,20 +2405,23 @@ mod tests {
         let (hid_sender, mut hid_receiver) = mpsc::channel(6);
         let hid_task = tokio::spawn(async move {
             let mut hid_response_receiver = Some(hid_response_receiver);
+            // All frames of the session come on its one connection.
+            let (mut stream, _) = hid_listener.accept().await.unwrap();
+            crate::nanokvm::read_test_control_hello(&mut stream).await;
             for request_index in 0..6 {
-                let (mut stream, _) = hid_listener.accept().await.unwrap();
-                let request = crate::nanokvm::read_test_http_request(&mut stream).await;
+                let request = crate::nanokvm::read_test_control_frame(&mut stream)
+                    .await
+                    .unwrap();
                 hid_sender.send(request).await.unwrap();
                 if request_index == 0 {
                     let _ = hid_response_receiver.take().unwrap().await;
                 }
                 let status = if request_index == 0 {
-                    failure_status.unwrap_or(204)
+                    failure_status.unwrap_or(0)
                 } else {
-                    204
+                    0
                 };
-                let response = format!("HTTP/1.1 {status} Test\r\nConnection: close\r\n\r\n");
-                stream.write_all(response.as_bytes()).await.unwrap();
+                stream.write_all(&[status]).await.unwrap();
             }
         });
 
@@ -2449,10 +2442,6 @@ mod tests {
             admin_socket: hid_path.to_string_lossy().into_owned(),
             ..Config::default()
         });
-        let identity = Arc::new(Identity {
-            extension_id: "rustdesk".to_owned(),
-            token: "a".repeat(64),
-        });
         let (_shutdown_sender, shutdown_receiver) = watch::channel(false);
         let mut limits = ClientLimits::new(1);
         limits.input_allowed = can_control;
@@ -2463,7 +2452,6 @@ mod tests {
             server_stream,
             peer,
             config,
-            identity,
             rustdesk_identity,
             false,
             shutdown_receiver,
@@ -2691,7 +2679,7 @@ mod tests {
                 .await
                 .unwrap()
                 .unwrap();
-            assert!(request.starts_with(b"POST /api/hid/mouse/absolute HTTP/1.1\r\n"));
+            assert_eq!(request[0], 3, "an absolute pointer report");
         }
         for (x, y) in [(200, 100), (300, 150)] {
             write_message(
@@ -2822,32 +2810,20 @@ mod tests {
         }
 
         if input_allowed && failure_status.is_none() {
-            let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
-                .await
-                .unwrap()
-                .unwrap();
-            let body_offset = request
-                .windows(4)
-                .position(|window| window == b"\r\n\r\n")
-                .unwrap()
-                + 4;
-            let body: serde_json::Value = serde_json::from_slice(&request[body_offset..]).unwrap();
-            assert_eq!(body["x"], (300_u32 * 32767) / 1919);
-            assert_eq!(body["y"], (150_u32 * 32767) / 1079);
-            assert_eq!(body["buttons"], 0);
-            let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
-                .await
-                .unwrap()
-                .unwrap();
-            let body_offset = request
-                .windows(4)
-                .position(|window| window == b"\r\n\r\n")
-                .unwrap()
-                + 4;
-            let body: serde_json::Value = serde_json::from_slice(&request[body_offset..]).unwrap();
-            assert_eq!(body["x"], (300_u32 * 32767) / 1919);
-            assert_eq!(body["y"], (150_u32 * 32767) / 1079);
-            assert_eq!(body["buttons"], 1);
+            // The coalesced position, then the same one with the button.
+            let [x0, x1] = ((300_u32 * 32767) / 1919).to_le_bytes()[..2] else {
+                unreachable!()
+            };
+            let [y0, y1] = ((150_u32 * 32767) / 1079).to_le_bytes()[..2] else {
+                unreachable!()
+            };
+            for buttons in [0, 1] {
+                let request = time::timeout(Duration::from_secs(2), hid_receiver.recv())
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(request, [3, buttons, x0, x1, y0, y1, 0, 0]);
+            }
         }
         if toggle {
             write_message(
@@ -3025,10 +3001,6 @@ mod tests {
             server_stream,
             peer,
             Arc::clone(config),
-            Arc::new(Identity {
-                extension_id: "rustdesk".to_owned(),
-                token: "a".repeat(64),
-            }),
             Arc::clone(rustdesk_identity),
             false,
             shutdown,
@@ -3145,10 +3117,6 @@ mod tests {
             server_stream,
             "127.0.0.1:1".parse().unwrap(),
             Arc::clone(&config),
-            Arc::new(Identity {
-                extension_id: "rustdesk".to_owned(),
-                token: "a".repeat(64),
-            }),
             Arc::clone(&rustdesk_identity),
             None,
             shutdown,
@@ -3227,15 +3195,10 @@ mod tests {
         std::fs::create_dir_all(&directory).unwrap();
         let path = directory.join("media.sock");
         let listener = UnixListener::bind(&path).unwrap();
-        let identity = Identity {
-            extension_id: "rustdesk".to_owned(),
-            token: "a".repeat(64),
-        };
         let profile = crate::nanokvm::VideoProfile { codec: Codec::H264 };
         let (subscriber, accepted) = tokio::join!(
             crate::nanokvm::MediaSubscriber::connect(
                 path.to_str().unwrap(),
-                &identity,
                 "encoded",
                 Some(&profile)
             ),
@@ -3244,10 +3207,13 @@ mod tests {
         let (mut bridge, _) = accepted.unwrap();
         read_subscription(&mut bridge).await;
         let (sender, mut receiver) = mpsc::channel(1);
+        // No session returns buffers here.
+        let (_, spares) = mpsc::channel(1);
         let refresh = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let forwarder = tokio::spawn(super::forward_media(
             subscriber.unwrap(),
             sender,
+            spares,
             Arc::clone(&refresh),
         ));
         let frame = |marker: u8| [0, 0, 0, 1, 0x65, marker];

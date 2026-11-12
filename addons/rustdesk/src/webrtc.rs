@@ -2,7 +2,6 @@
 use crate::{
     config::Config,
     identity::RustDeskIdentity,
-    nanokvm::Identity,
     protocol::{rendezvous_message, IceCandidate, PunchHole, PunchHoleSent, RendezvousMessage},
     server::{self, ClientLimits},
     signaling,
@@ -187,7 +186,6 @@ impl Manager {
         &self,
         request: &PunchHole,
         config: Arc<Config>,
-        identity: Arc<Identity>,
         rd: Arc<RustDeskIdentity>,
         mut shutdown: watch::Receiver<bool>,
         limits: ClientLimits,
@@ -375,7 +373,6 @@ impl Manager {
                 reply.fingerprint,
                 peer,
                 config,
-                identity,
                 rd,
                 data_shutdown,
                 limits,

@@ -88,6 +88,15 @@ impl InputState {
         self.wait_if_lease_held(result)
     }
 
+    /// One relative movement in steps of a signed byte, sent together.
+    pub async fn handle_relative_moves(&mut self, moves: &[(i8, i8)]) -> std::io::Result<()> {
+        if !self.lease_ready().await? {
+            return Ok(());
+        }
+        let result = self.relative_moves(moves).await;
+        self.wait_if_lease_held(result)
+    }
+
     pub async fn handle_key(&mut self, event: KeyEvent) -> std::io::Result<()> {
         if !self.lease_ready().await? {
             return Ok(());
@@ -118,7 +127,7 @@ impl InputState {
             return Ok(false);
         }
         // An empty keyboard report takes the lease and presses nothing.
-        match self.hid.keyboard(0, &[]).await {
+        match self.hid.keyboard(0, [0; 6]).await {
             Ok(()) => {
                 // Nothing tracked as held since the refusal reached the target.
                 self.modifiers = 0;
@@ -164,10 +173,8 @@ impl InputState {
                 self.hid.absolute_mouse(self.buttons, self.x, self.y).await
             }
             MOUSE_TYPE_MOVE_RELATIVE => {
-                self.switch_pointer_mode(PointerMode::Relative).await?;
-                let x = clamp_i8(event.x);
-                let y = clamp_i8(event.y);
-                self.hid.mouse(self.buttons as u8, x, y, 0).await
+                self.relative_moves(&[(clamp_i8(event.x), clamp_i8(event.y))])
+                    .await
             }
             MOUSE_TYPE_DOWN => {
                 self.buttons |= button;
@@ -190,6 +197,11 @@ impl InputState {
             }
             _ => Ok(()),
         }
+    }
+
+    async fn relative_moves(&mut self, moves: &[(i8, i8)]) -> std::io::Result<()> {
+        self.switch_pointer_mode(PointerMode::Relative).await?;
+        self.hid.relative_moves(self.buttons as u8, moves).await
     }
 
     async fn switch_pointer_mode(&mut self, mode: PointerMode) -> std::io::Result<()> {
@@ -219,7 +231,7 @@ impl InputState {
         self.pointer_mode_announced = true;
     }
 
-    async fn send_pointer_buttons(&self) -> std::io::Result<()> {
+    async fn send_pointer_buttons(&mut self) -> std::io::Result<()> {
         match self.pointer_mode {
             PointerMode::Absolute => self.hid.absolute_mouse(self.buttons, self.x, self.y).await,
             PointerMode::Relative => self.hid.mouse(self.buttons as u8, 0, 0, 0).await,
@@ -359,9 +371,12 @@ impl InputState {
         }
     }
 
-    async fn send_keyboard(&self) -> std::io::Result<()> {
-        let keys: Vec<u8> = self.keys.iter().copied().take(6).collect();
-        self.hid.keyboard(self.modifiers, &keys).await
+    async fn send_keyboard(&mut self) -> std::io::Result<()> {
+        let mut keys = [0; 6];
+        for (slot, key) in keys.iter_mut().zip(&self.keys) {
+            *slot = *key;
+        }
+        self.hid.keyboard(self.modifiers, keys).await
     }
 
     async fn ctrl_alt_delete(&mut self) -> std::io::Result<()> {

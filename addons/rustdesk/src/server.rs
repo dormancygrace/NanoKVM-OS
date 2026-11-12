@@ -905,13 +905,14 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // Sent frame buffers return to the reader for reuse.
     let (spare_sender, spare_receiver) = mpsc::channel(2);
     let refresh_wanted = Arc::new(AtomicBool::new(false));
+    let backlog = backlog_fd.map(|fd| Arc::new(Backlog::new(fd, writer.written())));
     let media_task = tokio::spawn(forward_media(
         media,
         media_sender,
         spare_receiver,
         Arc::clone(&refresh_wanted),
-    backlog_fd.map(Backlog::new),
-));
+        backlog.clone(),
+    ));
     // FrameReader::read also uses read_exact internally and has the same
     // cancellation constraint. Keep it alive across media sends so a partial
     // RustDesk packet cannot be mistaken for the next packet.
@@ -1142,6 +1143,9 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 if let Err(error) = writer.write_encoded(&mut video, start).await {
                     break Err(error);
                 }
+                if let Some(backlog) = &backlog {
+                    backlog.video(time::Instant::now());
+                }
                 let _ = spare_sender.try_send(MediaPayload::spare(video));
                 if first_video_frame {
                     eprintln!("RustDesk client {peer} sent first video frame");
@@ -1201,51 +1205,58 @@ const KEYFRAME_REQUEST_MAX_INTERVAL: Duration = Duration::from_secs(8);
 // still went out a second after it.
 // The session writer is not ready for a frame only when the socket's send
 // buffer is full, and the kernel lets that buffer grow to megabytes: seconds
-// of video at a desktop's bitrate. So the age of what waits in the socket is
-// watched as well: each forwarded frame is marked with the stream position
-// it ends at, and the socket's queue length says which marks have left.
+// of video at a desktop's bitrate. So the age of the video that waits in the
+// socket is watched as well. Positions are positions in the whole byte stream
+// the session writes (the writer counts every byte: length prefixes, tags,
+// sound, control messages), which is the stream the socket's queue length
+// counts: the session marks each video frame with the position it ends at,
+// and the queue length says which marks have left. A frame that still waits
+// for the writer has no mark; the forwarder's own wait covers it.
 const MAX_BACKLOG: Duration = Duration::from_millis(400);
 
 struct Backlog {
     fd: RawFd,
-    forwarded: u64,
-    marks: std::collections::VecDeque<(u64, time::Instant)>,
+    written: Arc<std::sync::atomic::AtomicU64>,
+    marks: std::sync::Mutex<std::collections::VecDeque<(u64, time::Instant)>>,
 }
 
 impl Backlog {
-    fn new(fd: RawFd) -> Self {
+    fn new(fd: RawFd, written: Arc<std::sync::atomic::AtomicU64>) -> Self {
         Self {
             fd,
-            forwarded: 0,
-            marks: std::collections::VecDeque::new(),
+            written,
+            marks: Default::default(),
         }
     }
 
-    fn sent(&mut self, bytes: usize, now: time::Instant) {
-        self.forwarded += bytes as u64;
-        self.marks.push_back((self.forwarded, now));
+    // The session has written a video frame: the stream ends with it now.
+    fn video(&self, now: time::Instant) {
+        let end = self.written.load(Ordering::Relaxed);
+        self.marks.lock().unwrap().push_back((end, now));
     }
 
     // How long the oldest video still in the socket has waited.
-    fn age(&mut self, now: time::Instant) -> Duration {
+    fn age(&self, now: time::Instant) -> Duration {
+        // Before the queue length: bytes written in between count as queued,
+        // never as gone.
+        let written = self.written.load(Ordering::Relaxed);
         let mut queued: libc::c_int = 0;
         // SAFETY: the session owns the socket for longer than this task
         // runs, and TIOCOUTQ writes one int.
         if unsafe { libc::ioctl(self.fd, libc::TIOCOUTQ as _, &mut queued) } != 0 {
-            self.marks.clear();
+            self.marks.lock().unwrap().clear();
             return Duration::ZERO;
         }
-        self.age_of(now, queued.max(0) as u64)
+        self.age_of(now, written, queued.max(0) as u64)
     }
 
-    fn age_of(&mut self, now: time::Instant, queued: u64) -> Duration {
-        let left = self.forwarded.saturating_sub(queued);
-        while self.marks.front().is_some_and(|&(end, _)| end <= left) {
-            self.marks.pop_front();
+    fn age_of(&self, now: time::Instant, written: u64, queued: u64) -> Duration {
+        let left = written.saturating_sub(queued);
+        let mut marks = self.marks.lock().unwrap();
+        while marks.front().is_some_and(|&(end, _)| end <= left) {
+            marks.pop_front();
         }
-        self.marks
-            .front()
-            .map_or(Duration::ZERO, |&(_, at)| now - at)
+        marks.front().map_or(Duration::ZERO, |&(_, at)| now - at)
     }
 }
 
@@ -1299,7 +1310,7 @@ async fn forward_media(
     sender: mpsc::Sender<io::Result<MediaFrame>>,
     mut spares: mpsc::Receiver<Vec<u8>>,
     refresh_wanted: Arc<AtomicBool>,
-    mut backlog: Option<Backlog>,
+    backlog: Option<Arc<Backlog>>,
 ) {
     let mut dropping = false;
     let mut requests = KeyframeRequests::default();
@@ -1343,20 +1354,16 @@ async fn forward_media(
         // Video the peer has not taken for MAX_BACKLOG is late already: add
         // nothing to it and go on from a keyframe once it is gone.
         let stale = backlog
-            .as_mut()
+            .as_ref()
             .is_some_and(|backlog| backlog.age(time::Instant::now()) > MAX_BACKLOG);
         if stale {
             dropping = true;
         }
         if !stale && (!dropping || frame.keyframe) {
             let keyframe = frame.keyframe;
-            let length = frame.payload.len();
             match sender.send_timeout(Ok(frame), MEDIA_GRACE).await {
                 Ok(()) => {
                     requests.sent(time::Instant::now(), keyframe, dropping);
-                    if let Some(backlog) = backlog.as_mut() {
-                        backlog.sent(length, time::Instant::now());
-                    }
                     dropping = false;
                     continue;
                 }
@@ -3251,16 +3258,26 @@ mod tests {
     }
 
     #[test]
-    fn the_backlog_is_as_old_as_the_first_frame_still_queued() {
+    fn the_backlog_is_as_old_as_the_first_video_still_queued_whatever_else_is() {
         let start = time::Instant::now();
-        let mut backlog = super::Backlog::new(-1);
+        use std::sync::atomic::Ordering;
+        let written = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let backlog = super::Backlog::new(-1, Arc::clone(&written));
+        // Ten frames of 1000 bytes, 100 bytes of sound after each.
         for frame in 0..10 {
-            backlog.sent(1000, start + Duration::from_millis(frame * 100));
+            written.fetch_add(1000, Ordering::Relaxed);
+            backlog.video(start + Duration::from_millis(frame * 100));
+            written.fetch_add(100, Ordering::Relaxed);
         }
         let now = start + Duration::from_secs(1);
-        assert_eq!(backlog.age_of(now, 10_000), Duration::from_secs(1));
-        assert_eq!(backlog.age_of(now, 2500), Duration::from_millis(300));
-        assert_eq!(backlog.age_of(now, 0), Duration::ZERO);
+        assert_eq!(backlog.age_of(now, 11_000, 11_000), Duration::from_secs(1));
+        assert_eq!(backlog.age_of(now, 11_000, 2750), Duration::from_millis(300));
+        // The video has left; sound written since is still queued, for a minute.
+        written.fetch_add(1000, Ordering::Relaxed);
+        for later in [1, 10, 60] {
+            let now = start + Duration::from_secs(later);
+            assert_eq!(backlog.age_of(now, 12_000, 1100), Duration::ZERO);
+        }
     }
 
     fn password_hash(password: &str, hash: &Hash) -> Vec<u8> {

@@ -77,6 +77,15 @@ type Conn struct {
 	handshakeMutex                 sync.Mutex
 	handshakeDone                  chan struct{}
 	writeLock                      sync.Mutex
+	writeBuffer                    []byte // the last application-data record; writeLock guards it
+
+	// writeDirect: a write that is in the socket, and whether the closing connection interrupted it.
+	directOnce        sync.Once
+	directLock        sync.Mutex
+	directWriting     bool
+	directInterrupted bool
+	directDeadline    context.Context //nolint:containedctx // the deadline context that is watched
+	readWatched       context.Context //nolint:containedctx // readDirect: the reader context that is watched
 
 	encryptedPackets []addrPkt
 
@@ -489,8 +498,12 @@ func (c *Conn) Write(payload []byte) (int, error) {
 		return 0, err
 	}
 
-	ctx, cancel := c.contextWithClose(c.writeDeadline.Context())
+	ctx, cancel := c.writeContext()
 	defer cancel()
+
+	if done, err := c.writeApplicationData(ctx, payload); done {
+		return len(payload), err
+	}
 
 	return len(payload), c.writePackets(ctx, []*packet{
 		{
@@ -508,6 +521,11 @@ func (c *Conn) Write(payload []byte) (int, error) {
 		},
 	})
 }
+
+// WriteCopies says that Write has copied or sent the payload when it returns and never keeps the slice: the
+// record is sealed into memory of the connection's own. A sender may reuse the payload's memory at once (the
+// SCTP fork does, for the packets of a data channel).
+func (c *Conn) WriteCopies() {}
 
 // Close closes the connection.
 func (c *Conn) Close() error {
@@ -556,6 +574,133 @@ func (c *Conn) RemoteSRTPMasterKeyIdentifier() ([]byte, bool) {
 	}
 
 	return bytes.Clone(c.state.remoteSRTPMasterKeyIdentifier), true
+}
+
+// applicationDataSealer is a cipher suite that writes the encrypted record of an application-data payload
+// straight into the caller's buffer.
+type applicationDataSealer interface {
+	SealApplicationData(dst []byte, epoch uint16, sequenceNumber uint64, payload []byte) ([]byte, error)
+}
+
+// writeApplicationData sends one application-data record built and sealed in the connection's write buffer:
+// the record processPacket and Encrypt make, without their three copies of the payload. It reports false, with
+// nothing sent and no sequence number taken, when the suite cannot do that or the record carries a connection
+// ID; writePackets then does it. The buffer is free again when the write returns: a net.PacketConn does not
+// keep what it was given.
+func (c *Conn) writeApplicationData(ctx context.Context, payload []byte) (bool, error) {
+	c.writeLock.Lock()
+	defer c.writeLock.Unlock()
+
+	c.lock.Lock()
+	sealer, ok := c.state.cipherSuite.(applicationDataSealer)
+	if !ok || len(c.state.remoteConnectionID) > 0 {
+		c.lock.Unlock()
+
+		return false, nil
+	}
+	epoch := c.state.getLocalEpoch()
+	for len(c.state.localSequenceNumber) <= int(epoch) {
+		c.state.localSequenceNumber = append(c.state.localSequenceNumber, uint64(0))
+	}
+	seq := atomic.AddUint64(&c.state.localSequenceNumber[epoch], 1) - 1
+	if seq > recordlayer.MaxSequenceNumber {
+		c.lock.Unlock()
+
+		return true, errSequenceNumberOverflow
+	}
+	raw, err := sealer.SealApplicationData(c.writeBuffer[:0], epoch, seq, payload)
+	rAddr := c.rAddr
+	c.lock.Unlock()
+	if err != nil {
+		return true, err
+	}
+	c.writeBuffer = raw
+
+	if ctx == c.closed.Context() {
+		return true, c.writeDirect(raw, rAddr)
+	}
+	if _, err = c.nextConn.WriteToContext(ctx, raw, rAddr); err != nil {
+		if errors.Is(err, context.Canceled) && c.isConnectionClosed() {
+			return true, ErrConnClosed
+		}
+
+		return true, netError(err)
+	}
+
+	return true, nil
+}
+
+// writeDirect writes a record to the next connection itself. WriteToContext registers a cancellation with the
+// context and removes it again for every packet. What that gives is kept without a registration per packet: when
+// the connection closes, or a write deadline passes, while a write is in the socket, the write deadline of the
+// next connection moves to the past, and the writer puts it back, as WriteToContext does. The close is watched
+// with one registration for the connection, a deadline with one for each deadline that is set while a write is
+// in the socket (SetWriteDeadline). The caller holds writeLock.
+func (c *Conn) writeDirect(raw []byte, rAddr net.Addr) error {
+	c.directOnce.Do(func() {
+		context.AfterFunc(c.closed.Context(), c.interruptDirect)
+	})
+
+	c.directLock.Lock()
+	c.directWriting = true
+	if _, set := c.writeDeadline.Deadline(); set {
+		// Set after Write looked: SetWriteDeadline did not see this write.
+		c.watchWriteDeadlineLocked()
+	}
+	c.directLock.Unlock()
+
+	// Closed before directWriting was set: nobody will interrupt this write.
+	var err error = ErrConnClosed
+	if !c.isConnectionClosed() {
+		_, err = c.nextConn.Conn().WriteTo(raw, rAddr)
+	}
+
+	c.directLock.Lock()
+	c.directWriting = false
+	interrupted := c.directInterrupted
+	if interrupted {
+		c.directInterrupted = false
+		_ = c.nextConn.Conn().SetWriteDeadline(time.Time{})
+	}
+	c.directLock.Unlock()
+
+	switch {
+	case err == nil:
+		return nil
+	case c.isConnectionClosed():
+		return ErrConnClosed
+	case interrupted:
+		return errDeadlineExceeded
+	default:
+		return netError(err)
+	}
+}
+
+// interruptDirect ends the write that writeDirect has in the socket, if there is one.
+func (c *Conn) interruptDirect() {
+	c.directLock.Lock()
+	c.interruptDirectLocked()
+	c.directLock.Unlock()
+}
+
+func (c *Conn) interruptDirectLocked() {
+	if c.directWriting {
+		c.directInterrupted = true
+		_ = c.nextConn.Conn().SetWriteDeadline(time.Unix(1, 0))
+	}
+}
+
+// watchWriteDeadlineLocked makes the current write deadline interrupt writeDirect: at once when it has passed,
+// else with one registration for its context.
+func (c *Conn) watchWriteDeadlineLocked() {
+	ctx := c.writeDeadline.Context()
+	switch {
+	case ctx.Err() != nil:
+		c.interruptDirectLocked()
+	case ctx != c.directDeadline:
+		c.directDeadline = ctx
+		context.AfterFunc(ctx, c.interruptDirect)
+	}
 }
 
 func (c *Conn) writePackets(ctx context.Context, pkts []*packet) error {
@@ -668,6 +813,16 @@ func (c *closeContext) close(err error) {
 		c.errMu.Unlock()
 		close(c.done)
 	})
+}
+
+// writeContext is the context of one Write. Without a write deadline it is the connection's own context,
+// which Close cancels: nothing is made per record. A write deadline takes the context that also follows it.
+func (c *Conn) writeContext() (context.Context, context.CancelFunc) {
+	if _, set := c.writeDeadline.Deadline(); !set {
+		return c.closed.Context(), func() {}
+	}
+
+	return c.contextWithClose(c.writeDeadline.Context())
 }
 
 func (c *Conn) contextWithClose(ctx context.Context) (context.Context, context.CancelFunc) {
@@ -912,6 +1067,26 @@ var poolReadBuffer = sync.Pool{ //nolint:gochecknoglobals
 	},
 }
 
+// readDirect reads a datagram from the next connection itself. ReadFromContext registers a cancellation with the
+// context and removes it again for every datagram. The reader's context is the same for all of them, so it is
+// watched with one registration: when it is cancelled, the read deadline of the next connection moves to the
+// past, which ends a read that waits, as ReadFromContext does. Only the connection's reader calls this.
+func (c *Conn) readDirect(ctx context.Context, b []byte) (int, net.Addr, error) {
+	if ctx != c.readWatched {
+		c.readWatched = ctx
+		context.AfterFunc(ctx, func() { _ = c.nextConn.Conn().SetReadDeadline(time.Unix(1, 0)) })
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, nil, err
+	}
+	n, rAddr, err := c.nextConn.Conn().ReadFrom(b)
+	if ctxErr := ctx.Err(); n == 0 && ctxErr != nil {
+		err = ctxErr
+	}
+
+	return n, rAddr, err
+}
+
 func (c *Conn) readAndBuffer(ctx context.Context) error { //nolint:cyclop
 	bufptr, ok := poolReadBuffer.Get().(*[]byte)
 	if !ok {
@@ -920,7 +1095,7 @@ func (c *Conn) readAndBuffer(ctx context.Context) error { //nolint:cyclop
 	defer poolReadBuffer.Put(bufptr)
 
 	b := *bufptr
-	i, rAddr, err := c.nextConn.ReadFromContext(ctx, b)
+	i, rAddr, err := c.readDirect(ctx, b)
 	if err != nil {
 		return netError(err)
 	}
@@ -1167,7 +1342,12 @@ func (c *Conn) handleIncomingPacket(
 		}
 	}
 
-	isHandshake, isRetransmit, err := c.fragmentBuffer.push(append([]byte{}, buf...))
+	// The fragment buffer keeps a handshake record and only looks at any other: no copy for those.
+	pushed := buf
+	if protocol.ContentType(buf[0]) == protocol.ContentTypeHandshake {
+		pushed = append([]byte{}, buf...)
+	}
+	isHandshake, isRetransmit, err := c.fragmentBuffer.push(pushed)
 	if err != nil {
 		// Decode error must be silently discarded
 		// [RFC6347 Section-4.1.2.7]
@@ -1558,6 +1738,14 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 // SetWriteDeadline implements net.Conn.SetWriteDeadline.
 func (c *Conn) SetWriteDeadline(t time.Time) error {
 	c.writeDeadline.Set(t)
+	if !t.IsZero() {
+		// A write that started without a deadline (writeDirect) gets this one.
+		c.directLock.Lock()
+		if c.directWriting {
+			c.watchWriteDeadlineLocked()
+		}
+		c.directLock.Unlock()
+	}
 	// Write deadline is also fully managed by this layer.
 	return nil
 }

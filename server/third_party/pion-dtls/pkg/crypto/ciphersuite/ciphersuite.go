@@ -108,6 +108,51 @@ func (a *aead) encrypt(pkt *recordlayer.RecordLayer, raw []byte) ([]byte, error)
 	return r, nil
 }
 
+// sealScratch is what sealing one application-data record needs beside the record itself. cipher.AEAD is an
+// interface, so as locals the nonce and the additional data would be allocated on every record.
+type sealScratch struct {
+	nonce          [12]byte
+	additionalData [13]byte
+}
+
+//nolint:gochecknoglobals
+var sealScratchPool = sync.Pool{New: func() any { return new(sealScratch) }}
+
+// applicationDataRecord appends the header of a DTLS 1.2 application-data record without a connection ID to dst
+// and fills the record's additional data. epochAndSequence is the epoch (16 bits) over the sequence number (48),
+// length what follows the header, plaintextLength what the additional data covers.
+func applicationDataRecord(
+	dst []byte, additionalData *[13]byte, epochAndSequence uint64, length, plaintextLength int,
+) []byte {
+	binary.BigEndian.PutUint64(additionalData[:], epochAndSequence)
+	additionalData[8] = byte(protocol.ContentTypeApplicationData)
+	additionalData[9] = protocol.Version1_2.Major
+	additionalData[10] = protocol.Version1_2.Minor
+	binary.BigEndian.PutUint16(additionalData[11:], uint16(plaintextLength)) //nolint:gosec //G115
+
+	dst = append(dst, byte(protocol.ContentTypeApplicationData), protocol.Version1_2.Major, protocol.Version1_2.Minor)
+	dst = binary.BigEndian.AppendUint64(dst, epochAndSequence)
+
+	return binary.BigEndian.AppendUint16(dst, uint16(length)) //nolint:gosec //G115
+}
+
+// sealApplicationData appends to dst the encrypted record of one application-data payload: what encrypt makes
+// of a marshaled record, without the intermediate copies. dst must not overlap payload.
+func (a *aead) sealApplicationData(dst []byte, epoch uint16, sequenceNumber uint64, payload []byte) []byte {
+	scratch := sealScratchPool.Get().(*sealScratch) //nolint:forcetypeassert
+	nonce := scratch.nonce[:a.nonceLength]
+	seq64 := (uint64(epoch) << 48) | (sequenceNumber & 0x0000ffffffffffff)
+	copy(nonce, a.localWriteIV[:4])
+	binary.BigEndian.PutUint64(nonce[4:], seq64)
+
+	dst = applicationDataRecord(dst, &scratch.additionalData, seq64, 8+len(payload)+a.tagLength, len(payload))
+	dst = append(dst, nonce[4:]...)
+	dst = a.localAEAD.Seal(dst, nonce, payload, scratch.additionalData[:])
+	sealScratchPool.Put(scratch)
+
+	return dst
+}
+
 // decrypt decrypts a DTLS RecordLayer message.
 func (a *aead) decrypt(header recordlayer.Header, in []byte) ([]byte, error) {
 	err := header.Unmarshal(in)

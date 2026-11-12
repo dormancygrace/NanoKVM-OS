@@ -134,6 +134,18 @@ func (c *TLSEcdheEcdsaWithChacha20Poly1305Sha256) Encrypt(pkt *recordlayer.Recor
 	return cipherSuite.Encrypt(pkt, raw)
 }
 
+// SealApplicationData appends the encrypted record of one application-data payload to dst.
+func (c *TLSEcdheEcdsaWithChacha20Poly1305Sha256) SealApplicationData(
+	dst []byte, epoch uint16, sequenceNumber uint64, payload []byte,
+) ([]byte, error) {
+	cipherSuite, ok := c.chacha.Load().(*ciphersuite.ChaCha20Poly1305)
+	if !ok {
+		return nil, fmt.Errorf("%w, unable to encrypt", errCipherSuiteNotInit)
+	}
+
+	return cipherSuite.SealApplicationData(dst, epoch, sequenceNumber, payload), nil
+}
+
 // Decrypt decrypts a single TLS RecordLayer.
 func (c *TLSEcdheEcdsaWithChacha20Poly1305Sha256) Decrypt(h recordlayer.Header, raw []byte) ([]byte, error) {
 	cipherSuite, ok := c.chacha.Load().(*ciphersuite.ChaCha20Poly1305)

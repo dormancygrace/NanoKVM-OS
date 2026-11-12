@@ -105,6 +105,18 @@ func (c *TLSEcdheEcdsaWithAes128GcmSha256) Encrypt(pkt *recordlayer.RecordLayer,
 	return cipherSuite.Encrypt(pkt, raw)
 }
 
+// SealApplicationData appends the encrypted record of one application-data payload to dst.
+func (c *TLSEcdheEcdsaWithAes128GcmSha256) SealApplicationData(
+	dst []byte, epoch uint16, sequenceNumber uint64, payload []byte,
+) ([]byte, error) {
+	cipherSuite, ok := c.gcm.Load().(*ciphersuite.GCM)
+	if !ok {
+		return nil, fmt.Errorf("%w, unable to encrypt", errCipherSuiteNotInit)
+	}
+
+	return cipherSuite.SealApplicationData(dst, epoch, sequenceNumber, payload), nil
+}
+
 // Decrypt decrypts a single TLS RecordLayer.
 func (c *TLSEcdheEcdsaWithAes128GcmSha256) Decrypt(h recordlayer.Header, raw []byte) ([]byte, error) {
 	cipherSuite, ok := c.gcm.Load().(*ciphersuite.GCM)

@@ -2,6 +2,7 @@
 package rustdesk
 
 import (
+	"NanoKVM-Server/common/udpbatch"
 	"NanoKVM-Server/service/stream/iceservers"
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"context"
@@ -11,6 +12,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/pion/transport/v5"
+	"github.com/pion/transport/v5/stdnet"
 	"github.com/pion/webrtc/v4"
 	"io"
 	"net"
@@ -28,6 +31,24 @@ const rtcMaxMessage = 8 << 20
 const rtcMaxFragment = 60000
 const rtcMaxSignal = 64 << 10
 const rtcMaxInbound = 256 << 10
+
+// What may wait in the data channel beyond what SCTP has in flight (its
+// congestion window): one fragment. The channel counts a byte as buffered
+// until the peer has acknowledged it, so a fixed limit is either seconds of
+// video on a slow path (the 2 MiB this replaces: 1.5 s at 12 Mbit/s) or less
+// than the window of a fast one, which then goes unused. What is in flight is
+// in the network already; only what waits behind it is delay the sender adds,
+// and the add-on drops late video and keeps sound flowing only when it sees
+// the channel full.
+const rtcMaxQueue = 64 << 10
+
+// How much the congestion window grows in a round trip without loss: eight
+// packets. SCTP's rule is one (RFC 9260 7.2.2), with half the window gone at
+// every loss: on a path that loses a packet now and then the window stays far
+// below what the path carries. Measured with packets dropped at random on the
+// stand's Wi-Fi, received Mbit/s, one -> eight: 12.3 -> 17.0 at 1 %,
+// 16.0 -> 22.6 at 0.3 %, 28 both ways without loss; sixteen adds nothing at 1 %.
+const rtcCwndStep = 8 * 1200
 
 type rtcCommand struct {
 	Op        string `json:"op"`
@@ -241,8 +262,15 @@ func (b *rtcBridge) answer(endpoint string) (*rtcSession, string, string, string
 	setting := webrtc.SettingEngine{}
 	setting.SetSCTPMaxMessageSize(65536)
 	setting.SetSCTPMaxReceiveBufferSize(256 << 10)
+	setting.SetSCTPCwndCAStep(rtcCwndStep)
 	// The DTLS policy of every NanoKVM peer. The bridge carries data
 	// channels only, so the SRTP and RTP path settings do not apply.
+	// The SCTP sender writes every packet of a message with its own system
+	// call, about 830 for a megabyte: a quarter of what the server spends on
+	// the session over Wi-Fi. They leave in bursts of up to 16 instead.
+	if base, netErr := stdnet.NewNet(); netErr == nil {
+		setting.SetNet(batchNet{base})
+	}
 	if err = webrtcdtls.Configure(&setting); err != nil {
 		close(s.pcReady)
 		return failed(err)
@@ -329,6 +357,26 @@ func (b *rtcBridge) answer(endpoint string) (*rtcSession, string, string, string
 	}
 	return s, "webrtc://" + base64.StdEncoding.EncodeToString(data), fingerprint, key, nil
 }
+
+// batchNet opens the peer connection's UDP sockets with burst sending of the
+// data channel's packets.
+type batchNet struct{ transport.Net }
+
+func (n batchNet) ListenUDP(network string, addr *net.UDPAddr) (transport.UDPConn, error) {
+	conn, err := n.Net.ListenUDP(network, addr)
+	if err != nil {
+		return nil, err
+	}
+	// The mDNS socket stays as it is.
+	if udp, ok := conn.(*net.UDPConn); ok && (addr == nil || (addr.Port != 5353 && !addr.IP.IsMulticast())) {
+		if wrapped, ok := udpbatch.Wrap(udp, nil); ok {
+			wrapped.BatchRecords()
+			return wrapped, nil
+		}
+	}
+	return conn, nil
+}
+
 func (b *rtcBridge) attach(c net.Conn, token string) {
 	b.mu.Lock()
 	s := b.sessions[token]
@@ -365,7 +413,7 @@ func (b *rtcBridge) attach(c net.Conn, token string) {
 				fragment[0] = flag
 				copy(fragment[1:], payload[offset:end])
 				deadline := time.Now().Add(3 * time.Second)
-				for s.channel.BufferedAmount() > 2<<20 {
+				for s.channel.BufferedAmount() > uint64(s.pc.SCTP().Stats().CongestionWindow)+rtcMaxQueue {
 					select {
 					case <-s.ctx.Done():
 						return

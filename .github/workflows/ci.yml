@@ -96,7 +96,7 @@ jobs:
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: NanoKVM tests of the patched pion modules
         run: |
-          for m in pion-dtls pion-ice pion-srtp; do
+          for m in pion-dtls pion-ice pion-sctp pion-srtp; do
             (cd third_party/$m && go test -count=1 ./...)
           done
       - name: Prepared C906 WebSocket module builds for the device

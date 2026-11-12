@@ -265,6 +265,18 @@
       }
     },
     {
+      "name": "Patched Pion sctp",
+      "path": "server/go.mod",
+      "pattern": "github.com/pion/sctp\\s+v([0-9.]+)",
+      "kind": "github-tags",
+      "repo": "pion/sctp",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "pull_request": {
+        "id": "patched-pion-sctp-v1",
+        "mode": "review"
+      }
+    },
+    {
       "name": "Patched Pion srtp/v3",
       "path": "server/go.mod",
       "pattern": "github.com/pion/srtp/v3\\s+v([0-9.]+)",

@@ -547,6 +547,31 @@ counter-mode loop):
 Like the kernel and OpenSSL versions, the table GHASH and the AES tables are
 not constant-time; Go's generic GHASH was.
 
+`gcm/gcm_riscv64.go` also sends the bulk of a message to the SG2002's crypto
+engine (`/dev/nanokvm-hwcrypto`), the way OpenSSL does: from 1024 bytes the
+counter mode goes to the engine (`HWCRYPTO_RUN`, 4 KiB per request) and GHASH
+stays in Go; from 4096 bytes the driver does both (`HWCRYPTO_GCM`), hashing on
+the CPU while the engine encrypts. The requests are raw system calls: they
+take 20 to 300 us of this CPU and wait for nothing else. Without the device,
+without permission to open it, or after the driver gave the engine up, the
+code above does all of it.
+
+One TLS record written and read, application stopped, in us (software ->
+with the engine):
+
+| | 512 B | 768 B | 1024 B | 1400 B | 2048 B | 4096 B | 8192 B | 16 KiB |
+|---|---|---|---|---|---|---|---|---|
+| AES-128-GCM | 136 -> 135 | 160 -> 158 | 183 -> 166 | 228 -> 187 | 290 -> 204 | 509 -> 300 | 931 -> 452 | 1754 -> 724 |
+| AES-256-GCM | 161 -> 149 | 196 -> 185 | 232 -> 174 | 279 -> 193 | 367 -> 219 | 631 -> 302 | 1175 -> 450 | 2225 -> 727 |
+
+With the engine from 512 bytes the 512-byte record took 147 to 175 us and the
+768-byte one 154 to 184: Go's own AES is the faster one there.
+
+`Open` decrypts through the driver before it has checked the tag, and clears
+its output when the tag is wrong. If the driver reports its engine lost in a
+request it does in place on the caller's memory, the buffer is partly
+written: `Open` fails, and `Seal`, which has no error to return, panics.
+
 The tests of `crypto/aes`, `crypto/cipher` (39) and the AES, GCM, CTR, CBC,
 CMAC and self-test parts of `crypto/internal/fips140test` pass on the device,
 run one test at a time: the whole `crypto/cipher` binary needs 178 MiB for

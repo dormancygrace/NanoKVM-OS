@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"NanoKVM-Server/internal/hwcrypto"
 )
 
 // Network boot uses the official releases as published: the iPXE CD images
@@ -203,7 +204,7 @@ func downloadVerified(ctx context.Context, url, path, digest string) error {
 		return err
 	}
 	defer os.Remove(f.Name())
-	h := sha256.New()
+	h := hwcrypto.NewSHA256()
 	n, err := io.Copy(io.MultiWriter(f, h), io.LimitReader(rsp.Body, ipxeMaxBytes+1))
 	if err == nil && n > ipxeMaxBytes {
 		err = fmt.Errorf("download %s: larger than %d bytes", filepath.Base(path), ipxeMaxBytes)
@@ -230,7 +231,7 @@ func verifyFile(path, digest string) error {
 		return err
 	}
 	defer f.Close()
-	h := sha256.New()
+	h := hwcrypto.NewSHA256()
 	if _, err = io.Copy(h, f); err != nil {
 		return err
 	}

@@ -85,6 +85,23 @@ func (c *ChaCha20Poly1305) Encrypt(pkt *recordlayer.RecordLayer, raw []byte) ([]
 	return result, nil
 }
 
+// SealApplicationData appends to dst the encrypted record of one application-data payload (DTLS 1.2, no
+// connection ID): the bytes Encrypt returns for the marshaled record. dst must not overlap payload.
+func (c *ChaCha20Poly1305) SealApplicationData(dst []byte, epoch uint16, sequenceNumber uint64, payload []byte) []byte {
+	scratch := sealScratchPool.Get().(*sealScratch) //nolint:forcetypeassert
+	seq64 := (uint64(epoch) << 48) | (sequenceNumber & 0x0000ffffffffffff)
+	copy(scratch.nonce[:], c.localWriteIV)
+	for i := range 8 {
+		scratch.nonce[4+i] ^= byte(seq64 >> (56 - uint(i)*8)) //nolint:gosec
+	}
+
+	dst = applicationDataRecord(dst, &scratch.additionalData, seq64, len(payload)+chachaTagLength, len(payload))
+	dst = c.localCipher.Seal(dst, scratch.nonce[:], payload, scratch.additionalData[:])
+	sealScratchPool.Put(scratch)
+
+	return dst
+}
+
 // Decrypt decrypts a DTLS RecordLayer message.
 func (c *ChaCha20Poly1305) Decrypt(header recordlayer.Header, in []byte) ([]byte, error) {
 	err := header.Unmarshal(in)

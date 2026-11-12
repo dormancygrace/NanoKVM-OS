@@ -143,6 +143,12 @@ impl MediaSubscriber {
     pub async fn request_key_frame(&mut self) -> io::Result<()> {
         self.stream.write_all(b"{\"request\":\"keyframe\"}\n").await
     }
+    /// The encoder is shared: it runs at this rate at most while this
+    /// subscriber is there.
+    pub async fn request_fps(&mut self, fps: u32) -> io::Result<()> {
+        let line = format!("{{\"request\":\"fps\",\"fps\":{fps}}}\n");
+        self.stream.write_all(line.as_bytes()).await
+    }
 }
 async fn read_media_frame<R>(reader: &mut R, buffer: Vec<u8>) -> io::Result<MediaFrame>
 where

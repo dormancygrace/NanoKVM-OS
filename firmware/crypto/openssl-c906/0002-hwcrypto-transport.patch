@@ -11,7 +11,7 @@
 +ENDIF
 --- /dev/null
 +++ b/crypto/hwcrypto.c
-@@ -0,0 +1,129 @@
+@@ -0,0 +1,133 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#define _GNU_SOURCE
 +#include <errno.h>
@@ -103,7 +103,10 @@
 +    return 0;
 +}
 +/* In place, the driver could write the output before a late failure; keep the
-+ * input intact for the software fallback. Off the SHA and out-of-place paths. */
++ * input intact for the software fallback. Off the SHA and out-of-place paths.
++ * A request above the scratch goes to the driver as it is: a caller that
++ * makes one fails its operation if the engine is lost in it
++ * (ossl_hwcrypto_cipher()). */
 +static __attribute__((noinline)) int run_in_place(
 +    int fd, struct hwcrypto_request *request)
 +{
@@ -124,7 +127,8 @@
 +{
 +    if (request->algorithm == HWCRYPTO_ALG_SHA1
 +        || request->algorithm == HWCRYPTO_ALG_SHA256
-+        || request->input != request->output)
++        || request->input != request->output
++        || request->length > HWCRYPTO_MAX)
 +        return run(fd, HWCRYPTO_RUN, request);
 +    return run_in_place(fd, request);
 +}

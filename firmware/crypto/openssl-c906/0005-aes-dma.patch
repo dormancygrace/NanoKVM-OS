@@ -1,7 +1,8 @@
 --- /dev/null
 +++ b/crypto/hwcrypto_cipher.c
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,136 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
++#include <errno.h>
 +#include <stdint.h>
 +#include <string.h>
 +#include <openssl/crypto.h>
@@ -20,7 +21,7 @@
 +size_t ossl_hwcrypto_cipher(unsigned int algorithm, unsigned int mode, int enc,
 +    const unsigned char *key, size_t keylen, unsigned char *iv,
 +    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
-+    size_t len, size_t minimum, size_t continuation_minimum)
++    size_t len, size_t minimum, size_t continuation_minimum, size_t maximum)
 +{
 +    struct hwcrypto_request r;
 +    unsigned char saved_iv[16];
@@ -30,6 +31,7 @@
 +
 +    if (len < minimum || minimum == 0 || minimum > HWCRYPTO_MAX
 +        || continuation_minimum < block || continuation_minimum > minimum
++        || maximum < HWCRYPTO_MAX
 +        || algorithm != HWCRYPTO_ALG_AES
 +        || mode > HWCRYPTO_MODE_CTR || keylen > sizeof(r.key)
 +        || (mode != HWCRYPTO_MODE_ECB && iv == NULL)
@@ -49,8 +51,8 @@
 +     * still has a fixed cost, so the caller supplies a separate tail floor. */
 +    while (len - done >= (done ? continuation_minimum : minimum)) {
 +        size_t chunk = len - done;
-+        if (chunk > HWCRYPTO_MAX)
-+            chunk = HWCRYPTO_MAX;
++        if (chunk > maximum)
++            chunk = maximum;
 +        chunk -= chunk % block;
 +        if (mode == HWCRYPTO_MODE_CTR) {
 +            uint32_t counter = (uint32_t)iv[block-4] << 24
@@ -68,8 +70,16 @@
 +            memcpy(r.iv, iv, block);
 +        if (mode == HWCRYPTO_MODE_CBC && !enc)
 +            memcpy(saved_iv, in + done + chunk - block, block);
-+        if (!ossl_hwcrypto_run(fd, &r))
++        errno = 0;
++        if (!ossl_hwcrypto_run(fd, &r)) {
++            /* In place above the scratch of ossl_hwcrypto_run() a driver
++             * that works on the caller's pages has written part of the
++             * output when its engine is lost: software cannot take over. */
++            if (in == out && chunk > HWCRYPTO_MAX
++                && (errno == EIO || errno == ETIMEDOUT))
++                done = OSSL_HWCRYPTO_LOST;
 +            break;
++        }
 +        if (mode == HWCRYPTO_MODE_CBC)
 +            memcpy(iv, enc ? out + done + chunk - block : saved_iv, block);
 +        else if (mode == HWCRYPTO_MODE_CTR)
@@ -110,8 +120,13 @@
 +        memcpy(r.ctr, ctr, 16);
 +        r.input = (uintptr_t)(in + done);
 +        r.output = (uintptr_t)(out + done);
-+        if (!ossl_hwcrypto_run_gcm(fd, &r))
++        errno = 0;
++        if (!ossl_hwcrypto_run_gcm(fd, &r)) {
++            /* As in ossl_hwcrypto_cipher(). */
++            if (in == out && (errno == EIO || errno == ETIMEDOUT))
++                done = OSSL_HWCRYPTO_LOST;
 +            break;
++        }
 +        memcpy(xi, r.xi, 16);
 +        memcpy(ctr, r.ctr, 16);
 +        done += r.length;
@@ -124,7 +139,7 @@
 +}
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_hwcrypto.inc
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,50 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include "crypto/hwcrypto_transport.h"
 +#include "cipher_aes_hwcrypto.h"
@@ -138,18 +153,20 @@
 +        return 0;
 +    return ossl_hwcrypto_cipher(HWCRYPTO_ALG_AES, mode, ctx->enc,
 +        a->plat.hwcrypto.key, ctx->keylen, ctx->iv, 16, in, out, len,
-+        minimum, HWCRYPTO_AES_CONTINUE_MIN);
++        minimum, HWCRYPTO_AES_CONTINUE_MIN, HWCRYPTO_AES_RUN_MAX);
 +}
 +static int cipher_hwcrypto_aes_cbc(PROV_CIPHER_CTX *ctx, unsigned char *out,
 +    const unsigned char *in, size_t len)
 +{
 +    size_t n = aes_hwcrypto_prefix(ctx, HWCRYPTO_MODE_CBC, out, in, len);
++    if (n == OSSL_HWCRYPTO_LOST) return 0;
 +    return n == len || ossl_cipher_hw_generic_cbc(ctx, out + n, in + n, len - n);
 +}
 +static int cipher_hwcrypto_aes_ecb(PROV_CIPHER_CTX *ctx, unsigned char *out,
 +    const unsigned char *in, size_t len)
 +{
 +    size_t n = aes_hwcrypto_prefix(ctx, HWCRYPTO_MODE_ECB, out, in, len);
++    if (n == OSSL_HWCRYPTO_LOST) return 0;
 +    return n == len || ossl_cipher_hw_generic_ecb(ctx, out + n, in + n, len - n);
 +}
 +static int cipher_hwcrypto_aes_ctr(PROV_CIPHER_CTX *ctx, unsigned char *out,
@@ -165,6 +182,7 @@
 +        out += n; in += n; len -= n;
 +    }
 +    n = aes_hwcrypto_prefix(ctx, HWCRYPTO_MODE_CTR, out, in, len);
++    if (n == OSSL_HWCRYPTO_LOST) return 0;
 +    return n == len || ossl_cipher_hw_generic_ctr(ctx, out + n, in + n, len - n);
 +}
 +#define cipher_hwcrypto_aes_ofb128 ossl_cipher_hw_generic_ofb128
@@ -174,7 +192,7 @@
 +#define AES_GENERIC_CIPHER(mode) cipher_hwcrypto_aes_##mode
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_gcm_hwcrypto.inc
-@@ -0,0 +1,77 @@
+@@ -0,0 +1,79 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#include <stddef.h>
 +#include <stdint.h>
@@ -193,7 +211,7 @@
 +    if (blocks >= HWCRYPTO_AES_CTR_MIN / 16)
 +        n = ossl_hwcrypto_cipher(HWCRYPTO_ALG_AES, HWCRYPTO_MODE_CTR, 1,
 +        a->plat.hwcrypto.key, a->base.keylen, iv, 4, in, out, blocks * 16,
-+        HWCRYPTO_AES_CTR_MIN, HWCRYPTO_AES_CONTINUE_MIN);
++        HWCRYPTO_AES_CTR_MIN, HWCRYPTO_AES_CONTINUE_MIN, HWCRYPTO_MAX);
 +    in += n; out += n; blocks -= n / 16;
 +    /* Every GCM record comes here. Below the DMA threshold (or after a DMA
 +     * failure) XOR whole 64-bit words; the C906 loads misaligned words in
@@ -248,13 +266,15 @@
 +    }
 +    bulk = ossl_hwcrypto_gcm(ctx->enc, a->plat.hwcrypto.key, ctx->keylen, h,
 +        g->Xi.c, g->Yi.c, in + res, out + res, bulk);
-+    g->len.u[1] += bulk;
 +    OPENSSL_cleanse(h, sizeof(h));
++    if (bulk == OSSL_HWCRYPTO_LOST)
++        return bulk;
++    g->len.u[1] += bulk;
 +    return res + bulk;
 +}
 --- a/include/crypto/hwcrypto_transport.h
 +++ b/include/crypto/hwcrypto_transport.h
-@@ -1,9 +1,25 @@
+@@ -1,9 +1,32 @@
  /* SPDX-License-Identifier: Apache-2.0 */
  #ifndef OSSL_NANOKVM_HWCRYPTO_TRANSPORT_H
  #define OSSL_NANOKVM_HWCRYPTO_TRANSPORT_H
@@ -267,16 +287,23 @@
  int ossl_hwcrypto_run(int fd, struct hwcrypto_request *request);
  void ossl_hwcrypto_end(int fd);
 +/* AES only: returns a whole-block prefix; advances IV only on success.
-+ * minimum includes session setup; continuation_minimum includes only RUN.
-+ * The caller resumes its original software operation over the remainder.
++ * minimum includes session setup; continuation_minimum includes only RUN;
++ * maximum is the longest RUN (at least HWCRYPTO_MAX).
++ * The caller resumes its original software operation over the remainder,
++ * unless the result is OSSL_HWCRYPTO_LOST: the engine was lost in a request
++ * made in place, the output is partly written and the operation has failed.
++ * That takes a RUN above HWCRYPTO_MAX; with maximum HWCRYPTO_MAX it cannot
++ * happen.
 + */
++#define OSSL_HWCRYPTO_LOST ((size_t)-1)
 +size_t ossl_hwcrypto_cipher(unsigned int algorithm, unsigned int mode, int enc,
 +    const unsigned char *key, size_t keylen, unsigned char *iv,
 +    unsigned int counter_bytes, const unsigned char *in, unsigned char *out,
-+    size_t len, size_t minimum, size_t continuation_minimum);
++    size_t len, size_t minimum, size_t continuation_minimum, size_t maximum);
 +int ossl_hwcrypto_run_gcm(int fd, struct hwcrypto_gcm_request *request);
 +/* AES-GCM whole blocks (HWCRYPTO_GCM): returns the prefix done, with the GHASH
-+ * accumulator xi and counter block ctr (GCM byte order) advanced over it. */
++ * accumulator xi and counter block ctr (GCM byte order) advanced over it, or
++ * OSSL_HWCRYPTO_LOST. */
 +size_t ossl_hwcrypto_gcm(int enc, const unsigned char *key, size_t keylen,
 +    const unsigned char h[16], unsigned char xi[16], unsigned char ctr[16],
 +    const unsigned char *in, unsigned char *out, size_t len);
@@ -355,7 +382,7 @@
  static int aes_gcm_initkey(PROV_GCM_CTX *ctx, const unsigned char *key,
      size_t keylen)
  {
-@@ -55,12 +59,23 @@
+@@ -55,12 +59,25 @@
          GCM_HW_SET_KEY_CTR_FN(ks, AES_set_encrypt_key, AES_encrypt, NULL);
  #endif /* AES_CTR_ASM */
      }
@@ -372,6 +399,8 @@
 +#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE)
 +    size_t hw = aes_hwcrypto_gcm_bulk(ctx, in, out, len);
 +
++    if (hw == OSSL_HWCRYPTO_LOST)
++        return 0;
 +    in += hw;
 +    out += hw;
 +    len -= hw;
@@ -381,7 +410,7 @@
  #if defined(AES_GCM_ASM)
 --- /dev/null
 +++ b/providers/implementations/ciphers/cipher_aes_hwcrypto.h
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,17 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#ifndef OSSL_NANOKVM_AES_HWCRYPTO_H
 +#define OSSL_NANOKVM_AES_HWCRYPTO_H
@@ -389,9 +418,13 @@
 +#define HWCRYPTO_AES_BLOCK_MIN 512
 +#define HWCRYPTO_AES_CTR_MIN 512
 +#define HWCRYPTO_AES_CONTINUE_MIN 512
-+/* GCM updates from here go to HWCRYPTO_GCM. GHASH (C906, about 35 MB/s in
-+ * both user space and the kernel) dominates, so the overlap hides only the
-+ * engine's AES-CTR: 4 KiB is about even, 16 KiB 15-20% faster; below, the
-+ * per-call cost wins over the overlap. */
++/* The longest RUN of the AES modes: the driver's buffers (64 KiB). One RUN of
++ * 64 KiB takes half the time of sixteen of 4 KiB. */
++#define HWCRYPTO_AES_RUN_MAX 65536
++/* GCM updates from here go to HWCRYPTO_GCM, where the driver hashes while
++ * the engine encrypts. Measured with the application stopped, AES-256,
++ * encrypt / decrypt: with 4096 a record of 2048 bytes takes 54 / 50 us and
++ * one of 3072 bytes 69 / 66; with 2048 they take 69 / 67 and 83 / 78; with
++ * 8192 a record of 4096 bytes takes 95 / 103 us against 99 / 91. */
 +#define HWCRYPTO_AES_GCM_MIN 4096
 +#endif

@@ -381,7 +381,7 @@ pub enum ControlKey {
 
 #[derive(Clone, PartialEq, ProstMessage)]
 pub struct Misc {
-    #[prost(oneof = "misc::Union", tags = "6,7,8,9")]
+    #[prost(oneof = "misc::Union", tags = "6,7,8,9,10,31")]
     pub union: Option<misc::Union>,
 }
 
@@ -417,6 +417,12 @@ pub mod misc {
         AudioFormat(AudioFormat),
         #[prost(string, tag = "9")]
         CloseReason(String),
+        // The client asks for a keyframe and discards what it has queued
+        // until one arrives.
+        #[prost(bool, tag = "10")]
+        RefreshVideo(bool),
+        #[prost(int32, tag = "31")]
+        RefreshVideoDisplay(i32),
     }
 }
 

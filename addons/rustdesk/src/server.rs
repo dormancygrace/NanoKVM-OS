@@ -3,7 +3,10 @@ use std::{
     collections::HashMap,
     io,
     net::{IpAddr, Ipv6Addr, SocketAddr},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 
@@ -917,7 +920,12 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // header whenever a client input message won the race. Keep the media read
     // in its own task and pass only complete frames to the session loop.
     let (media_sender, mut media_receiver) = mpsc::channel(1);
-    let media_task = tokio::spawn(forward_media(media, media_sender));
+    let refresh_wanted = Arc::new(AtomicBool::new(false));
+    let media_task = tokio::spawn(forward_media(
+        media,
+        media_sender,
+        Arc::clone(&refresh_wanted),
+    ));
     // FrameReader::read also uses read_exact internally and has the same
     // cancellation constraint. Keep it alive across media sends so a partial
     // RustDesk packet cannot be mistaken for the next packet.
@@ -997,6 +1005,16 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             union: Some(crate::protocol::misc::Union::CloseReason(_)),
                         })),
                 }) => break,
+                Ok(Message {
+                    union:
+                        Some(message::Union::Misc(crate::protocol::Misc {
+                            union:
+                                Some(
+                                    crate::protocol::misc::Union::RefreshVideo(_)
+                                    | crate::protocol::misc::Union::RefreshVideoDisplay(_),
+                                ),
+                        })),
+                }) => refresh_wanted.store(true, Ordering::Relaxed),
                 Ok(Message {
                     union: Some(message::Union::MouseEvent(event)),
                 }) => {
@@ -1209,9 +1227,22 @@ impl KeyframeRequests {
     }
 }
 
-async fn forward_media(mut media: MediaSubscriber, sender: mpsc::Sender<io::Result<MediaFrame>>) {
+// The client's refresh, at most this often: the encoder is shared, and a
+// client whose queue is full asks with every frame it receives. One that
+// keeps asking is on a link that cannot take the keyframes, each as much as
+// a second of video there, so the wait doubles up to the longer one.
+const CLIENT_REFRESH_INTERVAL: Duration = Duration::from_secs(1);
+const CLIENT_REFRESH_MAX_INTERVAL: Duration = Duration::from_secs(8);
+
+async fn forward_media(
+    mut media: MediaSubscriber,
+    sender: mpsc::Sender<io::Result<MediaFrame>>,
+    refresh_wanted: Arc<AtomicBool>,
+) {
     let mut dropping = false;
     let mut requests = KeyframeRequests::default();
+    let mut refreshed: Option<time::Instant> = None;
+    let mut refresh_wait = CLIENT_REFRESH_INTERVAL;
     loop {
         let frame = match media.read_frame().await {
             Ok(frame) => frame,
@@ -1220,6 +1251,29 @@ async fn forward_media(mut media: MediaSubscriber, sender: mpsc::Sender<io::Resu
                 return;
             }
         };
+        // A client that asked to refresh discards frames until a keyframe.
+        // The request is seen with the next frame, 17 ms later at most while
+        // the encoder runs.
+        let now = time::Instant::now();
+        if dropping {
+            // The session asks for its own keyframes already.
+            refresh_wanted.store(false, Ordering::Relaxed);
+        } else if refresh_wanted.load(Ordering::Relaxed)
+            && refreshed.is_none_or(|at| now - at >= refresh_wait)
+        {
+            refresh_wanted.store(false, Ordering::Relaxed);
+            refresh_wait = match refreshed {
+                Some(at) if now - at < refresh_wait * 2 => {
+                    (refresh_wait * 2).min(CLIENT_REFRESH_MAX_INTERVAL)
+                }
+                _ => CLIENT_REFRESH_INTERVAL,
+            };
+            refreshed = Some(now);
+            if let Err(error) = media.request_key_frame().await {
+                let _ = sender.send(Err(error)).await;
+                return;
+            }
+        }
         if !dropping || frame.keyframe {
             let keyframe = frame.keyframe;
             match sender.send_timeout(Ok(frame), MEDIA_GRACE).await {
@@ -3165,7 +3219,12 @@ mod tests {
         let (mut bridge, _) = accepted.unwrap();
         read_subscription(&mut bridge).await;
         let (sender, mut receiver) = mpsc::channel(1);
-        let forwarder = tokio::spawn(super::forward_media(subscriber.unwrap(), sender));
+        let refresh = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let forwarder = tokio::spawn(super::forward_media(
+            subscriber.unwrap(),
+            sender,
+            Arc::clone(&refresh),
+        ));
         let frame = |marker: u8| [0, 0, 0, 1, 0x65, marker];
         async fn keyframe_request(bridge: &mut tokio::net::UnixStream, wait: Duration) -> bool {
             let mut line = Vec::new();
@@ -3207,6 +3266,11 @@ mod tests {
         assert_eq!(resumed.payload[5], 41);
         write_media_frame(&mut bridge, &frame(42), false).await;
         assert_eq!(receiver.recv().await.unwrap().unwrap().payload[5], 42);
+        // The client asks to refresh: a keyframe request with the next frame.
+        refresh.store(true, std::sync::atomic::Ordering::Relaxed);
+        write_media_frame(&mut bridge, &frame(43), false).await;
+        assert_eq!(receiver.recv().await.unwrap().unwrap().payload[5], 43);
+        assert!(keyframe_request(&mut bridge, Duration::from_secs(1)).await);
         // Once that repair held, a new stall asks at once. A requested
         // keyframe that never comes is asked for again after 1 s, then 2 s,
         // while deltas keep being dropped.

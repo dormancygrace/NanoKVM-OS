@@ -16,8 +16,11 @@ const SETUP: Duration = Duration::from_secs(2);
 const RETRY: Duration = Duration::from_secs(1);
 // A packet is 20 ms. The session writes sound between video frames: while a frame is being written the
 // packets wait here, the last QUEUE of them, and one that has waited MAX_AGE is not sent any more.
-pub const QUEUE: usize = 10;
-pub const MAX_AGE: Duration = Duration::from_millis(200);
+// The RustDesk client has no timestamps for sound and plays everything it gets: what arrives late once
+// stays in its buffer as delay behind the picture for the rest of the session (it trims only above
+// 600 ms). So a late packet is a short gap here instead of a delay there.
+pub const QUEUE: usize = 3;
+pub const MAX_AGE: Duration = Duration::from_millis(60);
 
 #[derive(Clone, Default)]
 pub struct State {

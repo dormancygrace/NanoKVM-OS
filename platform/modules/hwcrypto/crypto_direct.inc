@@ -97,9 +97,19 @@ static bool sg2_direct_sg_ok(struct scatterlist *s, struct scatterlist *d, unsig
  }
  return true;
 }
+/*
+ * The shortest skcipher request for the caller's memory: three cache lines.
+ * Below it the head and tail descriptors cost more than the two copies they
+ * replace. Application stopped, us per request, copies -> here, ECB with a
+ * 128-bit key: 144 B 5.7 -> 7.5, 176 B 5.9 -> 7.3, 192 B 6.1 -> 6.0, 256 B
+ * 6.6 -> 6.2, 512 B 8.8 -> 6.8; CTR: 160 B 6.2 -> 7.2, 192 B 6.4 -> 5.8,
+ * 512 B 9.5 -> 6.9.
+ */
+#define SG2_DIRECT_MIN (3 * SG2_LINE)
 static bool sg2_direct_ok(struct skcipher_request *req, const struct sg2_cipher_alg *a, bool encrypt)
 {
- return sg2_direct_mode(a->hardware, a->mode, encrypt) && sg2_direct_sg_ok(req->src, req->dst, 0, req->cryptlen);
+ return req->cryptlen >= SG2_DIRECT_MIN && sg2_direct_mode(a->hardware, a->mode, encrypt) &&
+        sg2_direct_sg_ok(req->src, req->dst, 0, req->cryptlen);
 }
 /* Start a walk of two scatterlists skip bytes into them. */
 static void sg2_walk_skip(struct sg2_walk *w, unsigned int skip)

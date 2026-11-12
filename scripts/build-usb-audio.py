@@ -27,11 +27,13 @@ opus=out/'opus-1.6.1'
 maps=' '.join(f'-ffile-prefix-map={src}={name}' for src,name in [(out,'./usb-audio'),(tiny,'./tinyalsa'),(repo,'./nanokvm-os')])
 if opus.exists():shutil.rmtree(opus)
 with tarfile.open(args.opus_archive) as tar:tar.extractall(out,filter='data')
+# The C906 kernels go into every Opus source: its OVERRIDE_* macros choose them over the C loops.
+kernels=repo/'server/service/stream/audio/capture/opus_c906.h'
 opus_build=out/'opus-build'
 if opus_build.exists():shutil.rmtree(opus_build)
 opus_build.mkdir()
 with (out/'opus-build.log').open('w') as log:
-    subprocess.run([str(opus/'configure'),'--host=riscv64-buildroot-linux-musl','--disable-shared','--enable-static','--disable-doc','--disable-extra-programs','--disable-fixed-point','--enable-float-api','CC='+cross+'gcc','CFLAGS='+' '.join(cpu_flags('audio'))+' '+maps],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
+    subprocess.run([str(opus/'configure'),'--host=riscv64-buildroot-linux-musl','--disable-shared','--enable-static','--disable-doc','--disable-extra-programs','--disable-fixed-point','--enable-float-api','CC='+cross+'gcc','CFLAGS='+' '.join(cpu_flags('audio'))+' -include '+str(kernels)+' '+maps],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
     subprocess.run(['make','-j'+args.jobs],cwd=opus_build,stdout=log,stderr=subprocess.STDOUT,check=True)
 record_cpu_profile(out/'cpu-profile.json', cross+'gcc', kind='audio')
 kernel_config=(args.kernel_output/'.config').read_text()
@@ -55,6 +57,6 @@ with (out/'helper-build.log').open('w') as log:subprocess.run(cmd,cwd=out,stdout
 subprocess.run([cross+'strip',str(helper)],check=True)
 license_dir=out/'share/usb-audio';license_dir.mkdir(parents=True,exist_ok=True)
 shutil.copyfile(tiny/'LICENSE',license_dir/'tinyalsa-LICENSE');shutil.copyfile(opus/'COPYING',license_dir/'opus-COPYING')
-(license_dir/'SOURCE').write_text('tinyalsa: https://github.com/tinyalsa/tinyalsa\nCommit: '+revision+'\nOpus: https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz\nSHA256: '+expected+'\nFloating point, NanoKVM C906 CPU profile, 192000 bit/s, complexity 3, stereo 48 kHz, 20 ms, constrained VBR.\n')
+(license_dir/'SOURCE').write_text('tinyalsa: https://github.com/tinyalsa/tinyalsa\nCommit: '+revision+'\nOpus: https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz\nSHA256: '+expected+'\nFloating point, NanoKVM C906 CPU profile with its vector kernels (opus_c906.h), 192000 bit/s, complexity 3, stereo 48 kHz, 20 ms, constrained VBR.\n')
 manifest={str(f.relative_to(out)):hashlib.sha256(f.read_bytes()).hexdigest() for f in [helper,*module_artifacts]}
 (out/'native-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest,indent=2))

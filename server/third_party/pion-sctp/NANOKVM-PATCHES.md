@@ -32,6 +32,17 @@ and what goes on the wire are unchanged.
   for its arguments before the logger can drop the message: about ten
   allocations for a DATA packet. Set the constant to see the messages.
 
+- **The packet checksum for the C906** (`crc32c_riscv64.go`, `crc32c_riscv64.s`
+  written by `gen_crc32c.py`). `hash/crc32` has no assembly for riscv64; its
+  slicing-by-8 in Go costs 12.2 ns for a byte on the C906. The fork's loop is
+  the same slicing by 8 with one 64-bit load for eight bytes, `th.extu` to cut a
+  byte out and `th.lrwu` to load the table entry (XTheadBb, XTheadMemIdx, as
+  WORDs: Go's assembler does not know them): 3.9 ns for a byte, measured on the
+  device by `TestCRC32cMatchesHashCRC32`, which also compares it with
+  `hash/crc32` for every length and alignment. The RustDesk client's SCTP has no
+  zero-checksum extension (RFC 9653), so the checksum cannot be left out. Other
+  architectures use `hash/crc32` (`crc32c_other.go`).
+
 Checked with the upstream tests of v1.12.1 put back beside the fork (they are
 not kept here): all pass. With the race detector they pass when the kept
 buffers are switched off (`maxKeptPackets = 0`); with them on, the detector

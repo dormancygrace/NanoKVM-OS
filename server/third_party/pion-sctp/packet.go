@@ -226,9 +226,9 @@ func (p *packet) marshalInto(buf []byte, doChecksum bool) ([]byte, error) {
 
 func generatePacketChecksum(raw []byte) (sum uint32) {
 	// Fastest way to do a crc32 without allocating.
-	sum = crc32.Update(sum, castagnoliTable, raw[0:8])
-	sum = crc32.Update(sum, castagnoliTable, fourZeroes[:])
-	sum = crc32.Update(sum, castagnoliTable, raw[12:])
+	sum = crc32cUpdate(sum, raw[0:8])
+	sum = crc32cUpdate(sum, fourZeroes[:])
+	sum = crc32cUpdate(sum, raw[12:])
 
 	return sum
 }

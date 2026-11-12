@@ -1,6 +1,6 @@
 // Shared optional USB audio -> canonical RustDesk Opus. SPDX-License-Identifier: AGPL-3.0-only
 use bytes::Bytes;
-use std::{io, time::Duration};
+use std::{collections::VecDeque, io, time::Duration};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
@@ -14,14 +14,21 @@ pub const CHANNELS: u32 = 2;
 pub const MAX_PACKET: usize = 1275;
 const SETUP: Duration = Duration::from_secs(2);
 const RETRY: Duration = Duration::from_secs(1);
-pub const MAX_AGE: Duration = Duration::from_millis(100);
+// A packet is 20 ms. The session writes sound between video frames: while a frame is being written the
+// packets wait here, the last QUEUE of them, and one that has waited MAX_AGE is not sent any more.
+// The RustDesk client has no timestamps for sound and plays everything it gets: what arrives late once
+// stays in its buffer as delay behind the picture for the rest of the session (it trims only above
+// 600 ms). So a late packet is a short gap here instead of a delay there.
+pub const QUEUE: usize = 3;
+pub const MAX_AGE: Duration = Duration::from_millis(60);
 
 #[derive(Clone, Default)]
 pub struct State {
     pub available: Option<bool>,
     pub generation: u64,
-    // One latest frame, independent of network/video backpressure. No sound backlog.
-    pub packet: Option<(Instant, Bytes)>,
+    // The last packets, each with its number and arrival time: no more than QUEUE, so the sound
+    // never falls further behind than that, whatever the network and the video do.
+    pub packets: VecDeque<(u64, Instant, Bytes)>,
 }
 struct Packet {
     available: bool,
@@ -81,13 +88,14 @@ pub fn start(
     let (tx, rx) = watch::channel(State::default());
     let task = tokio::spawn(async move {
         let mut state = State::default();
+        let mut number = 0u64;
         if !allowed {
             state.available = Some(false);
             tx.send_replace(state);
             return;
         }
         loop {
-            state.packet = None;
+            state.packets.clear();
             // An info request does not attach to ALSA or start the capture helper.
             let available = tokio::select! {
                 result=connect(&path,"info")=>result.map(|(_,yes)|yes).unwrap_or(false),
@@ -108,18 +116,22 @@ pub fn start(
                         // frame is never resumed on a new USB capture or mute generation.
                         let packet = tokio::select! {
                             result=time::timeout(Duration::from_secs(5),read_packet(&mut stream))=>result,
-                            _=desired.changed()=>{state.packet=None;tx.send_replace(state.clone());break;},
+                            _=desired.changed()=>{state.packets.clear();tx.send_replace(state.clone());break;},
                         };
                         match packet {
                             Ok(Ok(Packet {
                                 available: true,
                                 data,
                             })) if !data.is_empty() => {
-                                state.packet = Some((Instant::now(), data));
+                                number += 1;
+                                if state.packets.len() == QUEUE {
+                                    state.packets.pop_front();
+                                }
+                                state.packets.push_back((number, Instant::now(), data));
                                 tx.send_replace(state.clone());
                             }
                             _ => {
-                                state.packet = None;
+                                state.packets.clear();
                                 state.available = Some(false);
                                 tx.send_replace(state.clone());
                                 break;
@@ -248,7 +260,7 @@ mod tests {
         info.write_all(&header(0)).await.unwrap();
         let mut capture = next(&mut incoming, "opus").await;
         capture.write_all(&header(0)).await.unwrap();
-        // A blocked network writer observes one recent packet rather than a FIFO backlog.
+        // A blocked network writer finds the last QUEUE packets, not everything since it blocked.
         for index in 0..100u8 {
             capture.write_all(&header(1)).await.unwrap();
             capture.write_all(&[index]).await.unwrap();
@@ -258,10 +270,12 @@ mod tests {
                 state.changed().await.unwrap();
                 let current = state.borrow_and_update().clone();
                 if current
-                    .packet
-                    .as_ref()
-                    .is_some_and(|(_, data)| data[0] == 99)
+                    .packets
+                    .back()
+                    .is_some_and(|(_, _, data)| data[0] == 99)
                 {
+                    let held: Vec<u8> = current.packets.iter().map(|(_, _, data)| data[0]).collect();
+                    assert_eq!(held, (100 - QUEUE as u8..100).collect::<Vec<u8>>());
                     break;
                 }
             }
@@ -308,9 +322,9 @@ mod tests {
                 let current = state.borrow_and_update().clone();
                 if current.generation > first_generation
                     && current
-                        .packet
-                        .as_ref()
-                        .is_some_and(|(_, data)| data[..] == [0xfc, 0xff, 0xfe])
+                        .packets
+                        .back()
+                        .is_some_and(|(_, _, data)| data[..] == [0xfc, 0xff, 0xfe])
                 {
                     break;
                 }

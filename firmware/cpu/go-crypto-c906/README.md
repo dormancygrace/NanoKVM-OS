@@ -316,11 +316,11 @@ packet) 166 -> 218, 4096 B 180 -> 272, 16 KiB 178 -> 283.
 `platform/kernel/0041-crypto-riscv-c906-ghash.patch`
 (`lib/crypto/riscv/ghash-riscv64-c906.S`) and for
 `firmware/crypto/openssl-c906/0010-ghash-c906.patch`. The C906 has no
-carry-less multiply. Per key, two tables of 4 KiB hold `b * H` and
-`b * H * x^64` for every byte `b`; a block is two interleaved Horner chains of
-eight steps, each step two table lookups and one lookup in a constant
-reduction table. The code is scalar (XTheadBb, XTheadMemIdx) and runs in any
-context.
+carry-less multiply. Per key, N tables of 4 KiB hold `b * H * x^(128 q / N)`
+for every byte `b`; a block is N interleaved Horner chains of 16 / N steps,
+each step one lookup per table and one lookup in a constant reduction table.
+The kernel uses four tables, OpenSSL and Go two. The code is scalar
+(XTheadBb, XTheadMemIdx) and runs in any context.
 
 Table lookups depend on the key and the data, as in OpenSSL's portable 4-bit
 GHASH: this is not constant-time code. The code it replaced emulated the
@@ -335,14 +335,34 @@ messages costs about 110 ns to bring back: with the L1 data cache emptied
 before every message, 1408 bytes took 31 us with one or two tables and 42 us
 with four (12.7 and 10.9 us when cached). Inside AES-GCM records of OpenSSL
 two and four tables measured the same and one table was slower from 4 KiB, so
-both consumers use two.
+OpenSSL uses two.
+
+The kernel's gcm(aes) hashes while the crypto engine encrypts, so GHASH is
+what a record waits for. Measured there with the application stopped (the
+driver that works on the caller's memory; means of three loads of the module
+for an atomic caller, two for one that may sleep; encrypt / decrypt, AES-256,
+us, two tables -> four):
+
+| | atomic caller | caller that may sleep |
+|---|---|---|
+| 256 B | 13.6 / 12.1 -> 13.3 / 11.7 | 16.7 / 12.6 -> 16.1 / 12.7 |
+| 512 B | 18.0 / 15.5 -> 17.4 / 14.8 | 22.2 / 19.5 -> 21.4 / 16.7 |
+| 1024 B | 26.1 / 21.1 -> 24.3 / 19.8 | 28.7 / 25.4 -> 27.3 / 24.2 |
+| 1400 B | 33.8 / 26.6 -> 31.8 / 24.4 | 36.0 / 30.6 -> 34.0 / 28.4 |
+| 4080 B | 72.8 / 54.5 -> 66.1 / 47.2 | 71.3 / 64.1 -> 64.1 / 56.8 |
+| 16 KiB | 217 / 199 -> 196 / 178 | 205 / 195 -> 187 / 174 |
+| 64 KiB | 806 / 809 -> 732 / 734 | 740 / 775 -> 660 / 672 |
+
+An OpenVPN DCO tunnel (AES-256-GCM, UDP) beside a 20 Mbit/s video stream
+carried the same with either: 65-67 Mbit/s in, 44-45 out. The kernel uses
+four; a key takes 16 KiB.
 
 The generator runs every variant it can emit on random keys and messages
 against a bit-serial GHASH (an interpreter of the instructions it uses), and
 checks that a patch contains the generated file:
 
 ```sh
-python3 gen_ghash_table.py --selftest 50 --flavor linux --tables 2 --name ghash_blocks_c906 --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
+python3 gen_ghash_table.py --selftest 50 --flavor linux --tables 4 --name ghash_blocks_c906 --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
 python3 gen_ghash_table.py --flavor openssl --tables 2 --name ossl_ghash_blocks_c906 --check ../../crypto/openssl-c906/0010-ghash-c906.patch
 ```
 

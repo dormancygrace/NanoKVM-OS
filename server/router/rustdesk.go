@@ -13,7 +13,7 @@ func rustdeskRouter(r *gin.Engine) {
 	bridge := rustdesk.NewBridge()
 	go bridge.Monitor(context.Background())
 	service := rustdesk.NewService(bridge)
-	service.FollowVideoTransport()
+	service.AcceptWebRTC()
 	api := r.Group("/api/addons/rustdesk").Use(middleware.CheckToken(), middleware.RequireRole(authn.RoleAdmin))
 	api.GET("/status", func(c *gin.Context) {
 		c.Header("Cache-Control", "no-store")

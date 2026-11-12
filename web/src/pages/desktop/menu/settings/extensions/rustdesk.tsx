@@ -333,13 +333,7 @@ export const RustDeskControls = () => {
                       )}
                       {status.supports_transport_settings && (
                         <Form.Item label={t('webrtc')} extra={t('transportHint')}>
-                          <Typography.Text>
-                            {status.video_transport === 'webrtc'
-                              ? t('webrtcOn')
-                              : t('webrtcOff', {
-                                  transport: status.video_transport === 'mjpeg' ? 'MJPEG' : 'Direct'
-                                })}
-                          </Typography.Text>
+                          <Typography.Text>{t('webrtcOn')}</Typography.Text>
                         </Form.Item>
                       )}
                       <Alert type="info" title={t('video')} className="mb-4" />

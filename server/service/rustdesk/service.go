@@ -34,7 +34,11 @@ var ConfigDir = "/etc/nanokvm-rustdesk"
 var ConfigFile = ConfigDir + "/config.json"
 
 type Config struct {
-	AudioEnabled *bool  `json:"audio_enabled,omitempty"`
+	AudioEnabled *bool `json:"audio_enabled,omitempty"`
+	LocalPointer *bool `json:"local_pointer,omitempty"`
+	// The address of the direct listener; the add-on listens on the loopback
+	// one without it.
+	Listen       string `json:"listen_address,omitempty"`
 	WebRTC       bool   `json:"webrtc_enabled,omitempty"`
 	Enabled      bool   `json:"service_enabled"`
 	Official     bool   `json:"use_official_id_server"`
@@ -52,6 +56,7 @@ type Status struct {
 	VideoTransport        string          `json:"video_transport"`
 	SupportsAudio         bool            `json:"supports_audio"`
 	SupportsAudioSettings bool            `json:"supports_audio_settings"`
+	PointerSettings       bool            `json:"supports_pointer_settings"`
 	USBAudioEnabled       bool            `json:"usb_audio_enabled"`
 	Installed             bool            `json:"installed"`
 	Version               string          `json:"version,omitempty"`
@@ -472,6 +477,7 @@ func (s *Service) Status() (Status, error) {
 					TransportSettings bool `json:"transport_settings"`
 					Audio             bool `json:"audio"`
 					AudioSettings     bool `json:"audio_settings"`
+					PointerSettings   bool `json:"pointer_settings"`
 				} `json:"features"`
 			}
 			if json.Unmarshal(data, &upstream) == nil && regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(upstream.Version) {
@@ -479,6 +485,7 @@ func (s *Service) Status() (Status, error) {
 				status.SupportsTransportSettings = upstream.Features.TransportSettings
 				status.SupportsAudio = upstream.Features.Audio
 				status.SupportsAudioSettings = upstream.Features.AudioSettings
+				status.PointerSettings = upstream.Features.PointerSettings
 				status.USBAudioEnabled = status.SupportsAudio && s.bridge.audioEnabled()
 			}
 		}
@@ -597,6 +604,9 @@ func validateConfig(c *Config) error {
 	c.Codec = "auto"
 	if c.MaxClients < 1 || c.MaxClients > 8 {
 		return errors.New("client limit must be between 1 and 8")
+	}
+	if c.Listen != "" && net.ParseIP(c.Listen) == nil {
+		return errors.New("listen address must be an IP address")
 	}
 	if c.PasswordMode != "temporary" && c.PasswordMode != "permanent" {
 		return errors.New("password mode must be temporary or permanent")
@@ -739,6 +749,20 @@ func (s *Service) supportsAudioSettings() bool {
 	}
 	return json.Unmarshal(data, &metadata) == nil && metadata.Features.AudioSettings
 }
+
+// An add-on before the setting refuses a configuration that has it.
+func (s *Service) supportsPointerSettings() bool {
+	data, err := os.ReadFile(s.upstreamFile)
+	if err != nil {
+		return false
+	}
+	var metadata struct {
+		Features struct {
+			PointerSettings bool `json:"pointer_settings"`
+		} `json:"features"`
+	}
+	return json.Unmarshal(data, &metadata) == nil && metadata.Features.PointerSettings
+}
 func (s *Service) Configure(candidate Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -757,6 +781,12 @@ func (s *Service) configureLocked(candidate Config) error {
 	if candidate.AudioEnabled == nil {
 		candidate.AudioEnabled = current.AudioEnabled
 	}
+	if candidate.LocalPointer == nil {
+		candidate.LocalPointer = current.LocalPointer
+	}
+	if candidate.Listen == "" {
+		candidate.Listen = current.Listen
+	}
 	if candidate.PasswordMode == "temporary" || candidate.Password == "" {
 		candidate.Password = current.Password
 	}
@@ -768,6 +798,9 @@ func (s *Service) configureLocked(candidate Config) error {
 	}
 	// WebRTC is not a setting of its own: it follows the device transport.
 	candidate.WebRTC = s.wantsWebRTC()
+	if candidate.LocalPointer != nil && !s.supportsPointerSettings() {
+		return errors.New("update the RustDesk add-on before configuring the client pointer")
+	}
 	if candidate.AudioEnabled != nil && !s.supportsAudioSettings() {
 		return errors.New("update the RustDesk add-on before configuring sound transmission")
 	}

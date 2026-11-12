@@ -20,7 +20,10 @@ the SoC. Maximum 1440x2560 portrait output uses H.265 and requires client suppor
 Files, clipboard, chat and ATX are not implemented. RustDesk 1.5
 sessions attempt encrypted direct TCP by ID using LAN address exchange and NAT
 punching, then fall back to encrypted relay. IPv6-only direct-by-ID currently
-uses relay. The explicit IP listener remains loopback by default.
+uses relay. The explicit IP listener remains loopback by default; "Connect by
+address" in the settings (`listen_address` 0.0.0.0) opens it on the device's
+addresses. A client that connects by address has no key of the device to
+check, so such a session is not encrypted; the password is still asked for.
 
 The ID server only passes on the relay and peer addresses a controller asks
 for, so the daemon checks them before it connects. A relay must be the
@@ -50,6 +53,11 @@ while video/audio continue. Absolute scrolling uses the absolute HID interface
 and the app's selected pointer translation. Enabled remote access prepares USB
 keyboard and both mouse interfaces through the existing validated composition;
 unrelated functions are preserved.
+
+The picture contains the target's cursor, and the client is told so: it draws
+no pointer of its own. With `local_pointer` (Client pointer in the settings)
+the client draws one that moves at once, a blue dot as it gets no cursor
+shape, and the target's cursor follows it with the delay of the video.
 
 ## Package and settings
 
@@ -193,10 +201,10 @@ before relying on the add-on.
 ## Versions and upstream reference
 
 The add-on has its own Cargo/APK version. `upstream.json` records the audited
-RustDesk 1.5.1 protocol reference and exact source commits; it is embedded in
+RustDesk 1.5.3 protocol reference and exact source commits; it is embedded in
 the daemon and installed alongside it so the UI follows the installed package.
 This is a partial protocol endpoint, not a full RustDesk fork.
-The 1.5.1 protocol additions are optional. Trusted-device v2 credentials,
+The protocol additions of 1.5.1 are optional. Trusted-device v2 credentials,
 OS-login messages and remote-USB control are not implemented or advertised;
 password authentication and the existing KX v0/v1 paths remain in use.
 `nanokvm-rustdesk --version` prints both versions without starting the service.

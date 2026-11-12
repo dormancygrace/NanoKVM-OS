@@ -3,7 +3,10 @@ use std::{
     collections::HashMap,
     io,
     net::{IpAddr, Ipv6Addr, SocketAddr},
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     time::Duration,
 };
 
@@ -701,7 +704,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     write_union(
         &mut writer,
         message::Union::LoginResponse(LoginResponse {
-            union: Some(login_response::Union::PeerInfo(peer_info(&video_info))),
+            union: Some(login_response::Union::PeerInfo(peer_info(&video_info, config.local_pointer))),
             enable_trusted_devices: false,
         }),
     )
@@ -893,10 +896,15 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // header whenever a client input message won the race. Keep the media read
     // in its own task and pass only complete frames to the session loop.
     let (media_sender, mut media_receiver) = mpsc::channel(1);
-    // The buffers of sent frames go back to the reader, which takes one for
-    // each frame it reads; one that finds no room here is freed.
+    // Sent frame buffers return to the reader for reuse.
     let (spare_sender, spare_receiver) = mpsc::channel(2);
-    let media_task = tokio::spawn(forward_media(media, media_sender, spare_receiver));
+    let refresh_wanted = Arc::new(AtomicBool::new(false));
+    let media_task = tokio::spawn(forward_media(
+        media,
+        media_sender,
+        spare_receiver,
+        Arc::clone(&refresh_wanted),
+    ));
     // FrameReader::read also uses read_exact internally and has the same
     // cancellation constraint. Keep it alive across media sends so a partial
     // RustDesk packet cannot be mistaken for the next packet.
@@ -977,6 +985,16 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                         })),
                 }) => break,
                 Ok(Message {
+                    union:
+                        Some(message::Union::Misc(crate::protocol::Misc {
+                            union:
+                                Some(
+                                    crate::protocol::misc::Union::RefreshVideo(_)
+                                    | crate::protocol::misc::Union::RefreshVideoDisplay(_),
+                                ),
+                        })),
+                }) => refresh_wanted.store(true, Ordering::Relaxed),
+                Ok(Message {
                     union: Some(message::Union::MouseEvent(event)),
                 }) => {
                     if enabled && input_sender.send(InputEvent::Mouse(event)).await.is_err() {
@@ -1008,8 +1026,14 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     );
 
     let mut first_video_frame = true;
-    let mut peer_tick = time::interval(Duration::from_secs(10));
+    // The client's quality monitor shows what the probes carry: the round
+    // trip of the last one it answered and the video rate since the one
+    // before, every second as the RustDesk host sends them.
+    let mut peer_tick = time::interval(Duration::from_secs(1));
     peer_tick.tick().await;
+    let mut last_delay = 0u32;
+    let mut video_bytes = 0u64;
+    let mut video_since = time::Instant::now();
     let mut audio_updates_open = true;
     let mut audio_permission = None;
     let mut audio_generation = 0;
@@ -1042,9 +1066,13 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 }
             }
             _ = peer_tick.tick() => {
-                let delay = crate::protocol::TestDelay { time: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as i64,
-                    from_client: false, ..Default::default() };
+                // kbit/s: bytes * 8 / ms.
+                let elapsed = video_since.elapsed().as_millis().max(1) as u64;
+                let target_bitrate = (video_bytes * 8 / elapsed) as u32;
+                video_bytes = 0;
+                video_since = time::Instant::now();
+                let delay = crate::protocol::TestDelay { time: unix_millis(),
+                    from_client: false, last_delay, target_bitrate };
                 if let Err(error) = write_union(&mut writer, message::Union::TestDelay(delay)).await {
                     break Err(error);
                 }
@@ -1057,6 +1085,9 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             if let Err(error) = write_union(&mut writer, message::Union::TestDelay(delay)).await {
                                 break Err(error);
                             }
+                        } else {
+                            // Our probe, back from the client.
+                            last_delay = unix_millis().saturating_sub(delay.time).clamp(0, 60_000) as u32;
                         }
                     }
                     Some(Ok(_)) => {}
@@ -1091,6 +1122,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                 };
                 let frame_codec = frame.codec;
                 let frame_length = frame.payload.len();
+                video_bytes += frame_length as u64;
                 let Some((mut video, start)) = rustdesk_video_frame(frame) else {
                     continue;
                 };
@@ -1124,6 +1156,13 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let _ = input_shutdown_sender.send(true);
     retire_input(input_task, session_permit).await;
     result
+}
+
+fn unix_millis() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
 }
 
 // The session, and with it its viewer slot, ends only once the input task
@@ -1189,16 +1228,26 @@ impl KeyframeRequests {
     }
 }
 
+// The client's refresh, at most this often: the encoder is shared, and a
+// client whose queue is full asks with every frame it receives. One that
+// keeps asking is on a link that cannot take the keyframes, each as much as
+// a second of video there, so the wait doubles up to the longer one.
+const CLIENT_REFRESH_INTERVAL: Duration = Duration::from_secs(1);
+const CLIENT_REFRESH_MAX_INTERVAL: Duration = Duration::from_secs(8);
+
 // Each frame is read into the buffer of an earlier one, of a dropped frame or
-// from `spares`, where the session returns the buffers of the frames it sent.
+// from spares, where the session returns the buffers of the frames it sent.
 async fn forward_media(
     mut media: MediaSubscriber,
     sender: mpsc::Sender<io::Result<MediaFrame>>,
     mut spares: mpsc::Receiver<Vec<u8>>,
+    refresh_wanted: Arc<AtomicBool>,
 ) {
     let mut dropping = false;
     let mut requests = KeyframeRequests::default();
     let mut spare = Vec::new();
+    let mut refreshed: Option<time::Instant> = None;
+    let mut refresh_wait = CLIENT_REFRESH_INTERVAL;
     loop {
         if spare.capacity() == 0 {
             spare = spares.try_recv().unwrap_or_default();
@@ -1210,6 +1259,29 @@ async fn forward_media(
                 return;
             }
         };
+        // A client that asked to refresh discards frames until a keyframe.
+        // The request is seen with the next frame, 17 ms later at most while
+        // the encoder runs.
+        let now = time::Instant::now();
+        if dropping {
+            // The session asks for its own keyframes already.
+            refresh_wanted.store(false, Ordering::Relaxed);
+        } else if refresh_wanted.load(Ordering::Relaxed)
+            && refreshed.is_none_or(|at| now - at >= refresh_wait)
+        {
+            refresh_wanted.store(false, Ordering::Relaxed);
+            refresh_wait = match refreshed {
+                Some(at) if now - at < refresh_wait * 2 => {
+                    (refresh_wait * 2).min(CLIENT_REFRESH_MAX_INTERVAL)
+                }
+                _ => CLIENT_REFRESH_INTERVAL,
+            };
+            refreshed = Some(now);
+            if let Err(error) = media.request_key_frame().await {
+                let _ = sender.send(Err(error)).await;
+                return;
+            }
+        }
         if !dropping || frame.keyframe {
             let keyframe = frame.keyframe;
             match sender.send_timeout(Ok(frame), MEDIA_GRACE).await {
@@ -1249,7 +1321,7 @@ fn viewer_key(peer: std::net::SocketAddr, secure: bool, client_id: &str) -> Stri
     }
 }
 
-fn peer_info(video: &VideoInfo) -> PeerInfo {
+fn peer_info(video: &VideoInfo, local_pointer: bool) -> PeerInfo {
     PeerInfo {
         username: "NanoKVM".to_owned(),
         hostname: "NanoKVM".to_owned(),
@@ -1264,11 +1336,12 @@ fn peer_info(video: &VideoInfo) -> PeerInfo {
             height: i32::from(video.height),
             name: "KVM capture".to_owned(),
             online: true,
-            // The HDMI capture contains the target cursor, but it arrives with
-            // the video pipeline latency. Advertising it as the only cursor
-            // makes RustDesk hide the immediate local pointer. Keep the local
-            // pointer visible for responsive KVM control.
-            cursor_embedded: false,
+            // The HDMI capture contains the target's cursor, which arrives
+            // with the delay of the video. A client told so draws none of its
+            // own. Told otherwise it draws a pointer that moves at once, a
+            // blue dot as it gets no cursor shape, and the target's cursor
+            // follows it: the local_pointer setting.
+            cursor_embedded: !local_pointer,
             scale: 1.0,
         }],
         current_display: 0,
@@ -1952,12 +2025,15 @@ mod tests {
         assert!(client_supports_codec(&modern_login, Codec::H265));
 
         for codec in [Codec::H264, Codec::H265] {
-            let info = peer_info(&VideoInfo {
+            let info = peer_info(
+                &VideoInfo {
                 codec,
                 width: 1920,
                 height: 1080,
                 fps: 60,
-            });
+            },
+                false,
+            );
             let encoding = info.encoding.unwrap();
             assert_eq!(encoding.h264, codec == Codec::H264);
             assert_eq!(encoding.h265, codec == Codec::H265);
@@ -2462,7 +2538,7 @@ mod tests {
             panic!("server did not send peer info");
         };
         assert_eq!(peer_info.platform, "NanoKVM");
-        assert!(!peer_info.displays[0].cursor_embedded);
+        assert!(peer_info.displays[0].cursor_embedded);
         let keyboard_permission: Message = read_message(&mut client).await.unwrap();
         assert!(matches!(
             keyboard_permission.union,
@@ -3133,7 +3209,13 @@ mod tests {
         let (sender, mut receiver) = mpsc::channel(1);
         // No session returns buffers here.
         let (_, spares) = mpsc::channel(1);
-        let forwarder = tokio::spawn(super::forward_media(subscriber.unwrap(), sender, spares));
+        let refresh = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let forwarder = tokio::spawn(super::forward_media(
+            subscriber.unwrap(),
+            sender,
+            spares,
+            Arc::clone(&refresh),
+        ));
         let frame = |marker: u8| [0, 0, 0, 1, 0x65, marker];
         async fn keyframe_request(bridge: &mut tokio::net::UnixStream, wait: Duration) -> bool {
             let mut line = Vec::new();
@@ -3175,6 +3257,11 @@ mod tests {
         assert_eq!(resumed.payload[5], 41);
         write_media_frame(&mut bridge, &frame(42), false).await;
         assert_eq!(receiver.recv().await.unwrap().unwrap().payload[5], 42);
+        // The client asks to refresh: a keyframe request with the next frame.
+        refresh.store(true, std::sync::atomic::Ordering::Relaxed);
+        write_media_frame(&mut bridge, &frame(43), false).await;
+        assert_eq!(receiver.recv().await.unwrap().unwrap().payload[5], 43);
+        assert!(keyframe_request(&mut bridge, Duration::from_secs(1)).await);
         // Once that repair held, a new stall asks at once. A requested
         // keyframe that never comes is asked for again after 1 s, then 2 s,
         // while deltas keep being dropped.

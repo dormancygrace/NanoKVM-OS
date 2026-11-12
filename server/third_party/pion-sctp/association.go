@@ -278,8 +278,10 @@ type Association struct {
 
 	// The buffers gatherOutbound's packets are marshaled into (marshalGathered),
 	// and how many of them the last gatherOutbound has taken. writeLoop has
-	// written the packets of one gatherOutbound before it calls the next, and
-	// the connection must not keep what Write was given (the io.Writer rule).
+	// written the packets of one gatherOutbound before it calls the next. Only
+	// for a connection that says it copies what Write is given (writeCopier):
+	// one that keeps the slices would see them change.
+	keepPackets bool
 	keptPackets [][]byte
 	keptNext    int
 
@@ -852,6 +854,7 @@ func createAssociationFromConfigWithTsn(cfg *Config, tsn uint32) *Association {
 
 	assoc := &Association{
 		netConn:                   cfg.NetConn,
+		keepPackets:               copiesWrites(cfg.NetConn),
 		maxReceiveBufferSize:      maxReceiveBufferSize,
 		maxMessageSize:            maxMessageSize,
 		maxReassemblyQueueEntries: cfg.maxReassemblyQueueEntries,
@@ -1376,12 +1379,24 @@ func (a *Association) marshalPacket(p *packet) ([]byte, error) {
 	return p.marshal(p.verificationTag != a.peerVerificationTag || !a.sendZeroChecksum || chunkMandatoryChecksum(p.chunks))
 }
 
+// writeCopier is a connection whose Write never keeps the slice it was given: it has copied or sent the bytes
+// when it returns. io.Writer asks that of every writer, but connections made for tests keep the slices.
+type writeCopier interface {
+	WriteCopies()
+}
+
+func copiesWrites(conn net.Conn) bool {
+	_, ok := conn.(writeCopier)
+
+	return ok
+}
+
 // marshalGathered is marshalPacket for a packet of the gatherOutbound that
 // runs now: into one of the association's kept buffers. The caller holds the
 // lock.
 func (a *Association) marshalGathered(p *packet) ([]byte, error) {
 	doChecksum := p.verificationTag != a.peerVerificationTag || !a.sendZeroChecksum || chunkMandatoryChecksum(p.chunks)
-	if a.keptNext >= maxKeptPackets {
+	if !a.keepPackets || a.keptNext >= maxKeptPackets {
 		return p.marshal(doChecksum)
 	}
 	if a.keptNext == len(a.keptPackets) {

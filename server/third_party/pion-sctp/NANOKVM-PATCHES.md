@@ -16,9 +16,11 @@ and what goes on the wire are unchanged.
   keeps the first copy in the chunk until it is acknowledged. The packets of
   one `gatherOutbound` are marshaled into buffers the association keeps
   (`marshalGathered`, `keptPackets` in `association.go`): the write loop has
-  written them before it gathers again. This relies on the connection not
-  keeping what `Write` was given (the `io.Writer` rule); the DTLS connection
-  under a data channel does not.
+  written them before it gathers again. Only for a connection that says its
+  `Write` copies what it is given, with a method `WriteCopies` (the DTLS fork's
+  connection has it): a connection that keeps the slices, as the in-memory one
+  of the upstream tests does, would see them change, so for any other
+  connection every packet gets its own memory as upstream.
 - **At most 16 new DATA packets for one `gatherOutbound`** (`maxGatherPackets`
   in `popPendingDataChunksToSend`), the rest at once with the next one.
   Upstream takes all the congestion window allows, hundreds of packets when
@@ -44,10 +46,11 @@ and what goes on the wire are unchanged.
   architectures use `hash/crc32` (`crc32c_other.go`).
 
 Checked with the upstream tests of v1.12.1 put back beside the fork (they are
-not kept here): all pass. With the race detector they pass when the kept
-buffers are switched off (`maxKeptPackets = 0`); with them on, the detector
-reports the in-memory connection of those tests (`dumbConn2`), which keeps the
-slices it is given and reads them later.
+not kept here): all pass, with the race detector too. A first version kept the
+buffers for every connection; then
+`TestAssociation_StreamWriteRacingCloseIsNotQueuedAfterReset` failed in 5 runs
+of 12 (0 of 12 on the unchanged module), which is what the `WriteCopies` rule
+is for: 0 of 12 with it.
 
 Stand (SG2002), the RustDesk WebRTC bridge of the running server sending to a
 peer with unmodified Pion, AES-128-GCM, CPU time of the server process for a

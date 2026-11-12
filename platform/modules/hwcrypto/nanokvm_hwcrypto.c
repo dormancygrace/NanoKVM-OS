@@ -61,11 +61,17 @@ static void __iomem *regs;
  * second one for sleepers, also under `lock`: HWCRYPTO_CTR_SHA1 fills it
  * while the engine works on set 0, and the other way round.
  */
+struct sg2_direct;
 struct sg2_set {
  u32 *d, *d2;	/* d2: the second descriptor of a chain (HWCRYPTO_CTR_SHA1) */
  u8 *in, *out;
  u32 in_size, out_size;
+ u8 *blk; dma_addr_t blk_dma;	/* small sets: the block in and out are in */
  dma_addr_t d_dma, d2_dma, in_dma, out_dma;
+ /* Direct access (crypto_direct.inc): the descriptors of a chain and its plan. */
+ u32 *chain;
+ dma_addr_t chain_dma;
+ struct sg2_direct *plan;
 };
 static struct sg2_set sets[3], *cur = &sets[0];
 /*
@@ -285,6 +291,8 @@ clear_header:
  return err;
 }
 
+/* Input (HWCRYPTO_MAX) and output (HWCRYPTO_OUT_MAX) of a small set, see sg2_set_alloc(). */
+#define SG2_SMALL_BLOCK 16384
 /* One zeroed, CPU-owned block of DMA memory; NULL on failure. */
 static void *sg2_dma_alloc(size_t size, dma_addr_t *dma)
 {
@@ -304,8 +312,14 @@ static void sg2_dma_free(void *p, size_t size, dma_addr_t dma)
 }
 static void sg2_set_free(struct sg2_set *s)
 {
- sg2_dma_free(s->out, s->out_size, s->out_dma);
- sg2_dma_free(s->in, s->in_size, s->in_dma);
+ kfree(s->plan);
+ sg2_dma_free(s->chain, SG2_CHAIN_MAX * DESC_BYTES, s->chain_dma);
+ if (s->blk) {
+  sg2_dma_free(s->blk, SG2_SMALL_BLOCK, s->blk_dma);
+ } else {
+  sg2_dma_free(s->out, s->out_size, s->out_dma);
+  sg2_dma_free(s->in, s->in_size, s->in_dma);
+ }
  sg2_dma_free(s->d2, DESC_BYTES, s->d2_dma);
  sg2_dma_free(s->d, DESC_BYTES, s->d_dma);
  memset(s, 0, sizeof(*s));
@@ -318,9 +332,36 @@ static int sg2_set_alloc(struct sg2_set *s)
  s->out_size = s == &sets[0] ? SG2_LARGE : HWCRYPTO_OUT_MAX;
  s->d = sg2_dma_alloc(DESC_BYTES, &s->d_dma);
  s->d2 = sg2_dma_alloc(DESC_BYTES, &s->d2_dma);
- s->in = sg2_dma_alloc(s->in_size, &s->in_dma);
- s->out = sg2_dma_alloc(s->out_size, &s->out_dma);
- return s->d && s->d2 && s->in && s->out ? 0 : -ENOMEM;
+ if (s == &sets[0]) {
+  s->in = sg2_dma_alloc(s->in_size, &s->in_dma);
+  s->out = sg2_dma_alloc(s->out_size, &s->out_dma);
+ } else {
+  /*
+   * One block of 16 KiB, a way of the L1 data cache: the output in its
+   * second and third quarter, the input in its last. Where a buffer
+   * falls in a way is which sets of the cache it uses, and input, output
+   * and the caller's buffer are all hot during a request. As two
+   * allocations the output came out a different quarter on every other
+   * load of the module, the input always the last. Measured from an
+   * atomic caller whose buffer starts a way (the first quarter), gcm,
+   * AES-256, encrypt / decrypt us: output in the third quarter 1 KiB
+   * 24.3 / 20.6, 2 KiB 39.8 / 30.5, 4 KiB 70.5 / 52.1; output in the
+   * first quarter, with the caller's buffer, 28.4 / 23.1, 46.7 / 35.4,
+   * 79.6 / 57.8. With the offsets set by hand, 2 KiB: all three in
+   * different quarters 39.2 / 32.1, input with the caller's buffer
+   * 42.2 / 34.7, all three together 47.0 / 37.5. A caller's buffer may be
+   * anywhere, so one of the two can still share its sets; this layout
+   * keeps them off each other and no longer changes from load to load.
+   */
+  s->blk = sg2_dma_alloc(SG2_SMALL_BLOCK, &s->blk_dma);
+  if (s->blk) {
+   s->out = s->blk + SG2_SMALL_BLOCK / 4; s->out_dma = s->blk_dma + SG2_SMALL_BLOCK / 4;
+   s->in = s->blk + 3 * SG2_SMALL_BLOCK / 4; s->in_dma = s->blk_dma + 3 * SG2_SMALL_BLOCK / 4;
+  }
+ }
+ s->chain = sg2_dma_alloc(SG2_CHAIN_MAX * DESC_BYTES, &s->chain_dma);
+ s->plan = kzalloc(sizeof(*s->plan), GFP_KERNEL);
+ return s->d && s->d2 && s->in && s->out && s->chain && s->plan ? 0 : -ENOMEM;
 }
 
 static const struct file_operations ops = {
@@ -400,6 +441,7 @@ device:
 static void __exit aes_exit(void)
 {
  misc_deregister(&misc);
+ kfree_sensitive(gcm_user.a); kfree_sensitive(gcm_user.b);
  memzero_explicit(&gcm_user, sizeof(gcm_user));
  crypto_unregister_aead(&sg2_ccm_alg);
  crypto_unregister_aead(&sg2_gcm_alg);

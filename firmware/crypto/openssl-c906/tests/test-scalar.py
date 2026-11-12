@@ -34,7 +34,7 @@ def main():
                                   timeout=60, check=False).returncode
         if execute() != 0:
             raise SystemExit('SHA-256 C906 arithmetic/ABI/continuation test failed')
-        print('PASS: 2096 scalar cases (0-130 blocks, 16 offsets), 1344 real-wrapper DMA fault cases; '
+        print('PASS: 2096 scalar cases (0-130 blocks, 16 offsets), 2400 real-wrapper DMA fault cases; '
               'callee-saved registers, schedule wipe, context/input guards, independent abc KAT')
 
 

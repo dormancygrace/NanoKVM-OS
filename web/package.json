@@ -23,9 +23,9 @@
     "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
     "antd": "6.7.0",
-    "axios": "1.21.0",
+    "axios": "1.21.1",
     "clsx": "2.1.1",
-    "i18next": "27.0.1",
+    "i18next": "27.1.0",
     "jotai": "3.0.2",
     "lucide-react": "1.70.0",
     "mediabunny": "1.65.2",
@@ -36,7 +36,7 @@
     "react-i18next": "18.0.1",
     "react-markdown": "10.1.0",
     "react-router-dom": "7.18.5",
-    "react-simple-keyboard": "3.8.295",
+    "react-simple-keyboard": "3.8.296",
     "remark-gfm": "4.0.1",
     "yocto-queue": "1.2.2"
   },
@@ -60,8 +60,8 @@
     "tailwindcss": "4.3.5",
     "tsx": "4.23.15",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript-eslint": "8.72.1",
-    "vite": "8.3.6"
+    "typescript-eslint": "8.72.2",
+    "vite": "8.3.7"
   },
   "msw": {
     "workerDirectory": [

@@ -68,7 +68,7 @@ require (
 	golang.org/x/arch v0.33.0 // indirect
 	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
@@ -80,3 +80,6 @@ replace github.com/pion/ice/v4 => ./third_party/pion-ice
 
 // Server-side cipher negotiation follows NanoKVM's configured preference order.
 replace github.com/pion/dtls/v3 => ./third_party/pion-dtls
+
+// Fewer copies and allocations on the data channel's send path; upstream base is v1.12.1.
+replace github.com/pion/sctp => ./third_party/pion-sctp

@@ -1,10 +1,11 @@
 // NanoKVM OS adaptation, 2026-10-03. SPDX-License-Identifier: AGPL-3.0-only
+use std::os::fd::{AsRawFd, RawFd};
 use std::{
     collections::HashMap,
     io,
     net::{IpAddr, Ipv6Addr, SocketAddr},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex,
     },
     time::Duration,
@@ -467,6 +468,7 @@ pub(crate) async fn serve(
     pending_permit: PendingPermit,
 ) -> io::Result<()> {
     stream.set_nodelay(true)?;
+    let backlog_fd = Some(stream.as_raw_fd());
     serve_io(
         stream,
         peer,
@@ -476,6 +478,7 @@ pub(crate) async fn serve(
         shutdown,
         limits,
         pending_permit,
+        backlog_fd,
     )
     .await
 }
@@ -506,6 +509,7 @@ pub(crate) async fn serve_webrtc(
         shutdown,
         limits,
         pending_permit,
+        None,
     )
     .await
 }
@@ -520,6 +524,8 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     mut shutdown: watch::Receiver<bool>,
     limits: ClientLimits,
     pending_permit: PendingPermit,
+    // The TCP socket of the session, whose send queue forward_media watches.
+    backlog_fd: Option<RawFd>,
 ) -> io::Result<()> {
     let is_relay = secure.is_some();
     let session_key = match secure {
@@ -899,11 +905,20 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     // Sent frame buffers return to the reader for reuse.
     let (spare_sender, spare_receiver) = mpsc::channel(2);
     let refresh_wanted = Arc::new(AtomicBool::new(false));
+    // The frame rate the client asked for and the encoder was not told yet.
+    // A client that gets more frames than it decodes fills its queue, asks
+    // to refresh and discards the queue, again and again.
+    let fps_wanted = Arc::new(AtomicU32::new(
+        login.option.as_ref().map_or(0, |option| option.custom_fps.max(0) as u32),
+    ));
+    let backlog = backlog_fd.map(|fd| Arc::new(Backlog::new(fd, writer.written())));
     let media_task = tokio::spawn(forward_media(
         media,
         media_sender,
         spare_receiver,
         Arc::clone(&refresh_wanted),
+        Arc::clone(&fps_wanted),
+        backlog.clone(),
     ));
     // FrameReader::read also uses read_exact internally and has the same
     // cancellation constraint. Keep it alive across media sends so a partial
@@ -956,6 +971,9 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                             union: Some(crate::protocol::misc::Union::Option(option)),
                         })),
                 }) => {
+                    if option.custom_fps > 0 {
+                        fps_wanted.store(option.custom_fps as u32, Ordering::Relaxed);
+                    }
                     if matches!(option.disable_audio, 1 | 2) {
                         let next = can_audio && option.disable_audio == 1;
                         audio_desired.send_if_modified(|value| {
@@ -1035,8 +1053,7 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
     let mut video_bytes = 0u64;
     let mut video_since = time::Instant::now();
     let mut audio_updates_open = true;
-    let mut audio_permission = None;
-    let mut audio_generation = 0;
+    let mut audio_sent = AudioSent::default();
     let mut input_updates_open = true;
     // Input may be enabled by the controller after login.
     let mut lease_updates_open = can_control;
@@ -1045,25 +1062,8 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
             changed=audio_state.changed(), if audio_updates_open => {
                 if changed.is_err(){audio_updates_open=false;continue;}
                 let state=audio_state.borrow_and_update().clone();
-                if let Some(available)=state.available {
-                    if audio_permission!=Some(available) {
-                        let permission=crate::protocol::PermissionInfo{permission:3,enabled:available};
-                        if let Err(error)=write_union(&mut writer,message::Union::Misc(crate::protocol::Misc{union:Some(crate::protocol::misc::Union::PermissionInfo(permission))})).await{break Err(error);}
-                        audio_permission=Some(available);
-                    }
-                }
-                if state.available==Some(true) && *audio_current.borrow() && state.generation!=0 {
-                    if audio_generation!=state.generation {
-                        let format=crate::protocol::AudioFormat{sample_rate:crate::audio::SAMPLE_RATE,channels:crate::audio::CHANNELS};
-                        if let Err(error)=write_union(&mut writer,message::Union::Misc(crate::protocol::Misc{union:Some(crate::protocol::misc::Union::AudioFormat(format))})).await{break Err(error);}
-                        audio_generation=state.generation;
-                    }
-                    if let Some((received,data))=state.packet {
-                        if received.elapsed()<=crate::audio::MAX_AGE {
-                            if let Err(error)=write_union(&mut writer,message::Union::AudioFrame(crate::protocol::AudioFrame{data})).await{break Err(error);}
-                        }
-                    }
-                }
+                let wanted=*audio_current.borrow();
+                if let Err(error)=write_audio(&mut writer,state,wanted,&mut audio_sent).await{break Err(error);}
             }
             _ = peer_tick.tick() => {
                 // kbit/s: bytes * 8 / ms.
@@ -1132,8 +1132,19 @@ async fn serve_io<S: AsyncRead + AsyncWrite + Unpin + Send + 'static>(
                         codec_name(frame_codec)
                     );
                 }
+                // Sound first: a frame can take longer to write than several of its packets last.
+                if audio_updates_open && audio_state.has_changed().unwrap_or(false) {
+                    let state = audio_state.borrow_and_update().clone();
+                    let wanted = *audio_current.borrow();
+                    if let Err(error) = write_audio(&mut writer, state, wanted, &mut audio_sent).await {
+                        break Err(error);
+                    }
+                }
                 if let Err(error) = writer.write_encoded(&mut video, start).await {
                     break Err(error);
+                }
+                if let Some(backlog) = &backlog {
+                    backlog.video(time::Instant::now());
                 }
                 let _ = spare_sender.try_send(MediaPayload::spare(video));
                 if first_video_frame {
@@ -1192,6 +1203,63 @@ const KEYFRAME_REQUEST_MAX_INTERVAL: Duration = Duration::from_secs(8);
 // once and one that keeps recurring waits 1, 2, 4 and then 8 s. The wait
 // starts over only once a repair held: its keyframe went out and frames
 // still went out a second after it.
+// The session writer is not ready for a frame only when the socket's send
+// buffer is full, and the kernel lets that buffer grow to megabytes: seconds
+// of video at a desktop's bitrate. So the age of the video that waits in the
+// socket is watched as well. Positions are positions in the whole byte stream
+// the session writes (the writer counts every byte: length prefixes, tags,
+// sound, control messages), which is the stream the socket's queue length
+// counts: the session marks each video frame with the position it ends at,
+// and the queue length says which marks have left. A frame that still waits
+// for the writer has no mark; the forwarder's own wait covers it.
+const MAX_BACKLOG: Duration = Duration::from_millis(400);
+
+struct Backlog {
+    fd: RawFd,
+    written: Arc<std::sync::atomic::AtomicU64>,
+    marks: std::sync::Mutex<std::collections::VecDeque<(u64, time::Instant)>>,
+}
+
+impl Backlog {
+    fn new(fd: RawFd, written: Arc<std::sync::atomic::AtomicU64>) -> Self {
+        Self {
+            fd,
+            written,
+            marks: Default::default(),
+        }
+    }
+
+    // The session has written a video frame: the stream ends with it now.
+    fn video(&self, now: time::Instant) {
+        let end = self.written.load(Ordering::Relaxed);
+        self.marks.lock().unwrap().push_back((end, now));
+    }
+
+    // How long the oldest video still in the socket has waited.
+    fn age(&self, now: time::Instant) -> Duration {
+        // Before the queue length: bytes written in between count as queued,
+        // never as gone.
+        let written = self.written.load(Ordering::Relaxed);
+        let mut queued: libc::c_int = 0;
+        // SAFETY: the session owns the socket for longer than this task
+        // runs, and TIOCOUTQ writes one int.
+        if unsafe { libc::ioctl(self.fd, libc::TIOCOUTQ as _, &mut queued) } != 0 {
+            self.marks.lock().unwrap().clear();
+            return Duration::ZERO;
+        }
+        self.age_of(now, written, queued.max(0) as u64)
+    }
+
+    fn age_of(&self, now: time::Instant, written: u64, queued: u64) -> Duration {
+        let left = written.saturating_sub(queued);
+        let mut marks = self.marks.lock().unwrap();
+        while marks.front().is_some_and(|&(end, _)| end <= left) {
+            marks.pop_front();
+        }
+        marks.front().map_or(Duration::ZERO, |&(_, at)| now - at)
+    }
+}
+
 #[derive(Default)]
 struct KeyframeRequests {
     last: Option<time::Instant>,
@@ -1242,6 +1310,8 @@ async fn forward_media(
     sender: mpsc::Sender<io::Result<MediaFrame>>,
     mut spares: mpsc::Receiver<Vec<u8>>,
     refresh_wanted: Arc<AtomicBool>,
+    fps_wanted: Arc<AtomicU32>,
+    backlog: Option<Arc<Backlog>>,
 ) {
     let mut dropping = false;
     let mut requests = KeyframeRequests::default();
@@ -1259,6 +1329,13 @@ async fn forward_media(
                 return;
             }
         };
+        let fps = fps_wanted.swap(0, Ordering::Relaxed);
+        if fps != 0 {
+            if let Err(error) = media.request_fps(fps).await {
+                let _ = sender.send(Err(error)).await;
+                return;
+            }
+        }
         // A client that asked to refresh discards frames until a keyframe.
         // The request is seen with the next frame, 17 ms later at most while
         // the encoder runs.
@@ -1282,7 +1359,15 @@ async fn forward_media(
                 return;
             }
         }
-        if !dropping || frame.keyframe {
+        // Video the peer has not taken for MAX_BACKLOG is late already: add
+        // nothing to it and go on from a keyframe once it is gone.
+        let stale = backlog
+            .as_ref()
+            .is_some_and(|backlog| backlog.age(time::Instant::now()) > MAX_BACKLOG);
+        if stale {
+            dropping = true;
+        }
+        if !stale && (!dropping || frame.keyframe) {
             let keyframe = frame.keyframe;
             match sender.send_timeout(Ok(frame), MEDIA_GRACE).await {
                 Ok(()) => {
@@ -1470,6 +1555,52 @@ async fn send_error<W: AsyncWrite + Unpin>(
         }),
     )
     .await
+}
+
+/// What of the audio a session has told its client.
+#[derive(Default)]
+struct AudioSent {
+    permission: Option<bool>,
+    generation: u64,
+    number: u64,
+}
+
+/// Sends what the audio state holds and the client has not been sent: the permission, the format of a new
+/// capture, and the packets after the last one sent that are not older than MAX_AGE.
+async fn write_audio<W: AsyncWrite + Unpin>(
+    writer: &mut FrameWriter<W>,
+    state: crate::audio::State,
+    wanted: bool,
+    sent: &mut AudioSent,
+) -> io::Result<()> {
+    if let Some(available) = state.available {
+        if sent.permission != Some(available) {
+            let permission = crate::protocol::PermissionInfo { permission: 3, enabled: available };
+            write_union(writer, message::Union::Misc(crate::protocol::Misc {
+                union: Some(crate::protocol::misc::Union::PermissionInfo(permission)),
+            })).await?;
+            sent.permission = Some(available);
+        }
+    }
+    if state.available == Some(true) && wanted && state.generation != 0 {
+        if sent.generation != state.generation {
+            let format = crate::protocol::AudioFormat {
+                sample_rate: crate::audio::SAMPLE_RATE,
+                channels: crate::audio::CHANNELS,
+            };
+            write_union(writer, message::Union::Misc(crate::protocol::Misc {
+                union: Some(crate::protocol::misc::Union::AudioFormat(format)),
+            })).await?;
+            sent.generation = state.generation;
+        }
+        for (number, received, data) in state.packets {
+            if number > sent.number && received.elapsed() <= crate::audio::MAX_AGE {
+                write_union(writer, message::Union::AudioFrame(crate::protocol::AudioFrame { data })).await?;
+            }
+            sent.number = sent.number.max(number);
+        }
+    }
+    Ok(())
 }
 
 async fn write_union<W: AsyncWrite + Unpin>(
@@ -3122,6 +3253,7 @@ mod tests {
             shutdown,
             limits.clone(),
             pending,
+            None,
         ));
         let challenge: Message = read_message(&mut client).await.unwrap();
         assert!(matches!(challenge.union, Some(message::Union::Hash(_))));
@@ -3179,6 +3311,29 @@ mod tests {
         std::fs::remove_dir_all(directory).unwrap();
     }
 
+    #[test]
+    fn the_backlog_is_as_old_as_the_first_video_still_queued_whatever_else_is() {
+        let start = time::Instant::now();
+        use std::sync::atomic::Ordering;
+        let written = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let backlog = super::Backlog::new(-1, Arc::clone(&written));
+        // Ten frames of 1000 bytes, 100 bytes of sound after each.
+        for frame in 0..10 {
+            written.fetch_add(1000, Ordering::Relaxed);
+            backlog.video(start + Duration::from_millis(frame * 100));
+            written.fetch_add(100, Ordering::Relaxed);
+        }
+        let now = start + Duration::from_secs(1);
+        assert_eq!(backlog.age_of(now, 11_000, 11_000), Duration::from_secs(1));
+        assert_eq!(backlog.age_of(now, 11_000, 2750), Duration::from_millis(300));
+        // The video has left; sound written since is still queued, for a minute.
+        written.fetch_add(1000, Ordering::Relaxed);
+        for later in [1, 10, 60] {
+            let now = start + Duration::from_secs(later);
+            assert_eq!(backlog.age_of(now, 12_000, 1100), Duration::ZERO);
+        }
+    }
+
     fn password_hash(password: &str, hash: &Hash) -> Vec<u8> {
         let mut first = Sha256::new();
         first.update(password.as_bytes());
@@ -3215,6 +3370,8 @@ mod tests {
             sender,
             spares,
             Arc::clone(&refresh),
+            Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            None,
         ));
         let frame = |marker: u8| [0, 0, 0, 1, 0x65, marker];
         async fn keyframe_request(bridge: &mut tokio::net::UnixStream, wait: Duration) -> bool {

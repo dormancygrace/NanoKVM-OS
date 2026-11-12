@@ -10,9 +10,9 @@ import (
 )
 
 // The video transport of the device: the player a browser starts with when
-// it has no choice of its own, and the transport RustDesk follows (it accepts
-// WebRTC connections exactly when this is WebRTC). Administrators set it with
-// the other video settings; each browser may still choose its own player.
+// it has no choice of its own. Administrators set it with the other video
+// settings; each browser may still choose its own player, and viewers of
+// different transports watch at the same time.
 const (
 	TransportDirect = "direct"
 	TransportWebRTC = "webrtc"
@@ -20,9 +20,8 @@ const (
 )
 
 var (
-	transportFile      = "/kvmapp/kvm/transport"
-	transportMu        sync.Mutex
-	transportListeners []func(string)
+	transportFile = "/kvmapp/kvm/transport"
+	transportMu   sync.Mutex
 )
 
 func validTransport(value string) bool {
@@ -44,45 +43,15 @@ func readTransportLocked() string {
 	return TransportDirect
 }
 
-// StreamTransportSet reports whether the device transport was ever stored.
-func StreamTransportSet() bool {
-	transportMu.Lock()
-	defer transportMu.Unlock()
-	_, err := os.Stat(transportFile)
-	return err == nil
-}
-
-// OnStreamTransportChange registers fn, called with the new transport after
-// each change.
-func OnStreamTransportChange(fn func(string)) {
-	transportMu.Lock()
-	defer transportMu.Unlock()
-	transportListeners = append(transportListeners, fn)
-}
-
-// SetStreamTransport stores the device transport and tells the listeners when
-// it changed.
+// SetStreamTransport stores the device transport.
 func SetStreamTransport(value string) error {
 	if !validTransport(value) {
 		return errors.New("transport must be direct, webrtc or mjpeg")
 	}
 	transportMu.Lock()
-	_, statErr := os.Stat(transportFile)
-	previous := readTransportLocked()
-	if statErr == nil && previous == value {
-		transportMu.Unlock()
+	defer transportMu.Unlock()
+	if _, err := os.Stat(transportFile); err == nil && readTransportLocked() == value {
 		return nil
 	}
-	if err := atomicfile.Write(transportFile, []byte(value+"\n"), 0o644); err != nil {
-		transportMu.Unlock()
-		return err
-	}
-	listeners := append([]func(string){}, transportListeners...)
-	transportMu.Unlock()
-	if previous != value {
-		for _, fn := range listeners {
-			fn(value)
-		}
-	}
-	return nil
+	return atomicfile.Write(transportFile, []byte(value+"\n"), 0o644)
 }

@@ -19,8 +19,6 @@ export type RustDeskConfig = {
 export type RustDeskStatus = {
   installed: boolean;
   supports_transport_settings?: boolean;
-  // The device video transport: RustDesk accepts WebRTC when it is webrtc.
-  video_transport?: 'direct' | 'webrtc' | 'mjpeg';
   supports_audio?: boolean;
   supports_audio_settings?: boolean;
   supports_pointer_settings?: boolean;

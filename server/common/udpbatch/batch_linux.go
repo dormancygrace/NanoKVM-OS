@@ -5,7 +5,8 @@
 // The adapter deliberately does not change ordinary PacketConn semantics by
 // queueing arbitrary writes. Only RTP media writes observed between BeginFrame
 // and EndFrame are copied into bounded slots. EndFrame performs the actual
-// send and returns its error to the caller.
+// send and returns its error to the caller. A socket of a data channel
+// (BatchRecords) also buffers DTLS application records, which have no frame.
 package udpbatch
 
 import (
@@ -70,6 +71,7 @@ type Conn struct {
 
 	mu            sync.Mutex
 	frame         bool
+	records       bool // DTLS application records are buffered at all times
 	count         int
 	addr          netip.AddrPort
 	slots         [maxBatchPackets]packetSlot
@@ -136,6 +138,17 @@ func (c *Conn) BeginFrame() {
 	c.sticky = nil
 }
 
+// BatchRecords buffers DTLS application records at all times, for a data
+// channel: its sender writes a burst of packets, each of which would be a
+// system call, and has no frame to mark. A burst goes out when it is full,
+// when anything else is written to the socket, or after the flush interval.
+// An error of a burst is returned by the next write.
+func (c *Conn) BatchRecords() {
+	c.mu.Lock()
+	c.records = true
+	c.mu.Unlock()
+}
+
 // EndFrame flushes all buffered media and returns the first send error.
 func (c *Conn) EndFrame() error {
 	c.mu.Lock()
@@ -164,7 +177,7 @@ func (c *Conn) timerFlush(state *timerState) {
 	}
 	c.timerState = nil
 	c.timerArmed = false
-	if !c.closed.Load() && c.frame && c.count != 0 {
+	if !c.closed.Load() && (c.frame || c.records) && c.count != 0 {
 		_ = c.flushLocked()
 	}
 	c.mu.Unlock()
@@ -241,14 +254,20 @@ func (c *Conn) WriteToUDP(b []byte, addr *net.UDPAddr) (int, error) {
 }
 
 func (c *Conn) batchWriteLocked(b []byte, ap netip.AddrPort, valid bool) (int, error, bool) {
-	if !c.frame || !isBatchableRTP(b) {
+	record := c.records && isDTLSRecord(b)
+	if !record && (!c.frame || !isBatchableRTP(b)) {
 		if err := c.flushLocked(); err != nil {
 			return 0, err, true
 		}
 		return 0, nil, false
 	}
 	if c.sticky != nil {
-		return 0, c.sticky, true
+		err := c.sticky
+		if record {
+			// No frame ends to report and clear it.
+			c.sticky = nil
+		}
+		return 0, err, true
 	}
 	if !valid || (c.count != 0 && c.addr != ap) {
 		if err := c.flushLocked(); err != nil {
@@ -256,7 +275,10 @@ func (c *Conn) batchWriteLocked(b []byte, ap netip.AddrPort, valid bool) (int, e
 		}
 		return 0, nil, false
 	}
-	if c.count == maxBatchPackets {
+	// UDP_SEGMENT takes datagrams of one size and a shorter last one: a record
+	// longer than the burst's first starts the next burst, a shorter one ends
+	// its own (below).
+	if c.count == maxBatchPackets || (record && c.count != 0 && len(b) > c.slots[0].n) {
 		if err := c.flushLocked(); err != nil {
 			return 0, err, true
 		}
@@ -273,10 +295,10 @@ func (c *Conn) batchWriteLocked(b []byte, ap netip.AddrPort, valid bool) (int, e
 	slot := &c.slots[c.count]
 	slot.n = copy(slot.data[:], b)
 	slot.addr = ap
-	slot.marker = b[1]&0x80 != 0
+	slot.marker = !record && b[1]&0x80 != 0
 	c.count++
 	c.startTimerLocked()
-	if slot.marker {
+	if slot.marker || (record && slot.n < c.slots[0].n) {
 		if err := c.flushLocked(); err != nil {
 			return 0, err, true
 		}
@@ -393,6 +415,12 @@ func isBatchableRTP(b []byte) bool {
 	}
 	pt := b[1] & 0x7f
 	return pt < 64 || pt > 95
+}
+
+// A DTLS application data record (content type 23, DTLS 1.2), which is what
+// carries a data channel once the handshake is over.
+func isDTLSRecord(b []byte) bool {
+	return len(b) >= 13 && len(b) <= maxPacketBytes && b[0] == 23 && b[1] == 0xfe && b[2] == 0xfd
 }
 
 func (c *Conn) flushLocked() error {

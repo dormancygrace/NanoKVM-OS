@@ -1,0 +1,110 @@
+--- a/crypto/sha/sha_local.h
++++ b/crypto/sha/sha_local.h
+@@ -38,7 +38,13 @@
+ #define HASH_TRANSFORM SHA1_Transform
+ #define HASH_FINAL SHA1_Final
+ #define HASH_INIT SHA1_Init
+-#define HASH_BLOCK_DATA_ORDER sha1_block_data_order
++#if defined(__riscv) && __riscv_xlen == 64 && !defined(FIPS_MODULE) && !defined(SHA1_ASM)
++/* SG2002: whole blocks go to the crypto engine first (sha1_hwcrypto.c). */
++# define SHA1_HWCRYPTO
++# define HASH_BLOCK_DATA_ORDER sha1_block_data_order_hwcrypto
++#else
++# define HASH_BLOCK_DATA_ORDER sha1_block_data_order
++#endif
+ #define Xupdate(a, ix, ia, ib, ic, id) ((a) = (ia ^ ib ^ ic ^ id), \
+     ix = (a) = ROTATE((a), 1))
+ 
+@@ -48,7 +54,25 @@
+ void sha1_block_data_order(SHA_CTX *c, const void *p, size_t num);
+ #endif
+ 
++#ifdef SHA1_HWCRYPTO
++size_t ossl_sha1_hwcrypto(SHA_CTX *ctx, const unsigned char *in, size_t blocks);
++static void sha1_block_data_order_hwcrypto(SHA_CTX *c, const void *p, size_t num)
++{
++    size_t done = num >= 16 ? ossl_sha1_hwcrypto(c, p, num) : 0;
++
++    if (done != num)
++        sha1_block_data_order(c, (const unsigned char *)p + done * SHA_CBLOCK,
++            num - done);
++}
++#endif
++
+ #include "crypto/md32_common.h"
++
++#ifdef SHA1_HWCRYPTO
++/* The C code below is sha1_block_data_order itself. */
++# undef HASH_BLOCK_DATA_ORDER
++# define HASH_BLOCK_DATA_ORDER sha1_block_data_order
++#endif
+ 
+ #define INIT_DATA_h0 0x67452301UL
+ #define INIT_DATA_h1 0xefcdab89UL
+--- a/crypto/sha/build.info
++++ b/crypto/sha/build.info
+@@ -184,7 +184,7 @@
+ GENERATE[sha1-thumb.S]=asm/sha1-thumb.pl
+ 
+ IF[{- $target{asm_arch} eq "riscv64" -}]
+-  SOURCE[../../libcrypto]=sha256_hwcrypto.c
++  SOURCE[../../libcrypto]=sha256_hwcrypto.c sha1_hwcrypto.c
+ ENDIF
+ 
+ IF[{- $target{asm_arch} eq "riscv64" -}]
+--- /dev/null
++++ b/crypto/sha/sha1_hwcrypto.c
+@@ -0,0 +1,53 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++/* SG2002 SHA-1 compression only. OpenSSL owns buffering, padding and length. */
++#include <stdint.h>
++#include <openssl/crypto.h>
++#include <openssl/sha.h>
++#include "crypto/hwcrypto_transport.h"
++
++/* As for SHA-256 (sha256_hwcrypto.c): requests of at most 64 KiB; the engine
++ * from START_BLOCKS blocks, where it meets the C code, and for tails of at
++ * least CONTINUE_BLOCKS. */
++#define DMA_BLOCKS (65536 / SHA_CBLOCK)
++#define START_BLOCKS 32
++#define CONTINUE_BLOCKS 8
++
++size_t ossl_sha1_hwcrypto(SHA_CTX *ctx, const unsigned char *in, size_t blocks)
++{
++    struct hwcrypto_request r = {
++        .version = HWCRYPTO_ABI, .algorithm = HWCRYPTO_ALG_SHA1
++    };
++    uint32_t state[5] = { ctx->h0, ctx->h1, ctx->h2, ctx->h3, ctx->h4 };
++    size_t completed = 0;
++    int fd;
++
++    if (blocks < START_BLOCKS)
++        return 0;
++    fd = ossl_hwcrypto_begin(HWCRYPTO_ALG_SHA1);
++    if (fd < 0)
++        return 0;
++    for (unsigned int i = 0; i < 5; ++i)
++        for (unsigned int j = 0; j < 4; ++j)
++            r.state[4*i+j] = (unsigned char)(state[i] >> (24-8*j));
++    while (blocks - completed >= (completed ? CONTINUE_BLOCKS : START_BLOCKS)) {
++        size_t n = blocks - completed < DMA_BLOCKS ? blocks - completed : DMA_BLOCKS;
++        r.length = (uint32_t)(n * SHA_CBLOCK);
++        r.input = (uintptr_t)(in + completed * SHA_CBLOCK);
++        if (!ossl_hwcrypto_run(fd, &r))
++            break;
++        completed += n;
++    }
++    ossl_hwcrypto_end(fd);
++    /* Commit only completed chunks: the caller hashes the rest in software
++     * from this exact chaining state. */
++    if (completed != 0) {
++        for (unsigned int i = 0; i < 5; ++i)
++            state[i] = (uint32_t)r.state[4*i] << 24
++                | (uint32_t)r.state[4*i+1] << 16
++                | (uint32_t)r.state[4*i+2] << 8 | r.state[4*i+3];
++        ctx->h0 = state[0]; ctx->h1 = state[1]; ctx->h2 = state[2];
++        ctx->h3 = state[3]; ctx->h4 = state[4];
++    }
++    OPENSSL_cleanse(&r, sizeof(r));
++    return completed;
++}

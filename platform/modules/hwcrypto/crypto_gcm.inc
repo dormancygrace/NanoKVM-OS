@@ -540,6 +540,9 @@ static int sg2_gcm_user_direct(struct hwcrypto_gcm_request *q, struct ghash_ctx 
    *g = saved; memcpy(ctr, ctr0, 16);
    return err;
   }
+  /* The core counts in 128 bits; GCM wraps the last 32 (a request may end
+   * exactly on the wrap). */
+  memcpy(ctr, ctr0, 12);
   *done += win;
   if (need_resched() || test_thread_flag(TIF_NEED_RESCHED_LAZY)) schedule();
   if (fatal_signal_pending(current)) break;

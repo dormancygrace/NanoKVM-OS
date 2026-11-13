@@ -12,18 +12,19 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.IO.Ports;
 using System.Linq;
 using System.Management;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using LibreHardwareMonitor.Hardware;
 using Microsoft.Win32;
+using Microsoft.Win32.SafeHandles;
 
 namespace NanoKvmSensors
 {
@@ -85,7 +86,7 @@ namespace NanoKvmSensors
                                 install the PawnIO driver first when it is
                                 missing or older than 2.0 (--yes: without
                                 asking, --no-driver: not at all)
-  nanokvm-sensors uninstall     remove that task
+  nanokvm-sensors uninstall     stop and remove that task (the driver stays)
 
 Options:
   --serial [COMn]     USB serial only; the port is found by the USB IDs
@@ -141,7 +142,12 @@ them the report is marked as limited.";
                     throw new ArgumentException("--network needs a URL such as https://10.1.2.1");
             }
             if (command == "install") return Install(args, o);
-            if (command == "uninstall") return Schtasks("/Delete /F /TN \"" + TaskName + "\"");
+            if (command == "uninstall")
+            {
+                // Deleting a task leaves its running program: end it first.
+                Schtasks("/End /TN \"" + TaskName + "\"");
+                return Schtasks("/Delete /F /TN \"" + TaskName + "\"");
+            }
 
             bool driver = PawnIoInstalled();
             bool limited = !IsElevated() || !driver;
@@ -342,7 +348,7 @@ them the report is marked as limited.";
         private sealed class Sender
         {
             private readonly Options o;
-            private SerialPort port;
+            private SerialLink port;
             private string state = "";
 
             public Sender(Options o)
@@ -376,7 +382,7 @@ them the report is marked as limited.";
 
             public void Close()
             {
-                if (port != null) { try { port.Close(); } catch (Exception) { } port = null; }
+                if (port != null) { port.Dispose(); port = null; }
             }
 
             private string Serial(string report)
@@ -387,20 +393,20 @@ them the report is marked as limited.";
                     {
                         string name = o.Port ?? FindPort(o.UsbId);
                         if (name == null) return "no NanoKVM serial port (USB serial is not in its USB composition)";
-                        // The line settings are nominal: the port is a USB byte stream.
-                        port = new SerialPort(name, 115200) { WriteTimeout = 3000, DtrEnable = true, Encoding = new UTF8Encoding(false) };
-                        port.Open();
+                        port = new SerialLink(name);
                     }
-                    port.DiscardInBuffer();
-                    port.Write(report + "\n");
-                    State("sending to " + port.PortName);
+                    // A line of its own, whatever a write that was cut short
+                    // left on the wire: the NanoKVM skips empty lines.
+                    if (!port.Write(Encoding.ASCII.GetBytes("\n" + report + "\n"), 3000))
+                        return port.Name + ": the NanoKVM is not reading the port (Computer sensors is not set to USB serial)";
+                    State("sending to " + port.Name);
                     return null;
                 }
                 catch (Exception e)
                 {
                     // The port goes with every change of the NanoKVM's USB
                     // composition; it is found again at the next report.
-                    string name = port != null ? port.PortName : (o.Port ?? "serial port");
+                    string name = port != null ? port.Name : (o.Port ?? "serial port");
                     Close();
                     return name + ": " + e.Message;
                 }
@@ -507,6 +513,94 @@ them the report is marked as limited.";
                     return url + ": " + e.Message;
                 }
             }
+        }
+
+        // SerialLink is the NanoKVM's COM port, written with overlapped I/O:
+        // a write the NanoKVM does not take (nothing reads the port there) is
+        // cancelled after its time and the port stays usable. System.IO.Ports
+        // blocks in that case, in the write or in the close after it, until
+        // the device is unplugged.
+        private sealed class SerialLink : IDisposable
+        {
+            public readonly string Name;
+            private readonly SafeFileHandle handle;
+
+            public SerialLink(string name)
+            {
+                Name = name;
+                handle = CreateFile(@"\\.\" + name, 0xC0000000 /* read, write */, 0, IntPtr.Zero, 3 /* existing */,
+                                    0x40000000 /* overlapped */, IntPtr.Zero);
+                if (handle.IsInvalid) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                // The line settings are nominal (a USB byte stream); DTR tells
+                // the NanoKVM's side that somebody is there.
+                EscapeCommFunction(handle, 5 /* SETDTR */);
+            }
+
+            // Write: true when all of data went out within the time, false
+            // when the NanoKVM did not take it. Throws when the port is gone.
+            public bool Write(byte[] data, int milliseconds)
+            {
+                PurgeComm(handle, 0x0008 /* what the NanoKVM sent: nothing is expected */);
+                var done = new ManualResetEvent(false);
+                var overlapped = new NativeOverlapped { EventHandle = done.SafeWaitHandle.DangerousGetHandle() };
+                GCHandle pinned = GCHandle.Alloc(data, GCHandleType.Pinned);
+                IntPtr ov = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NativeOverlapped)));
+                Marshal.StructureToPtr(overlapped, ov, false);
+                bool finished = true;
+                try
+                {
+                    int written;
+                    if (WriteFile(handle, pinned.AddrOfPinnedObject(), data.Length, out written, ov)) return written == data.Length;
+                    int error = Marshal.GetLastWin32Error();
+                    if (error != 997 /* pending */) throw new System.ComponentModel.Win32Exception(error);
+                    if (done.WaitOne(milliseconds))
+                    {
+                        if (!GetOverlappedResult(handle, ov, out written, false))
+                            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                        return written == data.Length;
+                    }
+                    CancelIoEx(handle, ov);
+                    PurgeComm(handle, 0x0001 | 0x0004 /* abort and drop what waits to go out */);
+                    // The cancelled write must end before its memory goes.
+                    finished = done.WaitOne(5000);
+                    if (!finished) throw new IOException("the port does not cancel a write");
+                    return false;
+                }
+                finally
+                {
+                    // A write that never ended still owns the buffers: they
+                    // are left to it (the port is closed and found again).
+                    if (finished)
+                    {
+                        Marshal.FreeHGlobal(ov);
+                        pinned.Free();
+                        done.Dispose();
+                    }
+                }
+            }
+
+            public void Dispose()
+            {
+                handle.Dispose();
+            }
+
+            [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+            private static extern SafeFileHandle CreateFile(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            private static extern bool WriteFile(SafeFileHandle handle, IntPtr data, int count, out int written, IntPtr overlapped);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            private static extern bool GetOverlappedResult(SafeFileHandle handle, IntPtr overlapped, out int transferred, bool wait);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            private static extern bool CancelIoEx(SafeFileHandle handle, IntPtr overlapped);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            private static extern bool PurgeComm(SafeFileHandle handle, uint flags);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
+            private static extern bool EscapeCommFunction(SafeFileHandle handle, uint function);
         }
 
         // ---- start with Windows -----------------------------------------

@@ -1271,6 +1271,8 @@
         "modeAlways": "Immer sichtbar",
         "keyboardLedStatus": "Tastensperren-Anzeigen",
         "keyboardLedStatusDesc": "Caps Lock, Num Lock und Scroll Lock des entfernten Computers in der Menüleiste anzeigen.",
+        "hostLedStatus": "Betriebs- und Festplattenanzeigen",
+        "hostLedStatusDesc": "Betriebs- und HDD-LED des entfernten Computers in der Menüleiste anzeigen.",
         "icons": "Schaltflächen der Menüleiste",
         "iconsDesc": "Untermenüsymbole in der Menüleiste anzeigen",
         "hiddenCount": "{{count}} ausgeblendet",
@@ -1281,6 +1283,13 @@
       "device": "Für alle auf diesem Gerät",
       "deviceDesc": "Auf dem Gerät gespeichert und für alle sichtbar, die es öffnen.",
       "saved": "Gespeichert"
+    },
+    "hostLedStatus": {
+      "groupLabel": "Betriebs- und Festplatten-LED des entfernten Computers",
+      "powerLed": "Betriebs-LED",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD-LED",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Tastensperren-Status der Remote-Tastatur",

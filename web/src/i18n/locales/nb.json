@@ -350,6 +350,8 @@
         "modeAlways": "Alltid synlig",
         "keyboardLedStatus": "Indikatorer for tastaturlås",
         "keyboardLedStatusDesc": "Vis Caps Lock, Num Lock og Scroll Lock for den eksterne datamaskinen i menylinjen.",
+        "hostLedStatus": "Strøm- og diskindikatorer",
+        "hostLedStatusDesc": "Vis strøm- og HDD-lysdiodene til den eksterne datamaskinen i menylinjen.",
         "icons": "Knapper i menylinjen",
         "iconsDesc": "Vis undermenyikoner i menylinjen",
         "hiddenCount": "{{count}} skjult",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Last opp"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "Strøm- og disklysdioder for den eksterne datamaskinen",
+      "powerLed": "Strømlysdiode",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD-lysdiode",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Status for låser på eksternt tastatur",

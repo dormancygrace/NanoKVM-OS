@@ -1271,6 +1271,8 @@
         "modeAlways": "Always visible",
         "keyboardLedStatus": "Keyboard lock indicators",
         "keyboardLedStatusDesc": "Show Caps Lock, Num Lock and Scroll Lock of the remote computer in the menu bar.",
+        "hostLedStatus": "Power and disk indicators",
+        "hostLedStatusDesc": "Show the power and HDD LEDs of the remote computer in the menu bar.",
         "icons": "Menu bar buttons",
         "iconsDesc": "Display submenu icons in the menu bar",
         "hiddenCount": "{{count}} hidden",
@@ -1281,6 +1283,13 @@
       "device": "For everyone on this device",
       "deviceDesc": "Saved on the device and shown to everyone who opens it.",
       "saved": "Saved"
+    },
+    "hostLedStatus": {
+      "groupLabel": "Remote computer power and disk LEDs",
+      "powerLed": "Power LED",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD LED",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Remote keyboard lock status",

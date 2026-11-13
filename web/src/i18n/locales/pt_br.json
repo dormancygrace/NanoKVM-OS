@@ -350,6 +350,8 @@
         "modeAlways": "Sempre visível",
         "keyboardLedStatus": "Indicadores de bloqueio do teclado",
         "keyboardLedStatusDesc": "Mostrar Caps Lock, Num Lock e Scroll Lock do computador remoto na barra de menu.",
+        "hostLedStatus": "Indicadores de energia e disco",
+        "hostLedStatusDesc": "Mostrar os LEDs de energia e de disco do computador remoto na barra de menu.",
         "icons": "Botões da barra de menu",
         "iconsDesc": "Exibir ícones de submenus na barra de menu",
         "hiddenCount": "{{count}} ocultos",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Enviar"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "LEDs de energia e de disco do computador remoto",
+      "powerLed": "LED de energia",
+      "powerLedShort": "Pwr",
+      "hddLed": "LED de disco",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Estado dos bloqueios do teclado remoto",

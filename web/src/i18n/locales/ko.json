@@ -350,6 +350,8 @@
         "modeAlways": "항상 보이기",
         "keyboardLedStatus": "키보드 잠금 표시기",
         "keyboardLedStatusDesc": "원격 컴퓨터의 Caps Lock, Num Lock, Scroll Lock 상태를 메뉴 막대에 표시합니다.",
+        "hostLedStatus": "전원 및 디스크 표시등",
+        "hostLedStatusDesc": "메뉴 표시줄에 원격 컴퓨터의 전원 및 HDD LED를 표시합니다.",
         "icons": "메뉴 막대 버튼",
         "iconsDesc": "메뉴 바에 하위 메뉴 아이콘을 표시합니다",
         "hiddenCount": "{{count}}개 숨김",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "업로드"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "원격 컴퓨터의 전원 및 디스크 LED",
+      "powerLed": "전원 LED",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD LED",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "원격 키보드 잠금 상태",

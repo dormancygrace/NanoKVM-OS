@@ -1271,6 +1271,8 @@
         "modeAlways": "始终显示",
         "keyboardLedStatus": "键盘锁定状态指示灯",
         "keyboardLedStatusDesc": "在菜单栏中显示远程计算机的 Caps Lock、Num Lock 和 Scroll Lock 状态。",
+        "hostLedStatus": "电源和硬盘指示灯",
+        "hostLedStatusDesc": "在菜单栏中显示远程计算机的电源和硬盘指示灯。",
         "icons": "菜单栏按钮",
         "iconsDesc": "是否在菜单栏中显示子菜单图标",
         "hiddenCount": "已隐藏 {{count}} 个",
@@ -1281,6 +1283,13 @@
       "device": "对此设备的所有人",
       "deviceDesc": "保存在设备上，所有打开它的人都能看到。",
       "saved": "已保存"
+    },
+    "hostLedStatus": {
+      "groupLabel": "远程计算机的电源和硬盘指示灯",
+      "powerLed": "电源指示灯",
+      "powerLedShort": "电",
+      "hddLed": "硬盘指示灯",
+      "hddLedShort": "盘"
     },
     "keyboardLedStatus": {
       "groupLabel": "远程键盘锁定状态",

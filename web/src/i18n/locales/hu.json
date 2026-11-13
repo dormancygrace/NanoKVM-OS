@@ -350,6 +350,8 @@
         "modeAlways": "Mindig látható",
         "keyboardLedStatus": "Billentyűzár-jelzők",
         "keyboardLedStatusDesc": "A távoli számítógép Caps Lock, Num Lock és Scroll Lock állapotának megjelenítése a menüsorban.",
+        "hostLedStatus": "Tápellátás- és lemezjelzők",
+        "hostLedStatusDesc": "A távoli számítógép tápellátás- és HDD-LED-jeinek megjelenítése a menüsorban.",
         "icons": "Menüsor gombjai",
         "iconsDesc": "Almenüikonok megjelenítése a menüsorban",
         "hiddenCount": "{{count}} elrejtve",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Feltöltés"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "A távoli számítógép tápellátás- és lemez-LED-jei",
+      "powerLed": "Tápellátás-LED",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD-LED",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Távoli billentyűzárak állapota",

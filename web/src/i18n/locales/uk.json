@@ -350,6 +350,8 @@
         "modeAlways": "Завжди видно",
         "keyboardLedStatus": "Індикатори блокування клавіатури",
         "keyboardLedStatusDesc": "Показувати Caps Lock, Num Lock і Scroll Lock віддаленого комп’ютера на панелі меню.",
+        "hostLedStatus": "Індикатори живлення та диска",
+        "hostLedStatusDesc": "Показувати індикатори живлення та HDD віддаленого комп’ютера в панелі меню.",
         "icons": "Кнопки панелі меню",
         "iconsDesc": "Відображення значків підменю на панелі меню",
         "hiddenCount": "приховано: {{count}}",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Завантажити"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "Індикатори живлення та диска віддаленого комп’ютера",
+      "powerLed": "Індикатор живлення",
+      "powerLedShort": "Pwr",
+      "hddLed": "Індикатор HDD",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Стан блокувань віддаленої клавіатури",

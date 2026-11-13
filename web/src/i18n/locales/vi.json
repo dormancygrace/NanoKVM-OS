@@ -350,6 +350,8 @@
         "modeAlways": "Luôn hiển thị",
         "keyboardLedStatus": "Chỉ báo khóa bàn phím",
         "keyboardLedStatusDesc": "Hiển thị Caps Lock, Num Lock và Scroll Lock của máy tính từ xa trên thanh menu.",
+        "hostLedStatus": "Đèn báo nguồn và ổ đĩa",
+        "hostLedStatusDesc": "Hiển thị đèn LED nguồn và HDD của máy tính từ xa trên thanh menu.",
         "icons": "Nút trên thanh menu",
         "iconsDesc": "Hiển thị biểu tượng menu con trên thanh menu",
         "hiddenCount": "đã ẩn {{count}}",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Tải lên"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "Đèn LED nguồn và ổ đĩa của máy tính từ xa",
+      "powerLed": "Đèn LED nguồn",
+      "powerLedShort": "Pwr",
+      "hddLed": "Đèn LED HDD",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Trạng thái khóa bàn phím từ xa",

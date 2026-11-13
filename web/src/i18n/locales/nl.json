@@ -350,6 +350,8 @@
         "modeAlways": "Altijd zichtbaar",
         "keyboardLedStatus": "Toetsvergrendelingsindicatoren",
         "keyboardLedStatusDesc": "Caps Lock, Num Lock en Scroll Lock van de externe computer in de menubalk tonen.",
+        "hostLedStatus": "Voedings- en schijfindicatoren",
+        "hostLedStatusDesc": "Toon de voedings- en HDD-led van de externe computer in de menubalk.",
         "icons": "Knoppen van de menubalk",
         "iconsDesc": "Submenupictogrammen weergeven in de menubalk",
         "hiddenCount": "{{count}} verborgen",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Uploaden"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "Voedings- en schijfled van de externe computer",
+      "powerLed": "Voedingsled",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD-led",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Toetsvergrendelingsstatus van extern toetsenbord",

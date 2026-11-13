@@ -5,6 +5,7 @@ import { SettingsSection } from '@/components/ui/settings.tsx';
 
 import { Branding } from './branding.tsx';
 import { ButtonColor } from './button-color.tsx';
+import { HostLedStatusSetting } from './host-led-status.tsx';
 import { KeyboardLedStatusSetting } from './keyboard-led-status.tsx';
 import { Language } from './language.tsx';
 import { MenuIcons } from './menu-icons.tsx';
@@ -26,6 +27,7 @@ export const Appearance = () => {
         <Language />
         <MenuMode />
         <KeyboardLedStatusSetting />
+        <HostLedStatusSetting />
         <MenuIcons />
       </SettingsSection>
 

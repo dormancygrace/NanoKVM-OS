@@ -1271,6 +1271,8 @@
         "modeAlways": "Toujours visible",
         "keyboardLedStatus": "Indicateurs de verrouillage du clavier",
         "keyboardLedStatusDesc": "Afficher Verr. Maj, Verr. Num et Arrêt défil de l'ordinateur distant dans la barre de menu.",
+        "hostLedStatus": "Voyants d'alimentation et de disque",
+        "hostLedStatusDesc": "Afficher les voyants d'alimentation et de disque de l'ordinateur distant dans la barre de menu.",
         "icons": "Boutons de la barre de menu",
         "iconsDesc": "Afficher les icônes des sous-menus dans la barre de menus",
         "hiddenCount": "{{count}} masqué(s)",
@@ -1281,6 +1283,13 @@
       "device": "Pour tous sur cet appareil",
       "deviceDesc": "Enregistré sur l'appareil et visible par tous ceux qui l'ouvrent.",
       "saved": "Enregistré"
+    },
+    "hostLedStatus": {
+      "groupLabel": "Voyants d'alimentation et de disque de l'ordinateur distant",
+      "powerLed": "Voyant d'alimentation",
+      "powerLedShort": "Pwr",
+      "hddLed": "Voyant de disque",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "État des verrouillages du clavier distant",

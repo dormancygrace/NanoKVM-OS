@@ -350,6 +350,8 @@
         "modeAlways": "Sempre visibile",
         "keyboardLedStatus": "Indicatori di blocco della tastiera",
         "keyboardLedStatusDesc": "Mostra Bloc Maiusc, Bloc Num e Bloc Scorr del computer remoto nella barra dei menu.",
+        "hostLedStatus": "Indicatori di alimentazione e disco",
+        "hostLedStatusDesc": "Mostra i LED di alimentazione e del disco del computer remoto nella barra dei menu.",
         "icons": "Pulsanti della barra dei menu",
         "iconsDesc": "Visualizza le icone dei sottomenu nella barra dei menu",
         "hiddenCount": "{{count}} nascosti",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Carica"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "LED di alimentazione e del disco del computer remoto",
+      "powerLed": "LED di alimentazione",
+      "powerLedShort": "Pwr",
+      "hddLed": "LED del disco",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Stato dei blocchi della tastiera remota",

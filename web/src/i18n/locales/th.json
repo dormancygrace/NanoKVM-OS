@@ -350,6 +350,8 @@
         "modeAlways": "มองเห็นได้เสมอ",
         "keyboardLedStatus": "ตัวบ่งชี้ปุ่มล็อกแป้นพิมพ์",
         "keyboardLedStatusDesc": "แสดง Caps Lock, Num Lock และ Scroll Lock ของคอมพิวเตอร์ระยะไกลในแถบเมนู",
+        "hostLedStatus": "ไฟแสดงสถานะเปิดเครื่องและดิสก์",
+        "hostLedStatusDesc": "แสดงไฟ LED เปิดเครื่องและ HDD ของคอมพิวเตอร์ระยะไกลในแถบเมนู",
         "icons": "ปุ่มในแถบเมนู",
         "iconsDesc": "แสดงไอคอนเมนูย่อยในแถบเมนู",
         "hiddenCount": "ซ่อน {{count}} รายการ",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "อัปโหลด"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "ไฟ LED เปิดเครื่องและดิสก์ของคอมพิวเตอร์ระยะไกล",
+      "powerLed": "ไฟ LED เปิดเครื่อง",
+      "powerLedShort": "Pwr",
+      "hddLed": "ไฟ LED HDD",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "สถานะปุ่มล็อกแป้นพิมพ์ระยะไกล",

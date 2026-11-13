@@ -350,6 +350,8 @@
         "modeAlways": "Her zaman görünür",
         "keyboardLedStatus": "Klavye kilidi göstergeleri",
         "keyboardLedStatusDesc": "Uzak bilgisayarın Caps Lock, Num Lock ve Scroll Lock durumunu menü çubuğunda göster.",
+        "hostLedStatus": "Güç ve disk göstergeleri",
+        "hostLedStatusDesc": "Uzak bilgisayarın güç ve HDD LED’lerini menü çubuğunda göster.",
         "icons": "Menü çubuğu düğmeleri",
         "iconsDesc": "Menü çubuğunda alt menü simgelerini görüntüle",
         "hiddenCount": "{{count}} gizli",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Yükle"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "Uzak bilgisayarın güç ve disk LED’leri",
+      "powerLed": "Güç LED’i",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD LED’i",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Uzak klavye kilidi durumu",

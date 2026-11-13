@@ -16,6 +16,7 @@ import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { isHdmiEnabledAtom } from '@/jotai/screen.ts';
 import {
+  hostLedStatusVisibleAtom,
   keyboardLedStatusVisibleAtom,
   menuCloseSignalAtom,
   menuDisabledItemsAtom
@@ -29,6 +30,7 @@ import { useUsbInput } from '@/hooks/useUsbInput.ts';
 import { MobileMenuItemProvider } from '@/components/menu-item.tsx';
 
 import { Control } from '../control.tsx';
+import { HostLedStatus } from '../host-led-status';
 import { KeyboardLedStatus } from '../keyboard-led-status';
 import { AudioMenu } from './audio';
 import { Fullscreen } from './fullscreen';
@@ -131,6 +133,7 @@ export const Menu = () => {
   );
   const menuCloseSignal = useAtomValue(menuCloseSignalAtom);
   const isKeyboardLedStatusVisible = useAtomValue(keyboardLedStatusVisibleAtom);
+  const isHostLedStatusVisible = useAtomValue(hostLedStatusVisibleAtom);
   const [isMobileRailCollapsed, setIsMobileRailCollapsed] = useState(false);
   const [mobileRailOffset, setMobileRailOffset] = useState({ x: 0, y: 0 });
   const [dismissMenuKey, setDismissMenuKey] = useState(0);
@@ -151,6 +154,17 @@ export const Menu = () => {
     responsiveDevice.isTouchLikeDevice && responsiveDevice.isLandscapeViewport;
   const { placement, updatePlacement } = useMobileMenuPlacement();
   const showKeyboardLedStatus = usbInput.keyboard && isKeyboardLedStatusVisible;
+  // The host's LEDs come from the ATX header, as the power button does.
+  const showHostLedStatus = atxEnabled && isHostLedStatusVisible;
+  const showLedStatus = showKeyboardLedStatus || showHostLedStatus;
+  // In the mobile rail the panels are stacked: three rows of locks (28 px),
+  // two rows of host LEDs (18 px), 4 px between them and 8 px above.
+  const railLedHeight = !showLedStatus
+    ? 0
+    : 8 +
+      (showKeyboardLedStatus ? 28 : 0) +
+      (showHostLedStatus ? 18 : 0) +
+      (showKeyboardLedStatus && showHostLedStatus ? 4 : 0);
 
   useEffect(() => {
     if (menuCloseSignal > 0) {
@@ -310,9 +324,18 @@ export const Menu = () => {
           >
             <div className="nanokvm-touch-toolbar w-[48px] overflow-hidden rounded-[24px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
               {/* Above both states of the rail, so the locks show while it is collapsed. */}
-              {showKeyboardLedStatus && (
-                <div className="flex h-9 justify-center pt-2">
-                  <KeyboardLedStatus />
+              {showLedStatus && (
+                <div className="flex flex-col items-center gap-1 pt-2">
+                  {showKeyboardLedStatus && (
+                    <div className="flex h-7">
+                      <KeyboardLedStatus />
+                    </div>
+                  )}
+                  {showHostLedStatus && (
+                    <div className="flex h-[18px]">
+                      <HostLedStatus />
+                    </div>
+                  )}
                 </div>
               )}
               {/* Collapsing hides the items but keeps them mounted: a browser ISO,
@@ -338,7 +361,10 @@ export const Menu = () => {
                   'max-h-[calc(100dvh-96px)] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto p-1 *:shrink-0 [&::-webkit-scrollbar]:hidden',
                   isMobileRailCollapsed ? 'hidden' : 'flex'
                 )}
-                style={{ maxHeight: `calc(100dvh - ${placement.top}px - 16px)` }}
+                style={{
+                  // The indicators above take their part of the rail's height.
+                  maxHeight: `calc(100dvh - ${placement.top}px - ${16 + railLedHeight}px)`
+                }}
               >
                 <strong>
                   <div className="flex size-[40px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
@@ -432,14 +458,15 @@ export const Menu = () => {
                 isMenuHidden ? 'translate-y-[-110%] opacity-80' : 'translate-y-0 opacity-100'
               )}
             >
-              {isMenuExpanded && showKeyboardLedStatus && !isTouchLandscapeMenu && (
+              {isMenuExpanded && showLedStatus && !isTouchLandscapeMenu && (
                 <div
                   className={clsx(
-                    'absolute inset-y-0 right-full mr-1 transition-all duration-300',
+                    'absolute inset-y-0 right-full mr-1 flex gap-1 transition-all duration-300',
                     isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
                   )}
                 >
-                  <KeyboardLedStatus />
+                  {showHostLedStatus && <HostLedStatus />}
+                  {showKeyboardLedStatus && <KeyboardLedStatus />}
                 </div>
               )}
               <strong className="shrink-0">
@@ -448,9 +475,10 @@ export const Menu = () => {
                 </div>
               </strong>
               {/* The touch toolbar takes the whole width: there is no room beside it. */}
-              {isMenuExpanded && showKeyboardLedStatus && isTouchLandscapeMenu && (
-                <div className="ml-1 flex h-7 shrink-0">
-                  <KeyboardLedStatus />
+              {isMenuExpanded && showLedStatus && isTouchLandscapeMenu && (
+                <div className="ml-1 flex h-7 shrink-0 gap-1">
+                  {showHostLedStatus && <HostLedStatus />}
+                  {showKeyboardLedStatus && <KeyboardLedStatus />}
                 </div>
               )}
               <Divider type="vertical" className="shrink-0" />

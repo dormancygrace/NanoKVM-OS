@@ -350,6 +350,8 @@
         "modeAlways": "Sempre visible",
         "keyboardLedStatus": "Indicadors de bloqueig del teclat",
         "keyboardLedStatusDesc": "Mostra Bloq Maj, Bloq Núm i Bloq Despl de l'ordinador remot a la barra de menú.",
+        "hostLedStatus": "Indicadors d'alimentació i disc",
+        "hostLedStatusDesc": "Mostra els LED d'alimentació i de disc de l'ordinador remot a la barra de menú.",
         "icons": "Botons de la barra de menú",
         "iconsDesc": "Mostra les icones del submenú a la barra de menús",
         "hiddenCount": "{{count}} amagats",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Puja"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "LED d'alimentació i de disc de l'ordinador remot",
+      "powerLed": "LED d'alimentació",
+      "powerLedShort": "Pwr",
+      "hddLed": "LED de disc",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Estat de bloqueig del teclat remot",

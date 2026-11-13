@@ -18,6 +18,9 @@ export const menuDisplayModeAtom = atom<string>('auto');
 // show the remote keyboard lock-status indicator beside the menu bar
 export const keyboardLedStatusVisibleAtom = atom(true);
 
+// show the host's power and disk LED indicator beside the menu bar
+export const hostLedStatusVisibleAtom = atom(true);
+
 export const settingsRequestAtom = atom<string | null>(null);
 
 // The open tab of Services > Redfish and IPMI: kept while the desktop is

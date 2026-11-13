@@ -350,6 +350,8 @@
         "modeAlways": "始終顯示",
         "keyboardLedStatus": "鍵盤鎖定狀態指示燈",
         "keyboardLedStatusDesc": "在選單列中顯示遠端電腦的 Caps Lock、Num Lock 和 Scroll Lock 狀態。",
+        "hostLedStatus": "電源與硬碟指示燈",
+        "hostLedStatusDesc": "在選單列中顯示遠端電腦的電源與硬碟指示燈。",
         "icons": "選單列按鈕",
         "iconsDesc": "是否在選單欄中顯示子選單圖示",
         "hiddenCount": "已隱藏 {{count}} 個",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "上傳"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "遠端電腦的電源與硬碟指示燈",
+      "powerLed": "電源指示燈",
+      "powerLedShort": "電",
+      "hddLed": "硬碟指示燈",
+      "hddLedShort": "碟"
     },
     "keyboardLedStatus": {
       "groupLabel": "遠端鍵盤鎖定狀態",

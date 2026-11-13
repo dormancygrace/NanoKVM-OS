@@ -1271,6 +1271,8 @@
         "modeAlways": "Siempre visible",
         "keyboardLedStatus": "Indicadores de bloqueo del teclado",
         "keyboardLedStatusDesc": "Mostrar Bloq Mayús, Bloq Num y Bloq Despl del equipo remoto en la barra de menú.",
+        "hostLedStatus": "Indicadores de encendido y disco",
+        "hostLedStatusDesc": "Mostrar los LED de encendido y de disco del equipo remoto en la barra de menú.",
         "icons": "Botones de la barra de menú",
         "iconsDesc": "Mostrar iconos de submenú en la barra de menú",
         "hiddenCount": "{{count}} ocultos",
@@ -1281,6 +1283,13 @@
       "device": "Para todos en este dispositivo",
       "deviceDesc": "Se guarda en el dispositivo y lo ve cualquiera que lo abra.",
       "saved": "Guardado"
+    },
+    "hostLedStatus": {
+      "groupLabel": "LED de encendido y de disco del equipo remoto",
+      "powerLed": "LED de encendido",
+      "powerLedShort": "Pwr",
+      "hddLed": "LED de disco",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Estado de bloqueos del teclado remoto",

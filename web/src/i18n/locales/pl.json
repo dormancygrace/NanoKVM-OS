@@ -350,6 +350,8 @@
         "modeAlways": "Zawsze widoczny",
         "keyboardLedStatus": "Wskaźniki blokad klawiatury",
         "keyboardLedStatusDesc": "Pokazuj Caps Lock, Num Lock i Scroll Lock zdalnego komputera na pasku menu.",
+        "hostLedStatus": "Wskaźniki zasilania i dysku",
+        "hostLedStatusDesc": "Pokazuj diody zasilania i dysku zdalnego komputera na pasku menu.",
         "icons": "Przyciski paska menu",
         "iconsDesc": "Wyświetla ikony podmenu na pasku menu",
         "hiddenCount": "ukryte: {{count}}",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Prześlij"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "Diody zasilania i dysku zdalnego komputera",
+      "powerLed": "Dioda zasilania",
+      "powerLedShort": "Pwr",
+      "hddLed": "Dioda dysku",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Stan blokad zdalnej klawiatury",

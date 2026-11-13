@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Alert, Select } from 'antd';
+import { Alert, Button, Checkbox, Select } from 'antd';
 import { DownloadIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { groupSensors, mainKinds, sensorValue, type HostSensor } from '@/lib/host-sensors.ts';
+import {
+  groupSensors,
+  isShown,
+  sensorKey,
+  sensorValue,
+  viewOverrides,
+  type HostSensor
+} from '@/lib/host-sensors.ts';
 import { http } from '@/lib/http';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
@@ -14,7 +21,7 @@ type State = {
   mode: Mode;
   serial: { port: string; state: string };
   network: { interface: string; addresses: string[]; path: string };
-  agent: { path: string; available: boolean; sha256: string; size: number };
+  agent: { path: string; available: boolean; size: number };
   status: {
     report: {
       host: string;
@@ -28,19 +35,22 @@ type State = {
     age: number;
     stale: boolean;
   };
+  // Which readings are shown: the exceptions to the default (lib/host-sensors).
+  view: { overrides: Record<string, boolean> };
 };
 
 const url = '/api/vm/host-sensors';
 
 // Services > Computer sensors, the page of the add-on nanokvm-host-sensors:
 // how the reports of the computer's nanokvm-sensors agent arrive, the agent
-// itself, and the last report.
+// itself, and the last report with the readings chosen to be shown.
 export const HostSensorsPage = () => {
   const { t } = useTranslation('translation', { keyPrefix: 'settings.hostSensors' });
   const [state, setState] = useState<State>();
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [all, setAll] = useState(false);
+  // While choosing: every reading of the report by key, shown or not.
+  const [draft, setDraft] = useState<Record<string, boolean>>();
 
   useEffect(() => {
     let disposed = false;
@@ -60,23 +70,37 @@ export const HostSensorsPage = () => {
     };
   }, []);
 
-  const setMode = async (mode: Mode) => {
+  const save = async (path: string, data: unknown) => {
     setSaving(true);
     setFailed(false);
     try {
-      const rsp = await http.request<State>({ method: 'put', url, data: { mode } });
-      if (rsp.code === 0) setState(rsp.data);
-      else setFailed(true);
+      const rsp = await http.request<State>({ method: 'put', url: url + path, data });
+      if (rsp.code !== 0) throw new Error(rsp.msg);
+      setState(rsp.data);
+      return true;
     } catch {
       setFailed(true);
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
   const report = state?.status.report;
-  const shown = report?.sensors.filter((s) => all || mainKinds.has(s.kind)) ?? [];
-  const groups = groupSensors(shown);
+  const overrides = state?.view?.overrides ?? {};
+  const shownNow = (sensor: HostSensor) =>
+    draft ? (draft[sensorKey(sensor)] ?? false) : isShown(sensor, overrides);
+  // While choosing, every reading is listed; otherwise the chosen ones.
+  const groups = groupSensors(report?.sensors.filter((s) => draft || shownNow(s)) ?? []);
+  const startChoosing = () =>
+    setDraft(
+      Object.fromEntries((report?.sensors ?? []).map((s) => [sensorKey(s), isShown(s, overrides)]))
+    );
+  const saveChoice = async () => {
+    if (!draft || !report) return;
+    if (await save('/view', { overrides: viewOverrides(report.sensors, draft, overrides) }))
+      setDraft(undefined);
+  };
   const hint = !state
     ? ''
     : state.mode === 'off'
@@ -108,7 +132,7 @@ export const HostSensorsPage = () => {
             value={state?.mode}
             loading={saving || !state}
             disabled={saving || !state}
-            onChange={(mode) => void setMode(mode)}
+            onChange={(mode) => void save('', { mode })}
             options={(['off', 'serial', 'network'] as const).map((mode) => ({
               value: mode,
               label: t(`mode.${mode}`)
@@ -128,7 +152,31 @@ export const HostSensorsPage = () => {
           )}
         </SettingRow>
       </SettingsSection>
-      <SettingsSection title={t('readings')}>
+      <SettingsSection
+        title={t('readings')}
+        actions={
+          report &&
+          (draft ? (
+            <>
+              <Button size="small" onClick={() => setDraft(undefined)} disabled={saving}>
+                {t('cancel')}
+              </Button>
+              <Button
+                size="small"
+                type="primary"
+                loading={saving}
+                onClick={() => void saveChoice()}
+              >
+                {t('save')}
+              </Button>
+            </>
+          ) : (
+            <Button size="small" onClick={startChoosing}>
+              {t('choose')}
+            </Button>
+          ))
+        }
+      >
         {!report && <p className="text-fg-muted m-0 text-sm">{hint}</p>}
         {report && state && (
           <Panel className="min-w-0">
@@ -146,33 +194,58 @@ export const HostSensorsPage = () => {
             {report.limited && (
               <Alert className="mb-3" type="info" showIcon message={t('limited')} />
             )}
+            {groups.length === 0 && <p className="text-fg-muted m-0 text-sm">{t('noneShown')}</p>}
             <div className="grid gap-x-6 gap-y-4 md:grid-cols-2">
-              {groups.map((group) => (
-                <div key={`${group.type}/${group.hardware}`} className="min-w-0 text-sm">
-                  <div className="mb-1 font-medium wrap-break-word">{group.hardware}</div>
-                  <dl className="m-0">
-                    {group.sensors.map((sensor, index) => (
-                      <div
-                        key={`${sensor.kind}/${sensor.name}/${index}`}
-                        className="flex justify-between gap-3 py-0.5"
-                      >
-                        <dt className="text-fg-muted min-w-0 wrap-break-word">{sensor.name}</dt>
-                        <dd className="text-fg m-0 shrink-0 tabular-nums">{sensorValue(sensor)}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              ))}
+              {groups.map((group) => {
+                const on = group.sensors.filter(shownNow).length;
+                return (
+                  <div key={`${group.type}/${group.hardware}`} className="min-w-0 text-sm">
+                    <div className="mb-1 flex items-center gap-2 font-medium wrap-break-word">
+                      {draft && (
+                        <Checkbox
+                          aria-label={group.hardware}
+                          checked={on === group.sensors.length}
+                          indeterminate={on > 0 && on < group.sensors.length}
+                          onChange={(event) =>
+                            setDraft({
+                              ...draft,
+                              ...Object.fromEntries(
+                                group.sensors.map((s) => [sensorKey(s), event.target.checked])
+                              )
+                            })
+                          }
+                        />
+                      )}
+                      <span className="min-w-0">{group.hardware}</span>
+                    </div>
+                    <dl className="m-0">
+                      {group.sensors.map((sensor, index) => (
+                        <div
+                          key={`${sensor.kind}/${sensor.name}/${index}`}
+                          className="flex justify-between gap-3 py-0.5"
+                        >
+                          <dt className="text-fg-muted flex min-w-0 items-start gap-2 wrap-break-word">
+                            {draft && (
+                              <Checkbox
+                                aria-label={sensor.name}
+                                checked={shownNow(sensor)}
+                                onChange={(event) =>
+                                  setDraft({ ...draft, [sensorKey(sensor)]: event.target.checked })
+                                }
+                              />
+                            )}
+                            <span className="min-w-0">{sensor.name}</span>
+                          </dt>
+                          <dd className="text-fg m-0 shrink-0 tabular-nums">
+                            {sensorValue(sensor)}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                );
+              })}
             </div>
-            {report.sensors.length > 0 && (
-              <button
-                type="button"
-                className="text-info mt-3 border-0! bg-transparent! !p-0 text-xs"
-                onClick={() => setAll(!all)}
-              >
-                {all ? t('showMain') : t('showAll', { count: report.sensors.length })}
-              </button>
-            )}
           </Panel>
         )}
       </SettingsSection>

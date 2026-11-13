@@ -2573,8 +2573,6 @@
       "age": "il y a {{seconds}} s",
       "stale": "Pas de données récentes",
       "limited": "L’agent s’exécute sans droits d’administrateur ou sans le pilote PawnIO : les capteurs du processeur et de la carte mère peuvent manquer.",
-      "showAll": "Toutes les mesures ({{count}})",
-      "showMain": "Mesures principales seulement",
       "saveFailed": "Le réglage n’a pas pu être enregistré.",
       "connection": "Connexion",
       "modeLabel": "Transmission des mesures",
@@ -2586,7 +2584,11 @@
         "off": "Désactivé",
         "serial": "USB série",
         "network": "Réseau USB"
-      }
+      },
+      "choose": "Choisir les mesures",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "noneShown": "Aucune mesure n’est choisie pour l’affichage."
     }
   },
   "picoclaw": {

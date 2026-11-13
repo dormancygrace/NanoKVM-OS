@@ -2573,8 +2573,6 @@
       "age": "{{seconds}} s ago",
       "stale": "No fresh data",
       "limited": "The agent runs without administrator rights or without the PawnIO driver: processor and board sensors may be missing.",
-      "showAll": "All readings ({{count}})",
-      "showMain": "Main readings only",
       "saveFailed": "The setting could not be saved.",
       "connection": "Connection",
       "modeLabel": "How the readings arrive",
@@ -2586,7 +2584,11 @@
         "off": "Off",
         "serial": "USB serial",
         "network": "USB network"
-      }
+      },
+      "choose": "Choose readings",
+      "save": "Save",
+      "cancel": "Cancel",
+      "noneShown": "No reading is chosen to be shown."
     }
   },
   "picoclaw": {

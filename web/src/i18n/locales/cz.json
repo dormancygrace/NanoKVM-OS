@@ -2176,8 +2176,6 @@
       "age": "před {{seconds}} s",
       "stale": "Žádná čerstvá data",
       "limited": "Agent běží bez práv správce nebo bez ovladače PawnIO: senzory procesoru a desky mohou chybět.",
-      "showAll": "Všechny hodnoty ({{count}})",
-      "showMain": "Jen hlavní hodnoty",
       "saveFailed": "Nastavení se nepodařilo uložit.",
       "connection": "Připojení",
       "modeLabel": "Jak hodnoty přicházejí",
@@ -2189,7 +2187,11 @@
         "off": "Vypnuto",
         "serial": "USB sériový port",
         "network": "USB síť"
-      }
+      },
+      "choose": "Vybrat hodnoty",
+      "save": "Uložit",
+      "cancel": "Zrušit",
+      "noneShown": "Není vybrána žádná hodnota k zobrazení."
     }
   },
   "picoclaw": {

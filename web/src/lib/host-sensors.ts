@@ -73,3 +73,29 @@ export function groupSensors(sensors: HostSensor[]): HostSensorGroup[] {
     )
     .map((item) => item.group);
 }
+
+// A reading's name across reports: the server's hostsensors.Key.
+export const sensorKey = (sensor: HostSensor) =>
+  [sensor.type, sensor.hw, sensor.kind, sensor.name].join('\t');
+
+// Shown: the administrator's choice for this reading, or a main kind.
+export const isShown = (sensor: HostSensor, overrides: Record<string, boolean>) =>
+  overrides[sensorKey(sensor)] ?? mainKinds.has(sensor.kind);
+
+// The exceptions to store after a choice: the readings of this report whose
+// choice differs from the default, and the earlier exceptions of readings
+// the report does not have now (a drive that is unplugged keeps its choice).
+export function viewOverrides(
+  sensors: HostSensor[],
+  choice: Record<string, boolean>,
+  previous: Record<string, boolean>
+): Record<string, boolean> {
+  const present = new Set(sensors.map(sensorKey));
+  const result = Object.fromEntries(Object.entries(previous).filter(([key]) => !present.has(key)));
+  for (const sensor of sensors) {
+    const key = sensorKey(sensor);
+    const shown = choice[key] ?? mainKinds.has(sensor.kind);
+    if (shown !== mainKinds.has(sensor.kind)) result[key] = shown;
+  }
+  return result;
+}

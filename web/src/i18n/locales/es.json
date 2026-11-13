@@ -2573,8 +2573,6 @@
       "age": "hace {{seconds}} s",
       "stale": "Sin datos recientes",
       "limited": "El agente se ejecuta sin derechos de administrador o sin el controlador PawnIO: pueden faltar los sensores del procesador y de la placa.",
-      "showAll": "Todas las lecturas ({{count}})",
-      "showMain": "Solo las lecturas principales",
       "saveFailed": "No se pudo guardar el ajuste.",
       "connection": "Conexión",
       "modeLabel": "Cómo llegan las lecturas",
@@ -2586,7 +2584,11 @@
         "off": "Desactivado",
         "serial": "USB serie",
         "network": "Red USB"
-      }
+      },
+      "choose": "Elegir lecturas",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "noneShown": "No se ha elegido ninguna lectura para mostrar."
     }
   },
   "picoclaw": {

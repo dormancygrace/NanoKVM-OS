@@ -2573,8 +2573,6 @@
       "age": "{{seconds}} 秒前",
       "stale": "没有新数据",
       "limited": "代理在没有管理员权限或没有 PawnIO 驱动的情况下运行：可能缺少处理器和主板传感器。",
-      "showAll": "全部读数（{{count}}）",
-      "showMain": "仅主要读数",
       "saveFailed": "无法保存设置。",
       "connection": "连接",
       "modeLabel": "读数的传输方式",
@@ -2586,7 +2584,11 @@
         "off": "关闭",
         "serial": "USB 串口",
         "network": "USB 网络"
-      }
+      },
+      "choose": "选择读数",
+      "save": "保存",
+      "cancel": "取消",
+      "noneShown": "未选择要显示的读数。"
     }
   },
   "picoclaw": {

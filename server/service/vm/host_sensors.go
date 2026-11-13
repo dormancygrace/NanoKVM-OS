@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -34,6 +35,23 @@ import (
 //	         computer has no NanoKVM credentials, and nothing on the LAN or a
 //	         VPN may post readings.
 var hostSensorsFile = "/etc/kvm/host-sensors"
+
+// hostSensorsViewFile: which readings the page shows (hostsensors.View).
+var hostSensorsViewFile = "/etc/kvm/host-sensors-view.json"
+
+func hostSensorsView() hostsensors.View {
+	data, err := os.ReadFile(hostSensorsViewFile)
+	if err == nil {
+		if view, err := hostsensors.ParseView(data); err == nil {
+			return view
+		} else {
+			log.Errorf("host sensors view: %v", err)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		log.Errorf("host sensors view: %v", err)
+	}
+	return hostsensors.View{Overrides: map[string]bool{}}
+}
 
 const (
 	hostSensorsOff     = "off"
@@ -321,6 +339,7 @@ func hostSensorsState() gin.H {
 		"network": gin.H{"interface": hostSensorsInterface, "addresses": addresses, "path": HostSensorsIngestPath},
 		"agent":   agent,
 		"status":  hostsensors.Default.Status(time.Now()),
+		"view":    hostSensorsView(),
 	}
 }
 
@@ -358,6 +377,36 @@ func (s *Service) SetHostSensors(c *gin.Context) {
 	// what the new mode shows.
 	hostsensors.Default.Clear()
 	log.Infof("host sensors: %s", req.Mode)
+	rsp.OkRspWithData(c, hostSensorsState())
+}
+
+// SetHostSensorsView answers PUT /api/vm/host-sensors/view {"overrides":{key:bool}}:
+// which readings the page shows.
+func (s *Service) SetHostSensorsView(c *gin.Context) {
+	var rsp proto.Response
+	if !HostSensorsInstalled() {
+		rsp.ErrRsp(c, -3, "the host sensors add-on is not installed")
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 2<<20))
+	if err != nil {
+		rsp.ErrRsp(c, -1, "the view could not be read")
+		return
+	}
+	view, err := hostsensors.ParseView(body)
+	if err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	data, err := json.Marshal(view)
+	if err == nil {
+		err = atomicfile.Write(hostSensorsViewFile, append(data, '\n'), 0o644)
+	}
+	if err != nil {
+		log.Errorf("host sensors view: %v", err)
+		rsp.ErrRsp(c, -2, "the setting could not be saved")
+		return
+	}
 	rsp.OkRspWithData(c, hostSensorsState())
 }
 

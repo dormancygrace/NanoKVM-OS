@@ -2573,8 +2573,6 @@
       "age": "vor {{seconds}} s",
       "stale": "Keine aktuellen Daten",
       "limited": "Der Agent läuft ohne Administratorrechte oder ohne den PawnIO-Treiber: Prozessor- und Mainboard-Sensoren können fehlen.",
-      "showAll": "Alle Messwerte ({{count}})",
-      "showMain": "Nur die wichtigsten Messwerte",
       "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",
       "connection": "Verbindung",
       "modeLabel": "Übertragung der Messwerte",
@@ -2586,7 +2584,11 @@
         "off": "Aus",
         "serial": "USB-Seriell",
         "network": "USB-Netzwerk"
-      }
+      },
+      "choose": "Messwerte auswählen",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "noneShown": "Es ist kein Messwert zur Anzeige ausgewählt."
     }
   },
   "picoclaw": {

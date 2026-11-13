@@ -150,6 +150,7 @@ export const Menu = () => {
   const isTouchLandscapeMenu =
     responsiveDevice.isTouchLikeDevice && responsiveDevice.isLandscapeViewport;
   const { placement, updatePlacement } = useMobileMenuPlacement();
+  const showKeyboardLedStatus = usbInput.keyboard && isKeyboardLedStatusVisible;
 
   useEffect(() => {
     if (menuCloseSignal > 0) {
@@ -308,6 +309,12 @@ export const Menu = () => {
             onRequestMobileMenuDismiss={dismissMenus}
           >
             <div className="nanokvm-touch-toolbar w-[48px] overflow-hidden rounded-[24px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
+              {/* Above both states of the rail, so the locks show while it is collapsed. */}
+              {showKeyboardLedStatus && (
+                <div className="flex h-9 justify-center pt-2">
+                  <KeyboardLedStatus />
+                </div>
+              )}
               {/* Collapsing hides the items but keeps them mounted: a browser ISO,
                   a recording or an open dialog belongs to its item. */}
               {isMobileRailCollapsed && (
@@ -425,24 +432,27 @@ export const Menu = () => {
                 isMenuHidden ? 'translate-y-[-110%] opacity-80' : 'translate-y-0 opacity-100'
               )}
             >
-              {isMenuExpanded &&
-                usbInput.keyboard &&
-                isKeyboardLedStatusVisible &&
-                !isTouchLandscapeMenu && (
-                  <div
-                    className={clsx(
-                      'absolute inset-y-0 right-full mr-1 transition-all duration-300',
-                      isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
-                    )}
-                  >
-                    <KeyboardLedStatus />
-                  </div>
-                )}
+              {isMenuExpanded && showKeyboardLedStatus && !isTouchLandscapeMenu && (
+                <div
+                  className={clsx(
+                    'absolute inset-y-0 right-full mr-1 transition-all duration-300',
+                    isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
+                  )}
+                >
+                  <KeyboardLedStatus />
+                </div>
+              )}
               <strong className="shrink-0">
                 <div className="flex h-[30px] cursor-move items-center justify-center pl-1 text-neutral-500 select-none">
                   <GripVerticalIcon size={18} />
                 </div>
               </strong>
+              {/* The touch toolbar takes the whole width: there is no room beside it. */}
+              {isMenuExpanded && showKeyboardLedStatus && isTouchLandscapeMenu && (
+                <div className="ml-1 flex h-7 shrink-0">
+                  <KeyboardLedStatus />
+                </div>
+              )}
               <Divider type="vertical" className="shrink-0" />
 
               <MobileMenuItemProvider dismissMenuKey={dismissMenuKey}>

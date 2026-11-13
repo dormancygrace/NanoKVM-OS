@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Divider, Switch, Tooltip } from 'antd';
 import clsx from 'clsx';
+import { useAtomValue } from 'jotai';
 import { HardDriveIcon, LoaderCircleIcon, PowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { subscribeLEDStatus } from '@/lib/led-status.ts';
 import * as localstorage from '@/lib/localstorage.ts';
+import { hostLedStatusVisibleAtom } from '@/jotai/settings.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 
 import { PowerLong } from './power-long.tsx';
@@ -19,6 +21,9 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
   const [isHddActive, setIsHddActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(localstorage.getPowerConfirm);
+  // The indicator panel beside the menu shows the disk LED already (the
+  // panel and this button both need ATX power control).
+  const hddInPanel = useAtomValue(hostLedStatusVisibleAtom);
 
   useEffect(
     () =>
@@ -80,19 +85,21 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
   return (
     <div className={clsx('flex shrink-0 items-center', vertical && 'flex-col')}>
       <MenuItem title={t('power.title')} icon={icon} content={content} />
-      <Tooltip title={t('power.hddLed')} placement="bottom" mouseEnterDelay={0.6}>
-        <div
-          role="img"
-          aria-label={t('power.hddLed')}
-          className={clsx(
-            'flex h-[30px] cursor-default items-center justify-center',
-            vertical ? 'w-[30px]' : 'w-[24px]',
-            isHddActive ? 'text-amber-400 drop-shadow-[0_0_4px_currentColor]' : 'text-neutral-600'
-          )}
-        >
-          <HardDriveIcon size={17} />
-        </div>
-      </Tooltip>
+      {!hddInPanel && (
+        <Tooltip title={t('power.hddLed')} placement="bottom" mouseEnterDelay={0.6}>
+          <div
+            role="img"
+            aria-label={t('power.hddLed')}
+            className={clsx(
+              'flex h-[30px] cursor-default items-center justify-center',
+              vertical ? 'w-[30px]' : 'w-[24px]',
+              isHddActive ? 'text-red-400 drop-shadow-[0_0_4px_currentColor]' : 'text-neutral-600'
+            )}
+          >
+            <HardDriveIcon size={17} />
+          </div>
+        </Tooltip>
+      )}
     </div>
   );
 };

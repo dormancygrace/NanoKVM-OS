@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
 import { useAtomValue } from 'jotai';
 import { VideoIcon, VideoOffIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { changeCapture } from '@/lib/capture-control.ts';
 import { captureBusyAtom, captureReadyAtom, isHdmiEnabledAtom } from '@/jotai/screen.ts';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 export const Capture = () => {
   const { t } = useTranslation();
@@ -15,7 +16,7 @@ export const Capture = () => {
   const [error, setError] = useState(false);
   const title = t(error ? 'capture.failed' : enabled ? 'capture.stop' : 'capture.start');
   return (
-    <Tooltip title={title}>
+    <MenuTooltip title={title}>
       <Button
         type="text"
         aria-label={title}
@@ -39,6 +40,6 @@ export const Capture = () => {
           <VideoOffIcon size={22} strokeWidth={1.8} className="block shrink-0" />
         )}
       </Button>
-    </Tooltip>
+    </MenuTooltip>
   );
 };

@@ -1,10 +1,10 @@
-import { Tooltip } from 'antd';
 import { useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
 import { Robot } from '@/components/icons/robot.tsx';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context.ts';
 
 type PicoclawProps = {
@@ -17,7 +17,7 @@ export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {
   const dismissMobileMenu = useDismissMobileMenu();
 
   return (
-    <Tooltip title={t('picoclaw.title')} mouseEnterDelay={0.6} placement={tooltipPlacement}>
+    <MenuTooltip title={t('picoclaw.title')} placement={tooltipPlacement}>
       <div
         role="button"
         tabIndex={0}
@@ -38,6 +38,6 @@ export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {
       >
         <Robot size={18} />
       </div>
-    </Tooltip>
+    </MenuTooltip>
   );
 };

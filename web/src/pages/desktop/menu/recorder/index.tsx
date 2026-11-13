@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, message, Tooltip } from 'antd';
+import { Button, message } from 'antd';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +15,7 @@ import type { RecordingResult } from '@/lib/recording-result.ts';
 import { getRecordingSource, watchRecordingSource } from '@/lib/recording-source.ts';
 import { getUsbAudioStream, watchUsbAudioStream } from '@/lib/usb-audio-stream.ts';
 import { isHdmiEnabledAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 type SavePicker = (options: {
   suggestedName: string;
@@ -231,7 +232,7 @@ export const Recorder = () => {
             ? t('recorder.saving')
             : startTitle;
   return (
-    <Tooltip title={title} mouseEnterDelay={0.6}>
+    <MenuTooltip title={title}>
       <span className="flex shrink-0">
         <Button
           type="text"
@@ -267,6 +268,6 @@ export const Recorder = () => {
           )}
         </Button>
       </span>
-    </Tooltip>
+    </MenuTooltip>
   );
 };

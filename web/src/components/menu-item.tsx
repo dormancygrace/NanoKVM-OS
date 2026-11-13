@@ -13,7 +13,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode
 } from 'react';
-import { Popover, Tooltip, type PopoverProps } from 'antd';
+import { Popover, type PopoverProps } from 'antd';
 import clsx from 'clsx';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { ChevronLeftIcon, XIcon } from 'lucide-react';
@@ -24,6 +24,7 @@ import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { menuCloseSignalAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useMediaQuery } from '@/hooks/useMediaQuery.ts';
 
+import { MenuTooltip } from './menu-tooltip.tsx';
 import {
   MobileMenuItemContext,
   MobileMenuNavigationContext,
@@ -321,12 +322,11 @@ export const MenuItem = ({
       : 'bottom';
   const tooltipPlacement = placement ? (placement === 'right' ? 'left' : 'right') : 'bottom';
   const triggerNode = (
-    <Tooltip
+    <MenuTooltip
       title={title}
-      trigger={['hover', 'focus']}
-      mouseEnterDelay={0.6}
       placement={tooltipPlacement}
-      classNames={{ root: overlay }}
+      overlayClassName={overlay}
+      blocked={isOpen}
       open={disabled ? undefined : !isOpen && isTooltipOpen}
       onOpenChange={disabled ? undefined : (next) => setIsTooltipOpen(next && !isOpenRef.current)}
     >
@@ -354,7 +354,7 @@ export const MenuItem = ({
       >
         {icon}
       </div>
-    </Tooltip>
+    </MenuTooltip>
   );
   return disabled ? (
     triggerNode

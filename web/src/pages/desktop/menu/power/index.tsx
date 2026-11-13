@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { subscribeLEDStatus } from '@/lib/led-status.ts';
 import * as localstorage from '@/lib/localstorage.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 import { PowerLong } from './power-long.tsx';
 import { PowerShort } from './power-short.tsx';
@@ -80,7 +81,7 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
   return (
     <div className={clsx('flex shrink-0 items-center', vertical && 'flex-col')}>
       <MenuItem title={t('power.title')} icon={icon} content={content} />
-      <Tooltip title={t('power.hddLed')} placement="bottom" mouseEnterDelay={0.6}>
+      <MenuTooltip title={t('power.hddLed')}>
         <div
           role="img"
           aria-label={t('power.hddLed')}
@@ -92,7 +93,7 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
         >
           <HardDriveIcon size={17} />
         </div>
-      </Tooltip>
+      </MenuTooltip>
     </div>
   );
 };

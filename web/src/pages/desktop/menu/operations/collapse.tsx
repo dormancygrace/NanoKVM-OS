@@ -1,6 +1,7 @@
-import { Tooltip } from 'antd';
 import { XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 interface CollapseProps {
   toggleMenu(expanded: boolean): void;
@@ -10,7 +11,7 @@ export const Collapse = ({ toggleMenu }: CollapseProps) => {
   const { t } = useTranslation();
 
   return (
-    <Tooltip title={t('menu.collapse')} placement="bottom" mouseEnterDelay={0.6}>
+    <MenuTooltip title={t('menu.collapse')}>
       <div
         data-toolbar-control
         className="flex size-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
@@ -18,6 +19,6 @@ export const Collapse = ({ toggleMenu }: CollapseProps) => {
       >
         <XIcon size={18} />
       </div>
-    </Tooltip>
+    </MenuTooltip>
   );
 };

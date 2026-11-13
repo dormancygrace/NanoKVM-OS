@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Button, Popconfirm, Tooltip, type TooltipProps } from 'antd';
+import { Button, Popconfirm, type TooltipProps } from 'antd';
 import { LogOutIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import * as api from '@/api/auth.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 export const Logout = ({
   tooltipPlacement = 'bottom'
@@ -40,7 +41,7 @@ export const Logout = ({
       cancelButtonProps={{ type: 'primary' }}
       onConfirm={logout}
     >
-      <Tooltip title={label} placement={tooltipPlacement} mouseEnterDelay={0.6}>
+      <MenuTooltip title={label} placement={tooltipPlacement}>
         <Button
           type="text"
           loading={loading}
@@ -48,7 +49,7 @@ export const Logout = ({
           className="flex! size-[30px]! min-w-[30px]! items-center! justify-center! !p-0 text-neutral-300 hover:!bg-neutral-700/80 hover:!text-white"
           icon={<LogOutIcon size={18} aria-hidden="true" />}
         />
-      </Tooltip>
+      </MenuTooltip>
     </Popconfirm>
   );
 };

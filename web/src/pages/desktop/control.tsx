@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
 import { useAtomValue } from 'jotai';
 import { LockKeyholeIcon, UnlockKeyholeIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { client } from '@/lib/websocket.ts';
 import { usbInputAtom } from '@/jotai/usb-input.ts';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 export const Control = () => {
   const { t } = useTranslation();
@@ -17,7 +18,7 @@ export const Control = () => {
 
   const label = enabled ? t('sessionControl.release') : t('sessionControl.take');
   return (
-    <Tooltip title={enabled ? t('sessionControl.active') : t('sessionControl.locked')}>
+    <MenuTooltip title={enabled ? t('sessionControl.active') : t('sessionControl.locked')}>
       <Button
         type="text"
         aria-label={label}
@@ -25,7 +26,7 @@ export const Control = () => {
         onClick={() => client.requestControl(!enabled)}
         icon={enabled ? <UnlockKeyholeIcon size={18} /> : <LockKeyholeIcon size={18} />}
       />
-    </Tooltip>
+    </MenuTooltip>
   );
 };
 

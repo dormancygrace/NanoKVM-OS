@@ -9,7 +9,7 @@ import {
   type ReactNode
 } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
-import { Alert, Button, Divider, Modal, Spin, Tooltip, type TooltipProps } from 'antd';
+import { Alert, Button, Divider, Modal, Spin, type TooltipProps } from 'antd';
 import clsx from 'clsx';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
@@ -64,6 +64,7 @@ import { bmcTabAtom, settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/s
 import { updateNoticeAtom } from '@/jotai/updates.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -561,12 +562,7 @@ export const Settings = ({
 
   return (
     <>
-      <Tooltip
-        title={t('settings.title')}
-        placement={tooltipPlacement}
-        mouseEnterDelay={0.6}
-        open={mobile ? false : undefined}
-      >
+      <MenuTooltip title={t('settings.title')} placement={tooltipPlacement}>
         <div
           role="button"
           aria-label={
@@ -592,7 +588,7 @@ export const Settings = ({
             {updatesAvailable && <UpdateDot />}
           </div>
         </div>
-      </Tooltip>
+      </MenuTooltip>
 
       <Modal
         open={isModalOpen}

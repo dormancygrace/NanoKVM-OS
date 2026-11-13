@@ -157,9 +157,7 @@ export const Menu = () => {
   // The host's LEDs come from the ATX header, as the power button does.
   const showHostLedStatus = atxEnabled && isHostLedStatusVisible;
   // The two panels sit on opposite sides of the menu. In the mobile rail the
-  // locks (three rows, 28 px, 8 px above) are at its top and the host LEDs
-  // (two rows, 18 px, 8 px below) at its bottom; neither scrolls.
-  const railLedHeight = (showKeyboardLedStatus ? 36 : 0) + (showHostLedStatus ? 26 : 0);
+  // locks are at its top and the host LEDs at its bottom; neither scrolls.
 
   useEffect(() => {
     if (menuCloseSignal > 0) {
@@ -317,15 +315,20 @@ export const Menu = () => {
             dismissMenuKey={dismissMenuKey}
             onRequestMobileMenuDismiss={dismissMenus}
           >
-            <div className="nanokvm-touch-toolbar w-[48px] overflow-hidden rounded-[24px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
+            {/* The rail as a whole ends 16 px above the bottom of the screen: the
+                fixed blocks take their height, the item list what is left. */}
+            <div
+              className="nanokvm-touch-toolbar flex w-[48px] flex-col overflow-hidden rounded-[24px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur"
+              style={{ maxHeight: `calc(100dvh - ${placement.top}px - 16px)` }}
+            >
               {/* Above both states of the rail, so the locks show while it is collapsed. */}
               {showKeyboardLedStatus && (
-                <div className="flex h-9 justify-center pt-2">
+                <div className="flex h-9 shrink-0 justify-center pt-2">
                   <KeyboardLedStatus />
                 </div>
               )}
               {/* The handle stays where it is while the items scroll under it. */}
-              <div className="flex flex-col items-center px-1 pt-1">
+              <div className="flex shrink-0 flex-col items-center px-1 pt-1">
                 <strong>
                   <div className="flex size-[40px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
                     <GripVerticalIcon size={18} />
@@ -336,7 +339,7 @@ export const Menu = () => {
               {/* Collapsing hides the items but keeps them mounted: a browser ISO,
                   a recording or an open dialog belongs to its item. */}
               {isMobileRailCollapsed && (
-                <div className="flex flex-col items-center px-1 pb-1">
+                <div className="flex shrink-0 flex-col items-center px-1 pb-1">
                   <Button
                     type="text"
                     className={clsx(mobileRailToggleButtonClass, 'rounded-full')}
@@ -348,14 +351,9 @@ export const Menu = () => {
               )}
               <div
                 className={clsx(
-                  'max-h-[calc(100dvh-96px)] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto px-1 pb-1 *:shrink-0 [&::-webkit-scrollbar]:hidden',
+                  'min-h-0 [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto px-1 pb-1 *:shrink-0 [&::-webkit-scrollbar]:hidden',
                   isMobileRailCollapsed ? 'hidden' : 'flex'
                 )}
-                style={{
-                  // The indicators, the handle (44 px) and its divider (9 px)
-                  // above take their part of the rail's height.
-                  maxHeight: `calc(100dvh - ${placement.top}px - ${16 + railLedHeight + 53}px)`
-                }}
               >
                 {renderMenuItems('mobile')}
 
@@ -373,8 +371,11 @@ export const Menu = () => {
                 )}
               </div>
               {showHostLedStatus && (
-                <div className="flex h-[26px] justify-center pb-2">
-                  <HostLedStatus />
+                <div className="flex shrink-0 flex-col items-center pb-2">
+                  {renderDivider('mobile', 'divider-host-leds')}
+                  <div className="mt-1 flex h-[18px]">
+                    <HostLedStatus />
+                  </div>
                 </div>
               )}
             </div>
@@ -491,9 +492,12 @@ export const Menu = () => {
               </MobileMenuItemProvider>
               {/* The touch toolbar takes the whole width: the panels are inside it, at its ends. */}
               {isMenuExpanded && showHostLedStatus && isTouchLandscapeMenu && (
-                <div className="ml-1 flex h-7 shrink-0">
-                  <HostLedStatus />
-                </div>
+                <>
+                  <Divider type="vertical" className="shrink-0" />
+                  <div className="flex h-7 shrink-0">
+                    <HostLedStatus />
+                  </div>
+                </>
               )}
             </div>
           </div>

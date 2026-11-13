@@ -156,15 +156,10 @@ export const Menu = () => {
   const showKeyboardLedStatus = usbInput.keyboard && isKeyboardLedStatusVisible;
   // The host's LEDs come from the ATX header, as the power button does.
   const showHostLedStatus = atxEnabled && isHostLedStatusVisible;
-  const showLedStatus = showKeyboardLedStatus || showHostLedStatus;
-  // In the mobile rail the panels are stacked: three rows of locks (28 px),
-  // two rows of host LEDs (18 px), 4 px between them and 8 px above.
-  const railLedHeight = !showLedStatus
-    ? 0
-    : 8 +
-      (showKeyboardLedStatus ? 28 : 0) +
-      (showHostLedStatus ? 18 : 0) +
-      (showKeyboardLedStatus && showHostLedStatus ? 4 : 0);
+  // The two panels sit on opposite sides of the menu. In the mobile rail the
+  // locks (three rows, 28 px, 8 px above) are at its top and the host LEDs
+  // (two rows, 18 px, 8 px below) at its bottom; neither scrolls.
+  const railLedHeight = (showKeyboardLedStatus ? 36 : 0) + (showHostLedStatus ? 26 : 0);
 
   useEffect(() => {
     if (menuCloseSignal > 0) {
@@ -324,18 +319,9 @@ export const Menu = () => {
           >
             <div className="nanokvm-touch-toolbar w-[48px] overflow-hidden rounded-[24px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur">
               {/* Above both states of the rail, so the locks show while it is collapsed. */}
-              {showLedStatus && (
-                <div className="flex flex-col items-center gap-1 pt-2">
-                  {showKeyboardLedStatus && (
-                    <div className="flex h-7">
-                      <KeyboardLedStatus />
-                    </div>
-                  )}
-                  {showHostLedStatus && (
-                    <div className="flex h-[18px]">
-                      <HostLedStatus />
-                    </div>
-                  )}
+              {showKeyboardLedStatus && (
+                <div className="flex h-9 justify-center pt-2">
+                  <KeyboardLedStatus />
                 </div>
               )}
               {/* The handle stays where it is while the items scroll under it. */}
@@ -386,6 +372,11 @@ export const Menu = () => {
                   </>
                 )}
               </div>
+              {showHostLedStatus && (
+                <div className="flex h-[26px] justify-center pb-2">
+                  <HostLedStatus />
+                </div>
+              )}
             </div>
           </MobileMenuItemProvider>
         </div>
@@ -456,15 +447,24 @@ export const Menu = () => {
                 isMenuHidden ? 'translate-y-[-110%] opacity-80' : 'translate-y-0 opacity-100'
               )}
             >
-              {isMenuExpanded && showLedStatus && !isTouchLandscapeMenu && (
+              {isMenuExpanded && showKeyboardLedStatus && !isTouchLandscapeMenu && (
                 <div
                   className={clsx(
-                    'absolute inset-y-0 right-full mr-1 flex gap-1 transition-all duration-300',
+                    'absolute inset-y-0 right-full mr-1 transition-all duration-300',
                     isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
                   )}
                 >
-                  {showHostLedStatus && <HostLedStatus />}
-                  {showKeyboardLedStatus && <KeyboardLedStatus />}
+                  <KeyboardLedStatus />
+                </div>
+              )}
+              {isMenuExpanded && showHostLedStatus && !isTouchLandscapeMenu && (
+                <div
+                  className={clsx(
+                    'absolute inset-y-0 left-full ml-1 transition-all duration-300',
+                    isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
+                  )}
+                >
+                  <HostLedStatus />
                 </div>
               )}
               <strong className="shrink-0">
@@ -472,11 +472,9 @@ export const Menu = () => {
                   <GripVerticalIcon size={18} />
                 </div>
               </strong>
-              {/* The touch toolbar takes the whole width: there is no room beside it. */}
-              {isMenuExpanded && showLedStatus && isTouchLandscapeMenu && (
-                <div className="ml-1 flex h-7 shrink-0 gap-1">
-                  {showHostLedStatus && <HostLedStatus />}
-                  {showKeyboardLedStatus && <KeyboardLedStatus />}
+              {isMenuExpanded && showKeyboardLedStatus && isTouchLandscapeMenu && (
+                <div className="ml-1 flex h-7 shrink-0">
+                  <KeyboardLedStatus />
                 </div>
               )}
               <Divider type="vertical" className="shrink-0" />
@@ -491,6 +489,12 @@ export const Menu = () => {
                 {isEnabled('fullscreen') && <Fullscreen />}
                 {isEnabled('collapse') && <Collapse toggleMenu={setIsMenuExpanded} />}
               </MobileMenuItemProvider>
+              {/* The touch toolbar takes the whole width: the panels are inside it, at its ends. */}
+              {isMenuExpanded && showHostLedStatus && isTouchLandscapeMenu && (
+                <div className="ml-1 flex h-7 shrink-0">
+                  <HostLedStatus />
+                </div>
+              )}
             </div>
           </div>
 

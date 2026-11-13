@@ -72,6 +72,7 @@ namespace NanoKvmSensors
             public string UsbId = "3346:1009";
             public int Interval = 5;
             public bool Once;
+            public string LogFile;            // state changes go here too
             public bool Yes;      // install: do not ask before installing the driver
             public bool NoDriver; // install: leave the driver alone
         }
@@ -93,6 +94,9 @@ Options:
   --network [URL]     USB network only; URL such as https://10.1.2.1
   --usb-id VID:PID    the NanoKVM's USB IDs when changed (default 3346:1009)
   --interval SECONDS  period, 1 to 3600 (default 5)
+  --log FILE          also write what happens (state changes only) to FILE;
+                      the installed task logs to
+                      %ProgramData%\NanoKVM\nanokvm-sensors.log
 
 Without --serial or --network each report goes to the serial port when the
 NanoKVM has one, and to the USB network otherwise. The NanoKVM takes one of
@@ -118,6 +122,10 @@ them the report is marked as limited.";
                     case "--no-driver": o.NoDriver = true; break;
                     case "--serial": o.Transport = "serial"; if (hasValue()) o.Port = args[++i]; break;
                     case "--network": o.Transport = "network"; if (hasValue()) o.Url = args[++i]; break;
+                    case "--log":
+                        if (!hasValue()) throw new ArgumentException("--log needs a file");
+                        o.LogFile = args[++i];
+                        break;
                     case "--usb-id":
                         if (!hasValue()) throw new ArgumentException("--usb-id needs VID:PID");
                         o.UsbId = args[++i];
@@ -149,6 +157,11 @@ them the report is marked as limited.";
                 return Schtasks("/Delete /F /TN \"" + TaskName + "\"");
             }
 
+            if (o.LogFile != null)
+            {
+                logFile = Path.GetFullPath(o.LogFile);
+                try { Directory.CreateDirectory(Path.GetDirectoryName(logFile)); } catch (Exception) { }
+            }
             bool limited = !IsElevated() || !PawnIoInstalled();
             bool driver = !limited;
             var computer = new Computer
@@ -187,9 +200,24 @@ them the report is marked as limited.";
             return s.Length == 4 && s.All(Uri.IsHexDigit);
         }
 
+        private static string logFile;
+
+        // Log: state changes only, so the file stays small; it starts anew
+        // once it has grown past 256 KiB.
         private static void Log(string text)
         {
             Console.Error.WriteLine(DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " " + text);
+            if (logFile == null) return;
+            try
+            {
+                var info = new FileInfo(logFile);
+                if (info.Exists && info.Length > 256 << 10) info.Delete();
+                File.AppendAllText(logFile, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture) + " " + text + "\r\n");
+            }
+            catch (Exception)
+            {
+                // A log that cannot be written must not stop the agent.
+            }
         }
 
         private static bool IsElevated()
@@ -396,10 +424,15 @@ them the report is marked as limited.";
                         if (name == null) return "no NanoKVM serial port (USB serial is not in its USB composition)";
                         port = new SerialLink(name);
                     }
+                    // Nothing is written while nobody reads the port there:
+                    // the NanoKVM's side raises the modem lines when it opens
+                    // the port (Computer sensors set to USB serial).
+                    if (!port.Ready())
+                        return port.Name + ": the NanoKVM does not have the port open (Computer sensors is not set to USB serial)";
                     // A line of its own, whatever a write that was cut short
                     // left on the wire: the NanoKVM skips empty lines.
                     if (!port.Write(Encoding.ASCII.GetBytes("\n" + report + "\n"), 3000))
-                        return port.Name + ": the NanoKVM is not reading the port (Computer sensors is not set to USB serial)";
+                        return port.Name + ": the NanoKVM did not take the report in time";
                     State("sending to " + port.Name);
                     return null;
                 }
@@ -537,6 +570,16 @@ them the report is marked as limited.";
                 EscapeCommFunction(handle, 5 /* SETDTR */);
             }
 
+            // Ready: the device's side has the port open. A CDC ACM device
+            // reports that as DSR and carrier (the Linux gadget raises both
+            // when its tty is opened and drops them when it is closed).
+            public bool Ready()
+            {
+                uint status;
+                if (!GetCommModemStatus(handle, out status)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                return (status & (0x20 /* DSR */ | 0x80 /* carrier */)) != 0;
+            }
+
             // Write: true when all of data went out within the time, false
             // when the NanoKVM did not take it. Throws when the port is gone.
             public bool Write(byte[] data, int milliseconds)
@@ -601,6 +644,9 @@ them the report is marked as limited.";
             private static extern bool PurgeComm(SafeFileHandle handle, uint flags);
 
             [DllImport("kernel32.dll", SetLastError = true)]
+            private static extern bool GetCommModemStatus(SafeFileHandle handle, out uint status);
+
+            [DllImport("kernel32.dll", SetLastError = true)]
             private static extern bool EscapeCommFunction(SafeFileHandle handle, uint function);
         }
 
@@ -614,7 +660,12 @@ them the report is marked as limited.";
             if (!IsElevated()) throw new InvalidOperationException("install needs an administrator's console");
             if (!o.NoDriver) InstallDriver(o.Yes);
             string exe = Process.GetCurrentProcess().MainModule.FileName;
-            var rest = args.Where(a => a != "install" && a != "--yes" && a != "--no-driver").Select(a => a.Contains(" ") ? "\"" + a + "\"" : a);
+            var rest = args.Where(a => a != "install" && a != "--yes" && a != "--no-driver").Select(a => a.Contains(" ") ? "\"" + a + "\"" : a).ToList();
+            if (o.LogFile == null)
+            {
+                rest.Add("--log");
+                rest.Add("\"" + Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NanoKVM", "nanokvm-sensors.log") + "\"");
+            }
             // From a definition, not from schtasks' switches: a task made with
             // those is stopped after three days and does not run on battery.
             string xml = TaskXml.Replace("{exe}", System.Security.SecurityElement.Escape(exe))

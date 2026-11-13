@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ComponentProps,
   type MouseEvent,
   type ReactElement,
   type ReactNode,
@@ -29,7 +30,7 @@ type TriggerProps = {
   onContextMenu?: (event: MouseEvent) => void;
 };
 
-type MenuTooltipProps = {
+type MenuTooltipProps = Omit<ComponentProps<typeof Tooltip>, 'children'> & {
   title: ReactNode;
   // Beside the mobile rail by default (the side away from the screen's edge),
   // below the desktop toolbar.
@@ -56,8 +57,11 @@ export function MenuTooltip({
   onOpenChange,
   blocked = false,
   overlayClassName,
-  children
+  children,
+  ...tooltipProps
 }: MenuTooltipProps) {
+  // Popover/Popconfirm inject trigger handlers and a ref into their child.
+  // Forward them to Tooltip so clicks still reach the enclosing popup.
   const context = useContext(MobileMenuItemContext);
   const touch = useMediaQuery('(hover: none)');
   const [pressed, setPressed] = useState(false);
@@ -81,6 +85,7 @@ export function MenuTooltip({
   if (!touch) {
     return (
       <Tooltip
+        {...tooltipProps}
         title={title}
         trigger={['hover', 'focus']}
         mouseEnterDelay={0.6}
@@ -143,6 +148,7 @@ export function MenuTooltip({
 
   return (
     <Tooltip
+      {...tooltipProps}
       title={title}
       trigger={[]}
       placement={side}

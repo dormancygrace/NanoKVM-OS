@@ -33,9 +33,31 @@ type keyboardLedStatusStore struct {
 	subscribers map[int]func(KeyboardLedStatus)
 	nextID      int
 	now         func() time.Time
+	// Where the last report is kept across restarts of the server; empty for
+	// a store that keeps none.
+	stateFile string
 }
 
-var keyboardLeds = newKeyboardLedStatusStore(time.Now)
+// A host reports its lock LEDs when the keyboard appears and when a lock
+// changes, not on request. The kernel queues the reports that arrive while
+// the server is down, but the one the last server read is gone: without the
+// file a restarted server knows nothing until the next key press on a lock.
+// /run does not survive a reboot of the device, after which the host sees a
+// new keyboard and reports again.
+const keyboardLedStateFile = "/run/nanokvm/keyboard-leds"
+
+var keyboardLeds = restoredKeyboardLedStatusStore(keyboardLedStateFile)
+
+func restoredKeyboardLedStatusStore(stateFile string) *keyboardLedStatusStore {
+	store := newKeyboardLedStatusStore(time.Now)
+	store.stateFile = stateFile
+	data, err := os.ReadFile(stateFile)
+	info, statErr := os.Stat(stateFile)
+	if err == nil && statErr == nil && len(data) == 1 {
+		store.status = keyboardLedStatusFromReport(data[0], info.ModTime())
+	}
+	return store
+}
 
 func newKeyboardLedStatusStore(now func() time.Time) *keyboardLedStatusStore {
 	return &keyboardLedStatusStore{
@@ -45,7 +67,7 @@ func newKeyboardLedStatusStore(now func() time.Time) *keyboardLedStatusStore {
 }
 
 // GetKeyboardLedStatus returns a snapshot. Known is false until the host has
-// sent at least one keyboard HID output report.
+// sent a keyboard HID output report since the device started.
 func GetKeyboardLedStatus() KeyboardLedStatus {
 	status := keyboardLeds.Get()
 	status.KeyboardEnabled = KeyboardUSBEnabled()
@@ -90,6 +112,11 @@ func (s *keyboardLedStatusStore) Update(report byte) {
 	if sameKeyboardLedState(previous, next) {
 		s.mutex.Unlock()
 		return
+	}
+	if s.stateFile != "" {
+		if err := os.WriteFile(s.stateFile, []byte{report}, 0o644); err != nil {
+			log.Warnf("keyboard lock state not kept for a restart: %v", err)
+		}
 	}
 
 	subscribers := make([]func(KeyboardLedStatus), 0, len(s.subscribers))

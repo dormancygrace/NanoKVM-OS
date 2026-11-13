@@ -63,7 +63,9 @@ func addonsRouter(r *gin.Engine) {
 			"picoclaw": gin.H{"installed": pico},
 			"ipmi":     gin.H{"installed": ipmiInstalled},
 			"tpu":      gin.H{"installed": tpu, "enabled": vm.ScreenTextEnabled()},
-			"addons":   manifests,
+			// The managed computer's sensors: the add-on carries the agent.
+			"hostSensors": gin.H{"installed": vm.HostSensorsInstalled()},
+			"addons":      manifests,
 		})
 	})
 

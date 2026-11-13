@@ -224,27 +224,6 @@
       "notLogin": "未ログイン",
       "connecting": "接続中",
       "auth": "認証が必要です"
-    },
-    "hostSensors": {
-      "title": "コンピューターのセンサー",
-      "about": "コンピューター上の nanokvm-sensors エージェントが、温度・電圧・ファン回転数を NanoKVM に送信します。",
-      "download": "Windows 用エージェントをダウンロード",
-      "waiting": "エージェントを待機中: まだレポートがありません。",
-      "serialUnavailable": "USB シリアルは USB 構成に含まれていません。",
-      "serialBusy": "シリアルポートは別のセッションが使用中です。",
-      "networkUnavailable": "USB ネットワークは USB 構成に含まれていません。",
-      "serialNote": "このモードがオンの間、Web ターミナルは {{port}} を使用できません。",
-      "age": "{{seconds}} 秒前",
-      "stale": "新しいデータがありません",
-      "limited": "エージェントは管理者権限なし、または PawnIO ドライバーなしで動作しています。プロセッサーとマザーボードのセンサーが欠ける場合があります。",
-      "showAll": "すべての測定値（{{count}}）",
-      "showMain": "主な測定値のみ",
-      "saveFailed": "設定を保存できませんでした。",
-      "mode": {
-        "off": "オフ",
-        "serial": "USB シリアル",
-        "network": "USB ネットワーク"
-      }
     }
   },
   "videoSettings": {
@@ -2580,6 +2559,33 @@
         "failed": "サインインに失敗しました：{{error}}",
         "authError": "サインインが使えなくなりました：{{error}}",
         "changed": "サインイン中にサービス、クライアント ID またはテナントが変更されました。もう一度サインインしてください。"
+      }
+    },
+    "hostSensors": {
+      "title": "コンピューターのセンサー",
+      "about": "コンピューター上の nanokvm-sensors エージェントが、温度・電圧・ファン回転数を NanoKVM に送信します。",
+      "download": "ダウンロード",
+      "waiting": "エージェントを待機中: まだレポートがありません。",
+      "serialUnavailable": "USB シリアルは USB 構成に含まれていません。",
+      "serialBusy": "シリアルポートは別のセッションが使用中です。",
+      "networkUnavailable": "USB ネットワークは USB 構成に含まれていません。",
+      "serialNote": "このモードがオンの間、Web ターミナルは {{port}} を使用できません。",
+      "age": "{{seconds}} 秒前",
+      "stale": "新しいデータがありません",
+      "limited": "エージェントは管理者権限なし、または PawnIO ドライバーなしで動作しています。プロセッサーとマザーボードのセンサーが欠ける場合があります。",
+      "showAll": "すべての測定値（{{count}}）",
+      "showMain": "主な測定値のみ",
+      "saveFailed": "設定を保存できませんでした。",
+      "connection": "接続",
+      "modeLabel": "測定値の受信方法",
+      "agent": "Windows 用エージェント",
+      "agentHint": "コンピューターにコピーし、管理者コンソールで nanokvm-sensors.exe install を実行します。プロセッサーとマザーボードのセンサーに必要な PawnIO ドライバーのインストールを提案し、Windows と一緒に起動します。",
+      "readings": "測定値",
+      "offHint": "測定値の受信方法を選ぶと、ここに表示されます。",
+      "mode": {
+        "off": "オフ",
+        "serial": "USB シリアル",
+        "network": "USB ネットワーク"
       }
     }
   },

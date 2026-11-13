@@ -224,27 +224,6 @@
       "notLogin": "Not signed in",
       "connecting": "Connecting",
       "auth": "Authentication required"
-    },
-    "hostSensors": {
-      "title": "Computer sensors",
-      "about": "The nanokvm-sensors agent on the computer sends its temperatures, voltages and fan speeds to the NanoKVM.",
-      "download": "Download the agent for Windows",
-      "waiting": "Waiting for the agent: no report yet.",
-      "serialUnavailable": "USB serial is not part of the USB composition.",
-      "serialBusy": "The serial port is held by another session.",
-      "networkUnavailable": "The USB network is not part of the USB composition.",
-      "serialNote": "While this mode is on, the web terminal cannot use {{port}}.",
-      "age": "{{seconds}} s ago",
-      "stale": "No fresh data",
-      "limited": "The agent runs without administrator rights or without the PawnIO driver: processor and board sensors may be missing.",
-      "showAll": "All readings ({{count}})",
-      "showMain": "Main readings only",
-      "saveFailed": "The setting could not be saved.",
-      "mode": {
-        "off": "Off",
-        "serial": "USB serial",
-        "network": "USB network"
-      }
     }
   },
   "videoSettings": {
@@ -2580,6 +2559,33 @@
         "failed": "Sign-in failed: {{error}}",
         "authError": "The sign-in no longer works: {{error}}",
         "changed": "The service, client ID or tenant changed during the sign-in. Sign in again."
+      }
+    },
+    "hostSensors": {
+      "title": "Computer sensors",
+      "about": "The nanokvm-sensors agent on the computer sends its temperatures, voltages and fan speeds to the NanoKVM.",
+      "download": "Download",
+      "waiting": "Waiting for the agent: no report yet.",
+      "serialUnavailable": "USB serial is not part of the USB composition.",
+      "serialBusy": "The serial port is held by another session.",
+      "networkUnavailable": "The USB network is not part of the USB composition.",
+      "serialNote": "While this mode is on, the web terminal cannot use {{port}}.",
+      "age": "{{seconds}} s ago",
+      "stale": "No fresh data",
+      "limited": "The agent runs without administrator rights or without the PawnIO driver: processor and board sensors may be missing.",
+      "showAll": "All readings ({{count}})",
+      "showMain": "Main readings only",
+      "saveFailed": "The setting could not be saved.",
+      "connection": "Connection",
+      "modeLabel": "How the readings arrive",
+      "agent": "Agent for Windows",
+      "agentHint": "Copy it to the computer and run in an administrator's console: nanokvm-sensors.exe install. It offers to install the PawnIO driver, which processor and board sensors need, and starts with Windows.",
+      "readings": "Readings",
+      "offHint": "Choose how the readings arrive to see them here.",
+      "mode": {
+        "off": "Off",
+        "serial": "USB serial",
+        "network": "USB network"
       }
     }
   },

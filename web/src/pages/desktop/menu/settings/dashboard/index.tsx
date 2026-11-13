@@ -33,7 +33,6 @@ import { WireGuardIcon } from '@/components/icons/wireguard';
 import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { summarizeVPN, vpnProviders } from '../vpn/providers.ts';
-import { HostSensors } from './host-sensors.tsx';
 
 type CPU = { total: number; idle: number };
 type Disk = {
@@ -608,7 +607,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
         </div>,
         admin ? 'network-general' : undefined
       )}
-      <HostSensors admin={admin} />
       <div className="grid gap-4 md:grid-cols-2">
         {admin &&
           section(

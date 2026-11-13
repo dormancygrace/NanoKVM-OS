@@ -224,27 +224,6 @@
       "notLogin": "未登录",
       "connecting": "连接中",
       "auth": "需要认证"
-    },
-    "hostSensors": {
-      "title": "计算机传感器",
-      "about": "计算机上的 nanokvm-sensors 代理将其温度、电压和风扇转速发送到 NanoKVM。",
-      "download": "下载 Windows 代理",
-      "waiting": "正在等待代理：尚无报告。",
-      "serialUnavailable": "USB 串口不在 USB 组合中。",
-      "serialBusy": "串口正被另一个会话占用。",
-      "networkUnavailable": "USB 网络不在 USB 组合中。",
-      "serialNote": "启用此模式时，网页终端无法使用 {{port}}。",
-      "age": "{{seconds}} 秒前",
-      "stale": "没有新数据",
-      "limited": "代理在没有管理员权限或没有 PawnIO 驱动的情况下运行：可能缺少处理器和主板传感器。",
-      "showAll": "全部读数（{{count}}）",
-      "showMain": "仅主要读数",
-      "saveFailed": "无法保存设置。",
-      "mode": {
-        "off": "关闭",
-        "serial": "USB 串口",
-        "network": "USB 网络"
-      }
     }
   },
   "videoSettings": {
@@ -2580,6 +2559,33 @@
         "failed": "登录失败：{{error}}",
         "authError": "登录已失效：{{error}}",
         "changed": "登录期间服务、客户端 ID 或租户已更改。请重新登录。"
+      }
+    },
+    "hostSensors": {
+      "title": "计算机传感器",
+      "about": "计算机上的 nanokvm-sensors 代理将其温度、电压和风扇转速发送到 NanoKVM。",
+      "download": "下载",
+      "waiting": "正在等待代理：尚无报告。",
+      "serialUnavailable": "USB 串口不在 USB 组合中。",
+      "serialBusy": "串口正被另一个会话占用。",
+      "networkUnavailable": "USB 网络不在 USB 组合中。",
+      "serialNote": "启用此模式时，网页终端无法使用 {{port}}。",
+      "age": "{{seconds}} 秒前",
+      "stale": "没有新数据",
+      "limited": "代理在没有管理员权限或没有 PawnIO 驱动的情况下运行：可能缺少处理器和主板传感器。",
+      "showAll": "全部读数（{{count}}）",
+      "showMain": "仅主要读数",
+      "saveFailed": "无法保存设置。",
+      "connection": "连接",
+      "modeLabel": "读数的传输方式",
+      "agent": "Windows 代理",
+      "agentHint": "将其复制到计算机，并在管理员控制台中运行：nanokvm-sensors.exe install。它会提示安装处理器和主板传感器所需的 PawnIO 驱动，并随 Windows 启动。",
+      "readings": "读数",
+      "offHint": "选择读数的传输方式后即可在此查看。",
+      "mode": {
+        "off": "关闭",
+        "serial": "USB 串口",
+        "network": "USB 网络"
       }
     }
   },

@@ -224,27 +224,6 @@
       "notLogin": "Nicht angemeldet",
       "connecting": "Verbinden",
       "auth": "Authentifizierung erforderlich"
-    },
-    "hostSensors": {
-      "title": "Sensoren des Computers",
-      "about": "Der Agent nanokvm-sensors auf dem Computer sendet dessen Temperaturen, Spannungen und Lüfterdrehzahlen an das NanoKVM.",
-      "download": "Agent für Windows herunterladen",
-      "waiting": "Warten auf den Agenten: noch kein Bericht.",
-      "serialUnavailable": "USB-Seriell ist nicht Teil der USB-Zusammenstellung.",
-      "serialBusy": "Der serielle Anschluss wird von einer anderen Sitzung verwendet.",
-      "networkUnavailable": "Das USB-Netzwerk ist nicht Teil der USB-Zusammenstellung.",
-      "serialNote": "Solange dieser Modus aktiv ist, kann das Web-Terminal {{port}} nicht verwenden.",
-      "age": "vor {{seconds}} s",
-      "stale": "Keine aktuellen Daten",
-      "limited": "Der Agent läuft ohne Administratorrechte oder ohne den PawnIO-Treiber: Prozessor- und Mainboard-Sensoren können fehlen.",
-      "showAll": "Alle Messwerte ({{count}})",
-      "showMain": "Nur die wichtigsten Messwerte",
-      "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",
-      "mode": {
-        "off": "Aus",
-        "serial": "USB-Seriell",
-        "network": "USB-Netzwerk"
-      }
     }
   },
   "videoSettings": {
@@ -2580,6 +2559,33 @@
         "failed": "Anmeldung fehlgeschlagen: {{error}}",
         "authError": "Die Anmeldung funktioniert nicht mehr: {{error}}",
         "changed": "Dienst, Client-ID oder Tenant wurden während der Anmeldung geändert. Melden Sie sich erneut an."
+      }
+    },
+    "hostSensors": {
+      "title": "Sensoren des Computers",
+      "about": "Der Agent nanokvm-sensors auf dem Computer sendet dessen Temperaturen, Spannungen und Lüfterdrehzahlen an das NanoKVM.",
+      "download": "Herunterladen",
+      "waiting": "Warten auf den Agenten: noch kein Bericht.",
+      "serialUnavailable": "USB-Seriell ist nicht Teil der USB-Zusammenstellung.",
+      "serialBusy": "Der serielle Anschluss wird von einer anderen Sitzung verwendet.",
+      "networkUnavailable": "Das USB-Netzwerk ist nicht Teil der USB-Zusammenstellung.",
+      "serialNote": "Solange dieser Modus aktiv ist, kann das Web-Terminal {{port}} nicht verwenden.",
+      "age": "vor {{seconds}} s",
+      "stale": "Keine aktuellen Daten",
+      "limited": "Der Agent läuft ohne Administratorrechte oder ohne den PawnIO-Treiber: Prozessor- und Mainboard-Sensoren können fehlen.",
+      "showAll": "Alle Messwerte ({{count}})",
+      "showMain": "Nur die wichtigsten Messwerte",
+      "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",
+      "connection": "Verbindung",
+      "modeLabel": "Übertragung der Messwerte",
+      "agent": "Agent für Windows",
+      "agentHint": "Auf den Computer kopieren und in einer Administrator-Konsole ausführen: nanokvm-sensors.exe install. Er bietet an, den PawnIO-Treiber zu installieren, den Prozessor- und Mainboard-Sensoren benötigen, und startet mit Windows.",
+      "readings": "Messwerte",
+      "offHint": "Wählen Sie, wie die Messwerte übertragen werden, um sie hier zu sehen.",
+      "mode": {
+        "off": "Aus",
+        "serial": "USB-Seriell",
+        "network": "USB-Netzwerk"
       }
     }
   },

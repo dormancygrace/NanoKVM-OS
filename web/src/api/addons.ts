@@ -7,6 +7,8 @@ export type AddonInventory = {
   // Absent from servers older than the TPU add-on.
   // enabled: text recognition is on (absent from older servers: on).
   tpu?: { installed: boolean; enabled?: boolean };
+  // The computer's sensors (Services > Computer sensors); absent from older servers.
+  hostSensors?: { installed: boolean };
   // Add-ons that describe themselves (server/service/addons, docs/ADDONS.md).
   addons?: AddonManifest[];
 };

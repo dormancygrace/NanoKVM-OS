@@ -22,7 +22,9 @@ import (
 
 // The managed computer's sensors (temperatures, voltages, fans): an agent on
 // that computer, nanokvm-sensors, reads them and sends a report every few
-// seconds. hostSensorsFile says how the NanoKVM takes them:
+// seconds. The agent comes with the add-on nanokvm-host-sensors; without the
+// add-on nothing here runs, answers or shows (HostSensorsInstalled).
+// hostSensorsFile says how the NanoKVM takes the reports:
 //
 //	off      not at all (absent file)
 //	serial   lines on the USB serial port (/dev/ttyGS0). The server holds the
@@ -46,10 +48,19 @@ const (
 )
 
 var (
-	hostSensorsShareDir  = "/kvmapp/system/share/host-sensors"
+	// The add-on's files: the agent the computer downloads.
+	hostSensorsShareDir  = "/usr/share/nanokvm/host-sensors"
 	hostSensorsInterface = "usb0"
 	hostSensorsDevice    = serialConsoleDevice
 )
+
+// HostSensorsInstalled: the add-on is installed (its agent is there). Read on
+// every use, as the add-on inventory is: installing or removing the add-on
+// needs no server restart.
+func HostSensorsInstalled() bool {
+	info, err := os.Stat(hostSensorsAgentFile())
+	return err == nil && info.Mode().IsRegular()
+}
 
 func hostSensorsMode() string {
 	data, err := os.ReadFile(hostSensorsFile)
@@ -104,8 +115,40 @@ func applyHostSensorsMode(mode string) {
 	}()
 }
 
-// StartHostSensors applies the saved mode at the server's start.
-func StartHostSensors() { applyHostSensorsMode(hostSensorsMode()) }
+// hostSensorsApply serialises the changes of the reader: the setting, and
+// the watch below.
+var hostSensorsApply sync.Mutex
+
+// reconcileHostSensors makes the serial reader match the add-on and the
+// mode: it runs while the add-on is installed and the mode is serial.
+func reconcileHostSensors() {
+	hostSensorsApply.Lock()
+	defer hostSensorsApply.Unlock()
+	want := HostSensorsInstalled() && hostSensorsMode() == hostSensorsSerial
+	r := &hostSensorsSerialReader
+	r.Lock()
+	running := r.stop != nil
+	r.Unlock()
+	switch {
+	case want && !running:
+		applyHostSensorsMode(hostSensorsSerial)
+	case !want && running:
+		applyHostSensorsMode(hostSensorsOff)
+		hostsensors.Default.Clear()
+	}
+}
+
+// StartHostSensors applies the saved mode at the server's start and then
+// follows the add-on: installed later, the reader starts; removed, it lets
+// the serial port go.
+func StartHostSensors() {
+	reconcileHostSensors()
+	go func() {
+		for range time.Tick(10 * time.Second) {
+			reconcileHostSensors()
+		}
+	}()
+}
 
 func hostSensorsWait(stop <-chan struct{}, d time.Duration) bool {
 	select {
@@ -229,7 +272,7 @@ func hostSensorsNetworks() []*net.IPNet {
 // network mode and only from the USB network. A JSON content type keeps a
 // web page in the computer's browser from posting without a preflight.
 func (s *Service) PostHostSensors(c *gin.Context) {
-	if hostSensorsMode() != hostSensorsNetwork {
+	if !HostSensorsInstalled() || hostSensorsMode() != hostSensorsNetwork {
 		c.String(http.StatusForbidden, "host sensors over the network are off on this NanoKVM")
 		return
 	}
@@ -269,8 +312,9 @@ func hostSensorsState() gin.H {
 		agent.Available, agent.Sha256, agent.Size = true, sum, size
 	}
 	return gin.H{
-		"mode":   hostSensorsMode(),
-		"serial": gin.H{"port": hostSensorsDevice, "state": serialState},
+		"installed": HostSensorsInstalled(),
+		"mode":      hostSensorsMode(),
+		"serial":    gin.H{"port": hostSensorsDevice, "state": serialState},
 		// The NanoKVM's addresses on the USB network; empty without it.
 		"network": gin.H{"interface": hostSensorsInterface, "addresses": addresses, "path": HostSensorsIngestPath},
 		"agent":   agent,
@@ -296,12 +340,18 @@ func (s *Service) SetHostSensors(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "mode is off, serial or network")
 		return
 	}
+	if !HostSensorsInstalled() {
+		rsp.ErrRsp(c, -3, "the host sensors add-on is not installed")
+		return
+	}
 	if err := atomicfile.Write(hostSensorsFile, []byte(req.Mode+"\n"), 0o644); err != nil {
 		log.Errorf("host sensors setting: %v", err)
 		rsp.ErrRsp(c, -2, "the setting could not be saved")
 		return
 	}
-	applyHostSensorsMode(req.Mode)
+	hostSensorsApply.Lock()
+	applyHostSensorsMode(map[bool]string{true: hostSensorsSerial, false: hostSensorsOff}[req.Mode == hostSensorsSerial])
+	hostSensorsApply.Unlock()
 	// A report that came the other way, or before the switch-off, is not
 	// what the new mode shows.
 	hostsensors.Default.Clear()

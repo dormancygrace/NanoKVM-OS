@@ -147,9 +147,9 @@ export const Menu = () => {
     setIsMenuExpanded
   } = useMenuVisibility();
 
-  const menuBounds = useMenuBounds(nodeRef, isMenuExpanded);
   const responsiveDevice = useResponsiveDevice();
   const isMobileRailActive = responsiveDevice.isMobilePortrait;
+  const menuBounds = useMenuBounds(nodeRef, isMenuExpanded, !isMobileRailActive);
   const isTouchLandscapeMenu =
     responsiveDevice.isTouchLikeDevice && responsiveDevice.isLandscapeViewport;
   const { placement, updatePlacement } = useMobileMenuPlacement();
@@ -396,7 +396,7 @@ export const Menu = () => {
       <div
         ref={nodeRef}
         className={clsx(
-          'pointer-events-none fixed top-[10px] left-1/2 z-1000 w-max transition-opacity duration-300',
+          'pointer-events-none fixed top-[10px] left-1/2 z-1000 w-max max-w-[calc(100vw-16px)] transition-opacity duration-300',
           isInitialized ? 'opacity-100' : 'opacity-0'
         )}
       >
@@ -440,34 +440,24 @@ export const Menu = () => {
           )}
 
           <div className="sticky top-[10px] flex w-full justify-center">
+            {isMenuExpanded && showKeyboardLedStatus && !isTouchLandscapeMenu && (
+              <div
+                className={clsx(
+                  'mr-1 flex h-[36px] shrink-0 transition-all duration-300',
+                  isMenuHidden ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
+                )}
+              >
+                <KeyboardLedStatus />
+              </div>
+            )}
             <div
               className={clsx(
-                'pointer-events-auto max-w-[calc(100vw-16px)] items-center rounded bg-neutral-800/80 pr-2 pl-1 transition-all duration-300',
+                'pointer-events-auto min-w-0 items-center rounded bg-neutral-800/80 pr-2 pl-1 transition-all duration-300',
                 isTouchLandscapeMenu ? 'nanokvm-touch-toolbar h-[44px]' : 'h-[36px]',
                 isMenuExpanded ? 'flex' : 'hidden',
                 isMenuHidden ? 'translate-y-[-110%] opacity-80' : 'translate-y-0 opacity-100'
               )}
             >
-              {isMenuExpanded && showKeyboardLedStatus && !isTouchLandscapeMenu && (
-                <div
-                  className={clsx(
-                    'absolute inset-y-0 right-full mr-1 transition-all duration-300',
-                    isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
-                  )}
-                >
-                  <KeyboardLedStatus />
-                </div>
-              )}
-              {isMenuExpanded && showHostLedStatus && !isTouchLandscapeMenu && (
-                <div
-                  className={clsx(
-                    'absolute inset-y-0 left-full ml-1 transition-all duration-300',
-                    isMenuHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
-                  )}
-                >
-                  <HostLedStatus />
-                </div>
-              )}
               <strong className="shrink-0">
                 <div className="flex h-[30px] cursor-move items-center justify-center pl-1 text-neutral-500 select-none">
                   <GripVerticalIcon size={18} />
@@ -500,6 +490,16 @@ export const Menu = () => {
                 </>
               )}
             </div>
+            {isMenuExpanded && showHostLedStatus && !isTouchLandscapeMenu && (
+              <div
+                className={clsx(
+                  'ml-1 flex h-[36px] shrink-0 transition-all duration-300',
+                  isMenuHidden ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
+                )}
+              >
+                <HostLedStatus />
+              </div>
+            )}
           </div>
 
           {!isMenuExpanded && (

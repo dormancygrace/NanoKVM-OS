@@ -8,7 +8,7 @@ import { LedIndicator, LedPanel, type LedState } from '../led-indicator';
 type HostLeds = { pwr: boolean; hdd: boolean } | null;
 
 // The power and disk LEDs of the host's front panel, as the ATX header
-// reports them: green for power, red for disk activity.
+// reports them: green for power, a soft red for disk activity.
 export function HostLedStatus() {
   const { t } = useTranslation('translation', { keyPrefix: 'settings' });
   const [leds, setLeds] = useState<HostLeds>(null);
@@ -34,8 +34,7 @@ export function HostLedStatus() {
         shortLabel={t('hostLedStatus.hddLedShort')}
         symbol="H"
         state={state(leds?.hdd)}
-        onClassName="bg-red-500"
-        onSymbolClassName="text-white"
+        onClassName="bg-red-400"
       />
     </LedPanel>
   );

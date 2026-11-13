@@ -338,15 +338,19 @@ export const Menu = () => {
                   )}
                 </div>
               )}
+              {/* The handle stays where it is while the items scroll under it. */}
+              <div className="flex flex-col items-center px-1 pt-1">
+                <strong>
+                  <div className="flex size-[40px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
+                    <GripVerticalIcon size={18} />
+                  </div>
+                </strong>
+                {!isMobileRailCollapsed && renderDivider('mobile', 'divider-handle')}
+              </div>
               {/* Collapsing hides the items but keeps them mounted: a browser ISO,
                   a recording or an open dialog belongs to its item. */}
               {isMobileRailCollapsed && (
-                <div className="flex flex-col items-center p-1">
-                  <strong>
-                    <div className="flex size-[40px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
-                      <GripVerticalIcon size={18} />
-                    </div>
-                  </strong>
+                <div className="flex flex-col items-center px-1 pb-1">
                   <Button
                     type="text"
                     className={clsx(mobileRailToggleButtonClass, 'rounded-full')}
@@ -358,21 +362,15 @@ export const Menu = () => {
               )}
               <div
                 className={clsx(
-                  'max-h-[calc(100dvh-96px)] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto p-1 *:shrink-0 [&::-webkit-scrollbar]:hidden',
+                  'max-h-[calc(100dvh-96px)] [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto px-1 pb-1 *:shrink-0 [&::-webkit-scrollbar]:hidden',
                   isMobileRailCollapsed ? 'hidden' : 'flex'
                 )}
                 style={{
-                  // The indicators above take their part of the rail's height.
-                  maxHeight: `calc(100dvh - ${placement.top}px - ${16 + railLedHeight}px)`
+                  // The indicators, the handle (44 px) and its divider (9 px)
+                  // above take their part of the rail's height.
+                  maxHeight: `calc(100dvh - ${placement.top}px - ${16 + railLedHeight + 53}px)`
                 }}
               >
-                <strong>
-                  <div className="flex size-[40px] cursor-move items-center justify-center rounded text-neutral-500 select-none">
-                    <GripVerticalIcon size={18} />
-                  </div>
-                </strong>
-
-                {renderDivider('mobile', 'divider-handle')}
                 {renderMenuItems('mobile')}
 
                 {isEnabled('collapse') && (

@@ -2563,7 +2563,28 @@
     "fps": "Výstup / požadováno",
     "sdSwap": "Stránkování na SD kartu",
     "bootStorage": "Zavádění systému",
-    "disconnected": "Bez připojení"
+    "disconnected": "Bez připojení",
+    "hostSensors": {
+      "title": "Senzory počítače",
+      "about": "Agent nanokvm-sensors v počítači posílá do NanoKVM jeho teploty, napětí a otáčky ventilátorů.",
+      "download": "Stáhnout agenta pro Windows",
+      "waiting": "Čeká se na agenta: zatím žádné hlášení.",
+      "serialUnavailable": "USB sériový port není součástí USB kompozice.",
+      "serialBusy": "Sériový port používá jiná relace.",
+      "networkUnavailable": "USB síť není součástí USB kompozice.",
+      "serialNote": "Dokud je tento režim zapnutý, webový terminál nemůže používat {{port}}.",
+      "age": "před {{seconds}} s",
+      "stale": "Žádná čerstvá data",
+      "limited": "Agent běží bez práv správce nebo bez ovladače PawnIO: senzory procesoru a desky mohou chybět.",
+      "showAll": "Všechny hodnoty ({{count}})",
+      "showMain": "Jen hlavní hodnoty",
+      "saveFailed": "Nastavení se nepodařilo uložit.",
+      "mode": {
+        "off": "Vypnuto",
+        "serial": "USB sériový port",
+        "network": "USB síť"
+      }
+    }
   },
   "audio": {
     "volume": "Hlasitost",

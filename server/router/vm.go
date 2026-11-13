@@ -87,6 +87,15 @@ func vmRouter(r *gin.Engine) {
 	// Public: the host fetches the script with curl/wget and has no credentials.
 	r.GET(vm.SerialConsoleScriptPath, service.ServeSerialConsoleScript)
 
+	// The managed computer's sensors, sent by the nanokvm-sensors agent.
+	vm.StartHostSensors()
+	api.GET("/vm/host-sensors", service.GetHostSensors)
+	admin.PUT("/vm/host-sensors", service.SetHostSensors)
+	// Public: the computer has no credentials. Network mode and the USB
+	// network only (PostHostSensors checks both).
+	r.POST(vm.HostSensorsIngestPath, service.PostHostSensors)
+	r.GET(vm.HostSensorsAgentPath, service.ServeHostSensorsAgent)
+
 	admin.GET("/vm/usb-internet", service.GetUSBInternet)
 	admin.PUT("/vm/usb-internet", service.SetUSBInternet)
 

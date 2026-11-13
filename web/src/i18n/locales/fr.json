@@ -224,6 +224,27 @@
       "notLogin": "Non connecté",
       "connecting": "Connexion",
       "auth": "Authentification requise"
+    },
+    "hostSensors": {
+      "title": "Capteurs de l’ordinateur",
+      "about": "L’agent nanokvm-sensors de l’ordinateur envoie au NanoKVM ses températures, tensions et vitesses de ventilateurs.",
+      "download": "Télécharger l’agent pour Windows",
+      "waiting": "En attente de l’agent : aucun rapport pour le moment.",
+      "serialUnavailable": "Le port série USB ne fait pas partie de la composition USB.",
+      "serialBusy": "Le port série est utilisé par une autre session.",
+      "networkUnavailable": "Le réseau USB ne fait pas partie de la composition USB.",
+      "serialNote": "Tant que ce mode est actif, le terminal web ne peut pas utiliser {{port}}.",
+      "age": "il y a {{seconds}} s",
+      "stale": "Pas de données récentes",
+      "limited": "L’agent s’exécute sans droits d’administrateur ou sans le pilote PawnIO : les capteurs du processeur et de la carte mère peuvent manquer.",
+      "showAll": "Toutes les mesures ({{count}})",
+      "showMain": "Mesures principales seulement",
+      "saveFailed": "Le réglage n’a pas pu être enregistré.",
+      "mode": {
+        "off": "Désactivé",
+        "serial": "USB série",
+        "network": "Réseau USB"
+      }
     }
   },
   "videoSettings": {

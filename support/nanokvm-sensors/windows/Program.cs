@@ -1,0 +1,578 @@
+// nanokvm-sensors for Windows: reads this computer's sensors (temperatures,
+// voltages, fan speeds and the like) with LibreHardwareMonitorLib and sends
+// a report every few seconds to the NanoKVM plugged into it, over the
+// NanoKVM's USB serial port or its USB network. The NanoKVM's dashboard
+// shows the last report. The report format is in server/hostsensors.
+//
+// Most processor and board sensors need administrator rights and the PawnIO
+// driver (https://pawnio.eu), which this program neither carries nor
+// installs; without them it sends what it can read and says so ("limited").
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.IO.Ports;
+using System.Linq;
+using System.Management;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Security.Principal;
+using System.Text;
+using System.Threading;
+using LibreHardwareMonitor.Hardware;
+using Microsoft.Win32;
+
+namespace NanoKvmSensors
+{
+    internal static class Program
+    {
+        private const string AgentVersion = "1";
+        private const string TaskName = "NanoKVM Sensors";
+        // The report format's bounds (server/hostsensors).
+        private const int MaxSensors = 1024;
+        private const int MaxText = 96;
+
+        private static int Main(string[] args)
+        {
+            // The libraries are inside the exe: one file to copy.
+            AppDomain.CurrentDomain.AssemblyResolve += LoadEmbedded;
+            try
+            {
+                return Run(args);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine("nanokvm-sensors: " + e.Message);
+                return 1;
+            }
+        }
+
+        private static Assembly LoadEmbedded(object sender, ResolveEventArgs e)
+        {
+            string name = "lib/" + new AssemblyName(e.Name).Name + ".dll";
+            using (Stream s = Assembly.GetExecutingAssembly().GetManifestResourceStream(name))
+            {
+                if (s == null) return null;
+                byte[] data = new byte[s.Length];
+                int done = 0;
+                while (done < data.Length) done += s.Read(data, done, data.Length - done);
+                return Assembly.Load(data);
+            }
+        }
+
+        private sealed class Options
+        {
+            public string Transport = "auto"; // auto, serial, network
+            public string Port;               // COMn, or found by the USB IDs
+            public string Url;                // https://address, or found by the adapter
+            public string UsbId = "3346:1009";
+            public int Interval = 5;
+            public bool Once;
+            public bool Yes;      // install: do not ask before installing the driver
+            public bool NoDriver; // install: leave the driver alone
+        }
+
+        private const string Usage =
+@"nanokvm-sensors: send this computer's sensors to the NanoKVM plugged into it.
+
+  nanokvm-sensors [options]     run until stopped (Ctrl+C)
+  nanokvm-sensors --once        print one report and exit
+  nanokvm-sensors install       start with Windows (a scheduled task as SYSTEM;
+                                needs an administrator's console). Offers to
+                                install the PawnIO driver first when it is
+                                missing or older than 2.0 (--yes: without
+                                asking, --no-driver: not at all)
+  nanokvm-sensors uninstall     remove that task
+
+Options:
+  --serial [COMn]     USB serial only; the port is found by the USB IDs
+  --network [URL]     USB network only; URL such as https://10.1.2.1
+  --usb-id VID:PID    the NanoKVM's USB IDs when changed (default 3346:1009)
+  --interval SECONDS  period, 1 to 3600 (default 5)
+
+Without --serial or --network each report goes to the serial port when the
+NanoKVM has one, and to the USB network otherwise. The NanoKVM takes one of
+the two: Dashboard > Computer sensors.
+
+Processor and board sensors need administrator rights and the PawnIO driver
+(https://pawnio.eu, GPL-2.0; its installer is inside this program). Without
+them the report is marked as limited.";
+
+        private static int Run(string[] args)
+        {
+            var o = new Options();
+            string command = null;
+            for (int i = 0; i < args.Length; i++)
+            {
+                string a = args[i];
+                Func<bool> hasValue = () => i + 1 < args.Length && !args[i + 1].StartsWith("-");
+                switch (a)
+                {
+                    case "install": case "uninstall": command = a; break;
+                    case "--once": o.Once = true; break;
+                    case "--yes": o.Yes = true; break;
+                    case "--no-driver": o.NoDriver = true; break;
+                    case "--serial": o.Transport = "serial"; if (hasValue()) o.Port = args[++i]; break;
+                    case "--network": o.Transport = "network"; if (hasValue()) o.Url = args[++i]; break;
+                    case "--usb-id":
+                        if (!hasValue()) throw new ArgumentException("--usb-id needs VID:PID");
+                        o.UsbId = args[++i];
+                        break;
+                    case "--interval":
+                        if (!hasValue() || !int.TryParse(args[++i], out o.Interval) || o.Interval < 1 || o.Interval > 3600)
+                            throw new ArgumentException("--interval needs 1 to 3600 seconds");
+                        break;
+                    case "-h": case "--help": case "/?":
+                        Console.WriteLine(Usage);
+                        return 0;
+                    default:
+                        throw new ArgumentException("unknown argument " + a + " (see --help)");
+                }
+            }
+            string[] id = o.UsbId.Split(':');
+            if (id.Length != 2 || !IsHex4(id[0]) || !IsHex4(id[1])) throw new ArgumentException("--usb-id needs VID:PID, four hex digits each");
+            if (o.Url != null)
+            {
+                Uri u;
+                if (!Uri.TryCreate(o.Url, UriKind.Absolute, out u) || (u.Scheme != "https" && u.Scheme != "http"))
+                    throw new ArgumentException("--network needs a URL such as https://10.1.2.1");
+            }
+            if (command == "install") return Install(args, o);
+            if (command == "uninstall") return Schtasks("/Delete /F /TN \"" + TaskName + "\"");
+
+            bool driver = PawnIoInstalled();
+            bool limited = !IsElevated() || !driver;
+            var computer = new Computer
+            {
+                IsCpuEnabled = true, IsGpuEnabled = true, IsMemoryEnabled = true, IsMotherboardEnabled = true,
+                IsStorageEnabled = true, IsControllerEnabled = true, IsPsuEnabled = true, IsBatteryEnabled = true,
+                IsNetworkEnabled = false
+            };
+            computer.Open();
+            try
+            {
+                if (o.Once)
+                {
+                    Console.WriteLine(Report(computer, o.Interval, limited, driver));
+                    return 0;
+                }
+                var stop = new ManualResetEvent(false);
+                Console.CancelKeyPress += (s, e) => { e.Cancel = true; stop.Set(); };
+                Log("started" + (limited ? " (limited: no administrator rights or no PawnIO driver)" : ""));
+                var sender = new Sender(o);
+                do
+                {
+                    sender.Send(Report(computer, o.Interval, limited, driver));
+                } while (!stop.WaitOne(TimeSpan.FromSeconds(o.Interval)));
+                sender.Close();
+                return 0;
+            }
+            finally
+            {
+                computer.Close();
+            }
+        }
+
+        private static bool IsHex4(string s)
+        {
+            return s.Length == 4 && s.All(Uri.IsHexDigit);
+        }
+
+        private static void Log(string text)
+        {
+            Console.Error.WriteLine(DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + " " + text);
+        }
+
+        private static bool IsElevated()
+        {
+            using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+                return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+        }
+
+        // What LibreHardwareMonitorLib itself looks for: the installer's
+        // entry in the registry. null: not installed.
+        private static Version PawnIoVersion()
+        {
+            foreach (RegistryView view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+            {
+                using (RegistryKey root = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view))
+                using (RegistryKey key = root.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO"))
+                {
+                    if (key == null) continue;
+                    Version version;
+                    return Version.TryParse(Convert.ToString(key.GetValue("DisplayVersion")), out version) ? version : new Version(0, 0);
+                }
+            }
+            return null;
+        }
+
+        private static bool PawnIoInstalled()
+        {
+            return PawnIoVersion() != null;
+        }
+
+        // ---- the report -------------------------------------------------
+
+        private static string Kind(SensorType type, ref float value)
+        {
+            switch (type.ToString())
+            {
+                case "Temperature": return "temperature";
+                case "Voltage": return "voltage";
+                case "Current": return "current";
+                case "Power": return "power";
+                case "Fan": return "fan";
+                case "Control": return "control";
+                case "Load": return "load";
+                case "Level": return "level";
+                case "Clock": return "clock";
+                case "Frequency": return "frequency";
+                case "Data": return "data";
+                case "SmallData": return "smalldata";
+                case "Throughput": return "throughput";
+                case "Energy": return "energy";
+                case "Humidity": return "humidity";
+                case "Flow": return "flow";
+                case "Noise": return "noise";
+                case "Factor": return "factor";
+                default: return null; // a kind the report format does not have
+            }
+        }
+
+        private static string HardwareClass(HardwareType type)
+        {
+            string name = type.ToString();
+            if (name == "Cpu") return "cpu";
+            if (name.StartsWith("Gpu")) return "gpu";
+            if (name == "Motherboard" || name == "SuperIO" || name == "EmbeddedController") return "motherboard";
+            if (name == "Memory") return "memory";
+            if (name == "Storage") return "storage";
+            if (name == "Network") return "network";
+            if (name == "Cooler") return "cooler";
+            if (name == "Psu") return "psu";
+            if (name == "Battery") return "battery";
+            return "other";
+        }
+
+        // Without the PawnIO driver the library reads no processor or board
+        // register and reports zeros and defaults for them (0 W, 1.55 V):
+        // of those parts only the load, which Windows itself counts, is real.
+        private static void Collect(IHardware hardware, List<string> sensors, bool driver)
+        {
+            hardware.Update();
+            string hw = Json(hardware.Name), type = HardwareClass(hardware.HardwareType);
+            bool loadOnly = !driver && (type == "cpu" || type == "motherboard");
+            foreach (ISensor sensor in hardware.Sensors)
+            {
+                if (sensors.Count >= MaxSensors) return;
+                if (!sensor.Value.HasValue) continue;
+                float value = sensor.Value.Value;
+                if (float.IsNaN(value) || float.IsInfinity(value)) continue;
+                string kind = Kind(sensor.SensorType, ref value);
+                string name = Json(sensor.Name);
+                if (kind == null || name == "\"\"") continue;
+                if (loadOnly && kind != "load") continue;
+                sensors.Add("{\"hw\":" + hw + ",\"type\":\"" + type + "\",\"name\":" + name + ",\"kind\":\"" + kind +
+                            "\",\"value\":" + value.ToString("0.####", CultureInfo.InvariantCulture) + "}");
+            }
+            foreach (IHardware sub in hardware.SubHardware) Collect(sub, sensors, driver);
+        }
+
+        private static string Report(Computer computer, int interval, bool limited, bool driver)
+        {
+            var sensors = new List<string>();
+            foreach (IHardware hardware in computer.Hardware) Collect(hardware, sensors, driver);
+            var sb = new StringBuilder(64 * sensors.Count + 256);
+            sb.Append("{\"v\":1,\"host\":").Append(Json(Environment.MachineName))
+              .Append(",\"os\":").Append(Json(OsName()))
+              .Append(",\"agent\":").Append(Json("nanokvm-sensors/" + AgentVersion + " windows"))
+              .Append(",\"interval\":").Append(interval.ToString(CultureInfo.InvariantCulture));
+            if (limited) sb.Append(",\"limited\":true");
+            sb.Append(",\"sensors\":[").Append(string.Join(",", sensors)).Append("]}");
+            return sb.ToString();
+        }
+
+        private static string osName;
+
+        private static string OsName()
+        {
+            if (osName != null) return osName;
+            try
+            {
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+                {
+                    string product = Convert.ToString(key.GetValue("ProductName"));
+                    string build = Convert.ToString(key.GetValue("CurrentBuildNumber"));
+                    int number;
+                    // The registry still says "Windows 10" on Windows 11.
+                    if (int.TryParse(build, out number) && number >= 22000) product = product.Replace("Windows 10", "Windows 11");
+                    osName = (product + " " + build).Trim();
+                }
+            }
+            catch (Exception)
+            {
+                osName = Environment.OSVersion.VersionString;
+            }
+            return osName;
+        }
+
+        // Json writes a text as a JSON string the NanoKVM accepts: printable
+        // characters only, at most MaxText of them.
+        private static string Json(string text)
+        {
+            var sb = new StringBuilder("\"");
+            int count = 0;
+            foreach (char c in (text ?? "").Trim())
+            {
+                if (count >= MaxText) break;
+                if (char.IsControl(c) || char.IsSurrogate(c) || c == (char)0x2028 || c == (char)0x2029) continue;
+                if (c == '"' || c == '\\') sb.Append('\\').Append(c);
+                else if (c < 0x7f) sb.Append(c);
+                else sb.Append("\\u").Append(((int)c).ToString("x4", CultureInfo.InvariantCulture));
+                count++;
+            }
+            return sb.Append('"').ToString();
+        }
+
+        // ---- the transports ---------------------------------------------
+
+        private sealed class Sender
+        {
+            private readonly Options o;
+            private SerialPort port;
+            private string state = "";
+
+            public Sender(Options o)
+            {
+                this.o = o;
+                // The NanoKVM's own certificate is self-signed; see Post.
+                ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072 | (SecurityProtocolType)12288;
+                ServicePointManager.Expect100Continue = false;
+            }
+
+            private void State(string text)
+            {
+                if (text == state) return;
+                state = text;
+                Log(text);
+            }
+
+            public void Send(string report)
+            {
+                string serialError = null;
+                if (o.Transport != "network")
+                {
+                    serialError = Serial(report);
+                    if (serialError == null) return;
+                    if (o.Transport == "serial") { State(serialError); return; }
+                }
+                string networkError = Post(report);
+                if (networkError == null) return;
+                State(o.Transport == "network" ? networkError : serialError + "; " + networkError);
+            }
+
+            public void Close()
+            {
+                if (port != null) { try { port.Close(); } catch (Exception) { } port = null; }
+            }
+
+            private string Serial(string report)
+            {
+                try
+                {
+                    if (port == null)
+                    {
+                        string name = o.Port ?? FindPort(o.UsbId);
+                        if (name == null) return "no NanoKVM serial port (USB serial is not in its USB composition)";
+                        // The line settings are nominal: the port is a USB byte stream.
+                        port = new SerialPort(name, 115200) { WriteTimeout = 3000, DtrEnable = true, Encoding = new UTF8Encoding(false) };
+                        port.Open();
+                    }
+                    port.DiscardInBuffer();
+                    port.Write(report + "\n");
+                    State("sending to " + port.PortName);
+                    return null;
+                }
+                catch (Exception e)
+                {
+                    // The port goes with every change of the NanoKVM's USB
+                    // composition; it is found again at the next report.
+                    string name = port != null ? port.PortName : (o.Port ?? "serial port");
+                    Close();
+                    return name + ": " + e.Message;
+                }
+            }
+
+            // FindPort: the COM port of the USB device with the NanoKVM's IDs.
+            private static string FindPort(string usbId)
+            {
+                string[] id = usbId.ToUpperInvariant().Split(':');
+                string pattern = "USB\\\\VID_" + id[0] + "&PID_" + id[1] + "%";
+                using (var search = new ManagementObjectSearcher(
+                    "SELECT Name FROM Win32_PnPEntity WHERE PNPDeviceID LIKE '" + pattern + "' AND Name LIKE '%(COM%'"))
+                {
+                    foreach (ManagementBaseObject device in search.Get())
+                    {
+                        string name = Convert.ToString(device["Name"]);
+                        int open = name.LastIndexOf("(COM", StringComparison.Ordinal), close = name.LastIndexOf(')');
+                        if (open >= 0 && close > open) return name.Substring(open + 1, close - open - 1);
+                    }
+                }
+                return null;
+            }
+
+            // The NanoKVM's address on its USB network: the adapter is known
+            // by the first four bytes of its address (S03usbdev sets
+            // 48:da:35:6d on the computer's side), the NanoKVM is its DHCP
+            // server, or .1 of the adapter's network.
+            private static string FindAddress()
+            {
+                foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    byte[] mac = nic.GetPhysicalAddress().GetAddressBytes();
+                    if (mac.Length != 6 || mac[0] != 0x48 || mac[1] != 0xda || mac[2] != 0x35 || mac[3] != 0x6d) continue;
+                    if (nic.OperationalStatus != OperationalStatus.Up) continue;
+                    IPInterfaceProperties ip = nic.GetIPProperties();
+                    foreach (IPAddress dhcp in ip.DhcpServerAddresses)
+                        if (dhcp.AddressFamily == AddressFamily.InterNetwork) return dhcp.ToString();
+                    foreach (UnicastIPAddressInformation own in ip.UnicastAddresses)
+                    {
+                        if (own.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                        byte[] b = own.Address.GetAddressBytes();
+                        if (b[0] == 169 && b[1] == 254) continue; // no DHCP answer yet
+                        b[3] = 1;
+                        return new IPAddress(b).ToString();
+                    }
+                }
+                return null;
+            }
+
+            private string Post(string report)
+            {
+                string url = o.Url;
+                bool found = url == null;
+                if (found)
+                {
+                    string address = FindAddress();
+                    if (address == null) return "no NanoKVM USB network (it is not in its USB composition, or has no address yet)";
+                    url = "https://" + address;
+                }
+                try
+                {
+                    var request = (HttpWebRequest)WebRequest.Create(url.TrimEnd('/') + "/api/host-sensors");
+                    request.Method = "POST";
+                    request.ContentType = "application/json";
+                    request.Timeout = 5000;
+                    request.ReadWriteTimeout = 5000;
+                    request.Proxy = null; // the USB link is direct; a system proxy must not see the report
+                    request.AllowAutoRedirect = false;
+                    // The NanoKVM presents a certificate it made itself, for
+                    // names this address is not among. On the USB link the
+                    // peer is the device at the other end of the cable, and
+                    // the report holds nothing secret, so for an address
+                    // found on that adapter the certificate is not checked.
+                    // A URL given with --network is checked as usual.
+                    if (found) request.ServerCertificateValidationCallback = (s, c, ch, e) => true;
+                    byte[] body = Encoding.UTF8.GetBytes(report);
+                    request.ContentLength = body.Length;
+                    using (Stream stream = request.GetRequestStream()) stream.Write(body, 0, body.Length);
+                    using (var response = (HttpWebResponse)request.GetResponse())
+                    {
+                        if ((int)response.StatusCode >= 300) return url + ": " + (int)response.StatusCode;
+                    }
+                    State("sending to " + url);
+                    return null;
+                }
+                catch (WebException e)
+                {
+                    var response = e.Response as HttpWebResponse;
+                    if (response == null) return url + ": " + e.Message;
+                    string text = "";
+                    try
+                    {
+                        using (var reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+                        {
+                            var buffer = new char[200];
+                            text = new string(buffer, 0, reader.Read(buffer, 0, buffer.Length));
+                        }
+                    }
+                    catch (Exception) { }
+                    return url + ": " + (int)response.StatusCode + " " + text.Trim();
+                }
+                catch (Exception e)
+                {
+                    return url + ": " + e.Message;
+                }
+            }
+        }
+
+        // ---- start with Windows -----------------------------------------
+
+        // Install registers a task that runs this exe, where it is now, as
+        // SYSTEM at every start of Windows, with the options given after
+        // "install", and starts it.
+        private static int Install(string[] args, Options o)
+        {
+            if (!IsElevated()) throw new InvalidOperationException("install needs an administrator's console");
+            if (!o.NoDriver) InstallDriver(o.Yes);
+            string exe = Process.GetCurrentProcess().MainModule.FileName;
+            var rest = args.Where(a => a != "install" && a != "--yes" && a != "--no-driver").Select(a => a.Contains(" ") ? "\\\"" + a + "\\\"" : a);
+            string run = "\\\"" + exe + "\\\" " + string.Join(" ", rest);
+            int code = Schtasks("/Create /F /TN \"" + TaskName + "\" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR \"" + run.Trim() + "\"");
+            if (code != 0) return code;
+            return Schtasks("/Run /TN \"" + TaskName + "\"");
+        }
+
+        // InstallDriver runs the PawnIO installer this program carries, as
+        // LibreHardwareMonitor does, when the driver is missing or too old
+        // for the library. The driver is a system component: asked first.
+        private static void InstallDriver(bool yes)
+        {
+            Version have = PawnIoVersion();
+            if (have != null && have >= new Version(2, 0, 0, 0)) return;
+            using (Stream setup = Assembly.GetExecutingAssembly().GetManifestResourceStream("pawnio/PawnIO_setup.exe"))
+            {
+                if (setup == null)
+                {
+                    Console.WriteLine("The PawnIO driver is " + (have == null ? "not installed" : "older than 2.0") +
+                                      " and this build carries no installer: get it from https://pawnio.eu");
+                    return;
+                }
+                if (!yes)
+                {
+                    Console.Write("The PawnIO driver (processor and board sensors) is " +
+                                  (have == null ? "not installed" : "version " + have + ", older than 2.0") + ". Install it now? [Y/n] ");
+                    string answer = (Console.ReadLine() ?? "n").Trim().ToLowerInvariant();
+                    if (answer != "" && answer != "y" && answer != "yes") return;
+                }
+                string path = Path.Combine(Path.GetTempPath(), "PawnIO_setup-" + Process.GetCurrentProcess().Id + ".exe");
+                try
+                {
+                    using (FileStream file = File.Create(path)) setup.CopyTo(file);
+                    using (Process p = Process.Start(new ProcessStartInfo(path, "-install") { UseShellExecute = false }))
+                    {
+                        p.WaitForExit();
+                        Console.WriteLine(p.ExitCode == 0 ? "PawnIO installed." : "The PawnIO installer ended with code " + p.ExitCode + ".");
+                    }
+                }
+                finally
+                {
+                    try { File.Delete(path); } catch (Exception) { }
+                }
+            }
+        }
+
+        private static int Schtasks(string arguments)
+        {
+            var info = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "schtasks.exe"), arguments) { UseShellExecute = false };
+            using (Process p = Process.Start(info))
+            {
+                p.WaitForExit();
+                return p.ExitCode;
+            }
+        }
+    }
+}

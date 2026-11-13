@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
 import {
+  getHostLedStatusVisible,
   getKeyboardLedStatusVisible,
   getMenuDisabledItems,
   getMenuDisplayMode
 } from '@/lib/localstorage.ts';
 import {
+  hostLedStatusVisibleAtom,
   keyboardLedStatusVisibleAtom,
   menuDisabledItemsAtom,
   menuDisplayModeAtom,
@@ -29,6 +31,7 @@ export function useMenuVisibility(): MenuVisibilityState {
   const [menuDisplayMode, setMenuDisplayMode] = useAtom(menuDisplayModeAtom);
   const setMenuDisabledItems = useSetAtom(menuDisabledItemsAtom);
   const setKeyboardLedStatusVisible = useSetAtom(keyboardLedStatusVisibleAtom);
+  const setHostLedStatusVisible = useSetAtom(hostLedStatusVisibleAtom);
   const submenuOpenCount = useAtomValue(submenuOpenCountAtom);
 
   const [isMenuExpanded, setIsMenuExpanded] = useState(true);
@@ -69,13 +72,20 @@ export function useMenuVisibility(): MenuVisibilityState {
     setMenuDisabledItems(items);
 
     setKeyboardLedStatusVisible(getKeyboardLedStatusVisible());
+    setHostLedStatusVisible(getHostLedStatusVisible());
 
     setIsInitialized(true);
 
     return () => {
       stopCountdown();
     };
-  }, [setMenuDisplayMode, setMenuDisabledItems, setKeyboardLedStatusVisible, stopCountdown]);
+  }, [
+    setMenuDisplayMode,
+    setMenuDisabledItems,
+    setKeyboardLedStatusVisible,
+    setHostLedStatusVisible,
+    stopCountdown
+  ]);
 
   // Handle display mode changes
   useEffect(() => {

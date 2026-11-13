@@ -1271,6 +1271,8 @@
         "modeAlways": "Всегда виден",
         "keyboardLedStatus": "Индикаторы блокировки клавиатуры",
         "keyboardLedStatusDesc": "Показывать Caps Lock, Num Lock и Scroll Lock удалённого компьютера в панели меню.",
+        "hostLedStatus": "Индикаторы питания и диска",
+        "hostLedStatusDesc": "Показывать индикаторы питания и HDD удалённого компьютера в панели меню.",
         "icons": "Кнопки панели меню",
         "iconsDesc": "Отображение значков подменю в строке меню",
         "hiddenCount": "скрыто: {{count}}",
@@ -1281,6 +1283,13 @@
       "device": "Для всех на этом устройстве",
       "deviceDesc": "Сохраняется на устройстве и видно всем, кто его открывает.",
       "saved": "Сохранено"
+    },
+    "hostLedStatus": {
+      "groupLabel": "Индикаторы питания и диска удалённого компьютера",
+      "powerLed": "Индикатор питания",
+      "powerLedShort": "Pwr",
+      "hddLed": "Индикатор HDD",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Состояние блокировок удалённой клавиатуры",

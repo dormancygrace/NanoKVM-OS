@@ -1271,6 +1271,8 @@
         "modeAlways": "常に表示",
         "keyboardLedStatus": "キーボードロックの表示",
         "keyboardLedStatusDesc": "リモートコンピューターの Caps Lock、Num Lock、Scroll Lock をメニューバーに表示します。",
+        "hostLedStatus": "電源とディスクのインジケーター",
+        "hostLedStatusDesc": "リモートコンピューターの電源 LED と HDD LED をメニューバーに表示します。",
         "icons": "メニューバーのボタン",
         "iconsDesc": "メニューバーでのサブメニューアイコンの表示",
         "hiddenCount": "{{count}} 件非表示",
@@ -1281,6 +1283,13 @@
       "device": "このデバイスの全員",
       "deviceDesc": "デバイスに保存され、開いた全員に表示されます。",
       "saved": "保存しました"
+    },
+    "hostLedStatus": {
+      "groupLabel": "リモートコンピューターの電源とディスクの LED",
+      "powerLed": "電源 LED",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD LED",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "リモートキーボードのロック状態",

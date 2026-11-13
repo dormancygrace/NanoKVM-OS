@@ -543,6 +543,8 @@
         "modeAlways": "Vždy viditelný",
         "keyboardLedStatus": "Indikátory zámku klávesnice",
         "keyboardLedStatusDesc": "Zobrazovat Caps Lock, Num Lock a Scroll Lock vzdáleného počítače na liště nabídky.",
+        "hostLedStatus": "Indikátory napájení a disku",
+        "hostLedStatusDesc": "Zobrazit LED napájení a disku vzdáleného počítače v liště nabídky.",
         "icons": "Tlačítka lišty nabídky",
         "iconsDesc": "Zobrazování ikon podnabídek v pruhu nabídek",
         "hiddenCount": "skryto: {{count}}",
@@ -586,6 +588,13 @@
       "device": "Pro všechny na tomto zařízení",
       "deviceDesc": "Uloženo v zařízení a vidí to každý, kdo ho otevře.",
       "saved": "Uloženo"
+    },
+    "hostLedStatus": {
+      "groupLabel": "LED napájení a disku vzdáleného počítače",
+      "powerLed": "LED napájení",
+      "powerLedShort": "Pwr",
+      "hddLed": "LED disku",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Stav zámků vzdálené klávesnice",

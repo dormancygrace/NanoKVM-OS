@@ -350,6 +350,8 @@
         "modeAlways": "Altid synlig",
         "keyboardLedStatus": "Tastaturlåseindikatorer",
         "keyboardLedStatusDesc": "Vis Caps Lock, Num Lock og Scroll Lock for fjerncomputeren i menulinjen.",
+        "hostLedStatus": "Strøm- og diskindikatorer",
+        "hostLedStatusDesc": "Vis fjerncomputerens strøm- og HDD-lysdioder i menulinjen.",
         "icons": "Knapper i menulinjen",
         "iconsDesc": "Vis undermenuikoner i menulinjen",
         "hiddenCount": "{{count}} skjult",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Upload"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "Fjerncomputerens strøm- og disklysdioder",
+      "powerLed": "Strømlysdiode",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD-lysdiode",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Status for låse på fjernkeyboard",

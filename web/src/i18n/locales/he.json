@@ -155,6 +155,8 @@
         "showAll": "הצג הכול",
         "modeDesc": "הסתרה אוטומטית: הסרגל מופיע כשהעכבר מגיע לקצה העליון.",
         "keyboardLedStatusDesc": "הצג את Caps Lock,‏ Num Lock ו-Scroll Lock של המחשב המרוחק בסרגל התפריטים.",
+        "hostLedStatus": "מחווני הפעלה ודיסק",
+        "hostLedStatusDesc": "הצגת נוריות ההפעלה וה-HDD של המחשב המרוחק בשורת התפריטים.",
         "icons": "כפתורי סרגל התפריטים"
       },
       "branding": {

@@ -14,6 +14,7 @@ const MENU_DISABLED_ITEMS_KEY = 'nano-kvm-menu-disabled-items';
 const MENU_AUTO_HIDE_KEY = 'nano-kvm-menu-auto-hide';
 const MOBILE_MENU_PLACEMENT_KEY = 'nano-kvm-mobile-menu-placement';
 const KEYBOARD_LED_STATUS_VISIBLE_KEY = 'nano-kvm-keyboard-led-status-visible';
+const HOST_LED_STATUS_VISIBLE_KEY = 'nano-kvm-host-led-status-visible';
 const POWER_CONFIRM_KEY = 'nano-kvm-power-confirm';
 
 export function getLanguage() {
@@ -153,6 +154,14 @@ export function getKeyboardLedStatusVisible(): boolean {
 
 export function setKeyboardLedStatusVisible(visible: boolean) {
   localStorage.setItem(KEYBOARD_LED_STATUS_VISIBLE_KEY, String(visible));
+}
+
+export function getHostLedStatusVisible(): boolean {
+  return localStorage.getItem(HOST_LED_STATUS_VISIBLE_KEY) !== 'false';
+}
+
+export function setHostLedStatusVisible(visible: boolean) {
+  localStorage.setItem(HOST_LED_STATUS_VISIBLE_KEY, String(visible));
 }
 
 export function getPowerConfirm() {

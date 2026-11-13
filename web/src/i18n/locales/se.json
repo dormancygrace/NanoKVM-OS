@@ -350,6 +350,8 @@
         "modeAlways": "Alltid synlig",
         "keyboardLedStatus": "Indikatorer för tangentbordslås",
         "keyboardLedStatusDesc": "Visa Caps Lock, Num Lock och Scroll Lock för fjärrdatorn i menyfältet.",
+        "hostLedStatus": "Ström- och diskindikatorer",
+        "hostLedStatusDesc": "Visa fjärrdatorns ström- och HDD-lysdioder i menyraden.",
         "icons": "Knappar i menyfältet",
         "iconsDesc": "Visa undermenyikoner i menyraden",
         "hiddenCount": "{{count}} dolda",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Ladda upp"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "Fjärrdatorns ström- och disklysdioder",
+      "powerLed": "Strömlysdiod",
+      "powerLedShort": "Pwr",
+      "hddLed": "HDD-lysdiod",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Status för lås på fjärrtangentbord",

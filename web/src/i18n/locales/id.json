@@ -350,6 +350,8 @@
         "modeAlways": "Selalu terlihat",
         "keyboardLedStatus": "Indikator kunci keyboard",
         "keyboardLedStatusDesc": "Tampilkan Caps Lock, Num Lock, dan Scroll Lock komputer jarak jauh di bilah menu.",
+        "hostLedStatus": "Indikator daya dan disk",
+        "hostLedStatusDesc": "Tampilkan LED daya dan HDD komputer jarak jauh di bilah menu.",
         "icons": "Tombol bilah menu",
         "iconsDesc": "Menampilkan ikon submenu di bilah menu",
         "hiddenCount": "{{count}} disembunyikan",
@@ -364,6 +366,13 @@
       "branding": {
         "upload": "Unggah"
       }
+    },
+    "hostLedStatus": {
+      "groupLabel": "LED daya dan disk komputer jarak jauh",
+      "powerLed": "LED daya",
+      "powerLedShort": "Pwr",
+      "hddLed": "LED HDD",
+      "hddLedShort": "HDD"
     },
     "keyboardLedStatus": {
       "groupLabel": "Status kunci keyboard jarak jauh",

@@ -307,9 +307,11 @@ func hostSensorsState() gin.H {
 	for _, n := range hostSensorsNetworks() {
 		addresses = append(addresses, n.IP.String())
 	}
+	// The page polls this: the agent's megabytes are not hashed here (the
+	// download answers with the checksum).
 	agent := proto.SerialConsoleFile{Path: HostSensorsAgentPath}
-	if sum, size, err := fileSha256(hostSensorsAgentFile()); err == nil {
-		agent.Available, agent.Sha256, agent.Size = true, sum, size
+	if info, err := os.Stat(hostSensorsAgentFile()); err == nil && info.Mode().IsRegular() {
+		agent.Available, agent.Size = true, info.Size()
 	}
 	return gin.H{
 		"installed": HostSensorsInstalled(),

@@ -145,12 +145,12 @@ them the report is marked as limited.";
             if (command == "uninstall")
             {
                 // Deleting a task leaves its running program: end it first.
-                Schtasks("/End /TN \"" + TaskName + "\"");
+                Schtasks("/End /TN \"" + TaskName + "\"", true);
                 return Schtasks("/Delete /F /TN \"" + TaskName + "\"");
             }
 
-            bool driver = PawnIoInstalled();
-            bool limited = !IsElevated() || !driver;
+            bool limited = !IsElevated() || !PawnIoInstalled();
+            bool driver = !limited;
             var computer = new Computer
             {
                 IsCpuEnabled = true, IsGpuEnabled = true, IsMemoryEnabled = true, IsMotherboardEnabled = true,
@@ -263,9 +263,10 @@ them the report is marked as limited.";
             return "other";
         }
 
-        // Without the PawnIO driver the library reads no processor or board
-        // register and reports zeros and defaults for them (0 W, 1.55 V):
-        // of those parts only the load, which Windows itself counts, is real.
+        // Without the PawnIO driver, or without the rights to open it, the
+        // library reads no processor or board register and reports zeros and
+        // defaults for them (0 W, 0 degrees, 1.55 V): of those parts only the
+        // load, which Windows itself counts, is real. driver: it can be used.
         private static void Collect(IHardware hardware, List<string> sensors, bool driver)
         {
             hardware.Update();
@@ -613,11 +614,25 @@ them the report is marked as limited.";
             if (!IsElevated()) throw new InvalidOperationException("install needs an administrator's console");
             if (!o.NoDriver) InstallDriver(o.Yes);
             string exe = Process.GetCurrentProcess().MainModule.FileName;
-            var rest = args.Where(a => a != "install" && a != "--yes" && a != "--no-driver").Select(a => a.Contains(" ") ? "\\\"" + a + "\\\"" : a);
-            string run = "\\\"" + exe + "\\\" " + string.Join(" ", rest);
-            int code = Schtasks("/Create /F /TN \"" + TaskName + "\" /SC ONSTART /RU SYSTEM /RL HIGHEST /TR \"" + run.Trim() + "\"");
-            if (code != 0) return code;
-            return Schtasks("/Run /TN \"" + TaskName + "\"");
+            var rest = args.Where(a => a != "install" && a != "--yes" && a != "--no-driver").Select(a => a.Contains(" ") ? "\"" + a + "\"" : a);
+            // From a definition, not from schtasks' switches: a task made with
+            // those is stopped after three days and does not run on battery.
+            string xml = TaskXml.Replace("{exe}", System.Security.SecurityElement.Escape(exe))
+                                .Replace("{args}", System.Security.SecurityElement.Escape(string.Join(" ", rest)));
+            string file = Path.Combine(Path.GetTempPath(), "nanokvm-sensors-task-" + Process.GetCurrentProcess().Id + ".xml");
+            try
+            {
+                File.WriteAllText(file, xml, Encoding.Unicode);
+                // An agent of an earlier install keeps the serial port: end it.
+                Schtasks("/End /TN \"" + TaskName + "\"", true);
+                int code = Schtasks("/Create /F /TN \"" + TaskName + "\" /XML \"" + file + "\"");
+                if (code != 0) return code;
+                return Schtasks("/Run /TN \"" + TaskName + "\"");
+            }
+            finally
+            {
+                try { File.Delete(file); } catch (Exception) { }
+            }
         }
 
         // InstallDriver runs the PawnIO installer this program carries, as
@@ -659,11 +674,62 @@ them the report is marked as limited.";
             }
         }
 
-        private static int Schtasks(string arguments)
+        // The task: at every start of Windows, as SYSTEM, without a time
+        // limit, on battery too, started again a minute after a failure.
+        private const string TaskXml =
+@"<?xml version=""1.0"" encoding=""UTF-16""?>
+<Task version=""1.2"" xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task"">
+  <RegistrationInfo>
+    <Description>Sends this computer's sensors to the NanoKVM plugged into it (NanoKVM OS, nanokvm-sensors).</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+    </BootTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id=""Author"">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <Priority>7</Priority>
+    <RestartOnFailure>
+      <Interval>PT1M</Interval>
+      <Count>999</Count>
+    </RestartOnFailure>
+  </Settings>
+  <Actions Context=""Author"">
+    <Exec>
+      <Command>{exe}</Command>
+      <Arguments>{args}</Arguments>
+    </Exec>
+  </Actions>
+</Task>";
+
+        private static int Schtasks(string arguments, bool quiet = false)
         {
-            var info = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "schtasks.exe"), arguments) { UseShellExecute = false };
+            var info = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "schtasks.exe"), arguments)
+            {
+                UseShellExecute = false, RedirectStandardOutput = quiet, RedirectStandardError = quiet
+            };
             using (Process p = Process.Start(info))
             {
+                if (quiet)
+                {
+                    p.StandardOutput.ReadToEnd();
+                    p.StandardError.ReadToEnd();
+                }
                 p.WaitForExit();
                 return p.ExitCode;
             }

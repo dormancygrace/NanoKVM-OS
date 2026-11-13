@@ -4,7 +4,7 @@
   "license": "GPL-3.0-only AND MPL-2.0 AND LGPL-2.1-only AND GPL-2.0-or-later",
   "description": "NanoKVM computer sensors add-on: the agent that sends the managed computer's temperatures, voltages and fan speeds",
   "url": "https://github.com/dormancygrace/NanoKVM-OS/blob/main/docs/HOST-SENSORS.md",
-  "os": "4.2.0",
+  "os": "4.1.1",
   "depends": "",
   "dotnet": {
     "project": "windows/nanokvm-sensors.csproj",

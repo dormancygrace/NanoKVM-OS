@@ -1,0 +1,20 @@
+{
+  "name": "nanokvm-host-sensors",
+  "version": "1.0.0",
+  "license": "GPL-3.0-only AND MPL-2.0 AND LGPL-2.1-only AND GPL-2.0-or-later",
+  "description": "NanoKVM computer sensors add-on: the agent that sends the managed computer's temperatures, voltages and fan speeds",
+  "url": "https://github.com/dormancygrace/NanoKVM-OS/blob/main/docs/HOST-SENSORS.md",
+  "os": "4.2.0",
+  "depends": "",
+  "dotnet": {
+    "project": "windows/nanokvm-sensors.csproj",
+    "output": "nanokvm-sensors.exe",
+    "path": "/usr/share/nanokvm/host-sensors/nanokvm-sensors.exe",
+    "pawnio": "namazso/PawnIO.Setup"
+  },
+  "files": {},
+  "licenses": [
+    "LICENSE"
+  ],
+  "scripts": {}
+}

@@ -11,7 +11,7 @@ on:
         default: nanokvm-ipmi
         type: choice
         options: [nanokvm-ipmi, nanokvm-model-ocr, nanokvm-model-ocr-latin, nanokvm-model-ocr-cyrillic,
-                  nanokvm-model-ocr-chinese, nanokvm-model-screen, models]
+                  nanokvm-model-ocr-chinese, nanokvm-model-screen, nanokvm-host-sensors, models]
       dry_run:
         description: 'Build and check only; publish nothing'
         type: boolean
@@ -24,6 +24,7 @@ on:
       - scripts/addon_packages.py
       - scripts/next-addon-revision.py
       - addons/ipmi/**
+      - addons/host-sensors/**
       - addons/model-*/**
       - tpu/models/**
       - tpu/helpers/cvimodel-dmabuf.c
@@ -113,8 +114,12 @@ jobs:
         run: |
           set -euo pipefail
           parts=$(python3 scripts/build-addon.py --addon "$ADDON" --parts-only)
-          echo "parts=$parts" >> "$GITHUB_OUTPUT"
-          echo "convert.sh parts: ${parts:-none (a program)}"
+          kind=$(python3 scripts/build-addon.py --addon "$ADDON" --kind-only)
+          {
+            echo "parts=$parts"
+            echo "kind=$kind"
+          } >> "$GITHUB_OUTPUT"
+          echo "$kind; convert.sh parts: ${parts:-none (a program)}"
 
       # The converter image takes about 10 GB unpacked.
       - name: Free disk space
@@ -145,7 +150,7 @@ jobs:
       # The OS build's Go: the pinned official toolchain (platform/sources.lock)
       # with the NanoKVM runtime (firmware/cpu/sysmon-runtime).
       - name: Go
-        if: steps.kind.outputs.parts == ''
+        if: steps.kind.outputs.kind == 'go'
         run: |
           set -euo pipefail
           read -r _ url sum < <(awk '$1 == "go" { print $1, $2, $3 }' platform/sources.lock)
@@ -155,6 +160,16 @@ jobs:
           tar -xzf "$RUNNER_TEMP/go.tar.gz" -C "$RUNNER_TEMP/go-base"
           python3 firmware/cpu/sysmon-runtime/prepare.py --base "$RUNNER_TEMP/go-base/go" --output "$RUNNER_TEMP/goroot" > /dev/null
           "$RUNNER_TEMP/goroot/bin/go" version
+
+      # A program for the managed computer (Windows), built here with the
+      # .NET SDK from Microsoft's installer script.
+      - name: .NET SDK
+        if: steps.kind.outputs.kind == 'dotnet'
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/dotnet-install.sh" https://dot.net/v1/dotnet-install.sh
+          bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir "$RUNNER_TEMP/dotnet"
+          "$RUNNER_TEMP/dotnet/dotnet" --version
 
       - name: Version
         id: version
@@ -209,10 +224,15 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           GOFLAGS: -mod=readonly
           PARTS: ${{ steps.kind.outputs.parts }}
+          KIND: ${{ steps.kind.outputs.kind }}
+          # The latest PawnIO release is read from the GitHub API.
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ -n "$PARTS" ]; then
             input=(--models "$RUNNER_TEMP/staged/usr/lib/nanokvm-tpu/models")
+          elif [ "$KIND" = dotnet ]; then
+            input=(--dotnet "$RUNNER_TEMP/dotnet/dotnet")
           else
             input=(--go "$RUNNER_TEMP/goroot/bin/go")
           fi
@@ -249,6 +269,14 @@ jobs:
               program = root + recipe["go"]["path"]
               out = subprocess.check_output(["file", program], text=True)
               assert "RISC-V" in out and "statically linked" in out, out
+          elif "dotnet" in recipe:
+              # A Windows program the NanoKVM serves and never runs, with the
+              # driver installer it carries on record.
+              program = root + recipe["dotnet"]["path"]
+              out = subprocess.check_output(["file", program], text=True)
+              assert "PE32+" in out and "x86-64" in out, out
+              assert os.stat(program).st_mode & 0o777 == 0o644, program
+              assert len(record["pawnio"]["sha256"]) == 64 and record["pawnio"]["tag"], record["pawnio"]
           else:
               import hashlib
               assert "nanokvm-tpu-abi=1" in dump.split(), "no TPU ABI dependency"

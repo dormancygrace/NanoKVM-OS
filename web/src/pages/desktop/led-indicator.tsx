@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { Tooltip } from 'antd';
 import clsx from 'clsx';
+
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 // The small status panels beside the menu bar: the keyboard locks and the
 // host's power and disk LEDs. A row is a dot and, from the sm width up, a
@@ -29,7 +30,7 @@ export function LedIndicator({
   const known = state === 'on' || state === 'off';
 
   return (
-    <Tooltip title={description} placement="bottom" mouseEnterDelay={0.6}>
+    <MenuTooltip title={description}>
       <div
         className="flex h-[8px] items-center gap-1 px-1 text-[8px] leading-[8px] font-medium text-neutral-400"
         aria-label={description}
@@ -60,7 +61,7 @@ export function LedIndicator({
         </span>
         <span className="hidden sm:inline">{shortLabel}</span>
       </div>
-    </Tooltip>
+    </MenuTooltip>
   );
 }
 

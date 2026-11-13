@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Divider, Modal, Segmented, Select, Tooltip } from 'antd';
+import { Divider, Modal, Segmented, Select } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
 import { DiscIcon, HardDriveIcon } from 'lucide-react';
@@ -9,6 +9,7 @@ import * as api from '@/api/storage.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { useVirtualDisk } from '@/hooks/useVirtualDisk.ts';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context.ts';
 
 import { Images } from './images.tsx';
@@ -117,11 +118,10 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
 
   return (
     <>
-      <Tooltip
+      <MenuTooltip
         title={t('image.title')}
         placement={tooltipPlacement}
-        trigger={['hover', 'focus']}
-        mouseEnterDelay={0.6}
+        blocked={isModalOpen}
         open={!isModalOpen && isTooltipOpen}
         onOpenChange={(open) => setIsTooltipOpen(open && !openRef.current)}
       >
@@ -154,7 +154,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
         >
           <DiscIcon size={18} />
         </div>
-      </Tooltip>
+      </MenuTooltip>
 
       <Modal open={isModalOpen && !disabled} footer={null} onCancel={() => toggleModal(false)}>
         <div className="flex items-center space-x-1">

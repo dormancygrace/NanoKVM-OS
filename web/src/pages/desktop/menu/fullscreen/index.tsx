@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Tooltip } from 'antd';
 import { MaximizeIcon, MinimizeIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 export const Fullscreen = () => {
   const { t } = useTranslation();
@@ -37,7 +38,7 @@ export const Fullscreen = () => {
   }
 
   return (
-    <Tooltip title={t('fullscreen.toggle')} placement="bottom" mouseEnterDelay={0.6}>
+    <MenuTooltip title={t('fullscreen.toggle')}>
       <div
         data-toolbar-control
         className="hidden h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white sm:flex"
@@ -45,6 +46,6 @@ export const Fullscreen = () => {
       >
         {isFullscreen ? <MinimizeIcon size={18} /> : <MaximizeIcon size={18} />}
       </div>
-    </Tooltip>
+    </MenuTooltip>
   );
 };

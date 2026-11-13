@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { ScanTextIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { getAddonInventory } from '@/api/addons';
 import { addonInventoryAtom } from '@/jotai/addons.ts';
 import { isHdmiEnabledAtom, screenTextOpenAtom } from '@/jotai/screen.ts';
+import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 // Reads the text on the screen with the TPU add-on; shown once the add-on is
 // installed, unless text recognition is off (Settings > AI).
@@ -35,7 +36,7 @@ export const ScreenText = () => {
 
   const title = captureEnabled ? t('screenText.read') : t('screenText.captureDisabled');
   return (
-    <Tooltip title={title} mouseEnterDelay={0.6}>
+    <MenuTooltip title={title}>
       <span className="flex shrink-0">
         <Button
           type="text"
@@ -46,6 +47,6 @@ export const ScreenText = () => {
           icon={<ScanTextIcon size={19} strokeWidth={1.7} />}
         />
       </span>
-    </Tooltip>
+    </MenuTooltip>
   );
 };

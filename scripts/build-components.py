@@ -6,17 +6,20 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
+import shlex
+import shutil
 import stat
 import subprocess
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = 1
+SCHEMA = 2
 # paths, upstream pins, dependencies, outputs consumed by later steps.
 COMPONENTS = {
-    'kernel': (['platform/kernel'], ['linux'], [], ['kernel', 'images/Image']),
+    'kernel': (['platform/kernel'], ['linux'], [], ['images/Image', 'component-support/kernel']),
     'modules': (['platform/modules'], ['osdrv', 'aic8800', 'sipeed-sdk'], ['kernel'],
-                ['modules/sources/osdrv', 'images/lib']),
+                ['images/lib']),
     'uboot': (['platform/uboot'], ['u-boot'], [], ['images/u-boot.bin', 'uboot/src/Licenses']),
     'opensbi': (['platform/opensbi', 'scripts/nanokvm-opensbi-manifest.py'], ['opensbi'], [],
                 ['images/opensbi', 'opensbi/src/COPYING.BSD']),
@@ -95,29 +98,113 @@ def hashed(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
+def declared_inputs(name):
+    paths, pins, dependencies, _ = COMPONENTS[name]
+    result_paths, result_pins = set(COMMON + paths), set(pins)
+    for dependency in dependencies:
+        more_paths, more_pins = declared_inputs(dependency)
+        result_paths.update(more_paths)
+        result_pins.update(more_pins)
+    return result_paths, result_pins
+
+
+def check_input_coverage(functions, lock):
+    """Reject a new build.sh input before it can bypass cache invalidation."""
+    starts = list(re.finditer(r'(?m)^([a-zA-Z_][a-zA-Z_0-9]*) \(\) ', functions))
+    bodies = {m[1]: functions[m.end():starts[i+1].start() if i+1 < len(starts) else len(functions)]
+              for i, m in enumerate(starts)}
+    reference = re.compile(r'\$(?:\{(repo|here)\}|(repo|here))/([a-zA-Z0-9_./+-]*)')
+    call = re.compile(r'(?:^\s*|[;(&|]\s*)([a-zA-Z_][a-zA-Z_0-9]*)\b', re.M)
+    archives = {row[0].rsplit('/', 1)[-1]: pin for pin, row in lock.items()}
+    archives.update({pin + '.tar': pin for pin, row in lock.items() if row[0].endswith('.git')})
+    for component in COMPONENTS:
+        paths, pins = declared_inputs(component)
+        pending = [component] + (['kernel_state'] if component == 'kernel' else [])
+        visited = set()
+        while pending:
+            name = pending.pop()
+            if name in visited:
+                continue
+            visited.add(name)
+            body = bodies[name]
+            for ref in reference.finditer(body):
+                path = ('platform/' if (ref[1] or ref[2]) == 'here' else '') + ref[3].rstrip('/')
+                if name == 'lock' and path == 'platform/sources.lock':
+                    continue  # Individual rows are fingerprinted and checked below.
+                if not any(path == p or path.startswith(p + '/') for p in paths):
+                    raise ValueError(f'{component}: undeclared repository input {path} in {name}')
+            # Literal upstream references, including fixed archive names.
+            loops = {}
+            for variable, values in re.findall(r'for\s+(\w+)\s+in\s+([^;]+);', body):
+                loops[variable] = [] if variable in loops else shlex.split(values)
+            used = set()
+            for argument in re.findall(r'\b(?:lock|unpack_git)\s+("[^"]*"|\'[^\']*\'|[^\s;()]+)', body):
+                argument = shlex.split(argument)[0]
+                if argument.startswith('$'):
+                    variable = argument.removeprefix('$').strip('{}')
+                    values = loops.get(variable, [])
+                    if not values or any(not re.fullmatch('[a-zA-Z0-9_-]+', v) for v in values):
+                        raise ValueError(f'{component}: unresolved upstream input {argument} in {name}')
+                    used.update(values)
+                else:
+                    used.add(argument)
+            for archive in re.findall(r'\$dl/([a-zA-Z0-9_.+-]+)', body):
+                if archive in ('go-mod', 'pnpm-store'):
+                    continue  # Package-manager caches are covered by their lockfiles.
+                if archive not in archives:
+                    raise ValueError(f'{component}: unpinned archive {archive}')
+                used.add(archives[archive])
+            if not used <= pins:
+                raise ValueError(f'{component}: undeclared upstream inputs {sorted(used - pins)}')
+            pending.extend(c for c in call.findall(body) if c in bodies and c not in visited)
+
+
+class Inputs:
+    def __init__(self, root, out):
+        self.root = root
+        self.lock = {line.split()[0]: line.split()[1:] for line in
+                     (root / 'platform/sources.lock').read_text().splitlines()
+                     if line.strip() and not line.lstrip().startswith('#')}
+        toolchain = subprocess.check_output([str(root / 'platform/build.sh'), '-o', str(out),
+                                            'toolchain-id'], cwd=root, text=True).strip()
+        if not re.fullmatch('[0-9a-f]{64}', toolchain):
+            raise ValueError('Invalid toolchain identity')
+        functions = subprocess.check_output([str(root / 'platform/build.sh'), '-o', str(out),
+                                            'component-functions'], cwd=root, text=True)
+        check_input_coverage(functions, self.lock)
+        # These values affect packaging/publication, not compiled components.
+        release_env = {'NANOKVM_VERSION', 'NANOKVM_APK_VERSION', 'NANOKVM_PREVIOUS',
+                       'NANOKVM_CHANNEL', 'NANOKVM_KERNEL_PROFILE', 'NANOKVM_PATCH_GIT'}
+        compiler_env = {'CC', 'CXX', 'AR', 'LD', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS',
+                        'LDFLAGS', 'MAKEFLAGS', 'SOURCE_DATE_EPOCH', 'GOFLAGS',
+                        'GOEXPERIMENT', 'CGO_CFLAGS', 'CGO_LDFLAGS', 'RUSTFLAGS'}
+        self.context = {'root': str(root), 'output': str(out),
+                        'kernel_profile': os.environ.get('NANOKVM_KERNEL_PROFILE', 'release'),
+                        'patch_git': os.environ.get('NANOKVM_PATCH_GIT', '0'),
+                        'environment': {k: v for k, v in os.environ.items()
+                                        if k in compiler_env or
+                                        (k.startswith('NANOKVM_') and k not in release_env)},
+                        'host': [platform.machine(), platform.libc_ver(), platform.python_version()]}
+        self.toolchain = toolchain
+
+    def own(self, name):
+        paths, pins, _, outputs = COMPONENTS[name]
+        source = tree_digest(self.root, sorted(set(COMMON + paths)), source=True)
+        return hashed({'schema': SCHEMA, 'source': source,
+                       'pins': {pin: self.lock[pin] for pin in pins},
+                       'toolchain': None if name in ('web', 'firmware') else self.toolchain,
+                       'context': self.context, 'outputs': outputs})
+
+    def all(self):
+        own, result = {}, {}
+        for name, (_, _, dependencies, _) in COMPONENTS.items():
+            own[name] = self.own(name)
+            result[name] = hashed({'own': own[name], 'dependencies': {d: result[d] for d in dependencies}})
+        return own, result
+
+
 def fingerprints(root, out):
-    lock = {line.split()[0]: line.split()[1:] for line in
-            (root / 'platform/sources.lock').read_text().splitlines()
-            if line.strip() and not line.lstrip().startswith('#')}
-    toolchain = subprocess.check_output([str(root / 'platform/build.sh'), '-o', str(out),
-                                        'toolchain-id'], cwd=root, text=True).strip()
-    if len(toolchain) != 64 or any(c not in '0123456789abcdef' for c in toolchain):
-        raise ValueError('Invalid toolchain identity')
-    context = {'root': str(root), 'output': str(out),
-               'kernel_profile': os.environ.get('NANOKVM_KERNEL_PROFILE', 'release'),
-               'patch_git': os.environ.get('NANOKVM_PATCH_GIT', '0'),
-               'host': [platform.machine(), platform.libc_ver(), platform.python_version()]}
-    result = {}
-    for name, (paths, pins, dependencies, outputs) in COMPONENTS.items():
-        # Include new and ignored source files too; only known generated
-        # Python metadata and the web dependency/output trees are excluded.
-        source_hash = tree_digest(root, sorted(set(COMMON + paths)), source=True)
-        result[name] = hashed({'schema': SCHEMA, 'source': source_hash,
-                               'pins': {pin: lock[pin] for pin in pins},
-                               'dependencies': {d: result[d] for d in dependencies},
-                               'toolchain': None if name in ('web', 'firmware') else toolchain,
-                               'context': context, 'outputs': outputs})
-    return result
+    return Inputs(root, out).all()[1]
 
 
 def load_state(path):
@@ -139,8 +226,35 @@ def save_state(path, records):
     temporary.replace(path)
 
 
+def image_inventory(out, prune=False):
+    root = out / 'images'
+    if not root.exists():
+        return
+    owned = {p.removeprefix('images/') for item in COMPONENTS.values()
+             for p in item[3] if p.startswith('images/')}
+    def visit(path):
+        relative = path.relative_to(root).as_posix()
+        if relative in owned:
+            return
+        if any(p.startswith(relative + '/') for p in owned) and path.is_dir() and not path.is_symlink():
+            for child in path.iterdir():
+                visit(child)
+        elif prune:
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+            print('PRUNE images/' + relative, flush=True)
+        else:
+            raise ValueError('Undeclared image output: ' + relative)
+    for path in root.iterdir():
+        visit(path)
+
+
 def build(root, out, steps, verify=False):
-    inputs = fingerprints(root, out)
+    source = Inputs(root, out)
+    own, inputs = source.all()
+    image_inventory(out, prune=not verify)
     path = out / 'component-state.json'
     records = load_state(path)
     wanted = set(steps)
@@ -154,6 +268,7 @@ def build(root, out, steps, verify=False):
         require(name)
     ready = {}
     built, reused = [], []
+    kernel_work = osdrv_work = False
     for name, (_, _, dependencies, outputs) in COMPONENTS.items():
         if name not in wanted:
             continue
@@ -171,17 +286,45 @@ def build(root, out, steps, verify=False):
                 raise ValueError('Component requires rebuilding: ' + name)
             records.pop(name, None)
             save_state(path, records)  # Interrupted builds cannot retain a valid stamp.
+            if name in ('modules', 'initramfs', 'boot', 'native', 'tools') and not kernel_work:
+                subprocess.run([str(root / 'platform/build.sh'), '-o', str(out), 'kernel-state'],
+                               cwd=root, env=dict(os.environ, NANOKVM_PATCH_GIT='0'), check=True)
+                kernel_work = True
+            if name == 'native' and not osdrv_work:
+                subprocess.run([str(root / 'platform/build.sh'), '-o', str(out), 'osdrv-source'],
+                               cwd=root, env=dict(os.environ, NANOKVM_PATCH_GIT='0'), check=True)
+                osdrv_work = True
+            # A changed producer gets a clean destination, including producers
+            # that overwrite a file without clearing its containing directory.
+            for output in outputs:
+                target = out / output
+                if target.is_dir() and not target.is_symlink():
+                    shutil.rmtree(target)
+                elif target.exists() or target.is_symlink():
+                    target.unlink()
             print(f'BUILD {name}', flush=True)
             subprocess.run([str(root / 'platform/build.sh'), '-o', str(out), name], cwd=root,
                            env=dict(os.environ, NANOKVM_PATCH_GIT=os.environ.get('NANOKVM_PATCH_GIT', '0')),
                            check=True)
+            if name == 'kernel':
+                kernel_work = True
+            elif name == 'modules':
+                osdrv_work = True
             actual = tree_digest(out, outputs)
-            if fingerprints(root, out)[name] != inputs[name]:
+            if source.own(name) != own[name]:
                 raise ValueError('Build inputs changed while building ' + name)
             records[name] = {'input': expected, 'output': actual}
             save_state(path, records)
             built.append(name)
         ready[name] = actual
+        if name == 'server':
+            # Free it before pnpm and firmware unpacking start.
+            cache = out / 'server/gocache'
+            if cache.is_symlink():
+                cache.unlink()
+            elif cache.exists():
+                shutil.rmtree(cache)
+    image_inventory(out)
     print('Components: built=' + ','.join(built) + '; reused=' + ','.join(reused), flush=True)
 
 
@@ -189,13 +332,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--key', action='store_true', help='print the Actions snapshot identity')
+    parser.add_argument('--check-inputs', action='store_true')
     parser.add_argument('--verify', action='store_true', help='verify reuse without building')
     parser.add_argument('steps', nargs='*', choices=list(COMPONENTS))
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
-    if args.key:
+    if args.check_inputs:
+        Inputs(ROOT, out)
+        print("Component input coverage checked")
+    elif args.key:
         print(hashed(fingerprints(ROOT, out)))
     else:
         build(ROOT, out, args.steps or list(COMPONENTS), args.verify)

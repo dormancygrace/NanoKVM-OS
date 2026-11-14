@@ -197,8 +197,6 @@ jobs:
           NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
         run: |
           python3 scripts/build-components.py --out "$OUT"
-          # The Go build cache (about 1 GB) is not reused within a run.
-          rm -rf "$OUT/server/gocache"
           platform/build.sh -o "$OUT" hashes source
 
       - name: Verify component reuse

@@ -372,7 +372,9 @@ Kernel changes also invalidate the modules, native libraries and other consumers
 of kernel headers. Shared build-script changes invalidate all components.
 
 The first build without a snapshot compiles everything. Subsequent builds restore
-finished outputs and the kernel/header state needed for partial rebuilds. Only
+finished outputs and small immutable kernel ABI exports. Pinned kernel sources
+and working headers are recreated only when a consumer must be rebuilt; Linux
+is not recompiled for that preparation. Only
 main writes shared snapshots; pull requests can read them. Keys, signed assets,
 root file systems and Go/Node SDKs are outside this cache. The compiler cache
 continues to speed components that do require rebuilding.
@@ -380,5 +382,11 @@ continues to speed components that do require rebuilding.
 Packages, their release metadata and signatures, corresponding source, and the
 root-file-system/image installation checks still run for every release.
 The ordinary platform/build.sh step commands remain available for a full build.
+Before cache lookup, input coverage is checked against Bash-parsed step/helper
+bodies and their upstream references. Undeclared repository paths or pins fail
+the build. Compiler and NanoKVM build flags participate in the fingerprint;
+release version/channel metadata stays in the always-fresh packaging stage.
+Unknown restored image files are pruned and newly undeclared outputs are rejected.
+
 Component logs list BUILD and REUSE decisions; --verify checks that every
 selected component can be reused without compiling it.

@@ -73,8 +73,6 @@ jobs:
           NANOKVM_PATCH_GIT: '0'
         run: |
           python3 scripts/build-components.py --out "$OUT"
-          # The Go build cache (about 1 GB) is not reused within a run.
-          rm -rf "$OUT/server/gocache"
           du -sh "$OUT" "$OUT"/* 2>/dev/null | sort -h | tail -8
           df -h /
 

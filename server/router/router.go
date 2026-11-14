@@ -102,7 +102,7 @@ func server(r *gin.Engine) {
 	extensionsRouter(r)
 	addonsRouter(r)
 	addonCatalogRouter(r)
-	bmcRouter(r)
+	bmcRouter(r, storageService)
 	notifyRouter(r)
 	rustdeskRouter(r)
 	osUpdateRouter(r)

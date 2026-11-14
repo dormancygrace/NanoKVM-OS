@@ -2330,6 +2330,8 @@
       "holdSeconds": "強制電源オフ：電源ボタンを押し続ける時間（秒）",
       "powerLed": "電源 LED をホストに接続済み",
       "powerLedHint": "オフ：電源 LED のヘッダーが配線されていないため、Redfish と IPMI は電源状態を判断できず、要求のたびにボタンを押します。",
+      "virtualMedia": "Redfish 経由の仮想メディア",
+      "virtualMediaHint": "オン：Redfish で仮想ドライブも提供します（VirtualMedia：http、https、smb のアドレスまたは NanoKVM のカードからイメージを挿入、取り出し）。BMC アカウントは指定したイメージからホストを起動でき、NanoKVM はそのアドレスにアクセスします。",
       "holdHint": "空欄：電源メニューの長押しと同じ（5 秒）。",
       "save": "保存",
       "saved": "保存しました",

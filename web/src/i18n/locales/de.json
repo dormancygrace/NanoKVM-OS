@@ -2330,6 +2330,8 @@
       "holdSeconds": "Erzwungenes Ausschalten: Netztaste halten (s)",
       "powerLed": "Betriebs-LED mit dem Host verbunden",
       "powerLedHint": "Aus: Der Anschluss der Betriebs-LED ist nicht verkabelt; Redfish und IPMI kennen den Einschaltzustand dann nicht, und jede Anfrage drückt die Taste.",
+      "virtualMedia": "Virtuelle Medien über Redfish",
+      "virtualMediaHint": "Ein: Redfish bietet auch das virtuelle Laufwerk an (VirtualMedia: ein Image von einer http-, https- oder smb-Adresse oder von der Karte des NanoKVM einlegen, auswerfen). Das BMC-Konto kann den Host dann von einem Image starten, das es angibt, und der NanoKVM ruft diese Adresse ab.",
       "holdHint": "Leer: so lange wie das lange Drücken im Strommenü (5 s).",
       "save": "Speichern",
       "saved": "Gespeichert",

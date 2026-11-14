@@ -111,6 +111,12 @@ func (s *Service) MountImageFile(name string, cdrom bool) error {
 func (s *Service) mountImage(name string, cdrom, force bool) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.mountImageLocked(name, cdrom, force)
+}
+
+// mountImageLocked requires s.mu; insertion-only callers check occupancy
+// under the same lock, before reaching the replacement-capable mount.
+func (s *Service) mountImageLocked(name string, cdrom, force bool) (string, error) {
 	if s.remote != nil {
 		return "", &imageMountError{code: -2, msg: "Disconnect remote media before mounting another image", conflict: true}
 	}
@@ -140,6 +146,8 @@ type imageMountError struct {
 }
 
 func (e *imageMountError) Error() string { return e.msg }
+
+func (e *imageMountError) Is(target error) bool { return e.conflict && target == ErrDriveInUse }
 
 // mediumSwapPause is how long the drive stays empty between a mounted image
 // and the one that replaces it. A computer learns of a medium change by

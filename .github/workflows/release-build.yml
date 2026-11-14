@@ -61,17 +61,33 @@ jobs:
           out: ${{ env.OUT }}
           save-caches: 'true'
 
+      - name: Restore component outputs
+        uses: ./.github/actions/component-cache
+        with:
+          out: ${{ env.OUT }}
+          mode: restore
+
       - name: Build
         env:
           # No Git record of the patched trees: it serves local patch work only.
           NANOKVM_PATCH_GIT: '0'
         run: |
-          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native tpu system tools server
+          python3 scripts/build-components.py --out "$OUT"
           # The Go build cache (about 1 GB) is not reused within a run.
           rm -rf "$OUT/server/gocache"
-          platform/build.sh -o "$OUT" web firmware
           du -sh "$OUT" "$OUT"/* 2>/dev/null | sort -h | tail -8
           df -h /
+
+      - name: Verify component reuse
+        env:
+          NANOKVM_PATCH_GIT: '0'
+        run: python3 scripts/build-components.py --out "$OUT" --verify
+
+      - name: Save component outputs
+        uses: ./.github/actions/component-cache
+        with:
+          out: ${{ env.OUT }}
+          mode: save
 
       - name: Hashes
         run: platform/build.sh -o "$OUT" hashes

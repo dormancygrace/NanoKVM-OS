@@ -361,3 +361,24 @@ OS builds do not download or pin add-ons, and add-on publication does not change
 declare capability dependencies; a version requiring a newer runtime cannot be
 installed on an incompatible OS. PicoClaw and acme.sh continue to use their
 existing upstream and Alpine update mechanisms.
+
+## Reusing compiled components in CI
+
+Release builds and output-hash checks keep a shared snapshot of completed
+components. Each component is reused only when its source files, upstream pins,
+CPU/toolchain configuration, dependencies and recorded output hashes still
+match. A web edit rebuilds the web component; a server edit rebuilds the server.
+Kernel changes also invalidate the modules, native libraries and other consumers
+of kernel headers. Shared build-script changes invalidate all components.
+
+The first build without a snapshot compiles everything. Subsequent builds restore
+finished outputs and the kernel/header state needed for partial rebuilds. Only
+main writes shared snapshots; pull requests can read them. Keys, signed assets,
+root file systems and Go/Node SDKs are outside this cache. The compiler cache
+continues to speed components that do require rebuilding.
+
+Packages, their release metadata and signatures, corresponding source, and the
+root-file-system/image installation checks still run for every release.
+The ordinary platform/build.sh step commands remain available for a full build.
+Component logs list BUILD and REUSE decisions; --verify checks that every
+selected component can be reused without compiling it.

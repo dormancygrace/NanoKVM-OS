@@ -182,6 +182,13 @@ jobs:
         with:
           out: ${{ env.OUT }}
 
+      - name: Restore component outputs
+        uses: ./.github/actions/component-cache
+        if: steps.version.outputs.skip != 'true'
+        with:
+          out: ${{ env.OUT }}
+          mode: restore
+
       - name: Build
         if: steps.version.outputs.skip != 'true'
         env:
@@ -189,10 +196,23 @@ jobs:
           NANOKVM_VERSION: ${{ steps.version.outputs.version }}
           NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
         run: |
-          platform/build.sh -o "$OUT" kernel modules uboot opensbi fip initramfs boot native tpu system tools server
+          python3 scripts/build-components.py --out "$OUT"
           # The Go build cache (about 1 GB) is not reused within a run.
           rm -rf "$OUT/server/gocache"
-          platform/build.sh -o "$OUT" web firmware hashes source
+          platform/build.sh -o "$OUT" hashes source
+
+      - name: Verify component reuse
+        if: steps.version.outputs.skip != 'true'
+        env:
+          NANOKVM_PATCH_GIT: '0'
+        run: python3 scripts/build-components.py --out "$OUT" --verify
+
+      - name: Save component outputs
+        uses: ./.github/actions/component-cache
+        if: steps.version.outputs.skip != 'true'
+        with:
+          out: ${{ env.OUT }}
+          mode: save
 
       # The packages, root file system and SD image (always built, as a check
       # that the packages install), signed with a throwaway key: this job runs

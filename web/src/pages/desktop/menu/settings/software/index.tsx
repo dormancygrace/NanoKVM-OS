@@ -16,7 +16,7 @@ import styles from './mobile-tabs.module.css';
 
 import '../../download-progress.css';
 
-type Package = { name: string; version: string };
+type Package = { name: string; version: string; removalBlocked?: string };
 type PackageUpdate = { name: string; installed: string; available: string };
 type Operation = {
   state: string;
@@ -327,15 +327,17 @@ export const Software = () => {
                 <span className="min-w-0 truncate">
                   {pkg.name} <span className="text-fg-muted">{pkg.version}</span>
                 </span>
-                <Button
-                  size="small"
-                  danger
-                  icon={<Trash2Icon size={14} />}
-                  disabled={working || protectedPackages.has(pkg.name)}
-                  onClick={() => void previewRemoval(pkg.name)}
-                >
-                  {t('settings.software.remove')}
-                </Button>
+                {!pkg.removalBlocked && !protectedPackages.has(pkg.name) && (
+                  <Button
+                    size="small"
+                    danger
+                    icon={<Trash2Icon size={14} />}
+                    disabled={working}
+                    onClick={() => void previewRemoval(pkg.name)}
+                  >
+                    {t('settings.software.remove')}
+                  </Button>
+                )}
               </div>
             ))}
           </div>

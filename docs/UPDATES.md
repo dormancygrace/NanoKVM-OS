@@ -62,6 +62,10 @@ apk upgrade
 reboot
 ```
 
+The recovery command keeps the old `nanokvm-app` name to clear local-file
+checksum selections in `world`. New releases provide it through
+`nanokvm-release`; no separate compatibility APK is needed.
+
 ## Signed indexes and automatic key migration
 
 `nanokvm-keys` installs and owns the public release keys. Installing or
@@ -203,7 +207,3 @@ all-in-one OS releases and filters their SHA256SUMS, preserving every public
 OS release, image, source archive and migration download. Git tags remain.
 The script needs authenticated `gh`, `GH_TOKEN` for API reads, and host `apk`.
 Cleanup is never run automatically by CI or by a normal Pages deployment.
-
-The recovery command keeps the old `nanokvm-app` name to clear local-file
-checksum selections in `world`. New releases provide it through
-`nanokvm-release`; no separate compatibility APK is needed.

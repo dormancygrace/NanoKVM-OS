@@ -111,6 +111,12 @@ func (s *Service) MountImageFile(name string, cdrom bool) error {
 func (s *Service) mountImage(name string, cdrom, force bool) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.mountImageLocked(name, cdrom, force)
+}
+
+// mountImageLocked requires s.mu; insertion-only callers check occupancy
+// under the same lock, before reaching the replacement-capable mount.
+func (s *Service) mountImageLocked(name string, cdrom, force bool) (string, error) {
 	if s.remote != nil {
 		return "", &imageMountError{code: -2, msg: "Disconnect remote media before mounting another image", conflict: true}
 	}

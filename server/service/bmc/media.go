@@ -15,7 +15,7 @@ import (
 type Drive interface {
 	Medium() (storage.Medium, error)
 	InsertURL(ctx context.Context, rawURL, username, password string) error
-	MountImageFile(name string, cdrom bool) error
+	InsertImageFile(name string, cdrom bool) error
 	EjectMedium() error
 }
 
@@ -71,7 +71,7 @@ func (m redfishMedia) Insert(ctx context.Context, request redfish.MediaRequest) 
 		if !cdrom && request.WriteProtected != nil && *request.WriteProtected {
 			return errors.New("An .img image is a writable disk: WriteProtected must be false.")
 		}
-		err = m.drive.MountImageFile(u.Path, cdrom)
+		err = m.drive.InsertImageFile(u.Path, cdrom)
 	default:
 		return errors.New("Image must be an http://, https:// or smb:// URL, or file:///data/NAME for an image on the NanoKVM.")
 	}

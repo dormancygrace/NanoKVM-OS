@@ -299,18 +299,19 @@ Measured on a NanoKVM PCIe: about 0.63 MiB lower server PSS, no demonstrated CPU
 
 ### Application package split
 
-The build produces nineteen core APKs. `nanokvm` owns the server, board service,
+The build produces eighteen core APKs. `nanokvm` owns the server, board service,
 native libraries and application scripts; `nanokvm-web` owns
-`/kvmapp/server/web`. `nanokvm-app` is a file-free compatibility metapackage
-(revision r2 for v3.0-a1) depending on both. Keep it while older installations
-and `nanokvm-release` depend on the old package name. The new packages declare
+`/kvmapp/server/web`. The separate `nanokvm-app` compatibility APK is no longer
+built. `nanokvm-release` provides its old name at the release's APK version
+and depends on both runtime and web packages. This keeps older world selections
+valid while APK removes the old monolith or metapackage. The split packages declare
 `replaces=nanokvm-app` so APK can transfer ownership during the upgrade.
 The OpenRC service is still named `nanokvm-app`.
 
 In the same way `nanokvm-kernel`, `nanokvm-kmod`, `nanokvm-firmware` and
 `nanokvm-bootloader` were named with a `-sg2002` suffix before 3.7.0 (there is
 no other board). The old names are file-free metapackages depending on the new
-ones, kept like `nanokvm-app` (`nanokvm-release` depends on them, and older
+ones (`nanokvm-release` depends on them, and older
 installations list them in their world); the new packages replace them.
 A rollback to a release from before 3.7.0 removes the new packages and installs
 the old ones (`apkrollback.LegacyTargets`).
@@ -344,7 +345,7 @@ hashes only. The release version (`/kvmapp/version`, `VERSION` in
 `/etc/nanokvm-release`) and the source commit (`SOURCE_COMMIT`) belong to
 `nanokvm-release`, so `nanokvm` and `nanokvm-web` change only when their files
 do. Package revisions are visible through Software, diagnostic reports,
-or `apk info -v nanokvm nanokvm-web nanokvm-app`.
+or `apk info -v nanokvm nanokvm-web nanokvm-release`.
 
 ### Independent add-on updates
 

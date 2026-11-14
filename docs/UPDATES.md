@@ -57,7 +57,7 @@ repository selections before upgrading:
 
 ```sh
 apk update
-apk add nanokvm-base nanokvm-app nanokvm-release nanokvm-kernel nanokvm-kmod nanokvm-firmware
+apk add nanokvm-base nanokvm nanokvm-web nanokvm-release nanokvm-kernel nanokvm-kmod nanokvm-firmware
 apk upgrade
 reboot
 ```

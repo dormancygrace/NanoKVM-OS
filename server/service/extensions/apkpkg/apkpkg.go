@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -108,6 +109,46 @@ func RemoveAddon(name string) error {
 		return errors.New("not an installed add-on")
 	}
 	return Run("remove", name)
+}
+
+// Keep selects an installed package in the APK world, so that apk keeps it
+// once no other package depends on it. It downloads nothing (--no-network):
+// for a package that is not installed it fails and changes nothing.
+func Keep(name string) error {
+	if !packageName.MatchString(name) {
+		return errors.New("invalid APK package name")
+	}
+	world, _ := os.ReadFile(worldPath)
+	if selected(world, name) {
+		return nil
+	}
+	lock, err := osupdate.Lock()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	if output, runErr := apkrun.Command(ctx, "/sbin/apk", "add", "--no-network", "--", name).CombinedOutput(); runErr != nil {
+		return fmt.Errorf("apk add failed: %s", tail(output))
+	}
+	return nil
+}
+
+var worldPath = "/etc/apk/world"
+
+// selected reports whether the world names the package, with or without a
+// version constraint, a repository tag or a file pin.
+func selected(world []byte, name string) bool {
+	for _, entry := range strings.Fields(string(world)) {
+		if i := strings.IndexAny(entry, "=<>~@"); i >= 0 {
+			entry = entry[:i]
+		}
+		if entry == name {
+			return true
+		}
+	}
+	return false
 }
 
 func tail(output []byte) string {

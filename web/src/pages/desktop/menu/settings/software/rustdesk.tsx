@@ -114,13 +114,15 @@ export const RustDeskAddon = ({ onOpen }: { onOpen: () => void }) => {
             <Alert type="info" title={t('unavailable')} />
           )}
           <div className="flex flex-wrap gap-2">
-            <Button
-              icon={<RefreshCwIcon size={16} />}
-              loading={busy}
-              onClick={() => void operation('check')}
-            >
-              {t('checkUpdates')}
-            </Button>
+            {status?.installed && (
+              <Button
+                icon={<RefreshCwIcon size={16} />}
+                loading={busy}
+                onClick={() => void operation('check')}
+              >
+                {t('checkUpdates')}
+              </Button>
+            )}
             {status?.installed ? (
               <>
                 <Button type="primary" disabled={busy} onClick={onOpen}>

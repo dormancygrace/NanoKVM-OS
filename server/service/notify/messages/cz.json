@@ -18,5 +18,9 @@
   },
   "screen.bsod": { "title": "Modrá obrazovka na hostiteli", "body": "Windows se zastavil s chybou." },
   "screen.panic": { "title": "Kernel panic na hostiteli", "body": "Konzole hostitele zobrazuje pád systému." },
-  "test": { "title": "Zkušební oznámení", "body": "Oznámení z tohoto NanoKVM dorazí do tohoto kanálu." }
+  "test": { "title": "Zkušební oznámení", "body": "Oznámení z tohoto NanoKVM dorazí do tohoto kanálu." },
+  "action.button": { "title": "Stisknuto tlačítko", "body": "{actor}: tlačítko {button} stisknuto na {seconds} s." },
+  "action.media-inserted": { "title": "Obraz připojen", "body": "{actor}: obraz {image} vložen do virtuální jednotky." },
+  "action.media-ejected": { "title": "Obraz vysunut", "body": "{actor}: obraz vysunut z virtuální jednotky." },
+  "journal.dropped": { "title": "Nezaznamenané události", "body": "Vynecháno událostí: {count} – více, než deník za minutu přijme." }
 }

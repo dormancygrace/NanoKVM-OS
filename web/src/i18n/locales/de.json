@@ -2561,6 +2561,12 @@
         "changed": "Dienst, Client-ID oder Tenant wurden während der Anmeldung geändert. Melden Sie sich erneut an."
       }
     },
+    "events": {
+      "title": "Ereignisprotokoll",
+      "description": "Was mit dem Host geschah (Stromversorgung, Bild, ein Absturz auf dem Bildschirm), Anmeldungen von neuen Adressen und gesperrte, und wer eine Taste gedrückt oder das Image im virtuellen Laufwerk gewechselt hat. Die neuesten {{count}} Ereignisse bleiben erhalten, auch über Neustarts.",
+      "empty": "Noch keine Ereignisse.",
+      "failed": "Das Ereignisprotokoll konnte nicht gelesen werden."
+    },
     "hostSensors": {
       "title": "Sensoren des Computers",
       "about": "Der Agent nanokvm-sensors auf dem Computer sendet dessen Temperaturen, Spannungen und Lüfterdrehzahlen an das NanoKVM.",

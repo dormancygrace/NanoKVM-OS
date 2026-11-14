@@ -2164,6 +2164,12 @@
         "changed": "Během přihlášení se změnila služba, ID klienta nebo tenant. Přihlaste se znovu."
       }
     },
+    "events": {
+      "title": "Deník událostí",
+      "description": "Co se stalo s počítačem (napájení, obraz, pád na obrazovce), přihlášení z nových adres a zablokovaná přihlášení a kdo stiskl tlačítko nebo změnil obraz ve virtuální jednotce. Uchovává se posledních {{count}} událostí, i po restartu.",
+      "empty": "Zatím žádné události.",
+      "failed": "Deník událostí se nepodařilo načíst."
+    },
     "hostSensors": {
       "title": "Senzory počítače",
       "about": "Agent nanokvm-sensors v počítači posílá do NanoKVM jeho teploty, napětí a otáčky ventilátorů.",

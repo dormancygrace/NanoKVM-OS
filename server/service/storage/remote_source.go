@@ -103,6 +103,9 @@ func (s *Service) serveRemote(r *remoteSession, source remotemedia.Source, mount
 				_ = os.WriteFile(forcedEjectDevice, []byte("1"), 0600)
 			}
 		}
+		if r.mounted {
+			recordMedium(r.actor, "")
+		}
 		r.mounted = false
 	}()
 	select {
@@ -256,7 +259,7 @@ func (s *Service) ConnectSMB(c *gin.Context) {
 
 func (s *Service) connectRemoteURL(c *gin.Context, kind string, open func(context.Context) (remotemedia.Source, string, uint64, error)) {
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &remoteSession{kind: kind, name: "remote.iso", closed: make(chan struct{}), cancel: cancel}
+	r := &remoteSession{kind: kind, name: "remote.iso", closed: make(chan struct{}), cancel: cancel, actor: webActor(c)}
 	if err := s.reserveRemote(r); err != nil {
 		r.close()
 		c.JSON(409, gin.H{"code": -2, "msg": err.Error()})
@@ -268,7 +271,10 @@ func (s *Service) connectRemoteURL(c *gin.Context, kind string, open func(contex
 			s.mu.Lock()
 			r.name, r.size = name, size
 			s.mu.Unlock()
-			err = s.serveRemote(r, source, nil)
+			err = s.serveRemote(r, source, func() error {
+				recordMedium(r.actor, r.name)
+				return nil
+			})
 		}
 		s.releaseRemote(r, err)
 	}()

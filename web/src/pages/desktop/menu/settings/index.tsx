@@ -135,6 +135,9 @@ const System = lazyPage(() => import('./system').then((module) => ({ default: mo
 const Security = lazyPage(() =>
   import('./security').then((module) => ({ default: module.Security }))
 );
+const Events = lazyPage(() =>
+  import('./system/events').then((module) => ({ default: module.Events }))
+);
 const Diagnostics = lazyPage(() =>
   import('./system/diagnostics').then((module) => ({ default: module.Diagnostics }))
 );
@@ -311,6 +314,7 @@ export const Settings = ({
         'system-recovery': <Recovery />,
         'system-updates': <Updates />,
         'system-memory': <Memory />,
+        'system-events': <Events />,
         'system-diagnostics': <Diagnostics />,
         ai: null,
         'ai-screen-text': (

@@ -92,6 +92,7 @@ func vmRouter(r *gin.Engine) {
 	api.GET("/vm/host-sensors", service.GetHostSensors)
 	admin.PUT("/vm/host-sensors", service.SetHostSensors)
 	admin.PUT("/vm/host-sensors/view", service.SetHostSensorsView)
+	admin.GET("/vm/journal", service.GetJournal) // the event journal
 	// Public: the computer has no credentials. Network mode and the USB
 	// network only (PostHostSensors checks both).
 	r.POST(vm.HostSensorsIngestPath, service.PostHostSensors)

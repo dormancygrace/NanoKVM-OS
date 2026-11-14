@@ -2561,6 +2561,12 @@
         "changed": "The service, client ID or tenant changed during the sign-in. Sign in again."
       }
     },
+    "events": {
+      "title": "Event log",
+      "description": "What happened to the host (power, picture, a crash on its screen), logins from new addresses and blocked ones, and who pressed a button or changed the image in the virtual drive. The newest {{count}} events are kept, across restarts.",
+      "empty": "No events yet.",
+      "failed": "The event log could not be read."
+    },
     "hostSensors": {
       "title": "Computer sensors",
       "about": "The nanokvm-sensors agent on the computer sends its temperatures, voltages and fan speeds to the NanoKVM.",

@@ -18,5 +18,9 @@
   },
   "screen.bsod": { "title": "Bluescreen auf dem Host", "body": "Windows wurde mit einem Fehler angehalten." },
   "screen.panic": { "title": "Kernel Panic auf dem Host", "body": "Die Konsole des Hosts zeigt einen Absturz." },
-  "test": { "title": "Testbenachrichtigung", "body": "Benachrichtigungen dieses NanoKVM erreichen diesen Kanal." }
+  "test": { "title": "Testbenachrichtigung", "body": "Benachrichtigungen dieses NanoKVM erreichen diesen Kanal." },
+  "action.button": { "title": "Taste gedrückt", "body": "{actor} hat die Taste {button} {seconds} s lang gedrückt." },
+  "action.media-inserted": { "title": "Image eingebunden", "body": "{actor} hat {image} in das virtuelle Laufwerk eingelegt." },
+  "action.media-ejected": { "title": "Image ausgeworfen", "body": "{actor} hat das Image aus dem virtuellen Laufwerk genommen." },
+  "journal.dropped": { "title": "Ereignisse nicht aufgezeichnet", "body": "{count} Ereignisse wurden ausgelassen: mehr, als das Protokoll pro Minute aufnimmt." }
 }

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -13,6 +14,8 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/internal/storageidentity"
+	"NanoKVM-Server/journal"
+	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/remotemedia"
 	"NanoKVM-Server/service/hid"
@@ -92,7 +95,27 @@ func (s *Service) MountImage(c *gin.Context) {
 	}
 
 	rsp.OkRsp(c)
+	recordMedium(webActor(c), file)
 	log.Debugf("mount image %s success", file)
+}
+
+// webActor names the page's user for the journal.
+func webActor(c *gin.Context) string {
+	if principal, ok := middleware.CurrentPrincipal(c); ok {
+		return principal.Username + " (web)"
+	}
+	return ""
+}
+
+// recordMedium puts a change of the virtual drive's medium into the
+// journal: image is what went in, "" for an eject.
+func recordMedium(actor, image string) {
+	ctx := journal.WithActor(context.Background(), actor)
+	if image == "" {
+		journal.Action(ctx, "action.media-ejected", nil)
+		return
+	}
+	journal.Action(ctx, "action.media-inserted", map[string]string{"image": filepath.Base(image)})
 }
 
 // Images lists the images in /data that MountImageFile accepts.
@@ -103,6 +126,9 @@ func (s *Service) Images() ([]string, error) { return listImages() }
 // mount (POST /api/storage/image/mount), for other services such as MCP.
 func (s *Service) MountImageFile(name string, cdrom bool) error {
 	_, err := s.mountImage(name, cdrom, false)
+	if err == nil {
+		recordMedium("API", name)
+	}
 	return err
 }
 

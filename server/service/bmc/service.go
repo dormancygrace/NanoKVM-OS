@@ -16,6 +16,7 @@ import (
 
 	"NanoKVM-Server/internal/bmc/redfish"
 	"NanoKVM-Server/internal/oomscore"
+	"NanoKVM-Server/journal"
 	"NanoKVM-Server/pkg/bmc"
 	"NanoKVM-Server/service/extensions/apkpkg"
 	"NanoKVM-Server/service/notify"
@@ -112,7 +113,7 @@ func (s *Service) ServeRedfish(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	handler.ServeHTTP(w, r)
+	handler.ServeHTTP(w, r.WithContext(journal.WithActor(r.Context(), "Redfish")))
 }
 
 func (s *Service) ipmiInstalled() bool {

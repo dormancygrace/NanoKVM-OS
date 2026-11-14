@@ -85,6 +85,7 @@ export const builtinMenu = [
   { id: 'system-recovery', order: 50, icon: 'download', title: { key: 'settings.recovery.title' } },
   { id: 'system-updates', order: 60, icon: 'download', title: { key: 'settings.updates.title' } },
   { id: 'system-memory', order: 70, icon: 'memory', title: { key: 'settings.memory.title' } },
+  { id: 'system-events', order: 75, icon: 'scan-text', title: { key: 'settings.events.title' } },
   {
     id: 'system-diagnostics',
     order: 80,

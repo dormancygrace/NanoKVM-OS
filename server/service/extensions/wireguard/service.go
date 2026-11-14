@@ -63,34 +63,91 @@ func NewService() *Service {
 	return s
 }
 
-// Test seams: select an installed package in the APK world; is WireGuard
-// installed.
+// WireGuard is installed on demand, like the other VPNs: wireguard-tools
+// (wg, wg-quick) is not a dependency of the OS.
+const toolsPackage = "wireguard-tools"
+
+// Test seams: select an installed package in the APK world; install one; is
+// WireGuard installed.
 var (
-	keepPackage = apkpkg.Keep
-	installed   = func() bool { _, err := exec.LookPath("wg-quick"); return err == nil }
+	keepPackage    = apkpkg.Keep
+	installPackage = func(name string) error { return apkpkg.Run("install", name) }
+	installed      = func() bool { _, err := exec.LookPath("wg-quick"); return err == nil }
 )
 
-// keepTools selects wireguard-tools in the APK world while there are
-// profiles. A later release stops installing WireGuard with the OS and offers
-// it like the other VPNs; apk would then remove it on that update from a
-// device whose tunnels need it, unless the world names it. Nothing is
-// downloaded: a device without WireGuard installed is left as it is. The
-// update lock may be busy (an update, a package operation): retried, 1 min
-// doubling up to 30 min.
+// keepTools keeps WireGuard while there are profiles: selected in the APK
+// world when it is installed (nothing downloaded), installed when it is not.
+// It is missing with profiles after an update from a release before the
+// world selection (apk removed it with the OS dependency), a factory package
+// reset, or a removal over SSH; Uninstall and the Software page refuse while
+// there are profiles. The update lock may be busy (an update, a package
+// operation) and the repository out of reach: retried, 1 min doubling up to
+// 30 min. A running tunnel lives in the kernel and does not wait for this;
+// the boot restore retries on its own until the tools are back.
 func (s *Service) keepTools(sleep func(time.Duration)) {
 	for delay := time.Minute; ; delay = min(2*delay, 30*time.Minute) {
 		s.mu.Lock()
 		profiles, err := s.profiles()
 		s.mu.Unlock()
-		if err != nil || len(profiles) == 0 || !installed() {
+		if err != nil || len(profiles) == 0 {
 			return
 		}
-		if err = keepPackage("wireguard-tools"); err == nil {
+		if installed() {
+			err = keepPackage(toolsPackage)
+		} else {
+			log.Infof("WireGuard: profiles without WireGuard installed; installing %s", toolsPackage)
+			err = installPackage(toolsPackage)
+		}
+		if err == nil {
 			return
 		}
-		log.Warnf("WireGuard: cannot select wireguard-tools in the APK world, retrying in %v: %v", delay, err)
+		log.Warnf("WireGuard: cannot keep %s, retrying in %v: %v", toolsPackage, delay, err)
 		sleep(delay)
 	}
+}
+
+// Install installs WireGuard from the repositories.
+func (s *Service) Install(c *gin.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var rsp proto.Response
+	if installed() {
+		rsp.OkRsp(c)
+		return
+	}
+	if err := installPackage(toolsPackage); err != nil {
+		rsp.ErrRsp(c, -1, "WireGuard installation failed: "+err.Error())
+		return
+	}
+	rsp.OkRsp(c)
+}
+
+// Uninstall removes WireGuard, only without profiles: a profile is a tunnel
+// someone may reach the device through, and with no profile no tunnel runs.
+func (s *Service) Uninstall(c *gin.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var rsp proto.Response
+	profiles, err := s.profiles()
+	if err != nil {
+		rsp.ErrRsp(c, -1, "cannot read WireGuard profiles")
+		return
+	}
+	if len(profiles) > 0 {
+		rsp.ErrRsp(c, -1, "delete the WireGuard profiles before uninstalling WireGuard")
+		return
+	}
+	if installed() {
+		if err = apkpkg.Run("remove", toolsPackage); err != nil {
+			rsp.ErrRsp(c, -1, "WireGuard removal failed: "+err.Error())
+			return
+		}
+	}
+	if installed() {
+		rsp.ErrRsp(c, -1, "WireGuard is still installed: another package requires it")
+		return
+	}
+	rsp.OkRsp(c)
 }
 
 // Configs contain credentials. They never appear in status responses, logs or argv.
@@ -179,6 +236,9 @@ func commandInput(timeout time.Duration, input io.Reader, name string, args ...s
 	return cmd.Output()
 }
 func (s *Service) quick(action, id string) error {
+	if !installed() {
+		return fmt.Errorf("WireGuard is not installed")
+	}
 	data, e := os.ReadFile(s.config(id))
 	if e != nil {
 		return fmt.Errorf("cannot read configuration")
@@ -356,6 +416,10 @@ func (s *Service) Import(c *gin.Context) {
 		return
 	}
 	defer form.RemoveAll()
+	if !installed() {
+		rsp.ErrRsp(c, -1, "install WireGuard before importing profiles")
+		return
+	}
 	files := form.File["files"]
 	profiles, e := s.profiles()
 	if e != nil || len(files) == 0 || len(profiles)+len(files) > 16 {

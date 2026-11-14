@@ -93,6 +93,11 @@ independently of OS releases; RustDesk is not installed in the full SD image.
 
 - **Experimental C906 overlay:** follow the [stock Alpine migration instructions](../firmware/alpine/README.md#existing-c906-installations).
   Updating NanoKVM packages alone does not replace the overlay.
+- **WireGuard:** it is no longer installed with the OS. A device with
+  WireGuard profiles keeps it: the release before this one selects it in the APK world,
+  and a device that skips that release gets it installed again after the update
+  (the running tunnel stays up meanwhile). Without profiles it is removed by
+  the update; install it from VPN settings when needed.
 - **Coming from a2 with OpenVPN 3:** the supported optional client is now
   OpenVPN 2. Install it from VPN settings before reconnecting; existing profile
   files are retained.

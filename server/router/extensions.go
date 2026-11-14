@@ -27,6 +27,8 @@ func extensionsRouter(r *gin.Engine) {
 	api.POST("/openvpn/import", ovpn.Import)
 	api.POST("/openvpn/profile", ovpn.Change)
 	wg := wireguard.NewService()
+	api.POST("/wireguard/install", wg.Install)
+	api.POST("/wireguard/uninstall", wg.Uninstall)
 	api.GET("/wireguard/status", wg.GetStatus)
 	api.POST("/wireguard/import", wg.Import)
 	api.POST("/wireguard/profile", wg.Change)

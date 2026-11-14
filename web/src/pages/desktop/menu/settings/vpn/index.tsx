@@ -3,6 +3,7 @@ import { Alert, Button, Input, message, Popconfirm, Switch, Tooltip } from 'antd
 import { CheckIcon, FileUpIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { DOWNLOAD_TIMEOUT, SLOW_CALL_TIMEOUT } from '@/api/extensions/timeouts.ts';
 import { http } from '@/lib/http.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
@@ -10,6 +11,7 @@ import { HandshakeAge } from '@/components/handshake-age';
 import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
+import { ExtensionInstallResult } from './extension-install-result.tsx';
 import { profileTone } from './profile-tone.ts';
 import { VPNVersion } from './version';
 
@@ -127,6 +129,16 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
       return rsp;
     });
   }
+  function install() {
+    void run(() =>
+      http.post('/api/extensions/wireguard/install', undefined, { timeout: DOWNLOAD_TIMEOUT })
+    );
+  }
+  function uninstall() {
+    void run(() =>
+      http.post('/api/extensions/wireguard/uninstall', undefined, { timeout: SLOW_CALL_TIMEOUT })
+    );
+  }
   const formatBytes = (n: number) => `${(n / 1048576).toFixed(1)} MiB`;
 
   return (
@@ -136,7 +148,41 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
         <VPNVersion name="wireguard" />
         <p className="text-fg-muted mt-0 text-sm">{t('vpn.description')}</p>
         <p className="text-fg-muted mt-0 text-xs">{t('vpn.routingNote')}</p>
-        {available === false && <Alert type="warning" showIcon message={t('vpn.systemRequired')} />}
+        {available === false && (
+          <ExtensionInstallResult
+            title={t('vpn.wireguardNotInstalled')}
+            description={t('vpn.wireguardInstallDescription')}
+            actionLabel={t('vpn.wireguardInstall')}
+            loading={busy}
+            onInstall={install}
+          />
+        )}
+        {available === true && (
+          <SettingRow
+            label={<StatusBadge tone="success">{t('vpn.wireguardInstalled')}</StatusBadge>}
+          >
+            {profiles.length > 0 ? (
+              <Tooltip title={t('vpn.wireguardUninstallProfiles')}>
+                <Button danger disabled icon={<Trash2Icon size={16} />}>
+                  {t('vpn.wireguardUninstall')}
+                </Button>
+              </Tooltip>
+            ) : (
+              <Popconfirm
+                title={t('vpn.wireguardUninstall')}
+                description={t('vpn.wireguardUninstallWarning')}
+                onConfirm={uninstall}
+                okText={t('vpn.confirm')}
+                cancelText={t('vpn.cancel')}
+                disabled={busy}
+              >
+                <Button danger loading={busy} icon={<Trash2Icon size={16} />}>
+                  {t('vpn.wireguardUninstall')}
+                </Button>
+              </Popconfirm>
+            )}
+          </SettingRow>
+        )}
         <input
           ref={input}
           type="file"
@@ -153,7 +199,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
           <Button
             icon={<FileUpIcon size={16} />}
             loading={busy}
-            disabled={available === undefined}
+            disabled={available !== true}
             onClick={() => input.current?.click()}
           >
             {t('vpn.import')}

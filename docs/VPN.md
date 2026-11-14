@@ -7,6 +7,14 @@ connect. Avoid overlapping routes when using multiple VPN clients.
 
 ## WireGuard
 
+Install WireGuard from its page (the `wireguard-tools` package); the kernel
+module is part of the OS. It stays installed while there are WireGuard
+profiles: Uninstall, and removal on the Software page, are refused until the
+profiles are deleted. If WireGuard is missing while there are profiles (an
+update from a release that did not keep it yet, a factory package reset, a removal over
+SSH), it is installed again from the repositories, retried until the
+repository is reachable; a running tunnel is not interrupted.
+
 Upload one or more `.conf` files, then enable the profile you need. Existing profiles can be renamed without reconnecting.
 **Route Allowed IPs** is off by default, independently of a supplied Table field.
 AllowedIPs remains WireGuard peer selection/source validation; only connected

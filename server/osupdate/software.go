@@ -142,7 +142,26 @@ func checkRemovable(name string) error {
 	if required[name] {
 		return errors.New("required by NanoKVM OS; cannot be removed")
 	}
+	if wireguardPackages[name] && wireguardProfiles() {
+		return errors.New("used by WireGuard profiles; delete them on the WireGuard page first")
+	}
 	return nil
+}
+
+// WireGuard is not a dependency of the OS; it stays while there are
+// profiles (the WireGuard page refuses Uninstall the same way).
+var wireguardPackages = map[string]bool{"wireguard-tools": true, "wireguard-tools-wg": true, "wireguard-tools-wg-quick": true}
+
+var wireguardProfilesPath = "/etc/kvm/wireguard/profiles.json"
+
+// wireguardProfiles: an index that cannot be read counts as profiles.
+func wireguardProfiles() bool {
+	data, err := os.ReadFile(wireguardProfilesPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	var profiles []json.RawMessage
+	return err != nil || json.Unmarshal(data, &profiles) != nil || len(profiles) > 0
 }
 
 // Ask APK's solver to resolve the installed system roots, including virtual
@@ -350,6 +369,8 @@ func ListInstalledSoftware() ([]SoftwarePackage, error) {
 			packages[i].RemovalBlocked = "Cannot verify system dependencies; refresh and try again"
 		case required[packages[i].Name]:
 			packages[i].RemovalBlocked = "Required by NanoKVM OS"
+		case wireguardPackages[packages[i].Name] && wireguardProfiles():
+			packages[i].RemovalBlocked = "Used by WireGuard profiles"
 		}
 	}
 	return packages, nil

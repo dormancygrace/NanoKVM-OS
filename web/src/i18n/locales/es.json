@@ -2561,6 +2561,12 @@
         "changed": "El servicio, el ID de cliente o el tenant cambiaron durante el inicio de sesión. Vuelva a iniciar sesión."
       }
     },
+    "events": {
+      "title": "Registro de eventos",
+      "description": "Lo que le ocurrió al equipo (alimentación, imagen, un fallo en su pantalla), los inicios de sesión desde direcciones nuevas y los bloqueados, y quién pulsó un botón o cambió la imagen de la unidad virtual. Se conservan los {{count}} eventos más recientes, también tras reiniciar.",
+      "empty": "Aún no hay eventos.",
+      "failed": "No se pudo leer el registro de eventos."
+    },
     "hostSensors": {
       "title": "Sensores del ordenador",
       "about": "El agente nanokvm-sensors del ordenador envía al NanoKVM sus temperaturas, voltajes y velocidades de ventiladores.",

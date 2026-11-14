@@ -2561,6 +2561,12 @@
         "changed": "Le service, l'ID client ou le tenant a changé pendant la connexion. Connectez-vous à nouveau."
       }
     },
+    "events": {
+      "title": "Journal des événements",
+      "description": "Ce qui est arrivé à l'hôte (alimentation, image, un plantage à l'écran), les connexions depuis de nouvelles adresses et celles bloquées, et qui a appuyé sur un bouton ou changé l'image du lecteur virtuel. Les {{count}} événements les plus récents sont conservés, y compris après un redémarrage.",
+      "empty": "Aucun événement pour le moment.",
+      "failed": "Le journal des événements n'a pas pu être lu."
+    },
     "hostSensors": {
       "title": "Capteurs de l’ordinateur",
       "about": "L’agent nanokvm-sensors de l’ordinateur envoie au NanoKVM ses températures, tensions et vitesses de ventilateurs.",

@@ -18,5 +18,9 @@
   },
   "screen.bsod": { "title": "主机蓝屏", "body": "Windows 因错误而停止运行。" },
   "screen.panic": { "title": "主机 Kernel panic", "body": "主机的控制台显示系统崩溃。" },
-  "test": { "title": "测试通知", "body": "此 NanoKVM 的通知可以送达此渠道。" }
+  "test": { "title": "测试通知", "body": "此 NanoKVM 的通知可以送达此渠道。" },
+  "action.button": { "title": "按下按钮", "body": "{actor} 按下 {button} 按钮 {seconds} 秒。" },
+  "action.media-inserted": { "title": "镜像已挂载", "body": "{actor} 将 {image} 放入虚拟驱动器。" },
+  "action.media-ejected": { "title": "镜像已弹出", "body": "{actor} 从虚拟驱动器取出了镜像。" },
+  "journal.dropped": { "title": "事件未记录", "body": "有 {count} 个事件被略过：超出日志每分钟的记录上限。" }
 }

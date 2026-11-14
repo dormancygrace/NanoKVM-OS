@@ -24,6 +24,7 @@ import (
 	"NanoKVM-Server/pkg/resolvconf"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
+	"NanoKVM-Server/service/extensions/vpn"
 	"github.com/gin-gonic/gin"
 )
 
@@ -626,6 +627,7 @@ func (s *Service) Install(c *gin.Context) {
 }
 
 func (s *Service) Uninstall(c *gin.Context) {
+	purge := vpn.Purge(c)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var rsp proto.Response
@@ -648,6 +650,13 @@ func (s *Service) Uninstall(c *gin.Context) {
 	if _, err = exec.LookPath("openvpn"); err == nil {
 		if err = apkpkg.Run("remove", "openvpn"); err != nil {
 			rsp.ErrRsp(c, -1, "OpenVPN removal failed: "+err.Error())
+			return
+		}
+	}
+	if purge {
+		// Profiles, certificates and saved credentials.
+		if err = vpn.RemoveState(s.dir, s.run); err != nil {
+			rsp.ErrRsp(c, -1, "OpenVPN was removed, but its profiles could not be deleted: "+err.Error())
 			return
 		}
 	}

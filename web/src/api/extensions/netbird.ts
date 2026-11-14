@@ -13,10 +13,15 @@ export function install() {
   });
 }
 
-export function uninstall() {
-  return http.post('/api/extensions/netbird/uninstall', undefined, {
-    timeout: SLOW_CALL_TIMEOUT
-  });
+// purge: also delete the login and settings.
+export function uninstall(purge = false) {
+  return http.post(
+    '/api/extensions/netbird/uninstall',
+    { purge },
+    {
+      timeout: SLOW_CALL_TIMEOUT
+    }
+  );
 }
 
 export function getStatus() {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal } from 'antd';
+import { Checkbox, Modal } from 'antd';
 import { Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,13 +15,14 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [purge, setPurge] = useState(false);
 
   function uninstall() {
     if (isLoading) return;
     setIsLoading(true);
 
     api
-      .uninstall()
+      .uninstall(purge)
       .then((rsp) => {
         if (rsp.code !== 0) showRequestError(rsp);
       })
@@ -45,7 +46,10 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
       <button
         type="button"
         className="nanokvm-button-base text-fg hover:bg-surface-raised flex h-[30px] w-full cursor-pointer items-center space-x-1 rounded px-2 py-1"
-        onClick={() => setIsModalOpen(true)}
+        onClick={() => {
+          setPurge(false);
+          setIsModalOpen(true);
+        }}
       >
         <span>{t('settings.tailscale.uninstall')}</span>
       </button>
@@ -63,6 +67,14 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
       >
         <div className="py-5">
           <p className="text-base">{t('settings.tailscale.uninstallDesc')}</p>
+          <Checkbox
+            className="pt-3"
+            checked={purge}
+            disabled={isLoading}
+            onChange={(e) => setPurge(e.target.checked)}
+          >
+            {t('settings.tailscale.uninstallPurge')}
+          </Checkbox>
         </div>
       </Modal>
     </>

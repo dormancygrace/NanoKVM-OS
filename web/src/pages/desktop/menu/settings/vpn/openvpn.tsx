@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Input, message, Modal, Popconfirm, Switch } from 'antd';
+import { Alert, Button, Checkbox, Input, message, Modal, Popconfirm, Switch } from 'antd';
 import { FileUpIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -38,6 +38,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [passphrase, setPassphrase] = useState('');
+  const [purge, setPurge] = useState(false);
   const operation = useRef(false);
   const mounted = useRef(true);
   const input = useRef<HTMLInputElement>(null);
@@ -129,7 +130,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
   }
   function uninstall() {
     void run(() =>
-      http.post('/api/extensions/openvpn/uninstall', undefined, { timeout: SLOW_CALL_TIMEOUT })
+      http.post('/api/extensions/openvpn/uninstall', { purge }, { timeout: SLOW_CALL_TIMEOUT })
     );
   }
   async function saveCredentials() {
@@ -174,7 +175,15 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
           <SettingRow label={<StatusBadge tone="success">{t('vpn.openvpnInstalled')}</StatusBadge>}>
             <Popconfirm
               title={t('vpn.openvpnUninstall')}
-              description={t('vpn.openvpnUninstallWarning')}
+              description={
+                <div className="max-w-xs space-y-2">
+                  <div>{t('vpn.openvpnUninstallWarning')}</div>
+                  <Checkbox checked={purge} onChange={(e) => setPurge(e.target.checked)}>
+                    {t('vpn.uninstallPurge')}
+                  </Checkbox>
+                </div>
+              }
+              onOpenChange={(open) => open && setPurge(false)}
               onConfirm={uninstall}
               okText={t('vpn.confirm')}
               cancelText={t('vpn.cancel')}

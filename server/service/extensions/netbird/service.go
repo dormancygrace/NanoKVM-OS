@@ -6,6 +6,7 @@ import (
 
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
+	"NanoKVM-Server/service/extensions/vpn"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -44,12 +45,19 @@ func (s *Service) Install(c *gin.Context) {
 }
 
 func (s *Service) Uninstall(c *gin.Context) {
+	purge := vpn.Purge(c)
 	var rsp proto.Response
 	if !beginOperation(c, &rsp) {
 		return
 	}
 	defer operationMutex.Unlock()
 	if !isInstalled() {
+		if purge {
+			if err := vpn.RemoveState(netbirdState...); err != nil {
+				rsp.ErrRsp(c, -1, "NetBird login and settings could not be deleted: "+err.Error())
+				return
+			}
+		}
 		rsp.OkRsp(c)
 		return
 	}
@@ -64,8 +72,19 @@ func (s *Service) Uninstall(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "NetBird removal failed: "+err.Error())
 		return
 	}
+	if purge {
+		if err := vpn.RemoveState(netbirdState...); err != nil {
+			rsp.ErrRsp(c, -1, "NetBird was removed, but its login and settings could not be deleted: "+err.Error())
+			return
+		}
+	}
 	rsp.OkRsp(c)
 }
+
+// netbirdState: the client's configuration with its private key and
+// management URL, its state and its logs. The peer stays registered with the
+// management server until it is removed there.
+var netbirdState = []string{"/etc/netbird", "/var/lib/netbird", "/var/log/netbird"}
 
 func (s *Service) Start(c *gin.Context) {
 	var rsp proto.Response

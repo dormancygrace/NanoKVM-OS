@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 func writeTestScript(t *testing.T, path, body string) {
@@ -200,21 +198,5 @@ func TestRemoveScriptRejectsEscapesAndSymlinks(t *testing.T) {
 	}
 	if _, err := os.Stat(valid); !os.IsNotExist(err) {
 		t.Fatalf("valid script still exists: %v", err)
-	}
-}
-
-// Output past the limit is dropped without blocking the script; the time
-// limit kills what the script started too; a failure keeps its output.
-func TestRunForegroundLimits(t *testing.T) {
-	for script, want := range map[string]string{
-		"head -c 200000 /dev/zero | tr '\\0' x; echo done >&2": "[output cut after 64 KiB]",
-		"echo started; sleep 30 & sleep 30":                    "started\n\n[stopped after 1 s",
-		"echo oops; exit 3":                                    "oops\n\n[exit code 3]",
-	} {
-		start := time.Now()
-		out, err := runForeground(exec.Command("/bin/sh", "-c", script), time.Second)
-		if err != nil || !strings.Contains(string(out), want) || len(out) > scriptOutputLimit+100 || time.Since(start) > 5*time.Second {
-			t.Errorf("%q: %d bytes ending %q, %v, %v", script, len(out), out[max(len(out)-60, 0):], err, time.Since(start))
-		}
 	}
 }

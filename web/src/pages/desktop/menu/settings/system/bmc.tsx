@@ -116,6 +116,7 @@ export const BmcSettingsPage = () => {
       ipmiPort: values.ipmiPort ?? previous.ipmiPort,
       holdSeconds: values.holdSeconds || 0,
       powerLedConnected: values.powerLedConnected !== false,
+      virtualMedia: values.virtualMedia === true,
       password: values.password ?? ''
     };
     setBusy(true);
@@ -165,6 +166,7 @@ export const BmcSettingsPage = () => {
         ipmiPort: previous.ipmiPort,
         holdSeconds: previous.holdSeconds,
         powerLedConnected: previous.powerLedConnected,
+        virtualMedia: previous.virtualMedia,
         [key]: on
       });
       if (!mounted.current) return;
@@ -382,6 +384,14 @@ export const BmcSettingsPage = () => {
                       label={t('powerLed')}
                       valuePropName="checked"
                       extra={t('powerLedHint')}
+                    >
+                      <Switch />
+                    </Form.Item>
+                    <Form.Item
+                      name="virtualMedia"
+                      label={t('virtualMedia')}
+                      valuePropName="checked"
+                      extra={t('virtualMediaHint')}
                     >
                       <Switch />
                     </Form.Item>

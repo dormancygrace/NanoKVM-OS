@@ -1955,6 +1955,8 @@
       "holdSeconds": "Vynucené vypnutí: podržet tlačítko napájení (s)",
       "powerLed": "Kontrolka stavu napájení přivedena z hostitele",
       "powerLedHint": "Vypnuto: kontrolka stavu napájení není z počítače zapojená, takže Redfish a IPMI neznají stav napájení a proto tlačítko bude stisknuto při každém požadavku.",
+      "virtualMedia": "Virtuální média přes Redfish",
+      "virtualMediaHint": "Zapnuto: Redfish nabízí i virtuální jednotku (VirtualMedia: vložit obraz z adresy http, https nebo smb nebo z karty NanoKVM, vysunout). Účet BMC pak může spustit počítač z obrazu, který určí, a NanoKVM se na tuto adresu připojí.",
       "ipmiPort": "UDP port pro IPMI",
       "passwordKeep": "Pro ponechání stávajícího hesla nevyplňujte.",
       "passwordRule": "8-20 znaků",

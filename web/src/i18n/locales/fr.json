@@ -2330,6 +2330,8 @@
       "holdSeconds": "Arrêt forcé : maintenir le bouton d'alimentation (s)",
       "powerLed": "Voyant d'alimentation relié à l'hôte",
       "powerLedHint": "Désactivé : le connecteur du voyant d'alimentation n'est pas câblé ; Redfish et IPMI ne connaissent donc pas l'état d'alimentation et chaque requête appuie sur le bouton.",
+      "virtualMedia": "Médias virtuels via Redfish",
+      "virtualMediaHint": "Activé : Redfish propose aussi le lecteur virtuel (VirtualMedia : insérer une image depuis une adresse http, https ou smb ou depuis la carte du NanoKVM, éjecter). Le compte BMC peut alors démarrer l'hôte sur l'image qu'il indique, et le NanoKVM accède à cette adresse.",
       "holdHint": "Vide : comme l'appui long du menu d'alimentation (5 s).",
       "save": "Enregistrer",
       "saved": "Enregistré",

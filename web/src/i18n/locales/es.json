@@ -2330,6 +2330,8 @@
       "holdSeconds": "Apagado forzado: mantener pulsado el botón de encendido (s)",
       "powerLed": "LED de encendido conectado al equipo",
       "powerLedHint": "Desactivado: el conector del LED de encendido no está cableado, así que Redfish e IPMI no conocen el estado de energía y cada petición pulsa el botón.",
+      "virtualMedia": "Medios virtuales mediante Redfish",
+      "virtualMediaHint": "Activado: Redfish ofrece también la unidad virtual (VirtualMedia: insertar una imagen desde una dirección http, https o smb o desde la tarjeta del NanoKVM, expulsar). La cuenta BMC puede entonces arrancar el equipo desde la imagen que indique, y el NanoKVM accede a esa dirección.",
       "holdHint": "Vacío: lo mismo que la pulsación larga del menú de energía (5 s).",
       "save": "Guardar",
       "saved": "Guardado",

@@ -141,6 +141,8 @@ type imageMountError struct {
 
 func (e *imageMountError) Error() string { return e.msg }
 
+func (e *imageMountError) Is(target error) bool { return e.conflict && target == ErrDriveInUse }
+
 // mediumSwapPause is how long the drive stays empty between a mounted image
 // and the one that replaces it. A computer learns of a medium change by
 // asking the drive, about once a second: with no time between the two it

@@ -2330,6 +2330,8 @@
       "holdSeconds": "强制关机：按住电源键（秒）",
       "powerLed": "电源 LED 已连接到主机",
       "powerLedHint": "关闭：电源 LED 插针未接线，Redfish 和 IPMI 无法得知电源状态，每个请求都会按下按钮。",
+      "virtualMedia": "通过 Redfish 使用虚拟介质",
+      "virtualMediaHint": "开启：Redfish 还提供虚拟驱动器（VirtualMedia：从 http、https 或 smb 地址或 NanoKVM 的存储卡插入镜像、弹出）。此时 BMC 账户可以让主机从它指定的镜像启动，NanoKVM 会访问该地址。",
       "holdHint": "留空：与电源菜单的长按相同（5 秒）。",
       "save": "保存",
       "saved": "已保存",

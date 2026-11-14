@@ -38,10 +38,10 @@ func (s *Service) reserveRemote(r *remoteSession) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.remote != nil {
-		return errors.New("Remote media is already connected")
+		return driveInUse("Remote media is already connected")
 	}
 	if s.netboot != nil {
-		return errors.New("Turn off network boot before connecting an ISO")
+		return driveInUse("Turn off network boot before connecting an ISO")
 	}
 	h := hid.GetHid()
 	h.Lock()
@@ -54,7 +54,7 @@ func (s *Service) reserveRemote(r *remoteSession) error {
 		return errors.New("Cannot read USB storage state")
 	}
 	if strings.TrimSpace(string(current)) != "" {
-		return errors.New("Unmount the current image first")
+		return driveInUse("Unmount the current image first")
 	}
 	s.remote, s.remoteError, s.remoteKind = r, "", r.kind
 	return nil
@@ -66,6 +66,7 @@ var errRemoteEjected = errors.New("Remote ISO was ejected or USB storage was dis
 
 func (s *Service) releaseRemote(r *remoteSession, err error) {
 	r.close()
+	defer close(r.released)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.remote == r {
@@ -255,12 +256,23 @@ func (s *Service) ConnectSMB(c *gin.Context) {
 }
 
 func (s *Service) connectRemoteURL(c *gin.Context, kind string, open func(context.Context) (remotemedia.Source, string, uint64, error)) {
-	ctx, cancel := context.WithCancel(context.Background())
-	r := &remoteSession{kind: kind, name: "remote.iso", closed: make(chan struct{}), cancel: cancel}
-	if err := s.reserveRemote(r); err != nil {
-		r.close()
+	if _, err := s.startRemote(kind, "", open); err != nil {
 		c.JSON(409, gin.H{"code": -2, "msg": err.Error()})
 		return
+	}
+	var rsp proto.Response
+	rsp.OkRsp(c)
+}
+
+// startRemote reserves the drive and connects a URL source in the
+// background. The session's ready channel gets the outcome.
+func (s *Service) startRemote(kind, location string, open func(context.Context) (remotemedia.Source, string, uint64, error)) (*remoteSession, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &remoteSession{kind: kind, name: "remote.iso", location: location, closed: make(chan struct{}), cancel: cancel,
+		ready: make(chan error, 1), released: make(chan struct{})}
+	if err := s.reserveRemote(r); err != nil {
+		r.close()
+		return nil, err
 	}
 	go func() {
 		source, name, size, err := open(ctx)
@@ -268,12 +280,19 @@ func (s *Service) connectRemoteURL(c *gin.Context, kind string, open func(contex
 			s.mu.Lock()
 			r.name, r.size = name, size
 			s.mu.Unlock()
-			err = s.serveRemote(r, source, nil)
+			err = s.serveRemote(r, source, func() error {
+				r.ready <- nil
+				return nil
+			})
+		}
+		// Unless the medium got to the computer, this is why not.
+		select {
+		case r.ready <- err:
+		default:
 		}
 		s.releaseRemote(r, err)
 	}()
-	var rsp proto.Response
-	rsp.OkRsp(c)
+	return r, nil
 }
 
 // nbdOwnerRunning reports whether the PID the kernel keeps for /dev/nbd0 is

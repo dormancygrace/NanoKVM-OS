@@ -47,10 +47,10 @@ changes that identifier once, rebuilding every core package:
 - `nanokvm-kernel` and `nanokvm-kmod` change together, because
   the kernel requires its modules at exactly its own version.
 
-`nanokvm-app` and `nanokvm-release` depend on the versions chosen for the other
-packages (`V_nanokvm_web` and so on in the build environment). The release
-requires every selected component version directly, including the server and
-web UI, because a reused `nanokvm-app` retains its older dependencies. A device may
+`nanokvm-release` depends directly on the selected versions of all components
+(`V_nanokvm_web` and so on in the build environment), including the server and
+web UI. It provides the old `nanokvm-app` name at its own version, so existing
+world selections do not require a separate compatibility package. A device may
 therefore show `nanokvm-web` 3.3.0 next to `nanokvm-release` 3.5.0. The packages
 step reads the previous repository from `NANOKVM_PREVIOUS`, a URL or a
 directory with `packages.json`; without it every package gets the release

@@ -18,7 +18,7 @@ reboot
 ```
 
 `apk update` refreshes repository indexes; `apk upgrade` installs the available
-updates. This release has nineteen core packages; optional add-ons and Alpine dependency
+updates. This release has eighteen core packages; optional add-ons and Alpine dependency
 updates are additional.
 
 Reboot when requested to activate updated kernel or bootloader files.
@@ -57,10 +57,14 @@ repository selections before upgrading:
 
 ```sh
 apk update
-apk add nanokvm-base nanokvm-app nanokvm-release nanokvm-kernel nanokvm-kmod nanokvm-firmware
+apk add nanokvm-base nanokvm-app nanokvm nanokvm-web nanokvm-release nanokvm-kernel nanokvm-kmod nanokvm-firmware
 apk upgrade
 reboot
 ```
+
+The recovery command keeps the old `nanokvm-app` name to clear local-file
+checksum selections in `world`. New releases provide it through
+`nanokvm-release`; no separate compatibility APK is needed.
 
 ## Signed indexes and automatic key migration
 

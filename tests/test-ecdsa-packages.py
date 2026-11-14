@@ -95,7 +95,7 @@ with tempfile.TemporaryDirectory() as directory:
     run('sh', fixture / 'scripts/build-alpine-packages.sh', 'stock', env=env)
     repo = work / 'repo/stock/recipes/riscv64'
     packages = sorted(repo.glob('*.apk'))
-    assert len(packages) == 19
+    assert len(packages) == 18
     for path in packages + [repo / 'APKINDEX.tar.gz']:
         run('apk', '--keys-dir', ec, 'verify', path)
         run('apk', '--keys-dir', rsa, 'verify', path, ok=False)
@@ -164,4 +164,4 @@ with tempfile.TemporaryDirectory() as directory:
     run('apk', '--allow-untrusted', '--sign-key', key, 'adbsign', '--reset-signatures', repo / 'Packages.adb')
     run('apk', '--keys-dir', ec, 'verify', repo / 'Packages.adb')
     run('apk', '--keys-dir', rsa, 'verify', repo / 'Packages.adb', ok=False)
-    print('PASS: 19 real abuild packages; ECDSA/SHA-256 verified by apk and OpenSSL; tamper/wrong-key rejected; v2/v3 upgrade and index rotation')
+    print('PASS: 18 real abuild packages; ECDSA/SHA-256 verified by apk and OpenSSL; tamper/wrong-key rejected; v2/v3 upgrade and index rotation')

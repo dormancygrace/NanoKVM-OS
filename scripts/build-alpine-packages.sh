@@ -164,10 +164,10 @@ archive_payload nanokvm-release "$release_payload"
 
 export CARCH=riscv64
 export REPODEST SRCDEST PKGVER
-# The versions of the other packages, for the dependencies of nanokvm-app and
+# The versions of the other packages, for the dependencies of
 # nanokvm-release: V_nanokvm_web for nanokvm-web, and so on.
 for pkg in nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
-	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
+	 nanokvm nanokvm-web nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
 	 nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002; do
 	export "V_$(echo "$pkg" | tr - _)=$(pkg_version "$pkg")"
 done
@@ -207,7 +207,7 @@ prepare_recipe() {
 	cp -a "$ROOT/firmware/alpine/packages/$pkg/." "$recipe_dir/"
 	# Metapackages have no payload.
 	case $pkg in
-	nanokvm-app | *-sg2002) return 0 ;;
+	*-sg2002) return 0 ;;
 	esac
 	# A source name without an URL is local to the APKBUILD directory. Keep the
 	# generated archive there so both `abuild checksum` and the actual build read
@@ -231,7 +231,7 @@ prepare_recipe() {
 }
 
 for pkg in nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
-	 nanokvm nanokvm-web nanokvm-app nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
+	 nanokvm nanokvm-web nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
 	 nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002; do
 	version=$(pkg_version "$pkg")
 	if ! pkg_changed "$pkg"; then
@@ -275,8 +275,8 @@ mkdir -p "$verify_keys"
 cp "$PACKAGER_PUBKEY" "$verify_keys/"
 apk --keys-dir "$verify_keys" verify "$index"
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
-[ "$apk_count" -ge 19 ] || {
-	echo "build-alpine-packages: expected at least nineteen APKs, found $apk_count" >&2
+[ "$apk_count" -ge 18 ] || {
+	echo "build-alpine-packages: expected at least eighteen APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do

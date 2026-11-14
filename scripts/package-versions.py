@@ -31,7 +31,6 @@ PACKAGES = {
     'nanokvm-bootloader': 'bootloader',
     'nanokvm': 'app',
     'nanokvm-web': 'web',
-    'nanokvm-app': None,
     'nanokvm-zlib': 'zlib',
     'nanokvm-openssl': 'openssl',
     'nanokvm-exfatprogs': 'exfatprogs',

@@ -141,10 +141,12 @@ type imageMountError struct {
 func (e *imageMountError) Error() string { return e.msg }
 
 // mountLocalImage puts an already validated file (or no file: eject) on the
-// virtual disk. The drive is removable, so the computer learns of a new or
-// removed medium from the drive itself, as with a card reader or a CD drive;
-// the USB devices reconnect only when the drive changes (setDrive). Callers
-// hold s.mu.
+// virtual disk. The drive is removable, so the computer learns of a medium
+// put into the empty drive or taken out from the drive itself, as with a card
+// reader or a CD drive. The USB devices reconnect only when the drive changes
+// (setDrive) or when the image replaces a mounted one: that swap takes no
+// time, the computer never sees the drive empty, and Windows went on showing
+// the old volume's files for seconds. Callers hold s.mu.
 func mountLocalImage(file string, cdrom, force bool) error {
 	h := hid.GetHid()
 	h.Lock()
@@ -166,6 +168,8 @@ func mountLocalImage(file string, cdrom, force bool) error {
 	}
 
 	// unmount
+	previous, _ := os.ReadFile(mountDevice)
+	replaced := strings.TrimSpace(string(previous)) != ""
 	if err := ejectLocalImage(force, os.WriteFile); err != nil {
 		log.Errorf("unmount file failed: %s", err)
 		return &imageMountError{code: -4, msg: "unmount image failed"}
@@ -194,7 +198,7 @@ func mountLocalImage(file string, cdrom, force bool) error {
 		log.Errorf("mount file %s failed: %s", file, err)
 		return &imageMountError{code: -2, msg: "mount image failed"}
 	}
-	if !changed {
+	if !changed && !replaced {
 		return nil
 	}
 	if err := reconnectUSB(); err != nil {

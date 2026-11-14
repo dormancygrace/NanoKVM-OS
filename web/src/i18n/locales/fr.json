@@ -1555,7 +1555,7 @@
         "busy": "Le disque est occupé. Attendez puis réessayez.",
         "missing": "L'image du disque utilisateur a disparu. Créez-la à nouveau.",
         "failed": "La requête du disque utilisateur a échoué.",
-        "notice": "Passer le lecteur virtuel de disque à CD ou inversement reconnecte aussi les périphériques USB ; l'ordinateur revoit ensuite le disque utilisateur avec ce qu'il y a écrit. L'image entière est allouée sur la carte SD à sa création, les grandes tailles prennent donc un certain temps.",
+        "notice": "Passer le lecteur virtuel de disque à CD ou inversement, ou monter une image par-dessus une image déjà montée, reconnecte aussi les périphériques USB ; l'ordinateur revoit ensuite le disque utilisateur avec ce qu'il y a écrit. L'image entière est allouée sur la carte SD à sa création, les grandes tailles prennent donc un certain temps.",
         "files": {
           "title": "Fichiers du disque utilisateur",
           "host": "Éjectez le disque sur l’ordinateur, puis désactivez le disque utilisateur ci-dessus pour gérer ses fichiers.",

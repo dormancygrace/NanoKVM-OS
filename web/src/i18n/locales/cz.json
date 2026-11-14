@@ -1623,7 +1623,7 @@
         "description": "Zapisovatelná FAT32 jednotka, kterou počítač uvidí vedle virtuálního CD/disku: pro soubory s aktualizacemi BIOS, profily, záznamy událostí, atd. Ukládáno na SD kartu.",
         "needsDisk": "Pro získání uživatelského disku povolte virtuální disk; jedná se o třetí jednotku stejného USB zařízení.",
         "reconnect": "USB zařízení se připojují odznovu, takže počítač na okamžik ztratí (a opět získá) jednotky z NanoKVM.",
-        "notice": "Přepnutí virtuální jednotky mezi diskem a CD odpojí a znovu připojí i USB zařízení; počítač poté uživatelský disk znovu uvidí s tím, co bylo zapsáno. Celý obraz je při vytváření umístěn na SD kartě, takže větší velikosti mohou chvíli trvat."
+        "notice": "Přepnutí virtuální jednotky mezi diskem a CD nebo připojení obrazu přes již připojený odpojí a znovu připojí i USB zařízení; počítač poté uživatelský disk znovu uvidí s tím, co bylo zapsáno. Celý obraz je při vytváření umístěn na SD kartě, takže větší velikosti mohou chvíli trvat."
       },
       "presets": {
         "kvm": {

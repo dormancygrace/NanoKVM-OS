@@ -125,9 +125,10 @@ virtual disk function (it is another LUN of the same function, so it costs
 no endpoints), and the Images menu never lists it: hidden directories under
 `/data` are the device's own. Mounting or ejecting a CD/disk image is a
 medium put into or taken out of the virtual drive and leaves the other USB
-devices alone. Only a change of the drive itself, from a disk to a CD drive
-or back, or to another SCSI name (a remote ISO), rebinds the gadget, because
-a computer reads a drive's type and name once, when it connects: then the
+devices alone. A change of the drive itself, from a disk to a CD drive or
+back, or to another SCSI name (a remote ISO), rebinds the gadget, because a
+computer reads a drive's type and name once, when it connects; so does an
+image mounted over another without an eject between them. Then the
 computer loses and regains the user disk for a moment; what it wrote is on
 the image, which the NanoKVM does not touch while the disk is on.
 

@@ -194,6 +194,9 @@ system_readings() {
     fi
 }
 
+# report leaves the report in REPORT. It is not printed for a $(...): that
+# runs in a subshell, where the processor's counters kept for the next
+# report would be lost, and no report after the first would have the load.
 report() {
     SENSORS=
     _count=0
@@ -216,8 +219,7 @@ report() {
     done
     IFS=$_old_ifs
     system_readings
-    printf '{"v":1,"host":%s,"os":%s,"agent":"nanokvm-sensors/%s linux","interval":%d,"sensors":[%s]}' \
-        "$HOST_JSON" "$OS_JSON" "$VERSION" "$INTERVAL" "${SENSORS#,}"
+    REPORT="{\"v\":1,\"host\":$HOST_JSON,\"os\":$OS_JSON,\"agent\":\"nanokvm-sensors/$VERSION linux\",\"interval\":$INTERVAL,\"sensors\":[${SENSORS#,}]}"
 }
 
 # ---- the transports -------------------------------------------------------
@@ -399,17 +401,18 @@ run() {
     plan
     if [ -n "$ONCE" ]; then
         # The load needs two looks at the processor's counters.
-        system_readings > /dev/null
+        system_readings
         sleep 1
         report
-        echo
+        printf '%s\n' "$REPORT"
         return
     fi
     say "started, version $VERSION"
     trap 'exit 0' INT TERM
     _cycle=0
     while :; do
-        send "$(report)"
+        report
+        send "$REPORT"
         sleep "$INTERVAL" &
         wait $!
         _cycle=$((_cycle + 1))

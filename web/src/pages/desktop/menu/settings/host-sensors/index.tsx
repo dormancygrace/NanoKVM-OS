@@ -56,6 +56,8 @@ export const HostSensorsPage = () => {
   const [state, setState] = useState<State>();
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The last poll got no answer: the readings kept on the page are old.
+  const [lost, setLost] = useState(false);
   // While choosing: every reading of the report by key, shown or not.
   const [draft, setDraft] = useState<Record<string, boolean>>();
 
@@ -64,9 +66,13 @@ export const HostSensorsPage = () => {
     const poll = async () => {
       try {
         const rsp = await http.request<State>({ method: 'get', url, timeout: 8000 });
-        if (!disposed && rsp.code === 0) setState(rsp.data);
+        if (disposed) return;
+        if (rsp.code === 0) setState(rsp.data);
+        setLost(rsp.code !== 0);
       } catch {
-        // The last state stays; the age of the report shows it is old.
+        // The last state stays on the page, marked as not fresh: its age
+        // and freshness are the server's and no longer advance.
+        if (!disposed) setLost(true);
       }
     };
     void poll();
@@ -226,8 +232,8 @@ export const HostSensorsPage = () => {
                   {agent.system ? ` (${agent.system})` : ''}
                 </span>
               )}
-              <StatusBadge tone={state.status.stale ? 'danger' : 'success'}>
-                {state.status.stale
+              <StatusBadge tone={state.status.stale || lost ? 'danger' : 'success'}>
+                {state.status.stale || lost
                   ? t('stale')
                   : t('age', { seconds: Math.round(state.status.age / 1000) })}
               </StatusBadge>

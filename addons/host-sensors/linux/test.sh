@@ -63,6 +63,31 @@ if command -v python3 > /dev/null 2>&1; then
     printf '%s' "$out" | python3 -c 'import json, sys; r = json.load(sys.stdin); assert r["v"] == 1 and len(r["sensors"]) >= 10, r' ||
         { echo "the report is not the JSON expected" >&2; fail=1; }
 fi
+# The running agent: its second report has the processor's load since the
+# first (half of the 200 ticks between them were idle). A curl of the test's
+# own takes the reports.
+mkdir "$tmp/bin"
+cat > "$tmp/bin/curl" <<EOF
+#!/bin/sh
+{ cat; echo; } >> "$tmp/posted"
+printf 204
+EOF
+chmod +x "$tmp/bin/curl"
+: > "$tmp/posted"
+# shellcheck disable=SC2086
+PATH="$tmp/bin:$PATH" NANOKVM_SENSORS_SYS=$sys NANOKVM_SENSORS_PROC=$proc $shell "$here/nanokvm-sensors.sh" run \
+    --network http://127.0.0.1:9 --interval 1 > /dev/null 2>&1 &
+agent=$!
+tries=0
+while [ "$(wc -l < "$tmp/posted")" -lt 1 ] && [ "$tries" -lt 50 ]; do sleep 0.1; tries=$((tries + 1)); done
+put "$proc/stat" 'cpu  150 0 150 900 0 0 0 0 0 0'
+while [ "$(wc -l < "$tmp/posted")" -lt 2 ] && [ "$tries" -lt 100 ]; do sleep 0.1; tries=$((tries + 1)); done
+kill "$agent" 2>/dev/null
+wait "$agent" 2>/dev/null || true
+case "$(sed -n 2p "$tmp/posted")" in
+    *'"name":"Processor load","kind":"load","value":50.0}'*) ;;
+    *) echo "the running agent's second report has no processor load of 50.0" >&2; fail=1 ;;
+esac
 # The agents share the add-on's version.
 version=$(sed -n 's/^VERSION=//p' "$here/nanokvm-sensors.sh")
 grep -q "\"version\": \"$version\"" "$here/../addon.json" || { echo "VERSION=$version is not the add-on's" >&2; fail=1; }

@@ -1,16 +1,13 @@
 package vm
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/helperdisk"
-	"NanoKVM-Server/internal/atomicfile"
 )
 
 // The helper disk is the read-only disk the computer sees next to the
@@ -136,15 +133,13 @@ func reconcileHelperDisk() {
 		log.Errorf("helper disk: %v", err)
 		return
 	}
-	// After a restart the disk is usually the same: the card is not written.
-	if old, err := os.ReadFile(helperDiskFile); err != nil || !bytes.Equal(old, image) {
-		if err := os.MkdirAll(filepath.Dir(helperDiskFile), 0o755); err == nil {
-			err = atomicfile.Write(helperDiskFile, image, 0o644)
-		}
-		if err != nil {
-			log.Errorf("helper disk: %v", err)
-			return
-		}
+	written, err := helperdisk.Publish(helperDiskFile, image)
+	if err != nil {
+		// Not remembered as built: the next pass tries again.
+		log.Errorf("helper disk: %v", err)
+		return
+	}
+	if written {
 		log.Infof("helper disk: built with the computer sensors agent")
 	}
 	helperDiskBuiltFrom = signature

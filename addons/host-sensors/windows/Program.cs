@@ -19,6 +19,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using System.Windows.Forms;
@@ -734,17 +735,61 @@ them the report is marked as limited.";
             }
             string xml = TaskXml.Replace("{exe}", System.Security.SecurityElement.Escape(exe))
                                 .Replace("{args}", System.Security.SecurityElement.Escape(string.Join(" ", rest)));
-            string file = Path.Combine(Path.GetTempPath(), "nanokvm-sensors-task-" + Process.GetCurrentProcess().Id + ".xml");
-            try
+            using (Staging staging = new Staging(Path.GetDirectoryName(exe)))
             {
-                File.WriteAllText(file, xml, Encoding.Unicode);
+                byte[] bytes = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(xml)).ToArray();
+                string file = staging.Add("task.xml", stream => stream.Write(bytes, 0, bytes.Length));
                 int code = Schtasks("/Create /F /TN \"" + TaskName + "\" /XML \"" + file + "\"", true);
                 if (code != 0) return code;
                 return Schtasks("/Run /TN \"" + TaskName + "\"", true);
             }
-            finally
+        }
+
+        // Staging holds the files an elevated step hands to another program:
+        // the task's definition for schtasks, the driver's installer to run.
+        // The task runs as SYSTEM and the installer runs elevated, so nobody
+        // without administrator rights may write them or put others in their
+        // place. They do not go to the temporary directory, which the user's
+        // programs write: a new directory under the agent's own in Program
+        // Files (its parents are the administrators'), with a name nobody can
+        // guess, open to SYSTEM and the administrators alone and inheriting
+        // nothing. A file is created new, never over an existing one, and is
+        // kept open against writing and deleting until the directory goes,
+        // after the program that read it has ended.
+        private sealed class Staging : IDisposable
+        {
+            private readonly string dir;
+            private readonly List<FileStream> held = new List<FileStream>();
+
+            public Staging(string root)
             {
-                try { File.Delete(file); } catch (Exception) { }
+                Directory.CreateDirectory(root);
+                dir = Path.Combine(root, "staging-" + Guid.NewGuid().ToString("N"));
+                if (Directory.Exists(dir) || File.Exists(dir)) throw new IOException(dir + " already exists");
+                DirectorySecurity security = new DirectorySecurity();
+                security.SetAccessRuleProtection(true, false);
+                foreach (WellKnownSidType who in new[] { WellKnownSidType.LocalSystemSid, WellKnownSidType.BuiltinAdministratorsSid })
+                {
+                    security.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(who, null), FileSystemRights.FullControl,
+                        InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+                }
+                Directory.CreateDirectory(dir, security);
+                if ((File.GetAttributes(dir) & FileAttributes.ReparsePoint) != 0) throw new IOException(dir + " is a link");
+            }
+
+            // Add writes a new file and returns its path.
+            public string Add(string name, Action<Stream> write)
+            {
+                string path = Path.Combine(dir, name);
+                using (FileStream file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)) write(file);
+                held.Add(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read));
+                return path;
+            }
+
+            public void Dispose()
+            {
+                foreach (FileStream file in held) file.Dispose();
+                try { Directory.Delete(dir, true); } catch (Exception) { }
             }
         }
 
@@ -906,20 +951,15 @@ them the report is marked as limited.";
                     string answer = (Console.ReadLine() ?? "n").Trim().ToLowerInvariant();
                     if (answer != "" && answer != "y" && answer != "yes") return;
                 }
-                string path = Path.Combine(Path.GetTempPath(), "PawnIO_setup-" + Process.GetCurrentProcess().Id + ".exe");
-                try
+                using (Staging staging = new Staging(Path.GetDirectoryName(InstalledCopy())))
                 {
-                    using (FileStream file = File.Create(path)) setup.CopyTo(file);
+                    string path = staging.Add("PawnIO_setup.exe", setup.CopyTo);
                     using (Process p = Process.Start(new ProcessStartInfo(path, "-install") { UseShellExecute = false }))
                     {
                         p.WaitForExit();
                         if (p.ExitCode != 0) throw new InvalidOperationException("the PawnIO installer ended with code " + p.ExitCode);
                         Console.WriteLine("PawnIO installed.");
                     }
-                }
-                finally
-                {
-                    try { File.Delete(path); } catch (Exception) { }
                 }
             }
         }

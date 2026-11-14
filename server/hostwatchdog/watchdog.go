@@ -148,10 +148,18 @@ func (w *Watchdog) watchable(s Signs) bool {
 // StillDue reports whether a decision Step made holds with the signs read
 // anew: asking the host takes seconds, in which the watchdog may have been
 // switched off, a report may have come, or the host may have restarted or
-// gone to sleep. The caller checks it right before it presses.
-func (w *Watchdog) StillDue(s Signs) bool {
-	return w.watchable(s) && w.armed && s.Link == w.link && s.Report.Equal(w.report)
+// gone to sleep. silence is the time set now: the decision must also be due
+// under it. The caller checks this right before it presses, and drops the
+// decision as well when the setting is no longer the one it was made under.
+func (w *Watchdog) StillDue(s Signs, silence time.Duration) bool {
+	return w.watchable(s) && w.armed && s.Link == w.link && s.Report.Equal(w.report) && s.Now.Sub(w.report) >= silence
 }
 
 // Decided ends this silence: nothing more happens until a report.
 func (w *Watchdog) Decided() { w.decided = true }
+
+// Reopen takes a decision back that was dropped before anything was done
+// (StillDue failed): the next Step decides anew, with the signs and under
+// the setting of then. Without it a host that hung would stay so after a
+// change of the setting, since it sends no report to arm the watchdog again.
+func (w *Watchdog) Reopen() { w.decided = false }

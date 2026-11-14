@@ -100,8 +100,8 @@ The silence of the agent alone is not a hang: the agent may have been stopped or
 One decision per silence: after it, the watchdog waits for the next report.
 
 **What is never taken for a hang.**
-- A question that could not be asked: `arping` missing, failing or out of time, or the USB network down on the NanoKVM. The event "Watchdog could not ask the host" is recorded and nothing is pressed. Only requests that went out and stayed unanswered count.
-- A change while the host was asked (the question takes seconds): the watchdog switched off or set otherwise, a report, a restart, sleep, power off. The signs are read again right before the press.
+- A question that could not be asked. The server sends the ARP requests itself (three, a second apart, answers awaited for 5 s) and counts those the kernel took: a failed send, fewer requests than three, no socket, or the USB network down on the NanoKVM give the event "Watchdog could not ask the host", and nothing is pressed. Only requests that all went out and stayed unanswered count. (BusyBox's `arping` cannot be used for this: it ends with "no reply" also when no request could be sent.)
+- A change while the host was asked (the question takes seconds): the setting, a report, a restart, sleep, power off. A decision belongs to the setting it was made under: any change of the action or the time ends it, so that "notify" cannot turn into a press and a time made longer is honoured. The setting and the signs are read again right before the press. A decision dropped this way is made anew at the next look, under the setting of then and with the host asked again: a host that hung is still dealt with after the setting was changed.
 - A report from before the host's restart: each report is bound to the USB link it came over, read when it is taken in, so it cannot arm the watchdog for the link after a new enumeration.
 - A USB link whose life cannot be read.
 

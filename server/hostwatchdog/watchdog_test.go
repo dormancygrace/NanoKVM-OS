@@ -43,9 +43,13 @@ func TestWatchdogIsDueOnlyForAnUnexplainedSilence(t *testing.T) {
 			func(s *Signs) { s.Configured = false }, func(s *Signs) { s.Report = at(7) }, func(s *Signs) { s.Link = "" }} {
 			again := s
 			later(&again)
-			if got := w.StillDue(again); got != (c.due && again == s) {
+			if got := w.StillDue(again, 5*time.Minute); got != (c.due && again == s) {
 				t.Errorf("%s: still due %v with %+v", name, got, again)
 			}
+		}
+		// The silence set longer meanwhile: not due under it.
+		if w.StillDue(s, 60*time.Minute) {
+			t.Errorf("%s: still due under a silence of an hour after 6 minutes", name)
 		}
 		if !c.due {
 			// What explained the silence is over: still nothing without a report.
@@ -64,6 +68,12 @@ func TestWatchdogIsDueOnlyForAnUnexplainedSilence(t *testing.T) {
 		if w.Step(s, 5*time.Minute) {
 			t.Errorf("%s: due a second time for one silence", name)
 		}
+		// A decision taken back is made anew, under the silence set then.
+		w.Reopen()
+		if w.Step(s, 60*time.Minute) || !w.Step(s, 5*time.Minute) {
+			t.Errorf("%s: a reopened decision is not made anew under the setting of then", name)
+		}
+		w.Decided()
 		s.Report, s.Now = at(31), at(37)
 		if !w.Step(s, 5*time.Minute) {
 			t.Errorf("%s: a new report did not arm it again", name)

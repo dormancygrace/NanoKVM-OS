@@ -1,10 +1,13 @@
 package vm
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
+	"fmt"
+	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 
 	"NanoKVM-Server/hostsensors"
 	"NanoKVM-Server/hostwatchdog"
@@ -85,33 +89,112 @@ const (
 
 // askHost asks the host for a sign of life: ARP requests on the USB network
 // to the address its reports came from. The host's kernel answers them
-// whatever its firewall; a hung one does not. The answer is hostSilent only
-// when the requests went out and none was answered: arping (BusyBox) ends
-// with 0 for a reply, 1 for none, 2 for an error; a command that could not
-// be started, was killed, or ran out of time proves nothing, and neither
-// does an interface that is down. why says what failed.
+// whatever its firewall; a hung one does not.
+//
+// The server sends the requests itself (arpProbe) instead of running
+// arping: BusyBox's ends with "no reply" also when not one request could be
+// sent, and a question that was not asked must not pass for a host that
+// did not answer. why says what failed.
 var askHost = func(peer string) (answer, why string) {
-	if peer == "" {
+	target := net.ParseIP(peer)
+	if target == nil {
 		return hostUnknown, "the address of the last report is not known"
 	}
 	if carrier, err := os.ReadFile("/sys/class/net/" + hostSensorsInterface + "/carrier"); err != nil || strings.TrimSpace(string(carrier)) != "1" {
 		return hostUnknown, "the USB network is down on the NanoKVM"
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err := exec.CommandContext(ctx, "arping", "-q", "-c", "3", "-w", "5", "-I", hostSensorsInterface, peer).Run()
-	return arpProbeResult(err, ctx.Err())
+	sent, answered, err := arpProbe(hostSensorsInterface, target, arpRequests, arpWait)
+	return arpVerdict(sent, answered, err)
 }
 
-func arpProbeResult(err, timeout error) (answer, why string) {
-	var exit *exec.ExitError
+const (
+	// Requests a second apart, and how long answers are waited for in all.
+	arpRequests = 3
+	arpWait     = 5 * time.Second
+)
+
+// arpVerdict: the host is silent only when every request went out and none
+// was answered.
+func arpVerdict(sent int, answered bool, err error) (answer, why string) {
 	switch {
-	case err == nil:
+	case answered:
 		return hostAlive, ""
-	case timeout == nil && errors.As(err, &exit) && exit.ExitCode() == 1:
-		return hostSilent, ""
+	case err != nil:
+		return hostUnknown, "ARP on the USB network: " + err.Error()
+	case sent < arpRequests:
+		return hostUnknown, "ARP on the USB network: only " + strconv.Itoa(sent) + " of " + strconv.Itoa(arpRequests) + " requests were sent"
 	}
-	return hostUnknown, "arping: " + err.Error()
+	return hostSilent, ""
+}
+
+// arpProbe sends count ARP requests for target on the named interface, a
+// second apart, and listens for wait in all. It reports how many requests
+// the kernel took, whether target answered (any ARP packet with target as
+// its sender counts), and the first error; it stops at a failed send.
+func arpProbe(name string, target net.IP, count int, wait time.Duration) (sent int, answered bool, err error) {
+	iface, err := net.InterfaceByName(name)
+	if err != nil {
+		return 0, false, err
+	}
+	target = target.To4()
+	var source net.IP
+	addrs, _ := iface.Addrs()
+	for _, addr := range addrs {
+		if n, ok := addr.(*net.IPNet); ok && n.IP.To4() != nil && target != nil && n.Contains(target) {
+			source = n.IP.To4()
+		}
+	}
+	if source == nil || len(iface.HardwareAddr) != 6 {
+		return 0, false, errors.New("the address is not on this interface's network")
+	}
+	protocol := uint16(unix.ETH_P_ARP<<8&0xff00 | unix.ETH_P_ARP>>8) // network byte order
+	fd, err := unix.Socket(unix.AF_PACKET, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC, int(protocol))
+	if err != nil {
+		return 0, false, err
+	}
+	defer unix.Close(fd)
+	if err = unix.Bind(fd, &unix.SockaddrLinklayer{Protocol: protocol, Ifindex: iface.Index}); err != nil {
+		return 0, false, err
+	}
+	// An Ethernet/IPv4 ARP request; the kernel adds the link header.
+	request := make([]byte, 28)
+	binary.BigEndian.PutUint16(request[0:], 1)      // Ethernet
+	binary.BigEndian.PutUint16(request[2:], 0x0800) // IPv4
+	request[4], request[5] = 6, 4
+	binary.BigEndian.PutUint16(request[6:], 1) // request
+	copy(request[8:14], iface.HardwareAddr)
+	copy(request[14:18], source)
+	copy(request[24:28], target)
+	everyone := &unix.SockaddrLinklayer{Protocol: protocol, Ifindex: iface.Index, Hatype: 1, Halen: 6,
+		Addr: [8]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}}
+	deadline := time.Now().Add(wait)
+	next := time.Now()
+	packet := make([]byte, 128)
+	for time.Now().Before(deadline) {
+		if sent < count && !time.Now().Before(next) {
+			if err := unix.Sendto(fd, request, 0, everyone); err != nil {
+				return sent, false, fmt.Errorf("sending a request: %w", err)
+			}
+			sent++
+			next = next.Add(time.Second)
+		}
+		until := deadline
+		if sent < count && next.Before(until) {
+			until = next
+		}
+		ready, err := unix.Poll([]unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}, int(time.Until(until)/time.Millisecond)+1)
+		if err != nil && err != unix.EINTR {
+			return sent, false, err
+		}
+		if ready <= 0 {
+			continue
+		}
+		n, _, err := unix.Recvfrom(fd, packet, unix.MSG_DONTWAIT)
+		if err == nil && n >= 28 && bytes.Equal(packet[14:18], target) {
+			return sent, true, nil
+		}
+	}
+	return sent, false, nil
 }
 
 func runHostWatchdog() {
@@ -155,16 +238,24 @@ func stepHostWatchdog(now time.Time) {
 		return
 	}
 	// The question took seconds. Whatever changed meanwhile ends the
-	// decision: the watchdog switched off or set otherwise, a report, a
-	// restart of the host, sleep, power off.
+	// decision: the setting (it was made under the action and the time of
+	// its moment: another action must not inherit it, least of all a
+	// press after "notify"), a report, a restart of the host, sleep, power
+	// off.
 	now = time.Now()
+	decidedUnder := config
 	config = hostwatchdog.Load(hostWatchdogFile)
 	signs = hostWatchdogSigns(config, now)
 	hostWatchdog.Lock()
-	still := hostWatchdog.state.StillDue(signs)
+	still := config == decidedUnder && hostWatchdog.state.StillDue(signs, time.Duration(config.Minutes)*time.Minute)
+	if !still {
+		// Nothing was done: the next step decides anew, under the setting
+		// and with the signs of then, and asks the host again.
+		hostWatchdog.state.Reopen()
+	}
 	hostWatchdog.Unlock()
 	if !still {
-		log.Infof("host watchdog: the host did not answer, but the situation changed while it was asked: nothing done")
+		log.Infof("host watchdog: the host did not answer, but the situation changed while it was asked: nothing done, deciding anew")
 		return
 	}
 	ctx, cancel := context.WithTimeout(journal.WithActor(context.Background(), "watchdog"), time.Minute)

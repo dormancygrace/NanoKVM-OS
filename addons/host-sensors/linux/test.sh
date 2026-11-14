@@ -25,6 +25,7 @@ put "$sys/class/hwmon/hwmon2/in0_input" 1234
 put "$sys/class/hwmon/hwmon2/in0_label" Vcore
 put "$sys/class/hwmon/hwmon2/pwm1" 128
 put "$sys/class/hwmon/hwmon2/temp2_input" -5500
+put "$sys/class/hwmon/hwmon2/temp4_input" -55000
 put "$sys/class/hwmon/hwmon2/power1_input" 65250000
 put "$sys/class/hwmon/hwmon2/temp3_input" broken
 # A second drive of the same model is told apart.
@@ -57,6 +58,7 @@ want '"name":"Power 1","kind":"power","value":65.250}'
 want '"name":"Memory used","kind":"load","value":75}'
 want '"name":"Memory available","kind":"data","value":2.000}'
 case "$out" in *broken*|*'Temperature 3'*) echo "an unreadable value got into the report" >&2; fail=1 ;; esac
+case "$out" in *'Temperature 4'*) echo "an unconnected temperature input got into the report" >&2; fail=1 ;; esac
 if command -v python3 > /dev/null 2>&1; then
     printf '%s' "$out" | python3 -c 'import json, sys; r = json.load(sys.stdin); assert r["v"] == 1 and len(r["sensors"]) >= 10, r' ||
         { echo "the report is not the JSON expected" >&2; fail=1; }

@@ -15,6 +15,12 @@ SYS=${NANOKVM_SENSORS_SYS:-/sys}
 PROC=${NANOKVM_SENSORS_PROC:-/proc}
 BIN=/usr/local/sbin/nanokvm-sensors
 UNIT=/etc/systemd/system/nanokvm-sensors.service
+# The sensor drivers the setup loaded, for the next boots.
+MODULES_CONF=/etc/modules-load.d/nanokvm-sensors.conf
+# The kernel's drivers for the sensor chips of boards (fans, voltages,
+# board temperatures) and for the temperature of SATA drives. Each one looks
+# for its chip at the standard place and does not load when there is none.
+SENSOR_MODULES="it87 nct6775 w83627ehf f71882fg drivetemp"
 # The report format's bounds.
 MAX_SENSORS=1024
 
@@ -26,6 +32,9 @@ nanokvm-sensors $VERSION: send this computer's sensors to the NanoKVM plugged in
   sh $0 install     copy this script to $BIN and start it with the
                     system (a systemd service); the options below become
                     the installed agent's
+                    --drivers: also load the kernel's sensor drivers for
+                    the board and the drives ($SENSOR_MODULES),
+                    keep those that find their chip and load them at boot
   sh $0 uninstall   stop and remove it
   sh $0 status      what is installed and whether it runs
   sh $0 run         the agent itself, until stopped
@@ -199,6 +208,8 @@ report() {
         _json=${_tail#*|}
         _raw=
         IFS= read -r _raw < "$_file" 2>/dev/null || continue
+        # A temperature input with nothing connected reads far below zero.
+        case "$_json" in *'"kind":"temperature"') [ "${_raw:-0}" -le -40000 ] 2>/dev/null && continue ;; esac
         _value=$(number "$_raw" "$_unit") || continue
         SENSORS="$SENSORS,$_json,\"value\":$_value}"
         _count=$((_count + 1))
@@ -421,8 +432,40 @@ newer() {
     [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)" = "$1" ]
 }
 
+# load_drivers: the board's fans and voltages show only when the kernel
+# driver of its sensor chip is loaded, and many systems load none by
+# themselves. Each driver of SENSOR_MODULES is tried the plain way (no
+# forcing of an id or of a resource the firmware reserves); modprobe fails
+# for a chip that is not there and nothing stays loaded. Those that loaded
+# are written to MODULES_CONF for the next boots.
+load_drivers() {
+    command -v modprobe > /dev/null 2>&1 || { echo "No modprobe here: sensor drivers are not loaded."; return; }
+    _kept=
+    for _m in $SENSOR_MODULES; do
+        if [ -d "$SYS/module/$_m" ]; then
+            # Loaded already, by the system or an earlier setup.
+            grep -qsx "$_m" "$MODULES_CONF" && _kept="$_kept $_m"
+            continue
+        fi
+        if modprobe -q "$_m" 2>/dev/null && [ -d "$SYS/module/$_m" ]; then
+            _kept="$_kept $_m"
+            echo "Sensor driver $_m: loaded."
+        fi
+    done
+    if [ -n "$_kept" ]; then
+        mkdir -p "${MODULES_CONF%/*}"
+        {
+            echo "# Sensor drivers loaded by nanokvm-sensors (removed by its uninstall)."
+            for _m in $_kept; do echo "$_m"; done
+        } > "$MODULES_CONF"
+    else
+        echo "No further sensor driver found a chip here."
+    fi
+}
+
 install_agent() {
     need_root install
+    [ -n "$DRIVERS" ] && load_drivers
     command -v systemctl > /dev/null 2>&1 && [ -d /run/systemd/system ] ||
         die "no systemd here: copy this script somewhere and start \"sh nanokvm-sensors run\" from your init system"
     # The copy runs from the disk of this computer: the helper disk is
@@ -455,6 +498,12 @@ uninstall_agent() {
         systemctl disable --now nanokvm-sensors.service > /dev/null 2>&1
     fi
     rm -f "$UNIT" "$BIN"
+    if [ -f "$MODULES_CONF" ]; then
+        # The drivers stay loaded until the next boot; they are only not
+        # loaded again.
+        rm -f "$MODULES_CONF"
+        echo "The sensor drivers the setup loaded are no longer loaded at boot."
+    fi
     command -v systemctl > /dev/null 2>&1 && systemctl daemon-reload
     echo "nanokvm-sensors is removed."
 }
@@ -466,6 +515,9 @@ status() {
     if command -v systemctl > /dev/null 2>&1; then
         echo "Service: $(systemctl is-active nanokvm-sensors.service 2>/dev/null)"
     fi
+    _loaded=
+    for _m in $SENSOR_MODULES; do [ -d "$SYS/module/$_m" ] && _loaded="$_loaded $_m"; done
+    echo "Sensor drivers loaded:${_loaded:- none of $SENSOR_MODULES}"
     if find_tty; then
         if console_on "$TTY"; then _note=" (this computer's login console: not used for sensors)"; else _note=; fi
         echo "NanoKVM serial port: $TTY$_note"
@@ -481,6 +533,14 @@ status() {
     echo "NanoKVM USB network: $_net"
 }
 
+# ask_drivers: in the interactive setup, as the Windows setup offers its
+# driver.
+ask_drivers() {
+    printf 'Load the sensor drivers for the board and the drives (%s)? [Y/n] ' "$SENSOR_MODULES"
+    read -r _answer || return 0
+    case "$_answer" in ''|y|Y|yes) DRIVERS=1 ;; esac
+}
+
 # setup: run without arguments in a terminal: what the Windows agent's
 # window does on a double click.
 setup() {
@@ -490,11 +550,11 @@ setup() {
     if [ -z "$_have" ]; then
         printf 'Install nanokvm-sensors %s? [Y/n] ' "$VERSION"
         read -r _answer || exit 0
-        case "$_answer" in ''|y|Y|yes) install_agent ;; esac
+        case "$_answer" in ''|y|Y|yes) ask_drivers; install_agent ;; esac
     elif newer "$VERSION" "$_have"; then
         printf '[U]pdate to %s, [r]emove, or [q]uit? ' "$VERSION"
         read -r _answer || exit 0
-        case "$_answer" in ''|u|U) install_agent ;; r|R) uninstall_agent ;; esac
+        case "$_answer" in ''|u|U) ask_drivers; install_agent ;; r|R) uninstall_agent ;; esac
     else
         printf '[R]emove, or [q]uit? '
         read -r _answer || exit 0
@@ -511,12 +571,14 @@ URL_OPTION=
 USB_ID=3346:1009
 INTERVAL=5
 ONCE=
+DRIVERS=
 AGENT_OPTIONS=
 [ $# -eq 0 ] && COMMAND=setup
 while [ $# -gt 0 ]; do
     case "$1" in
         install|uninstall|run|status|setup) COMMAND=$1 ;;
         --once) ONCE=1; COMMAND=run ;;
+        --drivers) DRIVERS=1 ;;
         --version) echo "$VERSION"; exit 0 ;;
         -h|--help) usage; exit 0 ;;
         --serial)

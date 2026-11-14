@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -30,7 +31,9 @@ import (
 //	off      not at all (absent file)
 //	serial   lines on the USB serial port (/dev/ttyGS0). The server holds the
 //	         port while this is set: the web terminal and the console test
-//	         are refused on it, as one port carries one thing.
+//	         are refused on it, as one port carries one thing. When the
+//	         computer answers with a login prompt (its console is on that
+//	         port), the server only listens and the page says so.
 //	network  POST /api/host-sensors from the USB network (usb0) only: the
 //	         computer has no NanoKVM credentials, and nothing on the LAN or a
 //	         VPN may post readings.
@@ -119,8 +122,12 @@ func applyHostSensorsMode(mode string) {
 	r.stop, r.done = nil, nil
 	r.Unlock()
 	if stop != nil {
+		// Not waited for: the kernel holds the close of the gadget port up
+		// to 15 s while a "ready" line is unsent (nobody listens on the
+		// computer). The reader keeps the port's lease until it is closed;
+		// a new reader, or the terminal, finds it busy until then.
 		close(stop)
-		<-done
+		_ = done
 	}
 	if mode != hostSensorsSerial {
 		setHostSensorsSerialState("")
@@ -218,7 +225,7 @@ func runHostSensorsSerial(device string, stop <-chan struct{}, store *hostsensor
 			continue
 		}
 		setHostSensorsSerialState("open")
-		readHostSensorLines(fd, stop, func(line []byte) {
+		readHostSensorLines(fd, stop, func() { setHostSensorsSerialState("console") }, func(line []byte) {
 			if err := store.Accept(line, hostSensorsSerial, time.Now()); err != nil {
 				log.Debugf("host sensors: rejected a serial report: %v", err)
 			}
@@ -241,11 +248,17 @@ const hostSensorsReadyEvery = time.Second
 // readHostSensorLines hands every complete line to accept until stop, a
 // hang-up or a read error. A line longer than a report may be is dropped up
 // to its end, so one bad sender cannot grow the buffer or hide later lines.
-func readHostSensorLines(fd int, stop <-chan struct{}, accept func([]byte)) {
+func readHostSensorLines(fd int, stop <-chan struct{}, console func(), accept func([]byte)) {
 	buf := make([]byte, 16<<10)
 	var line []byte
 	overflow := false
-	var said time.Time
+	// The first "ready" waits a moment: a login console's prompt that was
+	// waiting on the port arrives first.
+	said := time.Now()
+	// The last bytes received, for the look of a login console; once seen,
+	// nothing more is written until the reader starts anew.
+	var tail []byte
+	isConsole := false
 	for {
 		select {
 		case <-stop:
@@ -257,8 +270,12 @@ func readHostSensorLines(fd int, stop <-chan struct{}, accept func([]byte)) {
 		// nothing is written to a port nobody reads. The descriptor does
 		// not block: with nobody listening on the computer the line is
 		// dropped once the port's buffer is full.
-		if time.Since(said) >= hostSensorsReadyEvery {
-			_, _ = unix.Write(fd, hostSensorsReady)
+		if !isConsole && time.Since(said) >= hostSensorsReadyEvery {
+			// One line at a time: while the last one is unsent nobody
+			// listens, and more would only pile up.
+			if pending, err := unix.IoctlGetInt(fd, unix.TIOCOUTQ); err != nil || pending == 0 {
+				_, _ = unix.Write(fd, hostSensorsReady)
+			}
 			said = time.Now()
 		}
 		fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
@@ -283,6 +300,17 @@ func readHostSensorLines(fd int, stop <-chan struct{}, accept func([]byte)) {
 				continue
 			}
 			return
+		}
+		if !isConsole {
+			tail = append(tail, buf[:n]...)
+			if len(tail) > 512 {
+				tail = tail[len(tail)-512:]
+			}
+			// A report is one long line of JSON; a prompt is short text.
+			if !bytes.Contains(tail, []byte(`"sensors"`)) && hostsensors.LoginConsole(tail) {
+				isConsole = true
+				console()
+			}
 		}
 		line, overflow = hostsensors.SplitLines(line, overflow, buf[:n], accept)
 	}

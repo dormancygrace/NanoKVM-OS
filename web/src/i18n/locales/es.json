@@ -2593,7 +2593,8 @@
       "diskStale": "El agente aparecerá en el disco auxiliar cuando los dispositivos USB se reconecten",
       "diskMissing": "No hay disco auxiliar: requiere el disco virtual en la composición USB y reconectar los dispositivos USB",
       "agentVersion": "agente {{version}}",
-      "agentUpdate": "El complemento trae el agente {{version}}: para actualizar, ejecute de nuevo en el ordenador el instalador de sensores del disco auxiliar."
+      "agentUpdate": "El complemento trae el agente {{version}}: para actualizar, ejecute de nuevo en el ordenador el instalador de sensores del disco auxiliar.",
+      "serialConsole": "El ordenador tiene su consola de inicio de sesión en este puerto (la configura el asistente de consola serie), así que los sensores no pueden usarlo. Elija Red USB."
     }
   },
   "picoclaw": {

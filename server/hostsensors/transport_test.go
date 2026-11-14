@@ -22,6 +22,19 @@ func TestSplitLines(t *testing.T) {
 	}
 }
 
+func TestLoginConsole(t *testing.T) {
+	for text, want := range map[string]bool{
+		"\r\nDebian GNU/Linux 13 host ttyACM0\r\n\r\nhost login: ": true,
+		"Password: ":                          true,
+		`{"v":1,"host":"login","sensors":[]}`: false,
+		"":                                    false,
+	} {
+		if got := LoginConsole([]byte(text)); got != want {
+			t.Errorf("%q: %v", text, got)
+		}
+	}
+}
+
 // Readings are taken from the USB network's peers only.
 func TestFromNetwork(t *testing.T) {
 	_, usb, _ := net.ParseCIDR("10.20.30.1/24")

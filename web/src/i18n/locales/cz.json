@@ -2196,7 +2196,8 @@
       "diskStale": "Agent se na pomocném disku objeví po opětovném připojení USB zařízení",
       "diskMissing": "Pomocný disk chybí: je potřeba virtuální disk v USB kompozici a opětovné připojení USB zařízení",
       "agentVersion": "agent {{version}}",
-      "agentUpdate": "Doplněk obsahuje agenta {{version}}: pro aktualizaci znovu spusťte v počítači instalaci senzorů z pomocného disku."
+      "agentUpdate": "Doplněk obsahuje agenta {{version}}: pro aktualizaci znovu spusťte v počítači instalaci senzorů z pomocného disku.",
+      "serialConsole": "Počítač má na tomto portu přihlašovací konzoli (nastavuje ji pomocník sériové konzole), takže jej senzory nemohou používat. Zvolte USB síť."
     }
   },
   "picoclaw": {

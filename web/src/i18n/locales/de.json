@@ -2593,7 +2593,8 @@
       "diskStale": "Der Agent erscheint auf dem Hilfsdatenträger, sobald sich die USB-Geräte neu verbinden",
       "diskMissing": "Kein Hilfsdatenträger: nötig sind der virtuelle Datenträger in der USB-Zusammenstellung und eine Neuverbindung der USB-Geräte",
       "agentVersion": "Agent {{version}}",
-      "agentUpdate": "Das Add-on enthält Agent {{version}}: Zum Aktualisieren das Sensoren-Setup vom Hilfsdatenträger auf dem Computer erneut ausführen."
+      "agentUpdate": "Das Add-on enthält Agent {{version}}: Zum Aktualisieren das Sensoren-Setup vom Hilfsdatenträger auf dem Computer erneut ausführen.",
+      "serialConsole": "Der Computer hat seine Anmeldekonsole auf diesem Anschluss (die Konsolenhilfe richtet sie ein), daher können die Sensoren ihn nicht nutzen. USB-Netzwerk wählen."
     }
   },
   "picoclaw": {

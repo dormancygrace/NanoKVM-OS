@@ -2593,7 +2593,8 @@
       "diskStale": "L’agent apparaîtra sur le disque d’aide après la reconnexion des périphériques USB",
       "diskMissing": "Pas de disque d’aide : il faut le disque virtuel dans la composition USB et une reconnexion des périphériques USB",
       "agentVersion": "agent {{version}}",
-      "agentUpdate": "Le module apporte l’agent {{version}} : pour mettre à jour, relancez sur l’ordinateur l’installation des capteurs depuis le disque d’aide."
+      "agentUpdate": "Le module apporte l’agent {{version}} : pour mettre à jour, relancez sur l’ordinateur l’installation des capteurs depuis le disque d’aide.",
+      "serialConsole": "L’ordinateur a sa console de connexion sur ce port (l’assistant de console série la configure) : les capteurs ne peuvent pas l’utiliser. Choisissez Réseau USB."
     }
   },
   "picoclaw": {

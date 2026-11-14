@@ -36,7 +36,8 @@ put "$proc/cpuinfo" 'model name	: Test CPU 9000'
 printf 'MemTotal:       8388608 kB\nMemFree:        1000000 kB\nMemAvailable:   2097152 kB\n' > "$proc/meminfo"
 put "$proc/sys/kernel/osrelease" 6.1.0-test
 
-out=$(NANOKVM_SENSORS_SYS=$sys NANOKVM_SENSORS_PROC=$proc "$shell" "$here/nanokvm-sensors.sh" --once)
+# shellcheck disable=SC2086 # the shell may be two words (busybox ash)
+out=$(NANOKVM_SENSORS_SYS=$sys NANOKVM_SENSORS_PROC=$proc $shell "$here/nanokvm-sensors.sh" --once)
 fail=0
 want() {
     case "$out" in

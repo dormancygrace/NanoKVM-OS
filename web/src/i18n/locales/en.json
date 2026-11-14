@@ -2593,7 +2593,8 @@
       "diskStale": "The agent appears on the helper disk after the USB devices reconnect",
       "diskMissing": "No helper disk: it needs the virtual disk in the USB composition and the USB devices reconnected",
       "agentVersion": "agent {{version}}",
-      "agentUpdate": "The add-on brings agent {{version}}: run the sensors setup from the helper disk on the computer again to update."
+      "agentUpdate": "The add-on brings agent {{version}}: run the sensors setup from the helper disk on the computer again to update.",
+      "serialConsole": "The computer has its login console on this port (the serial console helper sets one up), so the sensors cannot use it. Choose USB network."
     }
   },
   "picoclaw": {

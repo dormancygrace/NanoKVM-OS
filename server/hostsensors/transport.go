@@ -38,6 +38,15 @@ func SplitLines(line []byte, overflow bool, data []byte, accept func([]byte)) ([
 	return line, overflow
 }
 
+// LoginConsole reports whether what the computer sent on the serial port is
+// a login console's prompt rather than an agent: the computer has a getty on
+// that port (the serial console helper sets one up). Anything the NanoKVM
+// wrote there would be taken as a login name.
+func LoginConsole(received []byte) bool {
+	text := bytes.ToLower(received)
+	return bytes.Contains(text, []byte("login:")) || bytes.Contains(text, []byte("password:"))
+}
+
 // FromNetwork: the peer of the TCP connection (not a forwarded header) is on
 // the USB network, and is not the NanoKVM itself.
 func FromNetwork(remoteAddr string, nets []*net.IPNet) bool {

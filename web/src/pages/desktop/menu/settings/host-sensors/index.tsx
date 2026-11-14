@@ -117,9 +117,11 @@ export const HostSensorsPage = () => {
         ? t('serialUnavailable')
         : state.mode === 'serial' && state.serial.state === 'busy'
           ? t('serialBusy')
-          : state.mode === 'network' && state.network.addresses.length === 0
-            ? t('networkUnavailable')
-            : t('waiting');
+          : state.mode === 'serial' && state.serial.state === 'console'
+            ? t('serialConsole')
+            : state.mode === 'network' && state.network.addresses.length === 0
+              ? t('networkUnavailable')
+              : t('waiting');
 
   return (
     <div className="space-y-6">

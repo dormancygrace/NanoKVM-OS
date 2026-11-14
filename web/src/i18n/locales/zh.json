@@ -2593,7 +2593,8 @@
       "diskStale": "USB 设备重新连接后，代理将出现在辅助磁盘上",
       "diskMissing": "没有辅助磁盘：需要在 USB 组合中启用虚拟磁盘并重新连接 USB 设备",
       "agentVersion": "代理 {{version}}",
-      "agentUpdate": "扩展包含代理 {{version}}：请在计算机上再次运行辅助磁盘中的传感器安装程序进行更新。"
+      "agentUpdate": "扩展包含代理 {{version}}：请在计算机上再次运行辅助磁盘中的传感器安装程序进行更新。",
+      "serialConsole": "计算机在此端口上运行登录控制台（由串口控制台助手设置），传感器无法使用它。请选择 USB 网络。"
     }
   },
   "picoclaw": {

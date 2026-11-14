@@ -107,9 +107,9 @@ export const SessionActions = ({
   return (
     // A thin line sets the actions apart from the pages above.
     <div className="border-line space-y-0.5 border-t pt-2">
-      {item(t('settings.account.logoutBtn'), <LogOutIcon size={16} />, () => void logout())}
       {isAdmin &&
         item(t('settings.device.reboot'), <RotateCwIcon size={16} />, () => void reboot(), true)}
+      {item(t('settings.account.logoutBtn'), <LogOutIcon size={16} />, () => void logout())}
     </div>
   );
 };

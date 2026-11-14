@@ -645,7 +645,7 @@ export const Settings = ({
                 ? detailOpen
                   ? 'hidden'
                   : 'min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2'
-                : 'flex h-full max-w-[260px] min-w-0 shrink-0 flex-col space-y-0.5 overflow-x-hidden overflow-y-auto rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2'
+                : 'flex h-full max-w-[260px] min-w-0 shrink-0 flex-col space-y-0.5 overflow-x-hidden overflow-y-auto rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2 [&>*]:shrink-0'
             )}
           >
             <div className={mobile ? 'hidden' : 'hidden px-3 pt-10 text-xl sm:block'}>

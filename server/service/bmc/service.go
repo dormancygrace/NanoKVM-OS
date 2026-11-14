@@ -62,6 +62,7 @@ type Service struct {
 	runlevelLink string
 	atx          bmc.ATX
 	drive        Drive
+	sensors      redfish.Sensors
 	info         redfish.Info
 	run          func(name string, args ...string) error
 	install      func() error
@@ -71,9 +72,10 @@ type Service struct {
 	redfish atomic.Pointer[redfish.Handler]
 }
 
-func NewService(atx bmc.ATX, drive Drive) *Service {
+func NewService(atx bmc.ATX, drive Drive, sensors redfish.Sensors) *Service {
 	s := &Service{
 		drive:        drive,
+		sensors:      sensors,
 		configPath:   bmc.ConfigPath,
 		daemonPath:   bmc.IPMIDaemonPath,
 		runlevelLink: "/etc/runlevels/default/" + bmc.IPMIService,
@@ -108,6 +110,8 @@ func (s *Service) useRedfish(config bmc.Config) {
 		// Its own list, apart from a web user of the same name.
 		go notify.LoginSucceeded(user+" (Redfish)", addr)
 	}
+	// The host's sensors are read-only and the host's own: no switch.
+	h.Sensors = s.sensors
 	if config.VirtualMedia && s.drive != nil {
 		h.Media = RedfishMedia(s.drive)
 	}

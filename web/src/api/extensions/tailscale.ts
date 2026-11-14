@@ -11,10 +11,15 @@ export function install() {
 }
 
 // uninstall tailscale
-export function uninstall() {
-  return http.post('/api/extensions/tailscale/uninstall', undefined, {
-    timeout: SLOW_CALL_TIMEOUT
-  });
+// purge: also sign out and delete the login and settings.
+export function uninstall(purge = false) {
+  return http.post(
+    '/api/extensions/tailscale/uninstall',
+    { purge },
+    {
+      timeout: SLOW_CALL_TIMEOUT
+    }
+  );
 }
 
 // get tailscale status

@@ -356,8 +356,11 @@ func (s *Service) PostHostSensors(c *gin.Context) {
 		c.String(http.StatusBadRequest, "the report could not be read")
 		return
 	}
+	// The link is read now, with the report in hand: the report came over
+	// this life of the USB link (the host watchdog needs that).
 	peer, _, _ := net.SplitHostPort(c.Request.RemoteAddr)
-	if err := hostsensors.Default.AcceptFrom(body, hostSensorsNetwork, peer, time.Now()); err != nil {
+	from := hostsensors.From{Peer: peer, Link: hostWatchdogLink()}
+	if err := hostsensors.Default.AcceptFrom(body, hostSensorsNetwork, from, time.Now()); err != nil {
 		c.String(http.StatusBadRequest, err.Error())
 		return
 	}

@@ -27,5 +27,6 @@
   "watchdog.host-silent": { "title": "Počítač neodpovídá", "body": "Agent senzorů nic neposlal {minutes} min a počítač v síti USB neodpovídá. Nic nebylo stisknuto: hlídač je nastaven jen na upozornění." },
   "watchdog.reset": { "title": "Hlídač resetoval počítač", "body": "Agent senzorů nic neposlal {minutes} min a počítač v síti USB neodpověděl: bylo stisknuto tlačítko reset." },
   "watchdog.cycle": { "title": "Hlídač vypnul a zapnul počítač", "body": "Agent senzorů nic neposlal {minutes} min a počítač v síti USB neodpověděl: byl vypnut a znovu zapnut." },
-  "watchdog.failed": { "title": "Akce hlídače selhala", "body": "Počítač přestal odpovídat ({minutes} min ticha), ale akce selhala: {error}" }
+  "watchdog.failed": { "title": "Akce hlídače selhala", "body": "Počítač přestal odpovídat ({minutes} min ticha), ale akce selhala: {error}" },
+  "watchdog.unknown": { "title": "Hlídač se nemohl počítače zeptat", "body": "Agent senzorů nic neposlal {minutes} min a NanoKVM se nemohl počítače zeptat, zda žije: {error}. Nic nebylo stisknuto." }
 }

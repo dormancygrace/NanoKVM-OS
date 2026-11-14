@@ -9,7 +9,7 @@ import (
 func TestWatchdogIsDueOnlyForAnUnexplainedSilence(t *testing.T) {
 	t0 := time.Date(2026, 1, 2, 3, 0, 0, 0, time.UTC)
 	at := func(minutes int) time.Time { return t0.Add(time.Duration(minutes) * time.Minute) }
-	live := Signs{Watching: true, PowerOn: true, PowerKnown: true, Configured: true, Link: "1"}
+	live := Signs{Watching: true, PowerOn: true, PowerKnown: true, Configured: true, Link: "1", ReportLink: "1"}
 	for name, c := range map[string]struct {
 		change func(*Signs) // what is different at the time of the silence
 		due    bool
@@ -37,6 +37,16 @@ func TestWatchdogIsDueOnlyForAnUnexplainedSilence(t *testing.T) {
 		if got := w.Step(s, 5*time.Minute); got != c.due {
 			t.Errorf("%s: due %v, want %v", name, got, c.due)
 		}
+		// Asked again with the same signs, a due decision holds; any of the
+		// explanations arriving meanwhile, or a report, ends it.
+		for _, later := range []func(*Signs){func(*Signs) {}, func(s *Signs) { s.Watching = false }, func(s *Signs) { s.Link = "9" },
+			func(s *Signs) { s.Configured = false }, func(s *Signs) { s.Report = at(7) }, func(s *Signs) { s.Link = "" }} {
+			again := s
+			later(&again)
+			if got := w.StillDue(again); got != (c.due && again == s) {
+				t.Errorf("%s: still due %v with %+v", name, got, again)
+			}
+		}
 		if !c.due {
 			// What explained the silence is over: still nothing without a report.
 			s = live
@@ -58,6 +68,31 @@ func TestWatchdogIsDueOnlyForAnUnexplainedSilence(t *testing.T) {
 		if !w.Step(s, 5*time.Minute) {
 			t.Errorf("%s: a new report did not arm it again", name)
 		}
+	}
+}
+
+// A report that came over the link before a new enumeration is no evidence
+// for the link after it, whenever the watchdog first sees it.
+func TestAReportArmsOnlyTheLinkItCameOver(t *testing.T) {
+	t0 := time.Date(2026, 1, 2, 3, 0, 0, 0, time.UTC)
+	var w Watchdog
+	s := Signs{Watching: true, Configured: true, Link: "180", ReportLink: "180", Report: t0, Now: t0}
+	w.Step(s, time.Minute)
+	// A second report over 180, then the host restarts (184) before the
+	// watchdog's next look.
+	s.Report, s.Link, s.Now = t0.Add(time.Second), "184", t0.Add(5*time.Second)
+	if w.Step(s, time.Minute) || w.Armed() {
+		t.Fatal("armed for the new link by a report of the old one")
+	}
+	s.Now = t0.Add(10 * time.Minute)
+	if w.Step(s, time.Minute) {
+		t.Error("due on a link no report came over")
+	}
+	// Without a readable link nothing is decided.
+	s.Report, s.ReportLink, s.Link = t0.Add(11*time.Minute), "", ""
+	s.Now = t0.Add(20 * time.Minute)
+	if w.Step(s, time.Minute) {
+		t.Error("due without a readable link")
 	}
 }
 

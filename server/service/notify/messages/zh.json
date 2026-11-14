@@ -27,5 +27,6 @@
   "watchdog.host-silent": { "title": "主机无响应", "body": "主机的传感器代理已 {minutes} 分钟没有发送数据，主机在 USB 网络上也没有应答。未按任何按钮：看门狗设置为仅通知。" },
   "watchdog.reset": { "title": "看门狗已复位主机", "body": "主机的传感器代理 {minutes} 分钟没有发送数据，主机在 USB 网络上没有应答：已按下复位按钮。" },
   "watchdog.cycle": { "title": "看门狗已重新上电", "body": "主机的传感器代理 {minutes} 分钟没有发送数据，主机在 USB 网络上没有应答：已关机再开机。" },
-  "watchdog.failed": { "title": "看门狗操作失败", "body": "主机停止响应（静默 {minutes} 分钟），但操作失败：{error}" }
+  "watchdog.failed": { "title": "看门狗操作失败", "body": "主机停止响应（静默 {minutes} 分钟），但操作失败：{error}" },
+  "watchdog.unknown": { "title": "看门狗无法询问主机", "body": "主机的传感器代理已 {minutes} 分钟没有发送数据，NanoKVM 无法询问主机是否仍在运行：{error}。未按任何按钮。" }
 }

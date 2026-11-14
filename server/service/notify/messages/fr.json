@@ -27,5 +27,6 @@
   "watchdog.host-silent": { "title": "L'hôte ne répond pas", "body": "L'agent des capteurs n'a rien envoyé depuis {minutes} min et l'hôte ne répond pas sur le réseau USB. Aucun bouton n'a été pressé : le chien de garde est réglé sur notifier." },
   "watchdog.reset": { "title": "Hôte réinitialisé par le chien de garde", "body": "L'agent des capteurs n'a rien envoyé pendant {minutes} min et l'hôte n'a pas répondu sur le réseau USB : le bouton de réinitialisation a été pressé." },
   "watchdog.cycle": { "title": "Hôte éteint puis rallumé par le chien de garde", "body": "L'agent des capteurs n'a rien envoyé pendant {minutes} min et l'hôte n'a pas répondu sur le réseau USB : il a été éteint puis rallumé." },
-  "watchdog.failed": { "title": "Échec de l'action du chien de garde", "body": "L'hôte ne répond plus ({minutes} min de silence), mais l'action a échoué : {error}" }
+  "watchdog.failed": { "title": "Échec de l'action du chien de garde", "body": "L'hôte ne répond plus ({minutes} min de silence), mais l'action a échoué : {error}" },
+  "watchdog.unknown": { "title": "Le chien de garde n'a pas pu interroger l'hôte", "body": "L'agent des capteurs n'a rien envoyé depuis {minutes} min et le NanoKVM n'a pas pu demander à l'hôte s'il est vivant : {error}. Aucun bouton n'a été pressé." }
 }

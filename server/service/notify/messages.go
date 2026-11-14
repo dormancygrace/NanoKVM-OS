@@ -43,6 +43,7 @@ var MessageSpecs = []MessageSpec{
 	{Key: "watchdog.reset", Kind: KindPower, Vars: []string{"minutes"}},
 	{Key: "watchdog.cycle", Kind: KindPower, Vars: []string{"minutes"}},
 	{Key: "watchdog.failed", Kind: KindPower, Vars: []string{"minutes", "error"}},
+	{Key: "watchdog.unknown", Kind: KindPower, Vars: []string{"minutes", "error"}},
 	{Key: "screen.bsod", Kind: KindScreen},
 	{Key: "screen.panic", Kind: KindScreen},
 	{Key: "test", Kind: KindTest},

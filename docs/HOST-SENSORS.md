@@ -99,6 +99,12 @@ The silence of the agent alone is not a hang: the agent may have been stopped or
 
 One decision per silence: after it, the watchdog waits for the next report.
 
+**What is never taken for a hang.**
+- A question that could not be asked: `arping` missing, failing or out of time, or the USB network down on the NanoKVM. The event "Watchdog could not ask the host" is recorded and nothing is pressed. Only requests that went out and stayed unanswered count.
+- A change while the host was asked (the question takes seconds): the watchdog switched off or set otherwise, a report, a restart, sleep, power off. The signs are read again right before the press.
+- A report from before the host's restart: each report is bound to the USB link it came over, read when it is taken in, so it cannot arm the watchdog for the link after a new enumeration.
+- A USB link whose life cannot be read.
+
 **Limits.**
 - Only with the USB network transport. Over USB serial the NanoKVM has no way to ask the host whether it lives, so the watchdog is off there.
 - A system whose kernel still answers the network while everything else is stuck is not seen as hung.

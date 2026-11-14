@@ -2,6 +2,7 @@ package vm
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"strconv"
@@ -48,14 +49,25 @@ func hostWatchdogSigns(config hostwatchdog.Config, now time.Time) hostwatchdog.S
 	if !signs.Watching {
 		return signs
 	}
-	signs.Report, _ = hostsensors.Default.Last()
+	var from hostsensors.From
+	signs.Report, from = hostsensors.Default.Last()
+	signs.ReportLink = from.Link
 	signs.PowerOn, signs.PowerKnown = notifyPowerLED()
-	// The USB network's carrier goes with every new enumeration.
-	changes, _ := os.ReadFile("/sys/class/net/" + hostSensorsInterface + "/carrier_changes")
-	signs.Link = strings.TrimSpace(string(changes))
+	signs.Link = hostWatchdogLink()
 	udc, _ := os.ReadFile(usbGadgetUDCState())
 	signs.Configured = strings.TrimSpace(string(udc)) == "configured"
 	return signs
+}
+
+// hostWatchdogLink names the life of the USB link: the USB network's
+// carrier goes with every new enumeration, and the kernel counts its
+// changes. "" when it cannot be read: nothing is decided then.
+func hostWatchdogLink() string {
+	changes, err := os.ReadFile("/sys/class/net/" + hostSensorsInterface + "/carrier_changes")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(changes))
 }
 
 // usbGadgetUDCState is the state file of the gadget's USB controller.
@@ -64,16 +76,42 @@ func usbGadgetUDCState() string {
 	return "/sys/class/udc/" + strings.TrimSpace(string(name)) + "/state"
 }
 
-// hostAnswers asks the host for a sign of life: ARP requests on the USB
-// network to the address its reports came from. The host's kernel answers
-// them whatever its firewall; a hung one does not.
-var hostAnswers = func(peer string) bool {
+// What asking the host came to. Only hostSilent is evidence of a hang.
+const (
+	hostAlive   = "alive"
+	hostSilent  = "silent"
+	hostUnknown = "unknown" // the question could not be asked
+)
+
+// askHost asks the host for a sign of life: ARP requests on the USB network
+// to the address its reports came from. The host's kernel answers them
+// whatever its firewall; a hung one does not. The answer is hostSilent only
+// when the requests went out and none was answered: arping (BusyBox) ends
+// with 0 for a reply, 1 for none, 2 for an error; a command that could not
+// be started, was killed, or ran out of time proves nothing, and neither
+// does an interface that is down. why says what failed.
+var askHost = func(peer string) (answer, why string) {
 	if peer == "" {
-		return true // nobody to ask: do not act on a guess
+		return hostUnknown, "the address of the last report is not known"
+	}
+	if carrier, err := os.ReadFile("/sys/class/net/" + hostSensorsInterface + "/carrier"); err != nil || strings.TrimSpace(string(carrier)) != "1" {
+		return hostUnknown, "the USB network is down on the NanoKVM"
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	return exec.CommandContext(ctx, "arping", "-q", "-c", "3", "-w", "5", "-I", hostSensorsInterface, peer).Run() == nil
+	err := exec.CommandContext(ctx, "arping", "-q", "-c", "3", "-w", "5", "-I", hostSensorsInterface, peer).Run()
+	return arpProbeResult(err, ctx.Err())
+}
+
+func arpProbeResult(err, timeout error) (answer, why string) {
+	var exit *exec.ExitError
+	switch {
+	case err == nil:
+		return hostAlive, ""
+	case timeout == nil && errors.As(err, &exit) && exit.ExitCode() == 1:
+		return hostSilent, ""
+	}
+	return hostUnknown, "arping: " + err.Error()
 }
 
 func runHostWatchdog() {
@@ -96,7 +134,7 @@ func stepHostWatchdog(now time.Time) {
 	}
 	// Asking the host and pressing take seconds: the page is not kept
 	// waiting for them.
-	_, peer := hostsensors.Default.Last()
+	_, from := hostsensors.Default.Last()
 	vars := map[string]string{"minutes": strconv.Itoa(config.Minutes)}
 	emit := func(severity notify.Severity, message string) {
 		hostWatchdog.Lock()
@@ -104,9 +142,29 @@ func stepHostWatchdog(now time.Time) {
 		hostWatchdog.Unlock()
 		notify.Emit(notify.Event{Kind: notify.KindPower, Severity: severity, Message: message, Vars: vars})
 	}
-	if hostAnswers(peer) {
+	switch answer, why := askHost(from.Peer); answer {
+	case hostAlive:
 		// The agent stopped; the host lives.
 		emit(notify.SeverityInfo, "watchdog.agent-silent")
+		return
+	case hostUnknown:
+		// Not asked is not "did not answer": nothing is pressed.
+		log.Warnf("host watchdog: the host could not be asked: %s", why)
+		vars["error"] = why
+		emit(notify.SeverityWarning, "watchdog.unknown")
+		return
+	}
+	// The question took seconds. Whatever changed meanwhile ends the
+	// decision: the watchdog switched off or set otherwise, a report, a
+	// restart of the host, sleep, power off.
+	now = time.Now()
+	config = hostwatchdog.Load(hostWatchdogFile)
+	signs = hostWatchdogSigns(config, now)
+	hostWatchdog.Lock()
+	still := hostWatchdog.state.StillDue(signs)
+	hostWatchdog.Unlock()
+	if !still {
+		log.Infof("host watchdog: the host did not answer, but the situation changed while it was asked: nothing done")
 		return
 	}
 	ctx, cancel := context.WithTimeout(journal.WithActor(context.Background(), "watchdog"), time.Minute)

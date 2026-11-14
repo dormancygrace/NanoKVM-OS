@@ -90,13 +90,16 @@ type Signs struct {
 	// network.
 	Watching bool
 	// Report is when the last report came, in this run of the server; zero
-	// when none did.
-	Report time.Time
+	// when none did. ReportLink is the USB link (see Link) it came over,
+	// read when it was taken in: a report is evidence for that link only.
+	Report     time.Time
+	ReportLink string
 	// PowerOn counts when PowerKnown (the power LED is wired and read).
 	PowerOn, PowerKnown bool
 	// Configured: the host's side of the USB link is configured (not
 	// suspended, not detached). Link names the link's life: another value
-	// means the USB devices were enumerated anew.
+	// means the USB devices were enumerated anew; "" means it could not be
+	// read, and nothing is decided then.
 	Configured bool
 	Link       string
 }
@@ -116,12 +119,15 @@ func (w *Watchdog) Armed() bool { return w.armed && !w.decided }
 // has been silent for silence and nothing explains it. The caller then
 // decides (asking the host) and calls Decided.
 func (w *Watchdog) Step(s Signs, silence time.Duration) bool {
-	if !s.Watching || !s.Configured || (s.PowerKnown && !s.PowerOn) {
+	if !w.watchable(s) {
 		w.armed = false
 		return false
 	}
 	if s.Report.After(w.report) {
-		w.report, w.link, w.armed, w.decided = s.Report, s.Link, true, false
+		// The link is the one the report came over, not the one seen now:
+		// a report of the link before a new enumeration must not arm the
+		// watchdog for the link after it.
+		w.report, w.link, w.armed, w.decided = s.Report, s.ReportLink, true, false
 	}
 	if !w.armed || w.decided {
 		return false
@@ -133,6 +139,18 @@ func (w *Watchdog) Step(s Signs, silence time.Duration) bool {
 		return false
 	}
 	return s.Now.Sub(w.report) >= silence
+}
+
+func (w *Watchdog) watchable(s Signs) bool {
+	return s.Watching && s.Configured && s.Link != "" && !(s.PowerKnown && !s.PowerOn)
+}
+
+// StillDue reports whether a decision Step made holds with the signs read
+// anew: asking the host takes seconds, in which the watchdog may have been
+// switched off, a report may have come, or the host may have restarted or
+// gone to sleep. The caller checks it right before it presses.
+func (w *Watchdog) StillDue(s Signs) bool {
+	return w.watchable(s) && w.armed && s.Link == w.link && s.Report.Equal(w.report)
 }
 
 // Decided ends this silence: nothing more happens until a report.

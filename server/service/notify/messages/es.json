@@ -27,5 +27,6 @@
   "watchdog.host-silent": { "title": "El equipo no responde", "body": "El agente de sensores no ha enviado nada en {minutes} min y el equipo no responde en la red USB. No se pulsó nada: el vigilante está configurado solo para avisar." },
   "watchdog.reset": { "title": "El vigilante reinició el equipo", "body": "El agente de sensores no envió nada en {minutes} min y el equipo no respondió en la red USB: se pulsó el botón de reinicio." },
   "watchdog.cycle": { "title": "El vigilante apagó y encendió el equipo", "body": "El agente de sensores no envió nada en {minutes} min y el equipo no respondió en la red USB: se apagó y se volvió a encender." },
-  "watchdog.failed": { "title": "Falló la acción del vigilante", "body": "El equipo dejó de responder ({minutes} min de silencio), pero la acción falló: {error}" }
+  "watchdog.failed": { "title": "Falló la acción del vigilante", "body": "El equipo dejó de responder ({minutes} min de silencio), pero la acción falló: {error}" },
+  "watchdog.unknown": { "title": "El vigilante no pudo preguntar al equipo", "body": "El agente de sensores no ha enviado nada en {minutes} min y el NanoKVM no pudo preguntar al equipo si sigue vivo: {error}. No se pulsó nada." }
 }

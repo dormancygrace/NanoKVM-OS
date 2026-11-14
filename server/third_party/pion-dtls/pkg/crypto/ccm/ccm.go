@@ -177,6 +177,12 @@ func (c *ccm) tag(nonce, plaintext, adata []byte) ([]byte, error) {
 // From crypto/cipher/gcm.go
 // .
 func sliceForAppend(in []byte, n int) (head, tail []byte) {
+	// Check before adding: a wrapped total could bypass the capacity check.
+	// Like cipher.AEAD.Seal, an impossible output size is a caller error.
+	if n < 0 || n > math.MaxInt-len(in) {
+		panic("ccm: output length overflow")
+	}
+
 	if total := len(in) + n; cap(in) >= total {
 		head = in[:total]
 	} else {

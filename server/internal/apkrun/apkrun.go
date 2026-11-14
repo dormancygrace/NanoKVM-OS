@@ -52,8 +52,9 @@ import (
 var LockPath = "/run/nanokvm-apk.lock"
 
 var (
-	memInfoPath = "/proc/meminfo"
-	lockPoll    = 200 * time.Millisecond
+	memInfoPath   = "/proc/meminfo"
+	applyStateDir = "/run/nanokvm-apk"
+	lockPoll      = 200 * time.Millisecond
 )
 
 // requiredKiB is the smallest measured anonymous peak of an index-loading apk
@@ -187,6 +188,11 @@ func (c *Cmd) run() error {
 			return &notStartedError{err}
 		}
 		defer lock.Close()
+		if kind == transaction {
+			if err = waitForApply(ctx); err != nil {
+				return &notStartedError{err}
+			}
+		}
 		if err = standby.Pending(); err != nil {
 			return &notStartedError{err}
 		}
@@ -321,4 +327,54 @@ func readMemInfo(path string) (map[string]int64, error) {
 		}
 	}
 	return values, scanner.Err()
+}
+
+// waitForApply runs under the APK runner lock, before starting a transaction.
+// The post-commit worker deliberately does not take that lock. Its pending
+// marker covers the gap before it starts and its lock covers final cleanup.
+func waitForApply(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	ticker := time.NewTicker(lockPoll)
+	defer ticker.Stop()
+	for {
+		pending := false
+		if _, err := os.Stat(applyStateDir + "/pending"); err == nil {
+			pending = true
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("cannot inspect APK application: %w", err)
+		}
+		if !pending {
+			fd, err := unix.Open(applyStateDir+"/lock", unix.O_RDWR|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+			if errors.Is(err, os.ErrNotExist) {
+				return nil // No commit hook has run yet.
+			}
+			if err != nil {
+				return fmt.Errorf("cannot open APK application lock: %w", err)
+			}
+			err = unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB)
+			if err == nil {
+				// Recheck under the lock; never keep it while waiting, since
+				// the detached worker needs it to clear the pending marker.
+				_, statErr := os.Stat(applyStateDir + "/pending")
+				unix.Close(fd)
+				if errors.Is(statErr, os.ErrNotExist) {
+					return nil
+				}
+				if statErr != nil {
+					return fmt.Errorf("cannot inspect APK application: %w", statErr)
+				}
+			} else {
+				unix.Close(fd)
+				if !errors.Is(err, unix.EWOULDBLOCK) && !errors.Is(err, unix.EINTR) {
+					return fmt.Errorf("cannot lock APK application: %w", err)
+				}
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for previous APK component application: %w; inspect nkos-apply-updates status", ctx.Err())
+		case <-ticker.C:
+		}
+	}
 }

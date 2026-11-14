@@ -47,6 +47,10 @@ type Config struct {
 	// is unknown and every request presses. Kept negative so that settings
 	// written before it existed mean "connected".
 	PowerLEDDisconnected bool `json:"powerLedDisconnected,omitempty"`
+	// VirtualMedia: Redfish also offers the virtual drive. The BMC account
+	// can then boot the host from an image it names, and make the NanoKVM
+	// fetch it: a switch of its own, off unless turned on.
+	VirtualMedia bool `json:"virtualMedia,omitempty"`
 }
 
 // PowerLEDConnected reports whether the settings at path trust the power

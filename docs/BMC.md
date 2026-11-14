@@ -24,13 +24,38 @@ From version 0.2.0 the IPMI add-on also adds an "IPMI status" section to that pa
 - **"Unless the host is on/off"** uses the power LED; a press that changes nothing is skipped.
 - **Power LED connected** (on by default): turn it off when the NanoKVM's power LED header is not wired to the host. An unwired LED line reads "off" whatever the host does, so a forced power-off would be reported done without a press, and fencing would believe a running host is off. With the setting off, Redfish omits `PowerState`, IPMI answers Get Chassis Status with an error ("not in this state"; IPMI has no "unknown", and "on" would make a fence agent skip a power-on), and every power request presses; a forced power-off of a host that is already off holds the button, which leaves it off. Fence agents (`fence_redfish`, `fence_ipmilan`) read the state before acting, so with the setting off they refuse rather than act blindly; direct requests (`ipmitool chassis power off`, a Redfish `Reset`) press.
 - **The hold of a forced power-off** is the power menu's long press, 5 s, unless the settings page sets its own.
-- **Redfish** serves `/redfish/v1/` (no login), `Systems/1`, `Chassis/1`, `Managers/1` and `SessionService`.
+- **Redfish** serves `/redfish/v1/` (no login), `Systems/1`, `Chassis/1`, `Managers/1` and `SessionService`; with its own switch also the virtual drive (below).
   - It accepts HTTP Basic and `X-Auth-Token` sessions (`POST /redfish/v1/SessionService/Sessions`).
   - With Redfish off, `/redfish/` answers 404.
 - **IPMI** is IPMI v2.0 / RMCP+ only.
   - Cipher suites 3 and 17; other suites and IPMI v1.5 sessions are refused.
   - It serves Get Device ID, Get Chassis Status, Chassis Control, Get Channel Cipher Suites and the session commands.
-- **Not served:** boot device selection, sensors, SOL. Use the virtual media and netboot features of the web page instead.
+- **Not served:** boot device selection, sensors, SOL. The NanoKVM cannot tell the host's firmware what to start from: put the virtual drive first in the firmware's boot order once, or choose it in the firmware's boot menu through the web page.
+
+## Virtual media through Redfish
+
+Off by default, with a switch of its own under Advanced: the BMC account can then start the host from an image it names, and the NanoKVM fetches the address it is given.
+
+The NanoKVM has one virtual drive, the one of the web page's Images menu. Redfish shows it as `Systems/1/VirtualMedia/1` and, for older clients, as `Managers/1/VirtualMedia/1` (the same drive).
+
+| `Image` of `InsertMedia` | The computer gets | Notes |
+| --- | --- | --- |
+| `http://…`, `https://…` | a read-only CD/DVD drive | read from the web server as the computer asks for it, as "From URL" on the page; `UserName` and `Password` for HTTP Basic |
+| `smb://server/share/path.iso` | a read-only CD/DVD drive | from a file share; `UserName` and `Password` are required |
+| `file:///data/NAME.iso` | a read-only CD/DVD drive | an image on the NanoKVM's card, as listed on the page |
+| `file:///data/NAME.img` | a writable disk | `WriteProtected` must be `false` or absent |
+
+- **`InsertMedia` answers when the computer has the medium**, or with the reason the image did not connect (not found, no byte ranges, wrong password), within 45 s.
+- **One medium at a time.** With a medium in the drive, whoever put it there, `InsertMedia` answers 409: eject first. `EjectMedia` takes out a local image (forced, like a drive's button) and ends a remote one, also one a browser serves. The image of network boot stays; turn network boot off on its page.
+- **What is shown** in the resource is the address without its query and never the credentials.
+- **Checked with** Ansible's `community.general.redfish_command` (`VirtualMediaInsert`, `VirtualMediaEject`) and `redfish_info`, the `sushy` library, and the DMTF Redfish-Service-Validator. OpenStack Ironic's and Metal3's `redfish-virtual-media` boot also sets the boot device through Redfish, which is not served: they do not work.
+
+```
+curl -k -u 'admin:<password>' -H 'Content-Type: application/json' -d '{"Image":"https://server/install.iso"}' \
+  https://<device>/redfish/v1/Systems/1/VirtualMedia/1/Actions/VirtualMedia.InsertMedia
+curl -k -u 'admin:<password>' -H 'Content-Type: application/json' -d '{}' \
+  https://<device>/redfish/v1/Systems/1/VirtualMedia/1/Actions/VirtualMedia.EjectMedia
+```
 
 ## Accounts and security
 

@@ -2330,6 +2330,8 @@
       "holdSeconds": "Forced power-off: hold the power button (s)",
       "powerLed": "Power LED connected to the host",
       "powerLedHint": "Off: the power LED header is not wired, so Redfish and IPMI do not know the power state, and every request presses the button.",
+      "virtualMedia": "Virtual media through Redfish",
+      "virtualMediaHint": "On: Redfish also offers the virtual drive (VirtualMedia: insert an image from an http, https or smb address or from the NanoKVM's card, eject). The BMC account can then start the host from an image it names, and the NanoKVM fetches that address.",
       "holdHint": "Empty: as long as the power menu's long press (5 s).",
       "save": "Save",
       "saved": "Saved",

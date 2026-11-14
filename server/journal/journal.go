@@ -50,13 +50,14 @@ type Journal struct {
 	Path string
 	Now  func() time.Time
 
-	mu      sync.Mutex
-	loaded  bool
-	entries []Entry
-	lines   int // lines in the file
-	seq     uint64
-	recent  []time.Time // of the entries added in the last minute
-	dropped int
+	mu           sync.Mutex
+	loaded       bool
+	entries      []Entry
+	lines        int  // lines in the file
+	needsNewline bool // a partial last line must not swallow the next entry
+	seq          uint64
+	recent       []time.Time // of the entries added in the last minute
+	dropped      int
 }
 
 // Default is the device's journal.
@@ -73,6 +74,7 @@ func (j *Journal) load() {
 	if err != nil {
 		return
 	}
+	j.needsNewline = len(data) > 0 && data[len(data)-1] != '\n'
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	scanner.Buffer(nil, 1<<20)
 	for scanner.Scan() {
@@ -138,7 +140,11 @@ func (j *Journal) write(e Entry) error {
 			all.Write(append(line, '\n'))
 		}
 		j.lines = len(j.entries)
-		return atomicfile.Write(j.Path, all.Bytes(), 0o600)
+		if err := atomicfile.Write(j.Path, all.Bytes(), 0o600); err != nil {
+			return err
+		}
+		j.needsNewline = false
+		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(j.Path), 0o755); err != nil {
 		return err
@@ -149,9 +155,13 @@ func (j *Journal) write(e Entry) error {
 	}
 	defer file.Close()
 	line, _ := json.Marshal(e)
+	if j.needsNewline {
+		line = append([]byte{'\n'}, line...)
+	}
 	if _, err = file.Write(append(line, '\n')); err != nil {
 		return err
 	}
+	j.needsNewline = false
 	j.lines++
 	return file.Sync()
 }

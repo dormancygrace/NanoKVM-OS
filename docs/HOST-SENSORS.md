@@ -110,4 +110,3 @@ One decision per silence: after it, the watchdog waits for the next report.
 - A system whose kernel still answers the network while everything else is stuck is not seen as hung.
 - If the agent is stopped and the USB network adapter is disabled on the host as well, the host looks hung.
 - After the NanoKVM's own server restarts, the watchdog is armed again by the agent's next report.
-

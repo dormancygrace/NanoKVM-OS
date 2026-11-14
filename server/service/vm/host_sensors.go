@@ -86,6 +86,16 @@ func HostSensorsInstalled() bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
+// HostSensorsStatus is the agent's last report, and whether the feature is
+// on (the add-on installed and a transport chosen), for the services that
+// pass the readings on (Redfish).
+func HostSensorsStatus() (hostsensors.Status, bool) {
+	if !HostSensorsInstalled() || hostSensorsMode() == hostSensorsOff {
+		return hostsensors.Status{}, false
+	}
+	return hostsensors.Default.Status(time.Now()), true
+}
+
 func hostSensorsMode() string {
 	data, err := os.ReadFile(hostSensorsFile)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {

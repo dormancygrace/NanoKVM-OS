@@ -36,6 +36,8 @@ type Status struct {
 	// PowerLEDConnected: the power LED header is wired to the host, so its
 	// state counts.
 	PowerLEDConnected bool `json:"powerLedConnected"`
+	// VirtualMedia: Redfish offers the virtual drive too.
+	VirtualMedia bool `json:"virtualMedia"`
 }
 
 // Settings is a change from the settings page; an empty password keeps the
@@ -49,6 +51,8 @@ type Settings struct {
 	HoldSeconds int    `json:"holdSeconds"`
 	// PowerLEDConnected, when sent, changes the setting; absent keeps it.
 	PowerLEDConnected *bool `json:"powerLedConnected,omitempty"`
+	// VirtualMedia, when sent, changes the setting; absent keeps it.
+	VirtualMedia *bool `json:"virtualMedia,omitempty"`
 }
 
 type Service struct {
@@ -58,6 +62,8 @@ type Service struct {
 	// The service's link in the default runlevel, set by rc-update add.
 	runlevelLink string
 	atx          bmc.ATX
+	drive        Drive
+	sensors      redfish.Sensors
 	info         redfish.Info
 	run          func(name string, args ...string) error
 	install      func() error
@@ -67,8 +73,10 @@ type Service struct {
 	redfish atomic.Pointer[redfish.Handler]
 }
 
-func NewService(atx bmc.ATX) *Service {
+func NewService(atx bmc.ATX, drive Drive, sensors redfish.Sensors) *Service {
 	s := &Service{
+		drive:        drive,
+		sensors:      sensors,
 		configPath:   bmc.ConfigPath,
 		daemonPath:   bmc.IPMIDaemonPath,
 		runlevelLink: "/etc/runlevels/default/" + bmc.IPMIService,
@@ -102,6 +110,11 @@ func (s *Service) useRedfish(config bmc.Config) {
 	h.OnLogin = func(user, addr string) {
 		// Its own list, apart from a web user of the same name.
 		go notify.LoginSucceeded(user+" (Redfish)", addr)
+	}
+	// The host's sensors are read-only and the host's own: no switch.
+	h.Sensors = s.sensors
+	if config.VirtualMedia && s.drive != nil {
+		h.Media = RedfishMedia(s.drive)
 	}
 	s.redfish.Store(h)
 }
@@ -139,6 +152,7 @@ func (s *Service) Status() (Status, error) {
 		IPMIPort:          config.IPMIPort,
 		HoldSeconds:       config.HoldSeconds,
 		PowerLEDConnected: !config.PowerLEDDisconnected,
+		VirtualMedia:      config.VirtualMedia,
 	}, nil
 }
 
@@ -166,6 +180,9 @@ func (s *Service) Configure(settings Settings) error {
 	config.HoldSeconds = settings.HoldSeconds
 	if settings.PowerLEDConnected != nil {
 		config.PowerLEDDisconnected = !*settings.PowerLEDConnected
+	}
+	if settings.VirtualMedia != nil {
+		config.VirtualMedia = *settings.VirtualMedia
 	}
 	if err = bmc.Save(s.configPath, config); err != nil {
 		return err

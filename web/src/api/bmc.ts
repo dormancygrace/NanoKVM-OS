@@ -10,6 +10,7 @@ export type BmcStatus = {
   ipmiPort: number;
   holdSeconds: number;
   powerLedConnected: boolean;
+  virtualMedia: boolean;
 };
 
 export type BmcSettings = {
@@ -21,6 +22,7 @@ export type BmcSettings = {
   ipmiPort: number;
   holdSeconds: number;
   powerLedConnected: boolean;
+  virtualMedia: boolean;
 };
 
 export const getBmcStatus = () =>

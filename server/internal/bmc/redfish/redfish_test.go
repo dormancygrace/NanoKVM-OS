@@ -165,3 +165,113 @@ func TestCrossSiteWritesAreRefused(t *testing.T) {
 		t.Fatalf("JSON POST got %d", code)
 	}
 }
+
+type fakeMedia struct {
+	current  Medium
+	inserted []MediaRequest
+	err      error
+}
+
+func (f *fakeMedia) Medium(context.Context) (Medium, error) { return f.current, nil }
+func (f *fakeMedia) Eject(context.Context) error            { f.current = Medium{}; return f.err }
+func (f *fakeMedia) Insert(_ context.Context, r MediaRequest) error {
+	if f.err == nil {
+		f.inserted, f.current = append(f.inserted, r), Medium{Inserted: true, Image: r.Image, CD: true, Via: "URI"}
+	}
+	return f.err
+}
+
+// The drive is the system's and, for older clients, the manager's; without
+// the setting neither exists. An insert never shows its credentials again.
+func TestVirtualMedia(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	if rec := do(h, "GET", "/redfish/v1/Systems/1/VirtualMedia/1", "", admin); rec.Code != 404 {
+		t.Fatalf("without the setting: %d", rec.Code)
+	}
+	media := &fakeMedia{}
+	h.Media = media
+	for _, parent := range []string{"Systems", "Managers"} {
+		base := "/redfish/v1/" + parent + "/1/VirtualMedia/1"
+		insert := base + "/Actions/VirtualMedia.InsertMedia"
+		if v := decode(t, do(h, "GET", base, "", admin)); v["@odata.id"] != base || v["Inserted"] != false || v["Image"] != nil {
+			t.Fatalf("%s empty: %v", parent, v)
+		}
+		for _, c := range []struct {
+			body string
+			code int
+		}{
+			{`{}`, 400},
+			{`{"Image":"http://h/a.iso","Inserted":false}`, 400},
+			{`{"Image":"http://h/a.iso","TransferProtocolType":"CIFS"}`, 400},
+			{`{"Image":"http://h/a.iso","TransferMethod":"Upload"}`, 400},
+			{`{"Image":"https://h/a.iso","UserName":"u","Password":"secret"}`, 204},
+			{`{"Image":"https://h/b.iso"}`, 409}, // the drive holds a.iso
+		} {
+			if rec := do(h, "POST", insert, c.body, admin); rec.Code != c.code {
+				t.Errorf("%s insert %s: %d, want %d: %s", parent, c.body, rec.Code, c.code, rec.Body)
+			}
+		}
+		rec := do(h, "GET", base, "", admin)
+		if v := decode(t, rec); v["Inserted"] != true || v["ImageName"] != "a.iso" || v["TransferProtocolType"] != "HTTPS" || strings.Contains(rec.Body.String(), "secret") {
+			t.Errorf("%s inserted: %s", parent, rec.Body)
+		}
+		if rec := do(h, "POST", base+"/Actions/VirtualMedia.EjectMedia", "{}", admin); rec.Code != 204 || media.current.Inserted {
+			t.Errorf("%s eject: %d", parent, rec.Code)
+		}
+	}
+	if n := len(media.inserted); n != 2 || media.inserted[0].Password != "secret" {
+		t.Errorf("inserts that reached the drive: %+v", media.inserted)
+	}
+}
+
+type fakeSensors struct {
+	readings  []Reading
+	fresh, on bool
+}
+
+func (f fakeSensors) Readings() ([]Reading, bool, bool) { return f.readings, f.fresh, f.on }
+
+// The chassis has the host's sensors while the feature is on; a silent
+// agent leaves the resources without readings, never with old ones.
+func TestHostSensors(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	sensors := &fakeSensors{readings: []Reading{
+		{ID: "aa", Name: "CPU Package", Kind: "temperature", Context: "CPU", Value: 54.5},
+		{ID: "bb", Name: "Board Fan 1", Kind: "fan", Value: 912},
+		{ID: "cc", Name: "Board Vcore", Kind: "voltage", Value: 1.23},
+		{ID: "dd", Name: "CPU Clock", Kind: "clock", Value: 4200},
+		{ID: "ee", Name: "Disk Used", Kind: "data", Value: 100},
+	}}
+	h.Sensors = sensors
+	get := func(path string) (int, map[string]any) {
+		rec := do(h, "GET", "/redfish/v1/Chassis/1"+path, "", admin)
+		if rec.Code != 200 {
+			return rec.Code, nil
+		}
+		return rec.Code, decode(t, rec)
+	}
+	if code, _ := get("/Thermal"); code != 404 {
+		t.Fatalf("Thermal with the feature off: %d", code)
+	}
+	sensors.on, sensors.fresh = true, true
+	_, thermal := get("/Thermal")
+	temperature := thermal["Temperatures"].([]any)[0].(map[string]any)
+	if temperature["ReadingCelsius"] != 54.5 || temperature["MemberId"] != "0" || temperature["PhysicalContext"] != "CPU" ||
+		thermal["Fans"].([]any)[0].(map[string]any)["Reading"] != 912.0 {
+		t.Errorf("Thermal: %v", thermal)
+	}
+	if _, power := get("/Power"); power["Voltages"].([]any)[0].(map[string]any)["ReadingVolts"] != 1.23 {
+		t.Errorf("Power: %v", power)
+	}
+	// Every kind Redfish has a reading type for, in its unit; not "data".
+	if _, all := get("/Sensors"); all["Members@odata.count"] != 4.0 {
+		t.Errorf("Sensors: %v", all)
+	}
+	if _, clock := get("/Sensors/dd"); clock["Reading"] != 4.2e9 || clock["ReadingType"] != "Frequency" {
+		t.Errorf("a clock in MHz: %v", clock)
+	}
+	sensors.readings, sensors.fresh = nil, false
+	if _, thermal := get("/Thermal"); len(thermal["Temperatures"].([]any)) != 0 || thermal["Status"].(map[string]any)["State"] != "UnavailableOffline" {
+		t.Errorf("Thermal of a silent agent: %v", thermal)
+	}
+}

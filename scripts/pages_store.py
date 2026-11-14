@@ -2,9 +2,12 @@
 """Durable Pages package snapshots; Actions artifacts are transport, not storage.
 
 The catalog and its hash-checked objects are carried into every deployment.
-Public OS releases activate staged OS snapshots. Add-ons activate independently.
+Public OS releases activate staged OS snapshots. Package-only OS updates and
+add-ons activate independently.
 """
 import argparse
+from datetime import datetime, timezone
+from html import escape
 import hashlib
 import importlib.util
 import io
@@ -141,14 +144,18 @@ class Store:
                 raise ValueError('Invalid snapshot key')
             for name in item['files']:
                 filename(name)
+            packages_release(item)
         self.snapshots = data['snapshots']
         self.served = data.get('served', {})
         self.seen = set(data['artifacts'])
 
-    def add(self, kind, tag, files, commit):
+    def add(self, kind, tag, files, commit, published_at=None):
         key = identity(kind, tag)
         commit_sha(commit)
         item = {'kind': kind, 'tag': tag, 'files': files, 'commit': commit}
+        if published_at is not None:
+            item.update(packages_only=True, published_at=published_at)
+            packages_release(item)
         if key in self.snapshots and self.snapshots[key] != item:
             raise ValueError(f'Refusing to replace immutable snapshot {key}')
         self.snapshots[key] = item
@@ -180,7 +187,8 @@ class Store:
                 if hashlib.sha256(payload).hexdigest() != sums[name]:
                     raise ValueError(f'Candidate checksum mismatch: {name}')
                 if kind == 'os':
-                    if name not in TECHNICAL and not name.endswith('.apk'):
+                    source = meta.get('packages_only') and name == source_name(tag)
+                    if name not in TECHNICAL and not name.endswith('.apk') and not source:
                         raise ValueError('Unexpected OS file')
                 elif name != tag + '.apk':
                     raise ValueError('Unexpected add-on file')
@@ -203,7 +211,7 @@ class Store:
                         raise ValueError(f'Incorrect OS package closure: {name}')
             elif tag + '.apk' not in files:
                 raise ValueError('Missing add-on APK')
-            self.add(kind, tag, files, meta['commit'])
+            self.add(kind, tag, files, meta['commit'], meta.get('published_at'))
 
     def ingest(self):
         # Scan ALL pending production artifacts. GitHub concurrency replaces
@@ -268,6 +276,11 @@ class Store:
 
     def render(self, output):
         public = {r['tag_name']: r for r in inventory() if not r['draft'] and r.get('published_at') and a.VERSION.fullmatch(r['tag_name'])}
+        for item in self.snapshots.values():
+            if release := packages_release(item):
+                if item['tag'] in public:
+                    raise ValueError('Package-only update also has a GitHub Release')
+                public[item['tag']] = release
         for beta in (False, True):
             candidates = [r for r in public.values() if bool(a.VERSION.fullmatch(r['tag_name'])[4]) == beta
                           and any(x['name'] == f"NanoKVM-OS-{r['tag_name']}-source.tar.xz" for x in r['assets'])]
@@ -307,6 +320,31 @@ class Store:
             shutil.rmtree(directory / 'latest-image')
             a.image_badge(directory, sorted(public.values(), key=a.order, reverse=True), include_beta)
         a.assemble_addons(output, branch, pins, fetch=lambda url: payloads[url])
+        for item in self.snapshots.values():
+            if not item.get('packages_only'):
+                continue
+            tag = item['tag']
+            directory = output / 'updates' / tag
+            directory.mkdir(parents=True)
+            source = item['files'][source_name(tag)]
+            source_url = BASE + '/' + source['path']
+            (directory / 'SHA256SUMS').write_text(''.join(
+                f"{f['sha256']}  {name}\n" for name, f in sorted(item['files'].items())))
+            (directory / 'index.html').write_text(
+                '<!doctype html><meta charset="utf-8">'
+                f'<title>NanoKVM OS {escape(tag)}</title><h1>NanoKVM OS {escape(tag)}</h1>'
+                '<p>Package update. Install through Settings → System → Updates.</p>'
+                f'<p><a href="{escape(source_url)}">Corresponding source</a> · '
+                '<a href="SHA256SUMS">SHA-256 checksums</a> · '
+                f'<a href="https://github.com/{a.REPOSITORY}/tree/{item["commit"]}">Source commit</a></p>\n')
+        for directory, include_beta in ((output, False), (output / 'beta', True)):
+            eligible = [r for r in public.values() if include_beta or not a.is_beta(r)]
+            latest = max(eligible, key=a.order)['tag_name']
+            if self.snapshots['os/' + latest].get('packages_only'):
+                index = directory / 'index.html'
+                index.write_text(index.read_text() + '<p><a href="' + BASE +
+                                 '/updates/' + latest + '/">Source and checksums</a></p>\n')
+
         # An APK a feed serves byte for byte is stored once, as that feed
         # file; the rest (pending OS releases, indexes, metadata) as objects.
         # Pages has no links or redirects, so the catalog records the feed
@@ -351,12 +389,35 @@ def commit_sha(value):
     return value
 
 
+def source_name(tag):
+    return f'NanoKVM-OS-{tag}-source.tar.xz'
+
+
+def packages_release(item):
+    """Return release-shaped metadata for a production package-only snapshot."""
+    if not item.get('packages_only'):
+        if 'published_at' in item:
+            raise ValueError('Publication time requires package-only mode')
+        return None
+    if item['packages_only'] is not True or item['kind'] != 'os':
+        raise ValueError('Invalid package-only publication')
+    identity(item['kind'], item['tag'])
+    commit_sha(item['commit'])
+    datetime.strptime(item['published_at'], '%Y-%m-%dT%H:%M:%SZ')
+    if 'files' in item and source_name(item['tag']) not in item['files']:
+        raise ValueError('Package-only update requires corresponding source')
+    return {'tag_name': item['tag'], 'draft': False,
+            'prerelease': bool(a.VERSION.fullmatch(item['tag'])[4]),
+            'published_at': item['published_at'], 'assets': []}
+
+
 def snapshot_meta(archive):
     if archive.getinfo('snapshot.json').file_size > 4096:
         raise ValueError('Oversized snapshot metadata')
     meta = json.loads(archive.read('snapshot.json'))
     identity(meta['kind'], meta['tag'])
     commit_sha(meta['commit'])
+    packages_release(meta)
     return meta
 
 
@@ -385,12 +446,15 @@ def trusted_run(run, kind=None):
                  re.fullmatch(r'(release/\d+\.\d+|v\d+\.\d+\.\d+(?:-beta\.\d+)?)', run['head_branch']))))
 
 
-def already_staged(tag, commit):
+def already_staged(tag, commit, packages_only=False):
     # Only production uses this; dry runs never call --stage.
     try:
         catalog = read_catalog()
         if 'os/' + tag in catalog['snapshots']:
-            same_commit(catalog['snapshots']['os/' + tag]['commit'], commit)
+            item = catalog['snapshots']['os/' + tag]
+            same_commit(item['commit'], commit)
+            if bool(item.get('packages_only')) != packages_only:
+                raise ValueError('Cannot change an existing publication mode')
             return True
     except urllib.error.HTTPError as error:
         if error.code != 404:
@@ -409,17 +473,21 @@ def already_staged(tag, commit):
                         raise ValueError('Candidate metadata differs from its artifact name')
                     same_commit(meta['commit'], run['head_sha'])
                     same_commit(meta['commit'], commit)
+                    if bool(meta.get('packages_only')) != packages_only:
+                        raise ValueError('Cannot change an existing publication mode')
                     return True
         if len(batch) < 100:
             return False
         page += 1
 
 
-def stage(directory, kind, tag, commit):
+def stage(directory, kind, tag, commit, source=None):
     """Add transport metadata only after the production build has passed checks."""
     identity(kind, tag)
     commit_sha(commit)
-    if kind == 'os' and os.environ.get('GITHUB_ACTIONS') == 'true' and already_staged(tag, commit):
+    if source is not None and (kind != 'os' or Path(source).name != source_name(tag)):
+        raise ValueError('Invalid corresponding-source archive')
+    if kind == 'os' and os.environ.get('GITHUB_ACTIONS') == 'true' and already_staged(tag, commit, source is not None):
         print(f'{tag}: reusing the original staged packages')
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             output.write('upload=false\n')
@@ -427,6 +495,13 @@ def stage(directory, kind, tag, commit):
     directory = Path(directory)
     if (directory / 'snapshot.json').exists():
         raise ValueError('Candidate already staged')
+    if source is not None:
+        source = Path(source)
+        if source.is_symlink() or not source.is_file():
+            raise ValueError('Corresponding source must be a regular file')
+        shutil.copyfile(source, directory / source.name)
+        with source.open('rb') as archive, (directory / 'SHA256SUMS').open('a') as sums:
+            sums.write(hashlib.file_digest(archive, 'sha256').hexdigest() + '  ' + source.name + '\n')
     for p in directory.iterdir():
         filename(p.name)
         if not p.is_file() or p.is_symlink():
@@ -437,7 +512,10 @@ def stage(directory, kind, tag, commit):
     for name, sha in sums.items():
         if hashlib.sha256((directory / name).read_bytes()).hexdigest() != sha:
             raise ValueError(f'Candidate checksum mismatch: {name}')
-    (directory / 'snapshot.json').write_text(json.dumps({'kind': kind, 'tag': tag, 'commit': commit}) + '\n')
+    meta = {'kind': kind, 'tag': tag, 'commit': commit}
+    if source is not None:
+        meta.update(packages_only=True, published_at=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+    (directory / 'snapshot.json').write_text(json.dumps(meta) + '\n')
     if os.environ.get('GITHUB_OUTPUT'):
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             output.write('upload=true\n')
@@ -451,10 +529,11 @@ def main():
     parser.add_argument('--stage', type=Path)
     parser.add_argument('--kind', choices=['os', 'addon'])
     parser.add_argument('--tag')
+    parser.add_argument('--source', type=Path, help='publish an OS package-only update with corresponding source')
     parser.add_argument('--commit', default=os.environ.get('GITHUB_SHA'))
     args = parser.parse_args()
     if args.stage:
-        stage(args.stage, args.kind, args.tag, args.commit)
+        stage(args.stage, args.kind, args.tag, args.commit, args.source)
         return
     if not args.output:
         parser.error('--output required')

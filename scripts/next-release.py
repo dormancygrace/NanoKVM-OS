@@ -78,14 +78,42 @@ def next_release(releases, kind, ref, channel='stable'):
             'previous': 'v' + '.'.join(map(str, previous)) if previous else ''}
 
 
+def with_pages(releases):
+    # Tags reserve versions while the Pages deployment is still pending.
+    from pages_store import read_catalog, packages_release, a
+    import urllib.error
+    by_tag = {r['tag_name']: r for r in releases}
+    try:
+        catalog = read_catalog()
+    except urllib.error.HTTPError as error:
+        if error.code != 404:
+            raise
+        catalog = {'snapshots': {}}
+    for item in catalog['snapshots'].values():
+        if release := packages_release(item):
+            by_tag.setdefault(release['tag_name'], release)
+    refs = json.loads(a.fetch(f'https://api.github.com/repos/{a.REPOSITORY}/git/matching-refs/tags/v',
+                              'application/vnd.github+json'))
+    for ref in refs:
+        tag = ref['ref'].removeprefix('refs/tags/')
+        if RELEASE.fullmatch(tag) or BETA.fullmatch(tag):
+            by_tag.setdefault(tag, {'tag_name': tag, 'draft': True,
+                                    'prerelease': bool(BETA.fullmatch(tag))})
+    return list(by_tag.values())
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--channel', choices=('stable', 'beta'), default='stable')
     parser.add_argument('--kind', choices=('patch', 'minor'), required=True)
     parser.add_argument('--ref', required=True)
+    parser.add_argument('--pages', action='store_true', help='include package-only updates and reserved tags')
     args = parser.parse_args()
     try:
-        values = next_release(json.load(sys.stdin), args.kind, args.ref, args.channel)
+        releases = json.load(sys.stdin)
+        if args.pages:
+            releases = with_pages(releases)
+        values = next_release(releases, args.kind, args.ref, args.channel)
     except ValueError as error:
         sys.exit(f'next-release: {error}')
     for key, value in values.items():

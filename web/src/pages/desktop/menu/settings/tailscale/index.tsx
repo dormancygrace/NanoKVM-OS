@@ -26,6 +26,7 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<Status>();
   const [errMsg, setErrMsg] = useState('');
+  const [revision, setRevision] = useState(0);
 
   const statusInFlight = useRef(false);
   const getStatus = useCallback(() => {
@@ -42,6 +43,8 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
         }
 
         setStatus(rsp.data);
+        setErrMsg('');
+        setRevision((value) => value + 1);
       })
       .catch((err) => {
         setErrMsg(err?.message || statusFailed);
@@ -62,7 +65,7 @@ export const Tailscale = ({ setIsLocked }: TailscaleProps) => {
         <Alert type="error" showIcon message={errMsg === statusFailed ? t(statusFailed) : errMsg} />
       )}
 
-      <Header state={status?.state} onSuccess={getStatus} />
+      <Header state={status?.state} revision={revision} onSuccess={getStatus} />
 
       {isLoading ? (
         <div className="text-fg-muted flex w-full items-center justify-center gap-2">

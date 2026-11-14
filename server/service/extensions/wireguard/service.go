@@ -25,7 +25,9 @@ import (
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/pkg/resolvconf"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/extensions/apkpkg"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 const profileDir = "/etc/kvm/wireguard"
@@ -57,7 +59,38 @@ type Service struct {
 func NewService() *Service {
 	s := &Service{dir: profileDir, failures: map[string]string{}}
 	go s.restore()
+	go s.keepTools(time.Sleep)
 	return s
+}
+
+// Test seams: select an installed package in the APK world; is WireGuard
+// installed.
+var (
+	keepPackage = apkpkg.Keep
+	installed   = func() bool { _, err := exec.LookPath("wg-quick"); return err == nil }
+)
+
+// keepTools selects wireguard-tools in the APK world while there are
+// profiles. A later release stops installing WireGuard with the OS and offers
+// it like the other VPNs; apk would then remove it on that update from a
+// device whose tunnels need it, unless the world names it. Nothing is
+// downloaded: a device without WireGuard installed is left as it is. The
+// update lock may be busy (an update, a package operation): retried, 1 min
+// doubling up to 30 min.
+func (s *Service) keepTools(sleep func(time.Duration)) {
+	for delay := time.Minute; ; delay = min(2*delay, 30*time.Minute) {
+		s.mu.Lock()
+		profiles, err := s.profiles()
+		s.mu.Unlock()
+		if err != nil || len(profiles) == 0 || !installed() {
+			return
+		}
+		if err = keepPackage("wireguard-tools"); err == nil {
+			return
+		}
+		log.Warnf("WireGuard: cannot select wireguard-tools in the APK world, retrying in %v: %v", delay, err)
+		sleep(delay)
+	}
 }
 
 // Configs contain credentials. They never appear in status responses, logs or argv.
@@ -383,6 +416,7 @@ func (s *Service) Import(c *gin.Context) {
 		return
 	}
 	committed = true
+	go s.keepTools(time.Sleep)
 	rsp.OkRsp(c)
 }
 func (s *Service) Change(c *gin.Context) {

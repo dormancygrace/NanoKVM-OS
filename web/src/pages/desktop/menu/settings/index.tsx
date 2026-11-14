@@ -740,7 +740,11 @@ export const Settings = ({
               )}
             >
               {/* Keep the desktop close button above, outside the scrolling viewport. */}
-              <ScrollArea viewportRef={scrollViewportRef} className="min-h-0 flex-1 px-3">
+              <ScrollArea
+                viewportRef={scrollViewportRef}
+                className="min-h-0 flex-1 px-3"
+                viewportClassName="pr-3"
+              >
                 <div className="flex min-h-full w-full min-w-0 justify-center">
                   <div
                     className={clsx(

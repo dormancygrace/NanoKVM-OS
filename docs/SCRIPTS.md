@@ -11,8 +11,11 @@ device and runs them as root: on demand, or once at every startup.
   `#!/bin/bash`) first line. A `.py` script runs with `/usr/bin/python3`;
   the Scripts window offers to install Python 3 when a `.py` script is
   uploaded or run without it (about 13 MiB to download, 35 MiB on the device).
-- **Run** waits for the script and shows its output. **Run in background**
-  starts it and returns at once; its output is discarded.
+- **Run** waits for the script and shows its output: at most 50 seconds (then
+  the script and what it started are stopped) and the first 64 KiB of output.
+  A script that fails shows its output and exit code. **Run in background**
+  starts it and returns at once, without a time limit; its output is
+  discarded.
 - **Delete** removes the script and its startup mark.
 
 Scripts run as root with the full rights of the device. Run only scripts you

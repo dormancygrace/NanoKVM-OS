@@ -22,5 +22,10 @@
   "action.button": { "title": "ボタンが押されました", "body": "{actor} が {button} ボタンを {seconds} 秒間押しました。" },
   "action.media-inserted": { "title": "イメージをマウントしました", "body": "{actor} が {image} を仮想ドライブに挿入しました。" },
   "action.media-ejected": { "title": "イメージを取り出しました", "body": "{actor} が仮想ドライブからイメージを取り出しました。" },
-  "journal.dropped": { "title": "記録されなかったイベント", "body": "{count} 件のイベントを省略しました（1 分あたりの記録上限を超過）。" }
+  "journal.dropped": { "title": "記録されなかったイベント", "body": "{count} 件のイベントを省略しました（1 分あたりの記録上限を超過）。" },
+  "watchdog.agent-silent": { "title": "センサーエージェントが無応答", "body": "ホストのセンサーエージェントから {minutes} 分間データがありませんが、ホストは USB ネットワークで応答しています（エージェントが停止）。何も行いませんでした。" },
+  "watchdog.host-silent": { "title": "ホストが応答しません", "body": "センサーエージェントから {minutes} 分間データがなく、ホストは USB ネットワークでも応答しません。ウォッチドッグは通知のみの設定のため、ボタンは押していません。" },
+  "watchdog.reset": { "title": "ウォッチドッグがホストをリセット", "body": "センサーエージェントから {minutes} 分間データがなく、ホストが USB ネットワークで応答しなかったため、リセットボタンを押しました。" },
+  "watchdog.cycle": { "title": "ウォッチドッグが電源を入れ直しました", "body": "センサーエージェントから {minutes} 分間データがなく、ホストが USB ネットワークで応答しなかったため、電源を切って入れ直しました。" },
+  "watchdog.failed": { "title": "ウォッチドッグの操作に失敗", "body": "ホストが応答しなくなりましたが（{minutes} 分間無応答）、操作に失敗しました: {error}" }
 }

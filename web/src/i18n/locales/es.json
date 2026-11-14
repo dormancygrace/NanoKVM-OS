@@ -2568,6 +2568,19 @@
       "failed": "No se pudo leer el registro de eventos."
     },
     "hostSensors": {
+      "watchdog": "Vigilante",
+      "watchdogAction": "Si el equipo se cuelga",
+      "watchdogHint": "El vigilante actúa cuando el agente lleva este tiempo en silencio y el equipo ya no responde en la red USB. Empieza a vigilar con el primer informe del agente y se detiene cuando el equipo se apaga, se suspende, se reinicia o se vuelve a conectar, hasta el siguiente informe. Detener el agente no lo dispara: el equipo sigue respondiendo.",
+      "watchdogNetworkOnly": "El vigilante necesita el modo de red USB: por USB serie el NanoKVM no puede preguntar al equipo si sigue vivo.",
+      "watchdogMinutes": "min de silencio",
+      "watchdogArmed": "Vigilando",
+      "watchdogWaiting": "Esperando el informe del agente",
+      "watchdogActions": {
+        "off": "Desactivado",
+        "notify": "Solo avisar",
+        "reset": "Pulsar reinicio",
+        "cycle": "Apagar y encender"
+      },
       "title": "Sensores del ordenador",
       "about": "El agente nanokvm-sensors del ordenador envía al NanoKVM sus temperaturas, voltajes y velocidades de ventiladores.",
       "download": "Descargar en su lugar",

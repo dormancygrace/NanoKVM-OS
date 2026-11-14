@@ -2171,6 +2171,19 @@
       "failed": "Deník událostí se nepodařilo načíst."
     },
     "hostSensors": {
+      "watchdog": "Hlídač",
+      "watchdogAction": "Když počítač zamrzne",
+      "watchdogHint": "Hlídač zasáhne, když agent tak dlouho mlčí a počítač už v síti USB neodpovídá. Začne hlídat s první zprávou agenta a přestane, když je počítač vypnut, uspán, restartován nebo znovu připojen, až do další zprávy. Zastavení agenta jej nespustí: počítač stále odpovídá.",
+      "watchdogNetworkOnly": "Hlídač potřebuje režim sítě USB: přes USB serial se NanoKVM nemůže počítače zeptat, zda žije.",
+      "watchdogMinutes": "min ticha",
+      "watchdogArmed": "Hlídá",
+      "watchdogWaiting": "Čeká na zprávu agenta",
+      "watchdogActions": {
+        "off": "Vypnuto",
+        "notify": "Jen upozornit",
+        "reset": "Stisknout reset",
+        "cycle": "Vypnout a zapnout"
+      },
       "title": "Senzory počítače",
       "about": "Agent nanokvm-sensors v počítači posílá do NanoKVM jeho teploty, napětí a otáčky ventilátorů.",
       "download": "Stáhnout místo toho",

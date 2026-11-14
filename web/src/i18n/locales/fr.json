@@ -2568,6 +2568,19 @@
       "failed": "Le journal des événements n'a pas pu être lu."
     },
     "hostSensors": {
+      "watchdog": "Chien de garde",
+      "watchdogAction": "Si l'ordinateur se bloque",
+      "watchdogHint": "Le chien de garde agit lorsque l'agent est resté silencieux pendant cette durée et que l'ordinateur ne répond plus sur le réseau USB. Il surveille à partir du premier rapport de l'agent et s'arrête quand l'ordinateur est éteint, en veille, redémarré ou rebranché, jusqu'au rapport suivant. Arrêter l'agent ne le déclenche pas : l'ordinateur répond toujours.",
+      "watchdogNetworkOnly": "Le chien de garde nécessite le mode réseau USB : par le port série USB, le NanoKVM ne peut pas demander à l'ordinateur s'il est vivant.",
+      "watchdogMinutes": "min de silence",
+      "watchdogArmed": "Surveille",
+      "watchdogWaiting": "En attente du rapport de l'agent",
+      "watchdogActions": {
+        "off": "Désactivé",
+        "notify": "Notifier seulement",
+        "reset": "Appuyer sur reset",
+        "cycle": "Éteindre puis rallumer"
+      },
       "title": "Capteurs de l’ordinateur",
       "about": "L’agent nanokvm-sensors de l’ordinateur envoie au NanoKVM ses températures, tensions et vitesses de ventilateurs.",
       "download": "Télécharger à la place",

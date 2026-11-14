@@ -2568,6 +2568,19 @@
       "failed": "无法读取事件日志。"
     },
     "hostSensors": {
+      "watchdog": "看门狗",
+      "watchdogAction": "电脑死机时",
+      "watchdogHint": "当代理静默达到此时长且电脑在 USB 网络上不再应答时，看门狗才会动作。它从代理的第一份报告开始监视；电脑关机、睡眠、重启或重新连接后停止，直到下一份报告。停止代理不会触发它：电脑仍会应答。",
+      "watchdogNetworkOnly": "看门狗需要 USB 网络模式：通过 USB 串口，NanoKVM 无法询问电脑是否仍在运行。",
+      "watchdogMinutes": "分钟静默",
+      "watchdogArmed": "监视中",
+      "watchdogWaiting": "等待代理的报告",
+      "watchdogActions": {
+        "off": "关闭",
+        "notify": "仅通知",
+        "reset": "按复位键",
+        "cycle": "断电再上电"
+      },
       "title": "计算机传感器",
       "about": "计算机上的 nanokvm-sensors 代理将其温度、电压和风扇转速发送到 NanoKVM。",
       "download": "改为下载",

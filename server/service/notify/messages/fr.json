@@ -22,5 +22,10 @@
   "action.button": { "title": "Bouton pressé", "body": "{actor} a appuyé sur le bouton {button} pendant {seconds} s." },
   "action.media-inserted": { "title": "Image montée", "body": "{actor} a inséré {image} dans le lecteur virtuel." },
   "action.media-ejected": { "title": "Image éjectée", "body": "{actor} a retiré l'image du lecteur virtuel." },
-  "journal.dropped": { "title": "Événements non enregistrés", "body": "{count} événements ont été omis : plus que le journal n'en accepte par minute." }
+  "journal.dropped": { "title": "Événements non enregistrés", "body": "{count} événements ont été omis : plus que le journal n'en accepte par minute." },
+  "watchdog.agent-silent": { "title": "L'agent des capteurs ne répond plus", "body": "L'agent des capteurs de l'hôte n'a rien envoyé depuis {minutes} min, mais l'hôte répond sur le réseau USB : l'agent est arrêté. Rien n'a été fait." },
+  "watchdog.host-silent": { "title": "L'hôte ne répond pas", "body": "L'agent des capteurs n'a rien envoyé depuis {minutes} min et l'hôte ne répond pas sur le réseau USB. Aucun bouton n'a été pressé : le chien de garde est réglé sur notifier." },
+  "watchdog.reset": { "title": "Hôte réinitialisé par le chien de garde", "body": "L'agent des capteurs n'a rien envoyé pendant {minutes} min et l'hôte n'a pas répondu sur le réseau USB : le bouton de réinitialisation a été pressé." },
+  "watchdog.cycle": { "title": "Hôte éteint puis rallumé par le chien de garde", "body": "L'agent des capteurs n'a rien envoyé pendant {minutes} min et l'hôte n'a pas répondu sur le réseau USB : il a été éteint puis rallumé." },
+  "watchdog.failed": { "title": "Échec de l'action du chien de garde", "body": "L'hôte ne répond plus ({minutes} min de silence), mais l'action a échoué : {error}" }
 }

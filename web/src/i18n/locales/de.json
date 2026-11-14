@@ -2568,6 +2568,19 @@
       "failed": "Das Ereignisprotokoll konnte nicht gelesen werden."
     },
     "hostSensors": {
+      "watchdog": "Watchdog",
+      "watchdogAction": "Wenn der Computer hängt",
+      "watchdogHint": "Der Watchdog greift ein, wenn der Agent so lange schweigt und der Computer im USB-Netzwerk nicht mehr antwortet. Er überwacht ab dem ersten Bericht des Agenten und hört auf, wenn der Computer ausgeschaltet, im Ruhezustand, neu gestartet oder neu angeschlossen wird, bis zum nächsten Bericht. Das Beenden des Agenten löst ihn nicht aus: Der Computer antwortet weiterhin.",
+      "watchdogNetworkOnly": "Der Watchdog braucht den USB-Netzwerkmodus: Über USB-Seriell kann der NanoKVM den Computer nicht fragen, ob er noch lebt.",
+      "watchdogMinutes": "min Stille",
+      "watchdogArmed": "Überwacht",
+      "watchdogWaiting": "Wartet auf den Bericht des Agenten",
+      "watchdogActions": {
+        "off": "Aus",
+        "notify": "Nur benachrichtigen",
+        "reset": "Reset drücken",
+        "cycle": "Aus- und einschalten"
+      },
       "title": "Sensoren des Computers",
       "about": "Der Agent nanokvm-sensors auf dem Computer sendet dessen Temperaturen, Spannungen und Lüfterdrehzahlen an das NanoKVM.",
       "download": "Stattdessen herunterladen",

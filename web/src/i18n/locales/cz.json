@@ -2167,7 +2167,7 @@
     "hostSensors": {
       "title": "Senzory počítače",
       "about": "Agent nanokvm-sensors v počítači posílá do NanoKVM jeho teploty, napětí a otáčky ventilátorů.",
-      "download": "Stáhnout",
+      "download": "Stáhnout místo toho",
       "waiting": "Čeká se na agenta: zatím žádné hlášení.",
       "serialUnavailable": "USB sériový port není součástí USB kompozice.",
       "serialBusy": "Sériový port používá jiná relace.",
@@ -2180,7 +2180,7 @@
       "connection": "Připojení",
       "modeLabel": "Jak hodnoty přicházejí",
       "agent": "Agent pro Windows",
-      "agentHint": "Zkopírujte jej do počítače a spusťte v konzoli správce: nanokvm-sensors.exe install. Nabídne instalaci ovladače PawnIO, který potřebují senzory procesoru a desky, a spouští se s Windows.",
+      "agentHint": "Agent je na pomocném disku NANOKVM, který počítač vidí vedle virtuální jednotky. Spusťte z něj v konzoli správce: sensors.exe install. Nabídne instalaci ovladače PawnIO, který potřebují senzory procesoru a desky, a spouští se s Windows.",
       "readings": "Hodnoty",
       "offHint": "Zvolte, jak hodnoty přicházejí, a uvidíte je zde.",
       "mode": {
@@ -2191,7 +2191,10 @@
       "choose": "Vybrat hodnoty",
       "save": "Uložit",
       "cancel": "Zrušit",
-      "noneShown": "Není vybrána žádná hodnota k zobrazení."
+      "noneShown": "Není vybrána žádná hodnota k zobrazení.",
+      "diskAttached": "Počítač má pomocný disk",
+      "diskStale": "Agent se na pomocném disku objeví po opětovném připojení USB zařízení",
+      "diskMissing": "Pomocný disk chybí: je potřeba virtuální disk v USB kompozici a opětovné připojení USB zařízení"
     }
   },
   "picoclaw": {

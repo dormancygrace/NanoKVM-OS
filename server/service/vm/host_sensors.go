@@ -142,6 +142,7 @@ var hostSensorsApply sync.Mutex
 func reconcileHostSensors() {
 	hostSensorsApply.Lock()
 	defer hostSensorsApply.Unlock()
+	reconcileHelperDisk()
 	want := HostSensorsInstalled() && hostSensorsMode() == hostSensorsSerial
 	r := &hostSensorsSerialReader
 	r.Lock()
@@ -340,7 +341,17 @@ func hostSensorsState() gin.H {
 		"agent":   agent,
 		"status":  hostsensors.Default.Status(time.Now()),
 		"view":    hostSensorsView(),
+		// The helper disk with the agent: whether the computer has it.
+		"disk": hostSensorsDisk(),
 	}
+}
+
+// hostSensorsDisk: the helper disk as the computer sees it. wanted: the
+// mode asks for it; stale: the computer still sees the disk without the
+// agent (or an older one) until the USB devices reconnect.
+func hostSensorsDisk() gin.H {
+	attached, stale := helperDiskLun()
+	return gin.H{"attached": attached, "stale": stale, "wanted": hostSensorsMode() != hostSensorsOff}
 }
 
 // GetHostSensors answers GET /api/vm/host-sensors: the mode, the transports'

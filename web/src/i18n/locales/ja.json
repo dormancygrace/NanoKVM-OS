@@ -2564,7 +2564,7 @@
     "hostSensors": {
       "title": "コンピューターのセンサー",
       "about": "コンピューター上の nanokvm-sensors エージェントが、温度・電圧・ファン回転数を NanoKVM に送信します。",
-      "download": "ダウンロード",
+      "download": "代わりにダウンロード",
       "waiting": "エージェントを待機中: まだレポートがありません。",
       "serialUnavailable": "USB シリアルは USB 構成に含まれていません。",
       "serialBusy": "シリアルポートは別のセッションが使用中です。",
@@ -2577,7 +2577,7 @@
       "connection": "接続",
       "modeLabel": "測定値の受信方法",
       "agent": "Windows 用エージェント",
-      "agentHint": "コンピューターにコピーし、管理者コンソールで nanokvm-sensors.exe install を実行します。プロセッサーとマザーボードのセンサーに必要な PawnIO ドライバーのインストールを提案し、Windows と一緒に起動します。",
+      "agentHint": "エージェントは、コンピューターが仮想ドライブの隣に認識する NANOKVM ヘルパーディスクにあります。そのディスクから管理者コンソールで sensors.exe install を実行します。プロセッサーとマザーボードのセンサーに必要な PawnIO ドライバーのインストールを提案し、Windows と一緒に起動します。",
       "readings": "測定値",
       "offHint": "測定値の受信方法を選ぶと、ここに表示されます。",
       "mode": {
@@ -2588,7 +2588,10 @@
       "choose": "測定値を選択",
       "save": "保存",
       "cancel": "キャンセル",
-      "noneShown": "表示する測定値が選択されていません。"
+      "noneShown": "表示する測定値が選択されていません。",
+      "diskAttached": "コンピューターにヘルパーディスクが接続されています",
+      "diskStale": "USB デバイスの再接続後、エージェントがヘルパーディスクに表示されます",
+      "diskMissing": "ヘルパーディスクがありません: USB 構成に仮想ディスクを含め、USB デバイスを再接続する必要があります"
     }
   },
   "picoclaw": {

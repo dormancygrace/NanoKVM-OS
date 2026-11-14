@@ -2564,7 +2564,7 @@
     "hostSensors": {
       "title": "Computer sensors",
       "about": "The nanokvm-sensors agent on the computer sends its temperatures, voltages and fan speeds to the NanoKVM.",
-      "download": "Download",
+      "download": "Download instead",
       "waiting": "Waiting for the agent: no report yet.",
       "serialUnavailable": "USB serial is not part of the USB composition.",
       "serialBusy": "The serial port is held by another session.",
@@ -2577,7 +2577,7 @@
       "connection": "Connection",
       "modeLabel": "How the readings arrive",
       "agent": "Agent for Windows",
-      "agentHint": "Copy it to the computer and run in an administrator's console: nanokvm-sensors.exe install. It offers to install the PawnIO driver, which processor and board sensors need, and starts with Windows.",
+      "agentHint": "The agent is on the NANOKVM helper disk, which the computer sees next to the virtual drive. Run there in an administrator's console: sensors.exe install. It offers to install the PawnIO driver, which processor and board sensors need, and starts with Windows.",
       "readings": "Readings",
       "offHint": "Choose how the readings arrive to see them here.",
       "mode": {
@@ -2588,7 +2588,10 @@
       "choose": "Choose readings",
       "save": "Save",
       "cancel": "Cancel",
-      "noneShown": "No reading is chosen to be shown."
+      "noneShown": "No reading is chosen to be shown.",
+      "diskAttached": "The computer has the helper disk",
+      "diskStale": "The agent appears on the helper disk after the USB devices reconnect",
+      "diskMissing": "No helper disk: it needs the virtual disk in the USB composition and the USB devices reconnected"
     }
   },
   "picoclaw": {

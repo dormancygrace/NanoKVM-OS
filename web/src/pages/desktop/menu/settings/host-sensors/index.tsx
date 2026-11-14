@@ -37,6 +37,8 @@ type State = {
   };
   // Which readings are shown: the exceptions to the default (lib/host-sensors).
   view: { overrides: Record<string, boolean> };
+  // The helper disk with the agent, as the computer sees it.
+  disk: { attached: boolean; stale: boolean; wanted: boolean };
 };
 
 const url = '/api/vm/host-sensors';
@@ -139,16 +141,31 @@ export const HostSensorsPage = () => {
             }))}
           />
         </SettingRow>
-        <SettingRow label={t('agent')} description={t('agentHint')}>
-          {state?.agent.available && (
-            <a
-              href={state.agent.path}
-              download
-              className="text-info inline-flex items-center gap-1.5 text-sm"
-            >
-              <DownloadIcon size={16} aria-hidden />
-              {t('download')}
-            </a>
+        <SettingRow label={t('agent')} description={t('agentHint')} stacked>
+          {state && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <StatusBadge
+                tone={state.disk.attached ? (state.disk.stale ? 'warning' : 'success') : 'neutral'}
+              >
+                {t(
+                  state.disk.attached
+                    ? state.disk.stale
+                      ? 'diskStale'
+                      : 'diskAttached'
+                    : 'diskMissing'
+                )}
+              </StatusBadge>
+              {state.agent.available && !(state.disk.attached && !state.disk.stale) && (
+                <a
+                  href={state.agent.path}
+                  download
+                  className="text-info inline-flex items-center gap-1.5 text-sm"
+                >
+                  <DownloadIcon size={16} aria-hidden />
+                  {t('download')}
+                </a>
+              )}
+            </div>
           )}
         </SettingRow>
       </SettingsSection>

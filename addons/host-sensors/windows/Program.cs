@@ -82,8 +82,11 @@ namespace NanoKvmSensors
 
   nanokvm-sensors [options]     run until stopped (Ctrl+C)
   nanokvm-sensors --once        print one report and exit
-  nanokvm-sensors install       start with Windows (a scheduled task as SYSTEM;
-                                needs an administrator's console). Offers to
+  nanokvm-sensors install       copy this program to Program Files\NanoKVM
+                                and start it with Windows (a scheduled task
+                                as SYSTEM; needs an administrator's console),
+                                from wherever it is run, such as the NanoKVM's
+                                helper disk (sensors.exe there). Offers to
                                 install the PawnIO driver first when it is
                                 missing or older than 2.0 (--yes: without
                                 asking, --no-driver: not at all)
@@ -154,7 +157,17 @@ them the report is marked as limited.";
             {
                 // Deleting a task leaves its running program: end it first.
                 Schtasks("/End /TN \"" + TaskName + "\"", true);
-                return Schtasks("/Delete /F /TN \"" + TaskName + "\"");
+                int code = Schtasks("/Delete /F /TN \"" + TaskName + "\"");
+                // The copy install made, unless this is that copy running.
+                string copy = InstalledCopy();
+                if (!string.Equals(Path.GetFullPath(Process.GetCurrentProcess().MainModule.FileName), copy, StringComparison.OrdinalIgnoreCase))
+                {
+                    for (int attempt = 0; attempt < 10 && File.Exists(copy); attempt++)
+                    {
+                        try { File.Delete(copy); } catch (Exception) { Thread.Sleep(500); }
+                    }
+                }
+                return code;
             }
 
             if (o.LogFile != null)
@@ -659,7 +672,30 @@ them the report is marked as limited.";
         {
             if (!IsElevated()) throw new InvalidOperationException("install needs an administrator's console");
             if (!o.NoDriver) InstallDriver(o.Yes);
-            string exe = Process.GetCurrentProcess().MainModule.FileName;
+            // The task runs a copy in Program Files: this exe is usually on
+            // the NanoKVM's helper disk, which is read-only and goes away
+            // with the USB composition.
+            string exe = InstalledCopy();
+            // An agent of an earlier install keeps the serial port, and the
+            // copy it runs from cannot be replaced while it runs: end it.
+            Schtasks("/End /TN \"" + TaskName + "\"", true);
+            string self = Process.GetCurrentProcess().MainModule.FileName;
+            if (!string.Equals(Path.GetFullPath(self), exe, StringComparison.OrdinalIgnoreCase))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(exe));
+                for (int attempt = 0; ; attempt++)
+                {
+                    try
+                    {
+                        File.Copy(self, exe, true);
+                        break;
+                    }
+                    catch (IOException) when (attempt < 10)
+                    {
+                        Thread.Sleep(500); // the ended agent is still going
+                    }
+                }
+            }
             var rest = args.Where(a => a != "install" && a != "--yes" && a != "--no-driver").Select(a => a.Contains(" ") ? "\"" + a + "\"" : a).ToList();
             if (o.LogFile == null)
             {
@@ -674,8 +710,6 @@ them the report is marked as limited.";
             try
             {
                 File.WriteAllText(file, xml, Encoding.Unicode);
-                // An agent of an earlier install keeps the serial port: end it.
-                Schtasks("/End /TN \"" + TaskName + "\"", true);
                 int code = Schtasks("/Create /F /TN \"" + TaskName + "\" /XML \"" + file + "\"");
                 if (code != 0) return code;
                 return Schtasks("/Run /TN \"" + TaskName + "\"");
@@ -684,6 +718,12 @@ them the report is marked as limited.";
             {
                 try { File.Delete(file); } catch (Exception) { }
             }
+        }
+
+        // Where the installed agent lives.
+        private static string InstalledCopy()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "NanoKVM", "nanokvm-sensors.exe");
         }
 
         // InstallDriver runs the PawnIO installer this program carries, as

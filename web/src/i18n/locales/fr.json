@@ -2564,7 +2564,7 @@
     "hostSensors": {
       "title": "Capteurs de l’ordinateur",
       "about": "L’agent nanokvm-sensors de l’ordinateur envoie au NanoKVM ses températures, tensions et vitesses de ventilateurs.",
-      "download": "Télécharger",
+      "download": "Télécharger à la place",
       "waiting": "En attente de l’agent : aucun rapport pour le moment.",
       "serialUnavailable": "Le port série USB ne fait pas partie de la composition USB.",
       "serialBusy": "Le port série est utilisé par une autre session.",
@@ -2577,7 +2577,7 @@
       "connection": "Connexion",
       "modeLabel": "Transmission des mesures",
       "agent": "Agent pour Windows",
-      "agentHint": "Copiez-le sur l’ordinateur et exécutez dans une console d’administrateur : nanokvm-sensors.exe install. Il propose d’installer le pilote PawnIO, nécessaire aux capteurs du processeur et de la carte mère, et démarre avec Windows.",
+      "agentHint": "L’agent se trouve sur le disque d’aide NANOKVM, que l’ordinateur voit à côté du lecteur virtuel. Exécutez-le depuis ce disque dans une console d’administrateur : sensors.exe install. Il propose d’installer le pilote PawnIO, nécessaire aux capteurs du processeur et de la carte mère, et démarre avec Windows.",
       "readings": "Mesures",
       "offHint": "Choisissez comment les mesures arrivent pour les voir ici.",
       "mode": {
@@ -2588,7 +2588,10 @@
       "choose": "Choisir les mesures",
       "save": "Enregistrer",
       "cancel": "Annuler",
-      "noneShown": "Aucune mesure n’est choisie pour l’affichage."
+      "noneShown": "Aucune mesure n’est choisie pour l’affichage.",
+      "diskAttached": "L’ordinateur dispose du disque d’aide",
+      "diskStale": "L’agent apparaîtra sur le disque d’aide après la reconnexion des périphériques USB",
+      "diskMissing": "Pas de disque d’aide : il faut le disque virtuel dans la composition USB et une reconnexion des périphériques USB"
     }
   },
   "picoclaw": {

@@ -2564,7 +2564,7 @@
     "hostSensors": {
       "title": "Sensoren des Computers",
       "about": "Der Agent nanokvm-sensors auf dem Computer sendet dessen Temperaturen, Spannungen und Lüfterdrehzahlen an das NanoKVM.",
-      "download": "Herunterladen",
+      "download": "Stattdessen herunterladen",
       "waiting": "Warten auf den Agenten: noch kein Bericht.",
       "serialUnavailable": "USB-Seriell ist nicht Teil der USB-Zusammenstellung.",
       "serialBusy": "Der serielle Anschluss wird von einer anderen Sitzung verwendet.",
@@ -2577,7 +2577,7 @@
       "connection": "Verbindung",
       "modeLabel": "Übertragung der Messwerte",
       "agent": "Agent für Windows",
-      "agentHint": "Auf den Computer kopieren und in einer Administrator-Konsole ausführen: nanokvm-sensors.exe install. Er bietet an, den PawnIO-Treiber zu installieren, den Prozessor- und Mainboard-Sensoren benötigen, und startet mit Windows.",
+      "agentHint": "Der Agent liegt auf dem Hilfsdatenträger NANOKVM, den der Computer neben dem virtuellen Laufwerk sieht. Dort in einer Administrator-Konsole ausführen: sensors.exe install. Er bietet an, den PawnIO-Treiber zu installieren, den Prozessor- und Mainboard-Sensoren benötigen, und startet mit Windows.",
       "readings": "Messwerte",
       "offHint": "Wählen Sie, wie die Messwerte übertragen werden, um sie hier zu sehen.",
       "mode": {
@@ -2588,7 +2588,10 @@
       "choose": "Messwerte auswählen",
       "save": "Speichern",
       "cancel": "Abbrechen",
-      "noneShown": "Es ist kein Messwert zur Anzeige ausgewählt."
+      "noneShown": "Es ist kein Messwert zur Anzeige ausgewählt.",
+      "diskAttached": "Der Computer hat den Hilfsdatenträger",
+      "diskStale": "Der Agent erscheint auf dem Hilfsdatenträger, sobald sich die USB-Geräte neu verbinden",
+      "diskMissing": "Kein Hilfsdatenträger: nötig sind der virtuelle Datenträger in der USB-Zusammenstellung und eine Neuverbindung der USB-Geräte"
     }
   },
   "picoclaw": {

@@ -21,7 +21,7 @@ func (f *fakeDrive) InsertURL(_ context.Context, url, user, _ string) error {
 	f.calls = append(f.calls, "url "+url+" "+user)
 	return f.err
 }
-func (f *fakeDrive) MountImageFile(name string, cdrom bool) error {
+func (f *fakeDrive) InsertImageFile(name string, cdrom bool) error {
 	f.calls = append(f.calls, "file "+name+map[bool]string{true: " cd", false: " disk"}[cdrom])
 	return f.err
 }

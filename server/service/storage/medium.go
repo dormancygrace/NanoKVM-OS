@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -113,6 +114,25 @@ func (s *Service) InsertURL(ctx context.Context, rawURL, username, password stri
 		<-r.released
 		return errors.New("The image did not connect in time")
 	}
+}
+
+// InsertImageFile inserts a local image only into an empty drive. The
+// occupancy check and mount share s.mu with web, remote and netboot changes.
+func (s *Service) InsertImageFile(name string, cdrom bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if name == "" {
+		return errInvalidImage
+	}
+	current, err := os.ReadFile(mountDevice)
+	if err != nil {
+		return errors.New("Cannot read USB storage state")
+	}
+	if strings.TrimSpace(string(current)) != "" {
+		return ErrDriveInUse
+	}
+	_, err = s.mountImageLocked(name, cdrom, false)
+	return err
 }
 
 // EjectMedium takes the medium out, whatever put it in: a local image

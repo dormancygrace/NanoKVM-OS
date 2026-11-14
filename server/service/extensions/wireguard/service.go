@@ -23,6 +23,7 @@ import (
 	"unicode/utf8"
 
 	"NanoKVM-Server/internal/oomscore"
+	"NanoKVM-Server/pkg/resolvconf"
 	"NanoKVM-Server/proto"
 	"github.com/gin-gonic/gin"
 )
@@ -184,7 +185,7 @@ func (s *Service) quick(action, id string) error {
 		// Seed the existing LAN resolver on first use. Thereafter network/DHCP
 		// updates replace nkos.base while wg-quick temporarily takes precedence.
 		if strings.Contains(string(data), "DNS = ") {
-			if _, err := os.Stat("/run/resolvconf/interfaces/nkos.base"); os.IsNotExist(err) {
+			if !resolvconf.Has("nkos.base") {
 				base, err := os.ReadFile("/etc/resolv.conf")
 				if err != nil {
 					return fmt.Errorf("WireGuard cannot read the existing DNS configuration")

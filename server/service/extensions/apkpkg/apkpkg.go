@@ -112,8 +112,8 @@ func RemoveAddon(name string) error {
 }
 
 // Keep selects an installed package in the APK world, so that apk keeps it
-// once no other package depends on it. It downloads nothing (--no-network):
-// for a package that is not installed it fails and changes nothing.
+// once no other package depends on it. It downloads nothing (--no-network);
+// callers check that their tools are installed before selecting the package.
 func Keep(name string) error {
 	if !packageName.MatchString(name) {
 		return errors.New("invalid APK package name")

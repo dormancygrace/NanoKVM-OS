@@ -22,5 +22,10 @@
   "action.button": { "title": "按下按钮", "body": "{actor} 按下 {button} 按钮 {seconds} 秒。" },
   "action.media-inserted": { "title": "镜像已挂载", "body": "{actor} 将 {image} 放入虚拟驱动器。" },
   "action.media-ejected": { "title": "镜像已弹出", "body": "{actor} 从虚拟驱动器取出了镜像。" },
-  "journal.dropped": { "title": "事件未记录", "body": "有 {count} 个事件被略过：超出日志每分钟的记录上限。" }
+  "journal.dropped": { "title": "事件未记录", "body": "有 {count} 个事件被略过：超出日志每分钟的记录上限。" },
+  "watchdog.agent-silent": { "title": "传感器代理无响应", "body": "主机的传感器代理已 {minutes} 分钟没有发送数据，但主机在 USB 网络上仍有应答：代理已停止。未执行任何操作。" },
+  "watchdog.host-silent": { "title": "主机无响应", "body": "主机的传感器代理已 {minutes} 分钟没有发送数据，主机在 USB 网络上也没有应答。未按任何按钮：看门狗设置为仅通知。" },
+  "watchdog.reset": { "title": "看门狗已复位主机", "body": "主机的传感器代理 {minutes} 分钟没有发送数据，主机在 USB 网络上没有应答：已按下复位按钮。" },
+  "watchdog.cycle": { "title": "看门狗已重新上电", "body": "主机的传感器代理 {minutes} 分钟没有发送数据，主机在 USB 网络上没有应答：已关机再开机。" },
+  "watchdog.failed": { "title": "看门狗操作失败", "body": "主机停止响应（静默 {minutes} 分钟），但操作失败：{error}" }
 }

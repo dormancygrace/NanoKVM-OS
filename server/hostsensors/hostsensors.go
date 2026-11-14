@@ -191,6 +191,7 @@ type Store struct {
 	report     *Report
 	transport  string
 	at         time.Time
+	peer       string
 	rejected   uint64
 	lastReject string
 }
@@ -201,6 +202,19 @@ var Default = &Store{}
 // Accept parses a report and keeps it; the error is also remembered for the
 // status.
 func (s *Store) Accept(data []byte, transport string, now time.Time) error {
+	return s.AcceptFrom(data, transport, "", now)
+}
+
+// Last is when the last report came and, for the network, from which
+// address; zero when there is none.
+func (s *Store) Last() (at time.Time, peer string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.at, s.peer
+}
+
+// AcceptFrom is Accept with the address the report came from.
+func (s *Store) AcceptFrom(data []byte, transport, peer string, now time.Time) error {
 	r, err := Parse(data)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -209,7 +223,7 @@ func (s *Store) Accept(data []byte, transport string, now time.Time) error {
 		s.lastReject = err.Error()
 		return err
 	}
-	s.report, s.transport, s.at = r, transport, now
+	s.report, s.transport, s.at, s.peer = r, transport, now, peer
 	return nil
 }
 
@@ -217,7 +231,7 @@ func (s *Store) Accept(data []byte, transport string, now time.Time) error {
 func (s *Store) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.report, s.transport, s.at = nil, "", time.Time{}
+	s.report, s.transport, s.at, s.peer = nil, "", time.Time{}, ""
 }
 
 // Status reports the last report as of now.

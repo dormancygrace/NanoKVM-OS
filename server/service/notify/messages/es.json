@@ -22,5 +22,10 @@
   "action.button": { "title": "Botón pulsado", "body": "{actor} pulsó el botón {button} durante {seconds} s." },
   "action.media-inserted": { "title": "Imagen montada", "body": "{actor} insertó {image} en la unidad virtual." },
   "action.media-ejected": { "title": "Imagen expulsada", "body": "{actor} retiró la imagen de la unidad virtual." },
-  "journal.dropped": { "title": "Eventos no registrados", "body": "Se omitieron {count} eventos: más de los que el registro admite por minuto." }
+  "journal.dropped": { "title": "Eventos no registrados", "body": "Se omitieron {count} eventos: más de los que el registro admite por minuto." },
+  "watchdog.agent-silent": { "title": "El agente de sensores no responde", "body": "El agente de sensores del equipo no ha enviado nada en {minutes} min, pero el equipo responde en la red USB: el agente se detuvo. No se hizo nada." },
+  "watchdog.host-silent": { "title": "El equipo no responde", "body": "El agente de sensores no ha enviado nada en {minutes} min y el equipo no responde en la red USB. No se pulsó nada: el vigilante está configurado solo para avisar." },
+  "watchdog.reset": { "title": "El vigilante reinició el equipo", "body": "El agente de sensores no envió nada en {minutes} min y el equipo no respondió en la red USB: se pulsó el botón de reinicio." },
+  "watchdog.cycle": { "title": "El vigilante apagó y encendió el equipo", "body": "El agente de sensores no envió nada en {minutes} min y el equipo no respondió en la red USB: se apagó y se volvió a encender." },
+  "watchdog.failed": { "title": "Falló la acción del vigilante", "body": "El equipo dejó de responder ({minutes} min de silencio), pero la acción falló: {error}" }
 }

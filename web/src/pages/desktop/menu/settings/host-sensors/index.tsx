@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Checkbox, Select } from 'antd';
+import { Alert, Button, Checkbox, InputNumber, Select } from 'antd';
 import { DownloadIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +18,7 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 type Mode = 'off' | 'serial' | 'network';
+type WatchdogAction = 'off' | 'notify' | 'reset' | 'cycle';
 type State = {
   installed: boolean;
   mode: Mode;
@@ -25,6 +26,9 @@ type State = {
   network: { interface: string; addresses: string[]; path: string };
   agent: { path: string; available: boolean; size: number };
   linuxAgent?: { path: string; available: boolean; size: number };
+  // The host watchdog: what to do after how long a silence of the agent;
+  // armed once a report came; last is its last decision (a message key).
+  watchdog?: { action: WatchdogAction; minutes: number; armed: boolean; last: string };
   // The agent version the add-on brings; '' when unknown.
   agentVersion: string;
   status: {
@@ -193,6 +197,49 @@ export const HostSensorsPage = () => {
           )}
         </SettingRow>
       </SettingsSection>
+      {state?.watchdog && (
+        <SettingsSection title={t('watchdog')}>
+          <SettingRow
+            label={t('watchdogAction')}
+            htmlFor="host-watchdog-action"
+            description={state.mode === 'network' ? t('watchdogHint') : t('watchdogNetworkOnly')}
+            stacked
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <Select<WatchdogAction>
+                id="host-watchdog-action"
+                className="min-w-56"
+                value={state.watchdog.action}
+                disabled={saving || state.mode !== 'network'}
+                onChange={(action) =>
+                  void save('/watchdog', { action, minutes: state.watchdog?.minutes ?? 5 })
+                }
+                options={(['off', 'notify', 'reset', 'cycle'] as const).map((value) => ({
+                  value,
+                  label: t(`watchdogActions.${value}`)
+                }))}
+              />
+              <InputNumber
+                aria-label={t('watchdogMinutes')}
+                min={2}
+                max={60}
+                value={state.watchdog.minutes}
+                disabled={saving || state.mode !== 'network'}
+                addonAfter={t('watchdogMinutes')}
+                onChange={(minutes) => {
+                  if (minutes && minutes !== state.watchdog?.minutes)
+                    void save('/watchdog', { action: state.watchdog?.action ?? 'off', minutes });
+                }}
+              />
+              {state.watchdog.action !== 'off' && state.mode === 'network' && (
+                <StatusBadge tone={state.watchdog.armed ? 'success' : 'neutral'}>
+                  {t(state.watchdog.armed ? 'watchdogArmed' : 'watchdogWaiting')}
+                </StatusBadge>
+              )}
+            </div>
+          </SettingRow>
+        </SettingsSection>
+      )}
       <SettingsSection
         title={t('readings')}
         actions={

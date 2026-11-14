@@ -22,5 +22,10 @@
   "action.button": { "title": "Button pressed", "body": "{actor} pressed the {button} button for {seconds} s." },
   "action.media-inserted": { "title": "Image mounted", "body": "{actor} put {image} into the virtual drive." },
   "action.media-ejected": { "title": "Image ejected", "body": "{actor} took the image out of the virtual drive." },
-  "journal.dropped": { "title": "Events not recorded", "body": "{count} events were left out: more than the journal takes in a minute." }
+  "journal.dropped": { "title": "Events not recorded", "body": "{count} events were left out: more than the journal takes in a minute." },
+  "watchdog.agent-silent": { "title": "Sensors agent silent", "body": "The host's sensors agent has sent nothing for {minutes} min, but the host answers on the USB network: the agent stopped. Nothing was done." },
+  "watchdog.host-silent": { "title": "Host does not respond", "body": "The host's sensors agent has sent nothing for {minutes} min and the host does not answer on the USB network. Nothing was pressed: the watchdog is set to notify." },
+  "watchdog.reset": { "title": "Host reset by the watchdog", "body": "The host's sensors agent sent nothing for {minutes} min and the host did not answer on the USB network: the reset button was pressed." },
+  "watchdog.cycle": { "title": "Host power-cycled by the watchdog", "body": "The host's sensors agent sent nothing for {minutes} min and the host did not answer on the USB network: it was switched off and on." },
+  "watchdog.failed": { "title": "Watchdog action failed", "body": "The host stopped responding ({minutes} min of silence), but the action failed: {error}" }
 }

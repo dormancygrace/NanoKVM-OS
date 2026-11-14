@@ -22,5 +22,10 @@
   "action.button": { "title": "Taste gedrückt", "body": "{actor} hat die Taste {button} {seconds} s lang gedrückt." },
   "action.media-inserted": { "title": "Image eingebunden", "body": "{actor} hat {image} in das virtuelle Laufwerk eingelegt." },
   "action.media-ejected": { "title": "Image ausgeworfen", "body": "{actor} hat das Image aus dem virtuellen Laufwerk genommen." },
-  "journal.dropped": { "title": "Ereignisse nicht aufgezeichnet", "body": "{count} Ereignisse wurden ausgelassen: mehr, als das Protokoll pro Minute aufnimmt." }
+  "journal.dropped": { "title": "Ereignisse nicht aufgezeichnet", "body": "{count} Ereignisse wurden ausgelassen: mehr, als das Protokoll pro Minute aufnimmt." },
+  "watchdog.agent-silent": { "title": "Sensor-Agent schweigt", "body": "Der Sensor-Agent des Hosts hat seit {minutes} min nichts gesendet, der Host antwortet aber im USB-Netzwerk: Der Agent wurde beendet. Es wurde nichts unternommen." },
+  "watchdog.host-silent": { "title": "Host antwortet nicht", "body": "Der Sensor-Agent des Hosts hat seit {minutes} min nichts gesendet, und der Host antwortet im USB-Netzwerk nicht. Es wurde nichts gedrückt: Der Watchdog ist auf Benachrichtigen gestellt." },
+  "watchdog.reset": { "title": "Host vom Watchdog zurückgesetzt", "body": "Der Sensor-Agent des Hosts hat {minutes} min nichts gesendet, und der Host hat im USB-Netzwerk nicht geantwortet: Die Reset-Taste wurde gedrückt." },
+  "watchdog.cycle": { "title": "Host vom Watchdog aus- und eingeschaltet", "body": "Der Sensor-Agent des Hosts hat {minutes} min nichts gesendet, und der Host hat im USB-Netzwerk nicht geantwortet: Er wurde aus- und wieder eingeschaltet." },
+  "watchdog.failed": { "title": "Watchdog-Aktion fehlgeschlagen", "body": "Der Host reagiert nicht mehr ({minutes} min Stille), aber die Aktion ist fehlgeschlagen: {error}" }
 }

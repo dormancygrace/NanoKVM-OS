@@ -2568,6 +2568,19 @@
       "failed": "The event log could not be read."
     },
     "hostSensors": {
+      "watchdog": "Watchdog",
+      "watchdogAction": "When the computer hangs",
+      "watchdogHint": "The watchdog acts when the agent has been silent for this long and the computer no longer answers on the USB network. It starts watching with the agent's first report, and stops when the computer is switched off, asleep, restarted or plugged in again, until the next report. Stopping the agent does not trigger it: the computer still answers.",
+      "watchdogNetworkOnly": "The watchdog needs the USB network mode: over USB serial the NanoKVM cannot ask the computer whether it is alive.",
+      "watchdogMinutes": "min of silence",
+      "watchdogArmed": "Watching",
+      "watchdogWaiting": "Waiting for the agent's report",
+      "watchdogActions": {
+        "off": "Off",
+        "notify": "Notify only",
+        "reset": "Press reset",
+        "cycle": "Power off and on"
+      },
       "title": "Computer sensors",
       "about": "The nanokvm-sensors agent on the computer sends its temperatures, voltages and fan speeds to the NanoKVM.",
       "download": "Download instead",

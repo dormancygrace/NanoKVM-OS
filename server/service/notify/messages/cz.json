@@ -22,5 +22,10 @@
   "action.button": { "title": "Stisknuto tlačítko", "body": "{actor}: tlačítko {button} stisknuto na {seconds} s." },
   "action.media-inserted": { "title": "Obraz připojen", "body": "{actor}: obraz {image} vložen do virtuální jednotky." },
   "action.media-ejected": { "title": "Obraz vysunut", "body": "{actor}: obraz vysunut z virtuální jednotky." },
-  "journal.dropped": { "title": "Nezaznamenané události", "body": "Vynecháno událostí: {count} – více, než deník za minutu přijme." }
+  "journal.dropped": { "title": "Nezaznamenané události", "body": "Vynecháno událostí: {count} – více, než deník za minutu přijme." },
+  "watchdog.agent-silent": { "title": "Agent senzorů mlčí", "body": "Agent senzorů počítače nic neposlal {minutes} min, ale počítač v síti USB odpovídá: agent byl zastaven. Nic nebylo provedeno." },
+  "watchdog.host-silent": { "title": "Počítač neodpovídá", "body": "Agent senzorů nic neposlal {minutes} min a počítač v síti USB neodpovídá. Nic nebylo stisknuto: hlídač je nastaven jen na upozornění." },
+  "watchdog.reset": { "title": "Hlídač resetoval počítač", "body": "Agent senzorů nic neposlal {minutes} min a počítač v síti USB neodpověděl: bylo stisknuto tlačítko reset." },
+  "watchdog.cycle": { "title": "Hlídač vypnul a zapnul počítač", "body": "Agent senzorů nic neposlal {minutes} min a počítač v síti USB neodpověděl: byl vypnut a znovu zapnut." },
+  "watchdog.failed": { "title": "Akce hlídače selhala", "body": "Počítač přestal odpovídat ({minutes} min ticha), ale akce selhala: {error}" }
 }

@@ -69,3 +69,22 @@ func imageFixture(t *testing.T) (root, outside string) {
 	}
 	return root, outside
 }
+
+// Only a change of the drive's type or name asks for a reconnection.
+func TestSetDriveReportsAChangedDrive(t *testing.T) {
+	dir := t.TempDir()
+	for _, file := range []*string{&roFlag, &cdromFlag, &inquiryString} {
+		original := *file
+		t.Cleanup(func() { *file = original })
+		*file = filepath.Join(dir, filepath.Base(original))
+	}
+	for _, step := range []struct {
+		cdrom   bool
+		name    string
+		changed bool
+	}{{false, "Disk", true}, {false, "Disk", false}, {true, "CD", true}, {true, "CD", false}, {true, "Remote ISO", true}} {
+		if changed, err := setDrive(step.cdrom, step.name); err != nil || changed != step.changed {
+			t.Errorf("setDrive(%v, %q) = %v, %v; want %v", step.cdrom, step.name, changed, err, step.changed)
+		}
+	}
+}

@@ -150,15 +150,15 @@ func (s *Service) serveRemote(r *remoteSession, source remotemedia.Source, mount
 			err = errors.New("USB medium changed while connecting")
 		}
 	}
+	changed := false
 	if err == nil {
-		for _, item := range []struct{ path, value string }{{roFlag, "1"}, {cdromFlag, "1"}, {inquiryString, storageidentity.Read(hid.USBFlagsDir).Inquiry("remote")}, {mountDevice, remotemedia.DevicePath}} {
-			if err = os.WriteFile(item.path, []byte(item.value), 0600); err != nil {
-				break
-			}
-		}
+		changed, err = setDrive(true, storageidentity.Read(hid.USBFlagsDir).Inquiry("remote"))
 	}
 	if err == nil {
-		err = reconnectRemoteUSB()
+		err = os.WriteFile(mountDevice, []byte(remotemedia.DevicePath), 0600)
+	}
+	if err == nil && changed {
+		err = reconnectUSB()
 	}
 	if err == nil {
 		r.mounted = true

@@ -1555,7 +1555,7 @@
         "busy": "Der Datenträger ist beschäftigt. Warten Sie und versuchen Sie es erneut.",
         "missing": "Das Image des Benutzerlaufwerks fehlt. Erstellen Sie es erneut.",
         "failed": "Die Anfrage für das Benutzerlaufwerk ist fehlgeschlagen.",
-        "notice": "Auch das Einbinden oder Auswerfen eines CD-/Festplatten-Images verbindet die USB-Geräte neu; danach sieht der Computer das Benutzerlaufwerk wieder mit dem, was er geschrieben hat. Das gesamte Image wird beim Erstellen auf der SD-Karte reserviert, daher dauern große Größen eine Weile.",
+        "notice": "Auch der Wechsel des virtuellen Laufwerks zwischen Festplatte und CD verbindet die USB-Geräte neu; danach sieht der Computer das Benutzerlaufwerk wieder mit dem, was er geschrieben hat. Das gesamte Image wird beim Erstellen auf der SD-Karte reserviert, daher dauern große Größen eine Weile.",
         "files": {
           "title": "Dateien auf dem Benutzerdatenträger",
           "host": "Werfen Sie das Laufwerk am Computer aus und schalten Sie den Benutzerdatenträger oben aus, um seine Dateien zu verwalten.",

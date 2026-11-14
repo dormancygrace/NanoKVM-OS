@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -143,7 +141,9 @@ type imageMountError struct {
 func (e *imageMountError) Error() string { return e.msg }
 
 // mountLocalImage puts an already validated file (or no file: eject) on the
-// virtual disk and rebinds the gadget so the host sees the new medium. Callers
+// virtual disk. The drive is removable, so the computer learns of a new or
+// removed medium from the drive itself, as with a card reader or a CD drive;
+// the USB devices reconnect only when the drive changes (setDrive). Callers
 // hold s.mu.
 func mountLocalImage(file string, cdrom, force bool) error {
 	h := hid.GetHid()
@@ -165,73 +165,70 @@ func mountLocalImage(file string, cdrom, force bool) error {
 		}
 	}
 
-	// cdrom and ro flag
-	// set to 0 when unmount image
-	// set to 1 when mount image and the CD-ROM is enabled
-	// Always apply the selected mode, including after a remote DVD disconnect.
-	flag := "0"
-	if file != "" && cdrom {
-		flag = "1"
-	}
-
 	// unmount
 	if err := ejectLocalImage(force, os.WriteFile); err != nil {
 		log.Errorf("unmount file failed: %s", err)
 		return &imageMountError{code: -4, msg: "unmount image failed"}
 	}
-
-	// ro flag
-	if err := os.WriteFile(roFlag, []byte(flag), 0o666); err != nil {
-		log.Errorf("set ro flag failed: %s", err)
-		return &imageMountError{code: -2, msg: "set ro flag failed"}
-	}
-
-	// cdrom flag
-	if err := os.WriteFile(cdromFlag, []byte(flag), 0o666); err != nil {
-		log.Errorf("set cdrom flag failed: %s", err)
-		return &imageMountError{code: -2, msg: "set cdrom flag failed"}
-	}
-
-	kind := "disk"
-	if flag == "1" {
-		kind = "cdrom"
-	}
-	inquiryData := storageidentity.Read(hid.USBFlagsDir).Inquiry(kind)
-
-	if err := os.WriteFile(inquiryString, []byte(inquiryData), 0o666); err != nil {
-		log.Errorf("set inquiry %s failed: %s", inquiryData, err)
-		return &imageMountError{code: -2, msg: "set inquiry failed"}
-	}
-
-	// mount
-	if file != "" {
-		if err := os.WriteFile(mountDevice, []byte(file), 0o666); err != nil {
-			log.Errorf("mount file %s failed: %s", file, err)
-			return &imageMountError{code: -2, msg: "mount image failed"}
-		}
-	}
-	// Without a file the device stays unmounted (no media).
+	// Without a file the device stays unmounted (no media), and the drive
+	// stays what it was: an empty disk or CD drive.
 	// Previously this wrote /dev/mmcblk0p3, exposing the NanoKVM's raw
 	// eMMC partition as a USB disk — causing Legacy BIOS boot hangs.
 	// See: https://github.com/sipeed/NanoKVM/issues/633
-
-	h.CloseNoLock()
-	defer h.OpenNoLock()
-
-	// reset usb
-	commands := []string{
-		"echo > /sys/kernel/config/usb_gadget/g0/UDC",
-		"ls /sys/class/udc/ | cat > /sys/kernel/config/usb_gadget/g0/UDC",
+	if file == "" {
+		return nil
 	}
 
-	for _, command := range commands {
-		err := exec.Command("sh", "-c", command).Run()
-		if err != nil {
-			return &imageMountError{code: -2, msg: "execute command failed"}
-		}
-		time.Sleep(100 * time.Millisecond)
+	// A CD is read-only, a disk image is written by the computer. Always
+	// apply the selected mode, including after a remote DVD disconnect.
+	kind := "disk"
+	if cdrom {
+		kind = "cdrom"
+	}
+	changed, err := setDrive(cdrom, storageidentity.Read(hid.USBFlagsDir).Inquiry(kind))
+	if err != nil {
+		log.Errorf("set the drive to %s failed: %s", kind, err)
+		return &imageMountError{code: -2, msg: "set drive mode failed"}
+	}
+	if err := os.WriteFile(mountDevice, []byte(file), 0o666); err != nil {
+		log.Errorf("mount file %s failed: %s", file, err)
+		return &imageMountError{code: -2, msg: "mount image failed"}
+	}
+	if !changed {
+		return nil
+	}
+	if err := reconnectUSB(); err != nil {
+		log.Errorf("reconnect USB failed: %s", err)
+		return &imageMountError{code: -2, msg: "reconnect USB failed"}
 	}
 	return nil
+}
+
+// setDrive makes the empty virtual drive a CD drive (read-only) or a disk
+// (writable) with the given SCSI name, and reports whether that changed
+// anything. The computer reads a drive's type and name once, when the USB
+// devices connect, so a change needs a reconnection (reconnectUSB) and
+// nothing else does: with the same drive, a mount is a medium put in.
+// Callers hold the HID lock.
+func setDrive(cdrom bool, inquiry string) (changed bool, err error) {
+	flag := "0"
+	if cdrom {
+		flag = "1"
+	}
+	before := driveIdentity()
+	for _, item := range []struct{ path, value string }{{roFlag, flag}, {cdromFlag, flag}, {inquiryString, inquiry}} {
+		if err := os.WriteFile(item.path, []byte(item.value), 0o666); err != nil {
+			return false, fmt.Errorf("%s: %w", filepath.Base(item.path), err)
+		}
+	}
+	return driveIdentity() != before, nil
+}
+
+// driveIdentity is the drive's type and name as the kernel holds them.
+func driveIdentity() string {
+	flag, _ := os.ReadFile(cdromFlag)
+	name, _ := os.ReadFile(inquiryString)
+	return strings.TrimSpace(string(flag)) + "\n" + strings.TrimRight(string(name), "\n")
 }
 
 func requireActiveUSBStorage() error {

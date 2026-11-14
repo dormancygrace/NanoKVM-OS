@@ -141,10 +141,12 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 	})
 }
 
-// Reconnect only the controller already bound to this gadget. Keep HID file
-// descriptors synchronized with the disconnect, matching local image mounts.
-// Caller holds the HID lock across LUN insertion and re-enumeration.
-func reconnectRemoteUSB() error {
+// reconnectUSB makes the computer read the USB devices anew, for a virtual
+// drive whose type or name changed (setDrive). Reconnect only the controller
+// already bound to this gadget. Keep HID file descriptors synchronized with
+// the disconnect. Caller holds the HID lock across LUN insertion and
+// re-enumeration.
+func reconnectUSB() error {
 	path := usbGadgetUDC
 	controller, err := os.ReadFile(path)
 	if err != nil {

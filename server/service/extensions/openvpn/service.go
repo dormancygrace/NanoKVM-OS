@@ -298,7 +298,16 @@ func (s *Service) startAttempt(p Profile, attempt int, generation uint64) error 
 	devType := "tun"
 	if normalized.TAP {
 		devType = "tap"
-		if e = prepareTAP(deviceName(p.ID)); e != nil {
+		// A new device for every start. One left by an OpenVPN that did
+		// not exit cleanly (killed, out of memory) keeps that OpenVPN's
+		// addresses and routes, and a pushed default route there would
+		// catch the way to the server. The callers hold s.mu and found no
+		// OpenVPN of this profile running, so the device is no one's.
+		name := deviceName(p.ID)
+		if e = removeTAP(name); e == nil {
+			e = prepareTAP(name)
+		}
+		if e != nil {
 			return e
 		}
 	}
@@ -388,15 +397,13 @@ func (s *Service) stop(id string) (result error) {
 // first frame: a TAP device is on the server's Ethernet segment, whose
 // routers would otherwise give the NanoKVM addresses and a default route.
 // Addresses and routes come only from what the server pushes, as with TUN.
-// OpenVPN attaches to the existing device (it stays after OpenVPN exits, so
-// a restart finds it again); stop removes it.
+// OpenVPN attaches to the device. The device outlives OpenVPN with whatever
+// it had: the caller removes an old one first, and stop removes it.
 var prepareTAP = func(name string) error {
-	if _, e := os.Stat(filepath.Join("/sys/class/net", name)); errors.Is(e, os.ErrNotExist) {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-		if out, e := exec.CommandContext(ctx, "ip", "tuntap", "add", "dev", name, "mode", "tap").CombinedOutput(); e != nil {
-			return fmt.Errorf("cannot create the TAP device: %s", strings.TrimSpace(string(out)))
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if out, e := exec.CommandContext(ctx, "ip", "tuntap", "add", "dev", name, "mode", "tap").CombinedOutput(); e != nil {
+		return fmt.Errorf("cannot create the TAP device: %s", strings.TrimSpace(string(out)))
 	}
 	for _, key := range []string{"accept_ra", "autoconf"} {
 		// No such file: a kernel without IPv6, nothing to switch off.
@@ -407,8 +414,8 @@ var prepareTAP = func(name string) error {
 	return nil
 }
 
-// removeTAP removes a TAP device prepareTAP left; a TUN device goes with its
-// OpenVPN by itself. Called once OpenVPN has exited.
+// removeTAP removes a TAP device prepareTAP made; a TUN device goes with its
+// OpenVPN by itself. Called only when no OpenVPN of the profile runs.
 var removeTAP = func(name string) error {
 	flags, e := os.ReadFile(filepath.Join("/sys/class/net", name, "tun_flags"))
 	if e != nil {

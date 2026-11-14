@@ -1,0 +1,460 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] usb: dwc2: gadget: park packets that slip into the RxFIFO of an idle OUT endpoint
+
+All OUT endpoints share one RxFIFO. In descriptor DMA the core does not set
+NAK on a non-isochronous OUT endpoint when its last queued transfer
+completes, and NAK set from the completion interrupt comes too late for a
+host that keeps sending: its next packets are accepted into the RxFIFO
+while the endpoint has no buffer, and every other OUT endpoint of the
+gadget waits behind them until the function queues a request for this
+one. A USB serial port whose reader stops (closed, or throttled by a slow
+reader) while the host writes does that every time; on an SG2002
+(DWC_otg 4.20a) 12 of 12 tries left the USB network receiving nothing.
+DCFG bit 13 (EnDevOutNak) does not help on this core, and buffer DMA, where
+the core does set NAK, costs 8 times the interrupts with UAC1 audio.
+
+So when such an endpoint runs out of requests, set NAK on it, and a timer
+tick later look at the RxFIFO head (GRXSTSR, a peek). A packet of this
+endpoint there is moved by DMA, one packet per descriptor and with NAK
+still set (nothing new comes in), into a buffer of the endpoint, back to
+back by length. NAK stays set until a transfer is started by DMA, which
+happens only once the parked packets are used up, so all of them were in
+the RxFIFO at the same time: the buffer has the RxFIFO's size plus one
+packet, and the list of lengths one entry per RxFIFO word (each packet, a
+zero-length one too, takes a status word). The parked packets go first
+into the endpoint's
+next request: copied after the request is unmapped, the rest of the
+transfer by DMA behind them; a request they fill completes from the timer,
+not inside the function's usb_ep_queue(). Disconnect, reset and disable
+drop them with the endpoint's requests.
+
+The status of a stuck packet read here as PktSts 0xa as well as 2 (bit 20
+set), so only the low three bits are compared.
+
+Measured on the SG2002 with a Windows host: the same race 4 of 4 tries
+without a stuck RxFIFO; a 16 MiB transfer to the serial port whose reader
+was stopped for 2, 6 or 10 s, 7 of 7 runs with equal MD5 on both sides and
+every ping over the USB network answered during the stop (about 300
+packets parked per run); 2000 overlapped writes of 1 to 40 bytes (and of
+512) while the port was closed, 5 of 5 runs gap-free with short packets
+of 17 to 22 bytes parked and the USB network answering every ping (the
+Windows host sends no zero-length packets, so those were not seen);
+keyboard, LED reports, 500 mouse reports a second
+and UAC1 capture without overruns; with audio and mouse load 1,039 USB
+interrupts a second and 4.3-4.5 % of the C906, as without this patch.
+
+diff --git a/drivers/usb/dwc2/core.h b/drivers/usb/dwc2/core.h
+index 767251a..d0432f8 100644
+--- a/drivers/usb/dwc2/core.h
++++ b/drivers/usb/dwc2/core.h
+@@ -156,6 +156,21 @@ struct dwc2_hsotg_ep {
+ 	unsigned int		next_desc;
+ 	unsigned int		compl_desc;
+ 
++	/*
++	 * Descriptor DMA, non-isochronous OUT: packets taken out of the
++	 * RxFIFO while the endpoint had no request (see gadget.c, "park").
++	 */
++	struct timer_list	park_timer;
++	u8			*park_buf;
++	dma_addr_t		park_dma;
++	u16			*park_pkt;
++	unsigned int		park_max;
++	unsigned int		park_size;
++	unsigned int		park_cnt;
++	unsigned int		park_used;
++	unsigned int		park_tries;
++	unsigned int		parking:1;
++
+ 	char                    name[10];
+ };
+ 
+@@ -169,6 +184,8 @@ struct dwc2_hsotg_req {
+ 	struct usb_request      req;
+ 	struct list_head        queue;
+ 	void *saved_req_buf;
++	unsigned int		park_take;
++	unsigned int		park_serve:1;
+ };
+ 
+ #if IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) || \
+diff --git a/drivers/usb/dwc2/gadget.c b/drivers/usb/dwc2/gadget.c
+index cf133ee..7384b37 100644
+--- a/drivers/usb/dwc2/gadget.c
++++ b/drivers/usb/dwc2/gadget.c
+@@ -105,6 +105,17 @@ static inline bool using_desc_dma(struct dwc2_hsotg *hsotg)
+ 	return hsotg->params.g_dma_desc;
+ }
+ 
++static bool dwc2_gadget_parks(struct dwc2_hsotg_ep *hs_ep);
++static void dwc2_gadget_park_idle(struct dwc2_hsotg_ep *hs_ep);
++static bool dwc2_gadget_park_take(struct dwc2_hsotg_ep *hs_ep,
++				  struct dwc2_hsotg_req *hs_req);
++static void dwc2_gadget_park_copy(struct dwc2_hsotg_ep *hs_ep,
++				  struct dwc2_hsotg_req *hs_req);
++static void dwc2_gadget_park_done(struct dwc2_hsotg *hsotg,
++				  struct dwc2_hsotg_ep *hs_ep);
++static void dwc2_gadget_park_clear(struct dwc2_hsotg_ep *hs_ep);
++static void dwc2_gadget_park_timer(struct timer_list *t);
++
+ /**
+  * dwc2_gadget_incr_frame_num - Increments the targeted frame number.
+  * @hs_ep: The endpoint
+@@ -1092,6 +1103,18 @@ static void dwc2_hsotg_start_req(struct dwc2_hsotg *hsotg,
+ 		return;
+ 	}
+ 
++	if (!continuing && hs_ep->park_cnt && dwc2_gadget_parks(hs_ep)) {
++		hs_ep->req = hs_req;
++		if (dwc2_gadget_park_take(hs_ep, hs_req)) {
++			/* complete it outside the caller's usb_ep_queue() */
++			hs_req->park_serve = 1;
++			mod_timer(&hs_ep->park_timer, jiffies);
++			return;
++		}
++		/* DMA the rest behind the parked packets */
++		continuing = true;
++	}
++
+ 	length = ureq->length - ureq->actual;
+ 	dev_dbg(hsotg->dev, "ureq->length:%d ureq->actual:%d\n",
+ 		ureq->length, ureq->actual);
+@@ -1504,7 +1527,9 @@ static int dwc2_hsotg_ep_queue(struct usb_ep *ep, struct usb_request *req,
+ 
+ 	if (first) {
+ 		if (!hs_ep->isochronous) {
+-			dwc2_hsotg_start_req(hs, hs_ep, hs_req, false);
++			/* a parking transfer starts it when it completes */
++			if (!hs_ep->parking)
++				dwc2_hsotg_start_req(hs, hs_ep, hs_req, false);
+ 			return 0;
+ 		}
+ 
+@@ -1755,8 +1780,11 @@ static void dwc2_gadget_start_next_request(struct dwc2_hsotg_ep *hs_ep)
+ 		dwc2_hsotg_start_req(hsotg, hs_ep, hs_req, false);
+ 		return;
+ 	}
+-	if (!hs_ep->isochronous)
++	if (!hs_ep->isochronous) {
++		if (!dir_in && hs_ep->index)
++			dwc2_gadget_park_idle(hs_ep);
+ 		return;
++	}
+ 
+ 	if (dir_in) {
+ 		dev_dbg(hsotg->dev, "%s: No more ISOC-IN requests\n",
+@@ -2142,6 +2170,10 @@ static void dwc2_hsotg_complete_request(struct dwc2_hsotg *hsotg,
+ 
+ 	dwc2_hsotg_handle_unaligned_buf_complete(hsotg, hs_ep, hs_req);
+ 
++	if (hs_req->park_take)
++		dwc2_gadget_park_copy(hs_ep, hs_req);
++	hs_req->park_serve = 0;
++
+ 	hs_ep->req = NULL;
+ 	list_del_init(&hs_req->queue);
+ 
+@@ -2170,6 +2202,223 @@ static void dwc2_hsotg_complete_request(struct dwc2_hsotg *hsotg,
+ 		dwc2_gadget_start_next_request(hs_ep);
+ }
+ 
++/*
++ * Parking (descriptor DMA, non-isochronous OUT endpoints).
++ *
++ * All OUT endpoints share one RxFIFO. In descriptor DMA the core does not set
++ * NAK on an OUT endpoint when its last queued transfer completes, so the host's
++ * next packets for it are accepted into the RxFIFO while it has no buffer.
++ * Nothing moves them out until the function queues a request for this
++ * endpoint, and every other OUT endpoint waits behind them. NAK set from the
++ * completion interrupt comes too late for a host that keeps sending.
++ *
++ * So when an endpoint runs out of requests it is NAKed, and a timer tick later
++ * a packet of this endpoint at the RxFIFO head is moved by DMA into a small
++ * buffer of the endpoint, with NAK still set (nothing new comes in). The parked
++ * packets go first into the endpoint's next request: copied after it is
++ * unmapped, and the rest of the transfer by DMA behind them.
++ *
++ * Packets are parked back to back by their length (each 4-byte aligned). NAK
++ * stays set from the moment the endpoint ran out of requests until a transfer
++ * is started again, and a transfer is started by DMA only once the parked
++ * packets are used up; so everything parked was in the RxFIFO at the same
++ * time and fits a buffer of the RxFIFO's size, and there are at most as many
++ * packets as the RxFIFO has words (each, a zero-length one too, takes a
++ * status word). The buffer has one more packet of the largest size for the
++ * descriptor of the next park.
++ */
++
++static bool dwc2_gadget_parks(struct dwc2_hsotg_ep *hs_ep)
++{
++	return hs_ep->park_buf && hs_ep->index && !hs_ep->dir_in &&
++	       !hs_ep->isochronous;
++}
++
++static bool dwc2_gadget_park_fits(struct dwc2_hsotg_ep *hs_ep)
++{
++	return hs_ep->park_cnt < hs_ep->park_max &&
++	       hs_ep->park_used + ALIGN(hs_ep->ep.maxpacket, 4) <=
++	       hs_ep->park_size;
++}
++
++static bool dwc2_gadget_rxfifo_head_is(struct dwc2_hsotg *hsotg, int index)
++{
++	u32 sts;
++
++	if (!(dwc2_readl(hsotg, GINTSTS) & GINTSTS_RXFLVL))
++		return false;
++	sts = dwc2_readl(hsotg, GRXSTSR);	/* a peek, not a pop */
++	/* bit 20 of PktSts is seen set on this core: compare the low three */
++	return (sts & GRXSTS_EPNUM_MASK) == index &&
++	       (((sts & GRXSTS_PKTSTS_MASK) >> GRXSTS_PKTSTS_SHIFT) & 7) ==
++	       GRXSTS_PKTSTS_OUTRX;
++}
++
++static void dwc2_gadget_park_one(struct dwc2_hsotg *hsotg,
++				 struct dwc2_hsotg_ep *hs_ep)
++{
++	struct dwc2_dma_desc *desc = hs_ep->desc_list;
++	u32 mps = hs_ep->ep.maxpacket;
++
++	desc->buf = hs_ep->park_dma + hs_ep->park_used;
++	desc->status = (DEV_DMA_BUFF_STS_HREADY << DEV_DMA_BUFF_STS_SHIFT) |
++		       DEV_DMA_L | DEV_DMA_IOC |
++		       (mps & DEV_DMA_NBYTES_MASK);
++	hs_ep->desc_count = 1;
++	dma_wmb();
++	dwc2_writel(hsotg, hs_ep->desc_list_dma, DOEPDMA(hs_ep->index));
++	/* NAK stays set: only what already sits in the RxFIFO comes in */
++	dwc2_set_bit(hsotg, DOEPCTL(hs_ep->index),
++		     DXEPCTL_EPENA | DXEPCTL_SNAK);
++	hs_ep->parking = 1;
++}
++
++static void dwc2_gadget_park_check(struct dwc2_hsotg *hsotg,
++				   struct dwc2_hsotg_ep *hs_ep)
++{
++	if (!dwc2_gadget_parks(hs_ep) || hs_ep->parking || hs_ep->req ||
++	    !list_empty(&hs_ep->queue))
++		return;
++	if (!(dwc2_readl(hsotg, DOEPCTL(hs_ep->index)) & DXEPCTL_USBACTEP))
++		return;
++
++	if (dwc2_gadget_rxfifo_head_is(hsotg, hs_ep->index)) {
++		/* cannot happen: see the sizing above */
++		if (!dwc2_gadget_park_fits(hs_ep)) {
++			dev_warn_ratelimited(hsotg->dev,
++				"%s: no room to park another packet\n",
++				hs_ep->name);
++			return;
++		}
++		dwc2_gadget_park_one(hsotg, hs_ep);
++		return;
++	}
++
++	/* a packet of another endpoint may still be ahead of ours */
++	if ((dwc2_readl(hsotg, GINTSTS) & GINTSTS_RXFLVL) &&
++	    hs_ep->park_tries++ < 25)
++		mod_timer(&hs_ep->park_timer, jiffies + 1);
++}
++
++/* The endpoint has no request left: NAK it and look at the RxFIFO later. */
++static void dwc2_gadget_park_idle(struct dwc2_hsotg_ep *hs_ep)
++{
++	struct dwc2_hsotg *hsotg = hs_ep->parent;
++	u32 reg = DOEPCTL(hs_ep->index);
++
++	if (!(dwc2_readl(hsotg, reg) & DXEPCTL_EPENA))
++		dwc2_set_bit(hsotg, reg, DXEPCTL_SNAK);
++	if (!dwc2_gadget_parks(hs_ep))
++		return;
++	hs_ep->park_tries = 0;
++	mod_timer(&hs_ep->park_timer, jiffies + 1);
++}
++
++/* XferCompl of a parking transfer: one packet is in park_buf. */
++static void dwc2_gadget_park_done(struct dwc2_hsotg *hsotg,
++				  struct dwc2_hsotg_ep *hs_ep)
++{
++	u32 status = hs_ep->desc_list->status;
++	u32 mps = hs_ep->ep.maxpacket;
++	u32 left = status & DEV_DMA_NBYTES_MASK;
++	u32 len;
++
++	/* as in dwc2_gadget_get_xfersize_ddma() */
++	if (usb_endpoint_xfer_int(hs_ep->ep.desc) && (mps % 4) &&
++	    left >= 4 - (mps % 4))
++		left -= 4 - (mps % 4);
++
++	hs_ep->parking = 0;
++	if (status & DEV_DMA_STS_MASK)
++		dev_warn(hsotg->dev, "%s: parking descriptor closed with %x\n",
++			 hs_ep->name, status & DEV_DMA_STS_MASK);
++	len = left < mps ? mps - left : 0;
++	hs_ep->park_pkt[hs_ep->park_cnt++] = len;
++	hs_ep->park_used += ALIGN(len, 4);
++	dev_dbg(hsotg->dev, "%s: parked a %u byte packet\n", hs_ep->name, len);
++
++	if (!list_empty(&hs_ep->queue)) {
++		dwc2_gadget_start_next_request(hs_ep);
++		return;
++	}
++	hs_ep->park_tries = 0;
++	dwc2_gadget_park_check(hsotg, hs_ep);
++}
++
++/*
++ * Which parked packets go to this request; sets its actual length. True when
++ * they complete it (it is full, or a short packet ended the transfer).
++ */
++static bool dwc2_gadget_park_take(struct dwc2_hsotg_ep *hs_ep,
++				  struct dwc2_hsotg_req *hs_req)
++{
++	struct usb_request *ureq = &hs_req->req;
++	unsigned int mps = hs_ep->ep.maxpacket;
++	unsigned int n = 0, k = 0, len = mps;
++
++	while (k < hs_ep->park_cnt && n < ureq->length) {
++		len = hs_ep->park_pkt[k++];
++		n += len;
++		if (len < mps)
++			break;
++	}
++	hs_req->park_take = k;
++	ureq->actual = min(n, ureq->length);
++	return n >= ureq->length || len < mps;
++}
++
++/* Copy the parked packets a request took into it (it is unmapped by now). */
++static void dwc2_gadget_park_copy(struct dwc2_hsotg_ep *hs_ep,
++				  struct dwc2_hsotg_req *hs_req)
++{
++	struct usb_request *ureq = &hs_req->req;
++	unsigned int k = min(hs_req->park_take, hs_ep->park_cnt);
++	unsigned int i, n = 0, off = 0, len;
++
++	for (i = 0; i < k; i++) {
++		len = min_t(unsigned int, hs_ep->park_pkt[i],
++			    ureq->length - n);
++		if (len < hs_ep->park_pkt[i])
++			dev_warn_ratelimited(hs_ep->parent->dev,
++				"%s: %u parked bytes do not fit the request\n",
++				hs_ep->name, hs_ep->park_pkt[i] - len);
++		memcpy(ureq->buf + n, hs_ep->park_buf + off, len);
++		n += len;
++		off += ALIGN(hs_ep->park_pkt[i], 4);
++	}
++	memmove(hs_ep->park_buf, hs_ep->park_buf + off,
++		hs_ep->park_used - off);
++	memmove(hs_ep->park_pkt, hs_ep->park_pkt + k,
++		(hs_ep->park_cnt - k) * sizeof(hs_ep->park_pkt[0]));
++	hs_ep->park_cnt -= k;
++	hs_ep->park_used -= off;
++	hs_req->park_take = 0;
++}
++
++static void dwc2_gadget_park_clear(struct dwc2_hsotg_ep *hs_ep)
++{
++	timer_delete(&hs_ep->park_timer);
++	hs_ep->parking = 0;
++	hs_ep->park_cnt = 0;
++	hs_ep->park_used = 0;
++}
++
++static void dwc2_gadget_park_timer(struct timer_list *t)
++{
++	struct dwc2_hsotg_ep *hs_ep = timer_container_of(hs_ep, t, park_timer);
++	struct dwc2_hsotg *hsotg = hs_ep->parent;
++	unsigned long flags;
++
++	spin_lock_irqsave(&hsotg->lock, flags);
++	if (hs_ep->req && hs_ep->req->park_serve) {
++		hs_ep->req->park_serve = 0;
++		dwc2_hsotg_complete_request(hsotg, hs_ep, hs_ep->req, 0);
++	} else {
++		dwc2_gadget_park_check(hsotg, hs_ep);
++	}
++	spin_unlock_irqrestore(&hsotg->lock, flags);
++}
++
+ /*
+  * dwc2_gadget_complete_isoc_request_ddma - complete an isoc request in DDMA
+  * @hs_ep: The endpoint the request was on.
+@@ -2397,6 +2646,11 @@ static void dwc2_hsotg_handle_outdone(struct dwc2_hsotg *hsotg, int epnum)
+ 	unsigned int size_left = DXEPTSIZ_XFERSIZE_GET(epsize);
+ 	int result = 0;
+ 
++	if (hs_ep->parking) {
++		dwc2_gadget_park_done(hsotg, hs_ep);
++		return;
++	}
++
+ 	if (!hs_req) {
+ 		dev_dbg(hsotg->dev, "%s: no request active\n", __func__);
+ 		return;
+@@ -3298,6 +3552,9 @@ static void kill_all_requests(struct dwc2_hsotg *hsotg,
+ 		dwc2_hsotg_complete_request(hsotg, ep, req, result);
+ 	}
+ 
++	if (dwc2_gadget_parks(ep))
++		dwc2_gadget_park_clear(ep);
++
+ 	if (!hsotg->dedicated_fifos)
+ 		return;
+ 	size = (dwc2_readl(hsotg, DTXFSTS(ep->index)) & 0xffff) * 4;
+@@ -4083,6 +4340,27 @@ static int dwc2_hsotg_ep_enable(struct usb_ep *ep,
+ 	else
+ 		desc_num = MAX_DMA_DESC_NUM_GENERIC;
+ 
++	/*
++	 * Parking buffer of non-isochronous OUT endpoints: what the RxFIFO
++	 * holds (g_rx_fifo_size words, as many packets at most) and one more
++	 * packet of the largest size.
++	 */
++	if (using_desc_dma(hsotg) && !dir_in &&
++	    ep_type != USB_ENDPOINT_XFER_ISOC && !hs_ep->park_buf) {
++		hs_ep->park_max = hsotg->params.g_rx_fifo_size;
++		hs_ep->park_size = hs_ep->park_max * 4 + 1024;
++		hs_ep->park_pkt = devm_kcalloc(hsotg->dev, hs_ep->park_max,
++					       sizeof(*hs_ep->park_pkt),
++					       GFP_ATOMIC);
++		if (hs_ep->park_pkt)
++			hs_ep->park_buf = dmam_alloc_coherent(hsotg->dev,
++				hs_ep->park_size, &hs_ep->park_dma,
++				GFP_ATOMIC);
++		if (!hs_ep->park_buf)
++			dev_warn(hsotg->dev, "%s: no parking buffer\n",
++				 hs_ep->name);
++	}
++
+ 	/* Allocate DMA descriptor chain for non-ctrl endpoints */
+ 	if (using_desc_dma(hsotg) && !hs_ep->desc_list) {
+ 		hs_ep->desc_list = dmam_alloc_coherent(hsotg->dev,
+@@ -4355,7 +4633,7 @@ static int dwc2_hsotg_ep_dequeue(struct usb_ep *ep, struct usb_request *req)
+ 	}
+ 
+ 	/* Dequeue already started request */
+-	if (req == &hs_ep->req->req)
++	if (req == &hs_ep->req->req && !hs_req->park_serve)
+ 		dwc2_hsotg_ep_stop_xfr(hs, hs_ep);
+ 
+ 	dwc2_hsotg_complete_request(hs, hs_ep, hs_req, -ECONNRESET);
+@@ -4892,6 +5170,7 @@ static void dwc2_hsotg_initep(struct dwc2_hsotg *hsotg,
+ 
+ 	INIT_LIST_HEAD(&hs_ep->queue);
+ 	INIT_LIST_HEAD(&hs_ep->ep.ep_list);
++	timer_setup(&hs_ep->park_timer, dwc2_gadget_park_timer, 0);
+ 
+ 	/* add to the list of endpoints known by the gadget driver */
+ 	if (epnum)
+@@ -5157,7 +5436,12 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg)
+  */
+ int dwc2_hsotg_remove(struct dwc2_hsotg *hsotg)
+ {
++	int epnum;
++
+ 	usb_del_gadget_udc(&hsotg->gadget);
++	for (epnum = 1; epnum < hsotg->num_of_eps; epnum++)
++		if (hsotg->eps_out[epnum])
++			timer_delete_sync(&hsotg->eps_out[epnum]->park_timer);
+ 	dwc2_hsotg_ep_free_request(&hsotg->eps_out[0]->ep, hsotg->ctrl_req);
+ 
+ 	return 0;

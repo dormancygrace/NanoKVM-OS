@@ -2576,8 +2576,8 @@
       "saveFailed": "設定を保存できませんでした。",
       "connection": "接続",
       "modeLabel": "測定値の受信方法",
-      "agent": "Windows 用エージェント",
-      "agentHint": "コンピューターで、仮想ドライブの隣に表示される NANOKVM ヘルパーディスクを開き、NanoKVM-Sensors-Setup-Windows.exe をダブルクリックします。エージェントのインストール、古いバージョンの更新、削除ができ、プロセッサーとマザーボードのセンサーに必要な PawnIO ドライバーのインストールも提案します。",
+      "agent": "エージェント",
+      "agentHint": "コンピューターで、仮想ドライブの隣に表示される NANOKVM ヘルパーディスクを開きます。Windows: NanoKVM-Sensors-Setup-Windows.exe をダブルクリックします。Linux: root で sh NanoKVM-Sensors-Setup-Linux.sh を実行します。エージェントのインストール、古いバージョンの更新、削除ができます。Windows ではプロセッサーとマザーボードのセンサーに必要な PawnIO ドライバーのインストールも提案します。",
       "readings": "測定値",
       "offHint": "測定値の受信方法を選ぶと、ここに表示されます。",
       "mode": {
@@ -2593,7 +2593,7 @@
       "diskStale": "USB デバイスの再接続後、エージェントがヘルパーディスクに表示されます",
       "diskMissing": "ヘルパーディスクがありません: USB 構成に仮想ディスクを含め、USB デバイスを再接続する必要があります",
       "agentVersion": "エージェント {{version}}",
-      "agentUpdate": "アドオンにはエージェント {{version}} が含まれています。更新するには、コンピューターでヘルパーディスクの NanoKVM-Sensors-Setup-Windows.exe を実行してください。"
+      "agentUpdate": "アドオンにはエージェント {{version}} が含まれています。更新するには、コンピューターでヘルパーディスクのセンサーセットアップをもう一度実行してください。"
     }
   },
   "picoclaw": {

@@ -63,6 +63,9 @@ const (
 	hostSensorsAgentName  = "nanokvm-sensors.exe"
 	// HostSensorsAgentPath is the public URL of the Windows agent.
 	HostSensorsAgentPath = "/" + hostSensorsAgentName
+	hostSensorsLinuxName = "nanokvm-sensors.sh"
+	// HostSensorsLinuxAgentPath is the public URL of the Linux agent.
+	HostSensorsLinuxAgentPath = "/" + hostSensorsLinuxName
 )
 
 var (
@@ -229,6 +232,12 @@ func runHostSensorsSerial(device string, stop <-chan struct{}, store *hostsensor
 	}
 }
 
+// hostSensorsReady is what the NanoKVM writes on the serial port while it
+// reads reports from it, and how often.
+var hostSensorsReady = []byte("nanokvm-ready\n")
+
+const hostSensorsReadyEvery = time.Second
+
 // readHostSensorLines hands every complete line to accept until stop, a
 // hang-up or a read error. A line longer than a report may be is dropped up
 // to its end, so one bad sender cannot grow the buffer or hide later lines.
@@ -236,11 +245,21 @@ func readHostSensorLines(fd int, stop <-chan struct{}, accept func([]byte)) {
 	buf := make([]byte, 16<<10)
 	var line []byte
 	overflow := false
+	var said time.Time
 	for {
 		select {
 		case <-stop:
 			return
 		default:
+		}
+		// "I am reading": an agent that cannot see the port's modem lines
+		// (a shell script on Linux) writes only after hearing this, so
+		// nothing is written to a port nobody reads. The descriptor does
+		// not block: with nobody listening on the computer the line is
+		// dropped once the port's buffer is full.
+		if time.Since(said) >= hostSensorsReadyEvery {
+			_, _ = unix.Write(fd, hostSensorsReady)
+			said = time.Now()
 		}
 		fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
 		n, err := unix.Poll(fds, 500)
@@ -317,6 +336,10 @@ func (s *Service) PostHostSensors(c *gin.Context) {
 
 func hostSensorsAgentFile() string { return filepath.Join(hostSensorsShareDir, hostSensorsAgentName) }
 
+func hostSensorsLinuxAgentFile() string {
+	return filepath.Join(hostSensorsShareDir, hostSensorsLinuxName)
+}
+
 func hostSensorsState() gin.H {
 	r := &hostSensorsSerialReader
 	r.Lock()
@@ -332,14 +355,19 @@ func hostSensorsState() gin.H {
 	if info, err := os.Stat(hostSensorsAgentFile()); err == nil && info.Mode().IsRegular() {
 		agent.Available, agent.Size = true, info.Size()
 	}
+	linuxAgent := proto.SerialConsoleFile{Path: HostSensorsLinuxAgentPath}
+	if info, err := os.Stat(hostSensorsLinuxAgentFile()); err == nil && info.Mode().IsRegular() {
+		linuxAgent.Available, linuxAgent.Size = true, info.Size()
+	}
 	addonVersion := hostSensorsAddonVersion()
 	return gin.H{
 		"installed": HostSensorsInstalled(),
 		"mode":      hostSensorsMode(),
 		"serial":    gin.H{"port": hostSensorsDevice, "state": serialState},
 		// The NanoKVM's addresses on the USB network; empty without it.
-		"network": gin.H{"interface": hostSensorsInterface, "addresses": addresses, "path": HostSensorsIngestPath},
-		"agent":   agent,
+		"network":    gin.H{"interface": hostSensorsInterface, "addresses": addresses, "path": HostSensorsIngestPath},
+		"agent":      agent,
+		"linuxAgent": linuxAgent,
 		// The version of the agent the add-on brings ("" when unknown): the
 		// page compares it with the running agent's, which the report names.
 		"agentVersion": addonVersion,
@@ -445,17 +473,26 @@ func (s *Service) SetHostSensorsView(c *gin.Context) {
 	rsp.OkRspWithData(c, hostSensorsState())
 }
 
+// ServeHostSensorsLinuxAgent is the Linux agent's download, public as the
+// Windows one.
+func (s *Service) ServeHostSensorsLinuxAgent(c *gin.Context) {
+	serveHostSensorsFile(c, hostSensorsLinuxAgentFile(), hostSensorsLinuxName, "text/x-shellscript; charset=utf-8")
+}
+
 // ServeHostSensorsAgent is public, like the console helper: the agent is part
 // of the firmware, and the computer that fetches it has no credentials.
 func (s *Service) ServeHostSensorsAgent(c *gin.Context) {
-	path := hostSensorsAgentFile()
+	serveHostSensorsFile(c, hostSensorsAgentFile(), hostSensorsAgentName, "application/octet-stream")
+}
+
+func serveHostSensorsFile(c *gin.Context, path, name, contentType string) {
 	sum, _, err := fileSha256(path)
 	if err != nil {
 		c.String(http.StatusNotFound, "the sensors agent is not installed on this NanoKVM")
 		return
 	}
-	c.Header("Content-Type", "application/octet-stream")
-	c.Header("Content-Disposition", "attachment; filename=\""+hostSensorsAgentName+"\"")
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", "attachment; filename=\""+name+"\"")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("X-Checksum-Sha256", sum)
 	c.File(path)

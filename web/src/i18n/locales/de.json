@@ -2576,8 +2576,8 @@
       "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",
       "connection": "Verbindung",
       "modeLabel": "Übertragung der Messwerte",
-      "agent": "Agent für Windows",
-      "agentHint": "Auf dem Computer den Hilfsdatenträger NANOKVM öffnen, der neben dem virtuellen Laufwerk erscheint, und NanoKVM-Sensors-Setup-Windows.exe doppelklicken. Das Programm installiert den Agenten, aktualisiert einen älteren oder entfernt ihn und bietet an, den PawnIO-Treiber zu installieren, den Prozessor- und Mainboard-Sensoren benötigen.",
+      "agent": "Agent",
+      "agentHint": "Auf dem Computer den Hilfsdatenträger NANOKVM öffnen, der neben dem virtuellen Laufwerk erscheint. Windows: NanoKVM-Sensors-Setup-Windows.exe doppelklicken. Linux: als root sh NanoKVM-Sensors-Setup-Linux.sh ausführen. Das Setup installiert den Agenten, aktualisiert einen älteren oder entfernt ihn. Unter Windows bietet es an, den PawnIO-Treiber zu installieren, den Prozessor- und Mainboard-Sensoren benötigen.",
       "readings": "Messwerte",
       "offHint": "Wählen Sie, wie die Messwerte übertragen werden, um sie hier zu sehen.",
       "mode": {
@@ -2593,7 +2593,7 @@
       "diskStale": "Der Agent erscheint auf dem Hilfsdatenträger, sobald sich die USB-Geräte neu verbinden",
       "diskMissing": "Kein Hilfsdatenträger: nötig sind der virtuelle Datenträger in der USB-Zusammenstellung und eine Neuverbindung der USB-Geräte",
       "agentVersion": "Agent {{version}}",
-      "agentUpdate": "Das Add-on enthält Agent {{version}}: Zum Aktualisieren auf dem Computer NanoKVM-Sensors-Setup-Windows.exe vom Hilfsdatenträger ausführen."
+      "agentUpdate": "Das Add-on enthält Agent {{version}}: Zum Aktualisieren das Sensoren-Setup vom Hilfsdatenträger auf dem Computer erneut ausführen."
     }
   },
   "picoclaw": {

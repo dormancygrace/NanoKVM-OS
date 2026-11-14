@@ -171,6 +171,11 @@ jobs:
           bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir "$RUNNER_TEMP/dotnet"
           "$RUNNER_TEMP/dotnet/dotnet" --version
 
+      # The Linux agent against a made-up /sys: names, units, the report.
+      - name: Linux agent
+        if: steps.kind.outputs.kind == 'dotnet'
+        run: sh addons/host-sensors/linux/test.sh
+
       - name: Version
         id: version
         env:
@@ -277,6 +282,12 @@ jobs:
               assert "PE32+" in out and "x86-64" in out, out
               assert os.stat(program).st_mode & 0o777 == 0o644, program
               assert len(record["pawnio"]["sha256"]) == 64 and record["pawnio"]["tag"], record["pawnio"]
+              # The agents share the add-on's version.
+              import re
+              for path in recipe["files"]:
+                  if path.endswith(".sh"):
+                      version = re.search(r"^VERSION=(\S+)$", open(root + path).read(), re.M)
+                      assert version and version[1] == recipe["version"], path
           else:
               import hashlib
               assert "nanokvm-tpu-abi=1" in dump.split(), "no TPU ABI dependency"

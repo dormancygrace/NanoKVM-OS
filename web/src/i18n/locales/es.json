@@ -2576,8 +2576,8 @@
       "saveFailed": "No se pudo guardar el ajuste.",
       "connection": "Conexión",
       "modeLabel": "Cómo llegan las lecturas",
-      "agent": "Agente para Windows",
-      "agentHint": "En el ordenador, abra el disco auxiliar NANOKVM, que aparece junto a la unidad virtual, y haga doble clic en NanoKVM-Sensors-Setup-Windows.exe. Instala el agente, actualiza uno anterior o lo elimina, y ofrece instalar el controlador PawnIO, necesario para los sensores del procesador y de la placa.",
+      "agent": "Agente",
+      "agentHint": "En el ordenador, abra el disco auxiliar NANOKVM, que aparece junto a la unidad virtual. Windows: doble clic en NanoKVM-Sensors-Setup-Windows.exe. Linux: como root, ejecute sh NanoKVM-Sensors-Setup-Linux.sh. El instalador instala el agente, actualiza uno anterior o lo elimina. En Windows ofrece instalar el controlador PawnIO, necesario para los sensores del procesador y de la placa.",
       "readings": "Lecturas",
       "offHint": "Elija cómo llegan las lecturas para verlas aquí.",
       "mode": {
@@ -2593,7 +2593,7 @@
       "diskStale": "El agente aparecerá en el disco auxiliar cuando los dispositivos USB se reconecten",
       "diskMissing": "No hay disco auxiliar: requiere el disco virtual en la composición USB y reconectar los dispositivos USB",
       "agentVersion": "agente {{version}}",
-      "agentUpdate": "El complemento trae el agente {{version}}: para actualizar, ejecute NanoKVM-Sensors-Setup-Windows.exe desde el disco auxiliar en el ordenador."
+      "agentUpdate": "El complemento trae el agente {{version}}: para actualizar, ejecute de nuevo en el ordenador el instalador de sensores del disco auxiliar."
     }
   },
   "picoclaw": {

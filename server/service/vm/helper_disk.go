@@ -40,6 +40,15 @@ NanoKVM-Sensors-Setup-Windows.exe
         NanoKVM-Sensors-Setup-Windows.exe uninstall
         NanoKVM-Sensors-Setup-Windows.exe --help
 
+NanoKVM-Sensors-Setup-Linux.sh
+    The computer sensors agent for Linux (the kernel's sensors, hwmon). As
+    root, with this disk mounted on /mnt:
+        sh /mnt/NanoKVM-Sensors-Setup-Linux.sh              ask: install,
+                                                            update or remove
+        sh /mnt/NanoKVM-Sensors-Setup-Linux.sh install
+        sh /mnt/NanoKVM-Sensors-Setup-Linux.sh uninstall
+        sh /mnt/NanoKVM-Sensors-Setup-Linux.sh --help
+
 NanoKVM-Serial-Console-Setup-Linux.sh
     A login console on the NanoKVM's USB serial port for a Linux computer.
     As root, with this disk mounted on /mnt:
@@ -52,6 +61,7 @@ NanoKVM-Serial-Console-Setup-Linux.sh
 const (
 	helperDiskConsoleName = "NanoKVM-Serial-Console-Setup-Linux.sh"
 	helperDiskSensorsName = "NanoKVM-Sensors-Setup-Windows.exe"
+	helperDiskLinuxName   = "NanoKVM-Sensors-Setup-Linux.sh"
 )
 
 // helperDiskImage is the image S03usbdev attaches as the helper disk: the
@@ -102,7 +112,7 @@ func reconcileHelperDisk() {
 		}
 		return
 	}
-	signature := fileSignature(hostSensorsAgentFile(), serialConsoleScriptFile())
+	signature := fileSignature(hostSensorsAgentFile(), hostSensorsLinuxAgentFile(), serialConsoleScriptFile())
 	if _, err := os.Stat(helperDiskFile); err == nil && signature == helperDiskBuiltFrom {
 		return
 	}
@@ -118,6 +128,9 @@ func reconcileHelperDisk() {
 		files = append(files, helperdisk.File{Name: helperDiskConsoleName, Data: script})
 	}
 	files = append(files, helperdisk.File{Name: helperDiskSensorsName, Data: agent})
+	if script, err := os.ReadFile(hostSensorsLinuxAgentFile()); err == nil {
+		files = append(files, helperdisk.File{Name: helperDiskLinuxName, Data: script})
+	}
 	image, err := helperdisk.Build(files)
 	if err != nil {
 		log.Errorf("helper disk: %v", err)

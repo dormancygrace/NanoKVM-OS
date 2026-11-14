@@ -33,6 +33,8 @@ func TestFromNetwork(t *testing.T) {
 		"192.168.1.5:50000":  false, // the LAN
 		"[::1]:50000":        false,
 		"10.20.30.100":       false,
+		// IPv6 is off on the USB network: no link-local peer either.
+		"[fe80::4ada:35ff:fe6d:1234%usb0]:50000": false,
 	} {
 		if got := FromNetwork(addr, nets); got != want {
 			t.Errorf("%s: %v", addr, got)

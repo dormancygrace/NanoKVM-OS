@@ -2179,8 +2179,8 @@
       "saveFailed": "Nastavení se nepodařilo uložit.",
       "connection": "Připojení",
       "modeLabel": "Jak hodnoty přicházejí",
-      "agent": "Agent pro Windows",
-      "agentHint": "V počítači otevřete pomocný disk NANOKVM, který je vidět vedle virtuální jednotky, a poklepejte na NanoKVM-Sensors-Setup-Windows.exe. Nainstaluje agenta, aktualizuje staršího nebo jej odebere a nabídne instalaci ovladače PawnIO, který potřebují senzory procesoru a desky.",
+      "agent": "Agent",
+      "agentHint": "V počítači otevřete pomocný disk NANOKVM, který je vidět vedle virtuální jednotky. Windows: poklepejte na NanoKVM-Sensors-Setup-Windows.exe. Linux: jako root spusťte sh NanoKVM-Sensors-Setup-Linux.sh. Instalace nainstaluje agenta, aktualizuje staršího nebo jej odebere. Ve Windows nabídne instalaci ovladače PawnIO, který potřebují senzory procesoru a desky.",
       "readings": "Hodnoty",
       "offHint": "Zvolte, jak hodnoty přicházejí, a uvidíte je zde.",
       "mode": {
@@ -2196,7 +2196,7 @@
       "diskStale": "Agent se na pomocném disku objeví po opětovném připojení USB zařízení",
       "diskMissing": "Pomocný disk chybí: je potřeba virtuální disk v USB kompozici a opětovné připojení USB zařízení",
       "agentVersion": "agent {{version}}",
-      "agentUpdate": "Doplněk obsahuje agenta {{version}}: pro aktualizaci spusťte v počítači NanoKVM-Sensors-Setup-Windows.exe z pomocného disku."
+      "agentUpdate": "Doplněk obsahuje agenta {{version}}: pro aktualizaci znovu spusťte v počítači instalaci senzorů z pomocného disku."
     }
   },
   "picoclaw": {

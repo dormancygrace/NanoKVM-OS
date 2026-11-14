@@ -24,6 +24,7 @@ type State = {
   serial: { port: string; state: string };
   network: { interface: string; addresses: string[]; path: string };
   agent: { path: string; available: boolean; size: number };
+  linuxAgent?: { path: string; available: boolean; size: number };
   // The agent version the add-on brings; '' when unknown.
   agentVersion: string;
   status: {
@@ -167,7 +168,17 @@ export const HostSensorsPage = () => {
                   className="text-info inline-flex items-center gap-1.5 text-sm"
                 >
                   <DownloadIcon size={16} aria-hidden />
-                  {t('download')}
+                  {t('download')} (Windows)
+                </a>
+              )}
+              {state.linuxAgent?.available && !(state.disk.attached && !state.disk.stale) && (
+                <a
+                  href={state.linuxAgent.path}
+                  download
+                  className="text-info inline-flex items-center gap-1.5 text-sm"
+                >
+                  <DownloadIcon size={16} aria-hidden />
+                  {t('download')} (Linux)
                 </a>
               )}
             </div>

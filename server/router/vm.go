@@ -96,6 +96,7 @@ func vmRouter(r *gin.Engine) {
 	// network only (PostHostSensors checks both).
 	r.POST(vm.HostSensorsIngestPath, service.PostHostSensors)
 	r.GET(vm.HostSensorsAgentPath, service.ServeHostSensorsAgent)
+	r.GET(vm.HostSensorsLinuxAgentPath, service.ServeHostSensorsLinuxAgent)
 
 	admin.GET("/vm/usb-internet", service.GetUSBInternet)
 	admin.PUT("/vm/usb-internet", service.SetUSBInternet)

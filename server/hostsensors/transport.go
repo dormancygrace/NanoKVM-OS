@@ -38,8 +38,8 @@ func SplitLines(line []byte, overflow bool, data []byte, accept func([]byte)) ([
 	return line, overflow
 }
 
-// FromNetwork: the peer of the TCP connection (not a forwarded
-// header) is on the USB network, and is not the NanoKVM itself.
+// FromNetwork: the peer of the TCP connection (not a forwarded header) is on
+// the USB network, and is not the NanoKVM itself.
 func FromNetwork(remoteAddr string, nets []*net.IPNet) bool {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {

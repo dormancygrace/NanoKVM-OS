@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"NanoKVM-Server/internal/oomscore"
+	"NanoKVM-Server/pkg/resolvconf"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
 	"github.com/gin-gonic/gin"
@@ -282,7 +283,7 @@ func (s *Service) startAttempt(p Profile, attempt int, generation uint64) error 
 			return e
 		}
 	}
-	if _, e = os.Stat("/run/resolvconf/interfaces/nkos.base"); os.IsNotExist(e) {
+	if !resolvconf.Has("nkos.base") {
 		base, err := os.ReadFile("/etc/resolv.conf")
 		if err != nil {
 			return err
@@ -294,6 +295,10 @@ func (s *Service) startAttempt(p Profile, attempt int, generation uint64) error 
 		if e = cmd.Run(); e != nil {
 			return e
 		}
+	}
+	// The callers hold s.mu and found no OpenVPN of this profile running.
+	if e = removeStaleDCO(deviceName(p.ID)); e != nil {
+		return e
 	}
 	devType := "tun"
 	if normalized.TAP {
@@ -363,7 +368,7 @@ func (s *Service) stop(id string) (result error) {
 	defer func() {
 		result = errors.Join(result, s.clearDNS(id))
 		if s.pid(id) == 0 {
-			result = errors.Join(result, removeTAP(deviceName(id)))
+			result = errors.Join(result, removeStaleDCO(deviceName(id)), removeTAP(deviceName(id)))
 		}
 	}()
 	pid := s.pid(id)
@@ -434,8 +439,9 @@ var removeTAP = func(name string) error {
 }
 
 func (s *Service) clearDNS(id string) error {
+	// OpenVPN's down script removes the record; one killed leaves it.
 	name := deviceName(id)
-	if _, e := os.Stat(filepath.Join("/run/resolvconf/interfaces", name)); errors.Is(e, os.ErrNotExist) {
+	if !resolvconf.Has(name) {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -544,6 +550,27 @@ func (s *Service) dcoInterface(iface *net.Interface) bool {
 	}
 	s.links[iface.Name] = linkKind{index: iface.Index, dco: dco}
 	return dco
+}
+
+// removeStaleDCO removes the DCO device of an OpenVPN that was killed
+// (SIGKILL, out of memory). Unlike a TUN device, an ovpn device does not go
+// with the process: it stays with that OpenVPN's addresses and routes, and a
+// pushed default route there would catch the way to the server at the next
+// start. Called only when no OpenVPN of the profile runs.
+var removeStaleDCO = func(name string) error {
+	if _, e := os.Stat(filepath.Join("/sys/class/net", name)); e != nil {
+		return nil
+	}
+	detail, e := linkDetail(name)
+	if e != nil || !dcoLinkJSON(detail) {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if out, e := exec.CommandContext(ctx, "ip", "link", "del", "dev", name).CombinedOutput(); e != nil {
+		return fmt.Errorf("cannot remove the stale DCO device: %s", strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func dcoLinkJSON(data []byte) bool {

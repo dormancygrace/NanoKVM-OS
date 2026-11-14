@@ -155,8 +155,12 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
     <div className="space-y-6">
       {loadFailed && <Alert type="error" showIcon message={t('vpn.loadFailed')} />}
       <SettingsSection>
-        <VPNVersion name="openvpn" />
-        <p className="text-fg-muted mt-0 text-sm">{t('vpn.openvpnDescription')}</p>
+        {available === true && (
+          <>
+            <VPNVersion name="openvpn" />
+            <p className="text-fg-muted mt-0 text-sm">{t('vpn.openvpnDescription')}</p>
+          </>
+        )}
         {available === false && (
           <ExtensionInstallResult
             title={t('vpn.openvpnNotInstalled')}
@@ -182,27 +186,31 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
             </Popconfirm>
           </SettingRow>
         )}
-        <input
-          ref={input}
-          type="file"
-          multiple
-          hidden
-          aria-label={t('vpn.openvpnImport')}
-          onChange={(e) => {
-            upload(e.target.files);
-            e.target.value = '';
-          }}
-        />
-        <div>
-          <Button
-            icon={<FileUpIcon size={16} />}
-            loading={busy}
-            disabled={available !== true}
-            onClick={() => input.current?.click()}
-          >
-            {t('vpn.openvpnImport')}
-          </Button>
-        </div>
+        {available === true && (
+          <>
+            <input
+              ref={input}
+              type="file"
+              multiple
+              hidden
+              aria-label={t('vpn.openvpnImport')}
+              onChange={(e) => {
+                upload(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <div>
+              <Button
+                icon={<FileUpIcon size={16} />}
+                loading={busy}
+                disabled={available !== true}
+                onClick={() => input.current?.click()}
+              >
+                {t('vpn.openvpnImport')}
+              </Button>
+            </div>
+          </>
+        )}
       </SettingsSection>
 
       <SettingsSection>
@@ -284,7 +292,7 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
             </ul>
           </Panel>
         )}
-        <p className="text-fg-muted m-0 text-xs">{t('vpn.openvpnNote')}</p>
+        {available === true && <p className="text-fg-muted m-0 text-xs">{t('vpn.openvpnNote')}</p>}
       </SettingsSection>
       <Modal
         title={t('vpn.credentials')}

@@ -162,6 +162,14 @@ func stablePackageTargets(output string) ([]string, error) {
 	var targets []string
 	for _, name := range corePackages {
 		if found[name] == "" {
+			if name == "nanokvm-app" && found["nanokvm-release"] != "" {
+				// New releases provide this compatibility name themselves.
+				// Keep an exact constraint: the mandatory APK simulation must
+				// verify that the stable release really provides this version.
+				// Omitting it could retain a beta's concrete compatibility APK.
+				targets = append(targets, name+"="+found["nanokvm-release"])
+				continue
+			}
 			if legacy := apkrollback.LegacyTargets(name); legacy != nil {
 				targets = append(targets, legacy...)
 				continue

@@ -275,8 +275,8 @@ mkdir -p "$verify_keys"
 cp "$PACKAGER_PUBKEY" "$verify_keys/"
 apk --keys-dir "$verify_keys" verify "$index"
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
-[ "$apk_count" -ge 19 ] || {
-	echo "build-alpine-packages: expected at least nineteen APKs, found $apk_count" >&2
+[ "$apk_count" -ge 18 ] || {
+	echo "build-alpine-packages: expected at least eighteen APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do

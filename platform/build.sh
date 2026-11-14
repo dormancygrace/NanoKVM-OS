@@ -24,8 +24,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the nineteen NanoKVM packages, from packages.list
-#   packages   signed APK repository of the nineteen packages
+#   payloads   contents of the eighteen NanoKVM packages, from packages.list
+#   packages   signed APK repository of the eighteen packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -1154,7 +1154,7 @@ package_versions() {
     done < "$v/reused"
 }
 
-# Build the nineteen packages with abuild in an Alpine riscv64 tree.
+# Build the eighteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu

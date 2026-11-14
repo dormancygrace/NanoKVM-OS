@@ -493,7 +493,12 @@ apply_inittab() {
 	if [ -n "$inittab_present" ]; then
 		ok "/etc/inittab already has the console line"
 	else
-		cmd="${agetty:-$getty} -L $TTY_BAUD $tty $TTY_TERM"
+		# agetty -8: 8-bit clean, no parity guessed from a UTF-8 byte at the prompt.
+		if [ -n "$agetty" ]; then
+			cmd="$agetty -8 -L $TTY_BAUD $tty $TTY_TERM"
+		else
+			cmd="$getty -L $TTY_BAUD $tty $TTY_TERM"
+		fi
 		# busybox init: tty::action:process. sysvinit: id:runlevels:action:process
 		# with an id of up to four characters.
 		if [ -n "$init_busybox" ]; then

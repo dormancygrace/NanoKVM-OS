@@ -31,5 +31,11 @@ class ParserTest(unittest.TestCase):
         result = b"".join(parser.feed(bytes([b])) for b in data) + parser.flush()
         self.assertEqual(result, data)
 
+    def test_own_query_echo_dropped(self):
+        echo = b"^[]777;nkos-resize;1;" + b"a" * 32 + b"^G"
+        for split in range(len(echo) + 1):
+            parser = bridge.ResizeParser("a" * 32, lambda *_: None, (echo,))
+            self.assertEqual(parser.feed(b"x" + echo[:split]) + parser.feed(echo[split:] + b"^Gy") + parser.flush(), b"x^Gy")
+
 if __name__ == '__main__':
     unittest.main()

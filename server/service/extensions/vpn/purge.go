@@ -14,8 +14,7 @@ func Purge(c *gin.Context) bool {
 	var req struct {
 		Purge bool `json:"purge"`
 	}
-	_ = c.ShouldBindJSON(&req)
-	return req.Purge
+	return c.ShouldBindJSON(&req) == nil && req.Purge
 }
 
 // RemoveState deletes the directories and files that hold a VPN's state.

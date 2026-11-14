@@ -759,7 +759,12 @@
     "autostartHint": "每次启动后在后台运行一次；参见脚本指南。",
     "autostartRunning": "启动时运行：运行中",
     "autostartExited": "启动时运行：退出代码 {{code}}",
-    "autostartFailed": "启动时运行：无法启动"
+    "autostartFailed": "启动时运行：无法启动",
+    "pythonMissing": "未安装 Python 3",
+    "pythonMissingDesc": "Python 脚本需要 Python 3：下载约 13 MiB，占用设备 35 MiB。现在安装吗？",
+    "pythonInstall": "安装 Python",
+    "pythonInstalling": "正在安装 Python 3…",
+    "pythonInstalled": "Python 3 已安装"
   },
   "terminal": {
     "title": "终端",

@@ -759,7 +759,12 @@
     "autostartHint": "起動のたびにバックグラウンドで 1 回実行されます。詳しくはスクリプトガイドを参照してください。",
     "autostartRunning": "起動時の実行：実行中",
     "autostartExited": "起動時の実行：終了コード {{code}}",
-    "autostartFailed": "起動時の実行：開始できませんでした"
+    "autostartFailed": "起動時の実行：開始できませんでした",
+    "pythonMissing": "Python 3 はインストールされていません",
+    "pythonMissingDesc": "Python スクリプトには Python 3 が必要です（ダウンロード約 13 MiB、デバイス上で 35 MiB）。今すぐインストールしますか？",
+    "pythonInstall": "Python をインストール",
+    "pythonInstalling": "Python 3 をインストールしています…",
+    "pythonInstalled": "Python 3 をインストールしました"
   },
   "terminal": {
     "title": "ターミナル",

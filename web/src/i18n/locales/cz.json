@@ -361,7 +361,12 @@
     "autostartHint": "Spustí se jednou po každém startu systému (na pozadí) – viz Příručka pro skripty.",
     "autostartRunning": "Spuštění při startu systému: běží",
     "autostartExited": "Spuštění při startu systému: návratový kód {{code}}",
-    "autostartFailed": "Spuštění při startu systému: nepodařilo se spustit"
+    "autostartFailed": "Spuštění při startu systému: nepodařilo se spustit",
+    "pythonMissing": "Python 3 není nainstalován",
+    "pythonMissingDesc": "Skripty v Pythonu potřebují Python 3: asi 13 MiB ke stažení, 35 MiB v zařízení. Nainstalovat teď?",
+    "pythonInstall": "Nainstalovat Python",
+    "pythonInstalling": "Instaluje se Python 3…",
+    "pythonInstalled": "Python 3 je nainstalován"
   },
   "terminal": {
     "title": "Terminál",

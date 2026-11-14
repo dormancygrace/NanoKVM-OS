@@ -1,7 +1,9 @@
 import { http } from '@/lib/http.ts';
 
+import { DOWNLOAD_TIMEOUT } from './extensions/timeouts.ts';
+
 export function uploadScript(formData: FormData) {
-  return http.request<{ file: string }>({
+  return http.request<{ file: string; pythonMissing?: boolean }>({
     url: '/api/vm/script/upload',
     method: 'post',
     headers: {
@@ -19,6 +21,14 @@ export function runScript(name: string, type: string) {
 export function setScriptAutostart(name: string, enabled: boolean) {
   return http.post<null>('/api/vm/script/autostart', { name, enabled });
 }
+
+// Python 3 for .py scripts: a package download.
+export function installPython() {
+  return http.post<null>('/api/vm/script/python', undefined, { timeout: DOWNLOAD_TIMEOUT });
+}
+
+// The answer to running a .py script without Python 3.
+export const PYTHON_MISSING = -3;
 
 export function getScripts() {
   return http.get<{

@@ -759,7 +759,12 @@
     "autostartHint": "Läuft nach jedem Start einmal im Hintergrund; siehe die Skript-Anleitung.",
     "autostartRunning": "Start-Lauf: läuft",
     "autostartExited": "Start-Lauf: Exit-Code {{code}}",
-    "autostartFailed": "Start-Lauf: konnte nicht starten"
+    "autostartFailed": "Start-Lauf: konnte nicht starten",
+    "pythonMissing": "Python 3 ist nicht installiert",
+    "pythonMissingDesc": "Python-Skripte brauchen Python 3: etwa 13 MiB Download, 35 MiB auf dem Gerät. Jetzt installieren?",
+    "pythonInstall": "Python installieren",
+    "pythonInstalling": "Python 3 wird installiert…",
+    "pythonInstalled": "Python 3 ist installiert"
   },
   "terminal": {
     "title": "Terminal",

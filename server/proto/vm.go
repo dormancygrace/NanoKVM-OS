@@ -56,6 +56,8 @@ type SetScriptAutostartReq struct {
 
 type UploadScriptRsp struct {
 	File string `json:"file"`
+	// A .py script and no Python 3: the page offers to install it.
+	PythonMissing bool `json:"pythonMissing,omitempty"`
 }
 
 type RunScriptReq struct {

@@ -9,7 +9,8 @@ device and runs them as root: on demand, or once at every startup.
   `/etc/kvm/scripts`; uploading a file with an existing name replaces it.
 - A `.sh` script is executed directly, so it needs a `#!/bin/sh` (or
   `#!/bin/bash`) first line. A `.py` script runs with `/usr/bin/python3`;
-  install Python from **Settings → Software** first.
+  the Scripts window offers to install Python 3 when a `.py` script is
+  uploaded or run without it (about 13 MiB to download, 35 MiB on the device).
 - **Run** waits for the script and shows its output. **Run in background**
   starts it and returns at once; its output is discarded.
 - **Delete** removes the script and its startup mark.

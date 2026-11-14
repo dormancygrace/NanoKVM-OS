@@ -23,7 +23,7 @@ func bmcRouter(r *gin.Engine, drive bmcservice.Drive) {
 	localAPI.GET("/atx", atx.GetATXInternal)
 	localAPI.POST("/atx", atx.PressATXInternal)
 
-	service := bmcservice.NewService(vm.ATX{}, drive)
+	service := bmcservice.NewService(vm.ATX{}, drive, bmcservice.RedfishSensors(vm.HostSensorsStatus))
 	// The security notifications for the IPMI add-on's logins and lockouts.
 	go bmcservice.WatchIPMIEvents()
 	// Redfish has its own account (the BMC account of the settings page) and

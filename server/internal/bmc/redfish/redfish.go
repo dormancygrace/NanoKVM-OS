@@ -2,7 +2,8 @@
 // tools use (fence_redfish, Ansible's community.general.redfish_*, Metal3):
 // the service root, one computer system with its power state and reset
 // action, its chassis and manager, and login sessions; and, when the
-// settings allow it, the manager's virtual media (media.go).
+// settings allow it, the manager's virtual media (media.go); and the host's
+// sensors while its agent reports them (sensors.go).
 package redfish
 
 import (
@@ -84,6 +85,10 @@ type Handler struct {
 	// Media, when set, is the virtual drive: the manager then has a
 	// VirtualMedia collection with its one member.
 	Media Media
+
+	// Sensors, when set, are the host's sensors as its agent reports them:
+	// the chassis then has Thermal, Power and Sensors while they are on.
+	Sensors Sensors
 
 	mu       sync.Mutex
 	sessions map[string]*session // by token
@@ -347,6 +352,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 	case path == chassisPath:
 		h.get(w, r, func() any { return h.chassis(r.Context()) })
+	case h.sensorsOn() && (path == thermalPath || path == powerPath || path == sensorsPath || strings.HasPrefix(path, sensorsPath+"/")):
+		h.sensors(w, r, path)
 	case path == root+"/Managers":
 		h.get(w, r, func() any {
 			return collection(root+"/Managers", "#ManagerCollection.ManagerCollection", "Manager Collection", managerPath)
@@ -472,6 +479,9 @@ func (h *Handler) chassis(ctx context.Context) any {
 	}
 	if on, known, err := h.power.Status(ctx); err == nil && known {
 		chassis["PowerState"] = powerState(on)
+	}
+	if h.sensorsOn() {
+		chassis["Thermal"], chassis["Power"], chassis["Sensors"] = link(thermalPath), link(powerPath), link(sensorsPath)
 	}
 	return chassis
 }

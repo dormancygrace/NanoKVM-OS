@@ -223,3 +223,61 @@ func TestVirtualMedia(t *testing.T) {
 		t.Errorf("inserts that reached the drive: %+v", media.inserted)
 	}
 }
+
+type fakeSensors struct {
+	readings  []Reading
+	fresh, on bool
+}
+
+func (f fakeSensors) Readings() ([]Reading, bool, bool) { return f.readings, f.fresh, f.on }
+
+// The chassis has the host's sensors while the feature is on; a silent
+// agent leaves the resources without readings, never with old ones.
+func TestHostSensors(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	sensors := &fakeSensors{readings: []Reading{
+		{ID: "aa", Name: "CPU Package", Kind: "temperature", Context: "CPU", Value: 54.5},
+		{ID: "bb", Name: "Board Fan 1", Kind: "fan", Value: 912},
+		{ID: "cc", Name: "Board Vcore", Kind: "voltage", Value: 1.23},
+		{ID: "dd", Name: "CPU Clock", Kind: "clock", Value: 4200},
+		{ID: "ee", Name: "Disk Used", Kind: "data", Value: 100},
+	}}
+	h.Sensors = sensors
+	get := func(path string) (int, map[string]any) {
+		rec := do(h, "GET", "/redfish/v1/Chassis/1"+path, "", admin)
+		if rec.Code != 200 {
+			return rec.Code, nil
+		}
+		return rec.Code, decode(t, rec)
+	}
+	if code, _ := get("/Thermal"); code != 404 {
+		t.Fatalf("Thermal with the feature off: %d", code)
+	}
+	if _, chassis := get(""); chassis["Sensors"] != nil {
+		t.Fatalf("the chassis links to sensors that are off: %v", chassis)
+	}
+	sensors.on, sensors.fresh = true, true
+	_, thermal := get("/Thermal")
+	temperature := thermal["Temperatures"].([]any)[0].(map[string]any)
+	if temperature["ReadingCelsius"] != 54.5 || temperature["MemberId"] != "0" || temperature["PhysicalContext"] != "CPU" ||
+		thermal["Fans"].([]any)[0].(map[string]any)["Reading"] != 912.0 {
+		t.Errorf("Thermal: %v", thermal)
+	}
+	if _, power := get("/Power"); power["Voltages"].([]any)[0].(map[string]any)["ReadingVolts"] != 1.23 {
+		t.Errorf("Power: %v", power)
+	}
+	// Every kind Redfish has a reading type for, in its unit; not "data".
+	if _, all := get("/Sensors"); all["Members@odata.count"] != 4.0 {
+		t.Errorf("Sensors: %v", all)
+	}
+	if _, clock := get("/Sensors/dd"); clock["Reading"] != 4.2e9 || clock["ReadingType"] != "Frequency" {
+		t.Errorf("a clock in MHz: %v", clock)
+	}
+	if code, _ := get("/Sensors/ee"); code != 404 {
+		t.Errorf("a kind without a reading type: %d", code)
+	}
+	sensors.readings, sensors.fresh = nil, false
+	if _, thermal := get("/Thermal"); len(thermal["Temperatures"].([]any)) != 0 || thermal["Status"].(map[string]any)["State"] != "UnavailableOffline" {
+		t.Errorf("Thermal of a silent agent: %v", thermal)
+	}
+}

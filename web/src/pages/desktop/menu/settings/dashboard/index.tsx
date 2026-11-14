@@ -557,7 +557,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                 iface.wireless
                   ? t('settings.network.wifi.title')
                   : iface.name === 'eth0'
-                    ? t('settings.network.ethernet.title')
+                    ? t('settings.network.ethernet.name')
                     : iface.name,
                 <div className="text-sm">
                   <div className="mb-2 flex items-center gap-2">

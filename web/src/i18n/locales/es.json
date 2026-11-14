@@ -759,7 +759,12 @@
     "autostartHint": "Se ejecuta una vez tras cada arranque, en segundo plano; consulte la guía de scripts.",
     "autostartRunning": "Ejecución al iniciar: en curso",
     "autostartExited": "Ejecución al iniciar: código de salida {{code}}",
-    "autostartFailed": "Ejecución al iniciar: no se pudo iniciar"
+    "autostartFailed": "Ejecución al iniciar: no se pudo iniciar",
+    "pythonMissing": "Python 3 no está instalado",
+    "pythonMissingDesc": "Los scripts de Python necesitan Python 3: unos 13 MiB de descarga, 35 MiB en el dispositivo. ¿Instalarlo ahora?",
+    "pythonInstall": "Instalar Python",
+    "pythonInstalling": "Instalando Python 3…",
+    "pythonInstalled": "Python 3 está instalado"
   },
   "terminal": {
     "title": "Consola",

@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/script';
 
+import { offerPython } from './python.ts';
+
 type RunProps = {
   script: string;
   setIsRunning: (isRunning: boolean) => void;
@@ -19,6 +21,7 @@ export const Run = ({ script, setIsRunning }: RunProps) => {
     null
   );
   const failureMessage = useEffectEvent(() => t('script.runFailed'));
+  const pythonMissing = useEffectEvent(() => void offerPython(t));
 
   useEffect(() => {
     let disposed = false;
@@ -34,6 +37,7 @@ export const Run = ({ script, setIsRunning }: RunProps) => {
         if (rsp.code !== 0) {
           setLog(rsp.msg);
           setState('failed');
+          if (rsp.code === api.PYTHON_MISSING) pythonMissing();
           return;
         }
 

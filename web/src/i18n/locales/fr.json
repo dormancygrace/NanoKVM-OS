@@ -759,7 +759,12 @@
     "autostartHint": "S'exécute une fois après chaque démarrage, en arrière-plan ; voir le guide des scripts.",
     "autostartRunning": "Lancement au démarrage : en cours",
     "autostartExited": "Lancement au démarrage : code de sortie {{code}}",
-    "autostartFailed": "Lancement au démarrage : échec du lancement"
+    "autostartFailed": "Lancement au démarrage : échec du lancement",
+    "pythonMissing": "Python 3 n'est pas installé",
+    "pythonMissingDesc": "Les scripts Python ont besoin de Python 3 : environ 13 Mio à télécharger, 35 Mio sur l'appareil. L'installer maintenant ?",
+    "pythonInstall": "Installer Python",
+    "pythonInstalling": "Installation de Python 3…",
+    "pythonInstalled": "Python 3 est installé"
   },
   "terminal": {
     "title": "Terminal",

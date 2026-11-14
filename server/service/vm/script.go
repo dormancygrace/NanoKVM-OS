@@ -20,6 +20,7 @@ import (
 
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/extensions/apkpkg"
 )
 
 const ScriptDirectory = "/etc/kvm/scripts"
@@ -288,6 +289,29 @@ func (c *cappedOutput) bytes() []byte {
 	return c.data
 }
 
+// codePythonMissing answers a run of a .py script without Python 3: the
+// page offers to install it.
+const codePythonMissing = -3
+
+func pythonInstalled() bool {
+	_, err := exec.LookPath(pythonInterpreter)
+	return err == nil
+}
+
+// InstallPython installs Python 3 from the Alpine repositories (about 13 MiB
+// to download, 35 MiB on the device), for .py scripts. It is not part of
+// the OS: most devices never run one.
+func (s *Service) InstallPython(c *gin.Context) {
+	var rsp proto.Response
+	if !pythonInstalled() {
+		if err := apkpkg.Run("install", "python3"); err != nil {
+			rsp.ErrRsp(c, -1, "Python installation failed: "+err.Error())
+			return
+		}
+	}
+	rsp.OkRsp(c)
+}
+
 func removeScript(root, name string) error {
 	path, err := scriptPath(root, name)
 	if err != nil {
@@ -341,7 +365,8 @@ func (s *Service) UploadScript(c *gin.Context) {
 	}
 
 	data := &proto.UploadScriptRsp{
-		File: header.Filename,
+		File:          header.Filename,
+		PythonMissing: strings.EqualFold(filepath.Ext(header.Filename), ".py") && !pythonInstalled(),
 	}
 	rsp.OkRspWithData(c, data)
 
@@ -368,7 +393,7 @@ func (s *Service) RunScript(c *gin.Context) {
 	if err != nil {
 		log.Errorf("run script %q failed: %s", req.Name, err.Error())
 		if errors.Is(err, errPythonRuntimeMissing) {
-			rsp.ErrRsp(c, -2, errPythonRuntimeMissing.Error())
+			rsp.ErrRsp(c, codePythonMissing, errPythonRuntimeMissing.Error())
 			return
 		}
 		rsp.ErrRsp(c, -2, "run script failed")

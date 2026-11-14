@@ -759,7 +759,12 @@
     "autostartHint": "Runs once after each boot, in the background; see the Scripts guide.",
     "autostartRunning": "Startup run: running",
     "autostartExited": "Startup run: exit code {{code}}",
-    "autostartFailed": "Startup run: could not start"
+    "autostartFailed": "Startup run: could not start",
+    "pythonMissing": "Python 3 is not installed",
+    "pythonMissingDesc": "Python scripts need Python 3: about 13 MiB to download, 35 MiB on the device. Install it now?",
+    "pythonInstall": "Install Python",
+    "pythonInstalling": "Installing Python 3…",
+    "pythonInstalled": "Python 3 is installed"
   },
   "terminal": {
     "title": "Terminal",

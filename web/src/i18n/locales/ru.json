@@ -759,7 +759,12 @@
     "autostartHint": "Запускается один раз после каждой загрузки, в фоне; подробности — в руководстве по скриптам.",
     "autostartRunning": "Запуск при старте: выполняется",
     "autostartExited": "Запуск при старте: код выхода {{code}}",
-    "autostartFailed": "Запуск при старте: не удалось запустить"
+    "autostartFailed": "Запуск при старте: не удалось запустить",
+    "pythonMissing": "Python 3 не установлен",
+    "pythonMissingDesc": "Скриптам на Python нужен Python 3: около 13 МиБ загрузки, 35 МиБ на устройстве. Установить сейчас?",
+    "pythonInstall": "Установить Python",
+    "pythonInstalling": "Установка Python 3…",
+    "pythonInstalled": "Python 3 установлен"
   },
   "terminal": {
     "title": "Терминал",

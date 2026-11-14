@@ -9,6 +9,7 @@ import * as api from '@/api/script.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 
+import { offerPython } from './python.ts';
 import { Run } from './run';
 
 export const Script = () => {
@@ -65,6 +66,7 @@ export const Script = () => {
         if (!scripts.includes(rsp.data.file)) {
           setScripts([...scripts, rsp.data.file]);
         }
+        if (rsp.data.pythonMissing) void offerPython(t);
       })
       .catch((err) => showRequestError(err))
       .finally(() => {
@@ -82,7 +84,8 @@ export const Script = () => {
       api
         .runScript(currentScript, type)
         .then((rsp) => {
-          if (rsp.code !== 0) showRequestError(rsp, 'script.runFailed');
+          if (rsp.code === api.PYTHON_MISSING) void offerPython(t);
+          else if (rsp.code !== 0) showRequestError(rsp, 'script.runFailed');
         })
         .catch((err) => showRequestError(err, 'script.runFailed'));
     }

@@ -165,3 +165,61 @@ func TestCrossSiteWritesAreRefused(t *testing.T) {
 		t.Fatalf("JSON POST got %d", code)
 	}
 }
+
+type fakeMedia struct {
+	current  Medium
+	inserted []MediaRequest
+	err      error
+}
+
+func (f *fakeMedia) Medium(context.Context) (Medium, error) { return f.current, nil }
+func (f *fakeMedia) Eject(context.Context) error            { f.current = Medium{}; return f.err }
+func (f *fakeMedia) Insert(_ context.Context, r MediaRequest) error {
+	if f.err == nil {
+		f.inserted, f.current = append(f.inserted, r), Medium{Inserted: true, Image: r.Image, CD: true, Via: "URI"}
+	}
+	return f.err
+}
+
+// The drive is the system's and, for older clients, the manager's; without
+// the setting neither exists. An insert never shows its credentials again.
+func TestVirtualMedia(t *testing.T) {
+	h := New("admin", "correct-horse", Info{}, &fakePower{})
+	if rec := do(h, "GET", "/redfish/v1/Systems/1/VirtualMedia/1", "", admin); rec.Code != 404 {
+		t.Fatalf("without the setting: %d", rec.Code)
+	}
+	media := &fakeMedia{}
+	h.Media = media
+	for _, parent := range []string{"Systems", "Managers"} {
+		base := "/redfish/v1/" + parent + "/1/VirtualMedia/1"
+		insert := base + "/Actions/VirtualMedia.InsertMedia"
+		if v := decode(t, do(h, "GET", base, "", admin)); v["@odata.id"] != base || v["Inserted"] != false || v["Image"] != nil {
+			t.Fatalf("%s empty: %v", parent, v)
+		}
+		for _, c := range []struct {
+			body string
+			code int
+		}{
+			{`{}`, 400},
+			{`{"Image":"http://h/a.iso","Inserted":false}`, 400},
+			{`{"Image":"http://h/a.iso","TransferProtocolType":"CIFS"}`, 400},
+			{`{"Image":"http://h/a.iso","TransferMethod":"Upload"}`, 400},
+			{`{"Image":"https://h/a.iso","UserName":"u","Password":"secret"}`, 204},
+			{`{"Image":"https://h/b.iso"}`, 409}, // the drive holds a.iso
+		} {
+			if rec := do(h, "POST", insert, c.body, admin); rec.Code != c.code {
+				t.Errorf("%s insert %s: %d, want %d: %s", parent, c.body, rec.Code, c.code, rec.Body)
+			}
+		}
+		rec := do(h, "GET", base, "", admin)
+		if v := decode(t, rec); v["Inserted"] != true || v["ImageName"] != "a.iso" || v["TransferProtocolType"] != "HTTPS" || strings.Contains(rec.Body.String(), "secret") {
+			t.Errorf("%s inserted: %s", parent, rec.Body)
+		}
+		if rec := do(h, "POST", base+"/Actions/VirtualMedia.EjectMedia", "{}", admin); rec.Code != 204 || media.current.Inserted {
+			t.Errorf("%s eject: %d", parent, rec.Code)
+		}
+	}
+	if n := len(media.inserted); n != 2 || media.inserted[0].Password != "secret" {
+		t.Errorf("inserts that reached the drive: %+v", media.inserted)
+	}
+}

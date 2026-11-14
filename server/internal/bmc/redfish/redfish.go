@@ -1,7 +1,8 @@
 // Package redfish serves the part of DMTF Redfish that power management
 // tools use (fence_redfish, Ansible's community.general.redfish_*, Metal3):
 // the service root, one computer system with its power state and reset
-// action, its chassis and manager, and login sessions.
+// action, its chassis and manager, and login sessions; and, when the
+// settings allow it, the manager's virtual media (media.go).
 package redfish
 
 import (
@@ -79,6 +80,10 @@ type Handler struct {
 	// OnLogin hears of each client once while it keeps logging in.
 	OnLockout func(addr string, failures int, lock time.Duration)
 	OnLogin   func(user, addr string)
+
+	// Media, when set, is the virtual drive: the manager then has a
+	// VirtualMedia collection with its one member.
+	Media Media
 
 	mu       sync.Mutex
 	sessions map[string]*session // by token
@@ -348,6 +353,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		})
 	case path == managerPath:
 		h.get(w, r, h.manager)
+	case h.Media != nil && mediaIn(path):
+		base, _ := mediaBase(path)
+		h.media(w, r, base, path)
 	case path == root+"/SessionService":
 		h.get(w, r, h.sessionService)
 	case path == sessionsPath:
@@ -438,6 +446,9 @@ func (h *Handler) system(ctx context.Context) any {
 		}},
 		"Links": object{"Chassis": []object{link(chassisPath)}, "ManagedBy": []object{link(managerPath)}},
 	}
+	if h.Media != nil {
+		system["VirtualMedia"] = link(systemPath + mediaSuffix)
+	}
 	// Without a power LED the state is not known; Redfish has no "unknown"
 	// value, so the property is left out.
 	if on, known, err := h.power.Status(ctx); err == nil && known {
@@ -466,7 +477,7 @@ func (h *Handler) chassis(ctx context.Context) any {
 }
 
 func (h *Handler) manager() any {
-	return object{
+	manager := object{
 		"@odata.id":       managerPath,
 		"@odata.type":     "#Manager.v1_18_0.Manager",
 		"Id":              "1",
@@ -481,6 +492,10 @@ func (h *Handler) manager() any {
 			"ManagerForChassis": []object{link(chassisPath)},
 		},
 	}
+	if h.Media != nil {
+		manager["VirtualMedia"] = link(managerPath + mediaSuffix)
+	}
+	return manager
 }
 
 func (h *Handler) reset(w http.ResponseWriter, r *http.Request) {

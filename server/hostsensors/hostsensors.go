@@ -191,6 +191,7 @@ type Store struct {
 	report     *Report
 	transport  string
 	at         time.Time
+	from       From
 	rejected   uint64
 	lastReject string
 }
@@ -201,6 +202,26 @@ var Default = &Store{}
 // Accept parses a report and keeps it; the error is also remembered for the
 // status.
 func (s *Store) Accept(data []byte, transport string, now time.Time) error {
+	return s.AcceptFrom(data, transport, From{}, now)
+}
+
+// From is where a network report came from: the sender's address, and the
+// life of the USB link it came over as the receiver read it then (the host
+// watchdog's Signs.Link).
+type From struct {
+	Peer, Link string
+}
+
+// Last is when the last report came and from where; zero when there is
+// none.
+func (s *Store) Last() (at time.Time, from From) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.at, s.from
+}
+
+// AcceptFrom is Accept with where the report came from.
+func (s *Store) AcceptFrom(data []byte, transport string, from From, now time.Time) error {
 	r, err := Parse(data)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -209,7 +230,7 @@ func (s *Store) Accept(data []byte, transport string, now time.Time) error {
 		s.lastReject = err.Error()
 		return err
 	}
-	s.report, s.transport, s.at = r, transport, now
+	s.report, s.transport, s.at, s.from = r, transport, now, from
 	return nil
 }
 
@@ -217,7 +238,7 @@ func (s *Store) Accept(data []byte, transport string, now time.Time) error {
 func (s *Store) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.report, s.transport, s.at = nil, "", time.Time{}
+	s.report, s.transport, s.at, s.from = nil, "", time.Time{}, From{}
 }
 
 // Status reports the last report as of now.

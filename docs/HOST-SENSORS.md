@@ -78,3 +78,35 @@ The computer is not trusted. A report is one JSON object, a line on the serial p
 ## Building
 
 `scripts/build-addon.py --addon nanokvm-host-sensors --dotnet <dotnet>` builds the package: the agent (`addons/host-sensors/windows`, .NET Framework 4.7.2, one exe with its libraries inside) with the **latest** release of PawnIO's installer ([namazso/PawnIO.Setup](https://github.com/namazso/PawnIO.Setup)), whose version and SHA-256 are recorded in the package's `source.json`. `--pawnio FILE` uses a local copy instead.
+
+## Host watchdog
+
+A server's BMC resets a host that hangs (iLO's ASR, IPMI's watchdog timer). The NanoKVM can do it with the agent's reports: Services > Computer sensors > Watchdog, off by default.
+
+| Setting | What happens when the watchdog decides the host hung |
+| --- | --- |
+| Notify only | an event (Settings > Notifications, kind Power; the event log) |
+| Press reset | the reset button is pressed, and the event says so |
+| Power off and on | the BMC power cycle (hold the power button, wait for the LED, press), and the event says so |
+
+The silence of the agent alone is not a hang: the agent may have been stopped or updated, the host restarted into its firmware or an installer, put to sleep, or switched off. So the watchdog acts only when **all** of this holds:
+
+- **A report armed it,** in this run of the NanoKVM's server and since the USB devices last connected: a host that never ran the agent is never watched.
+- **The agent has been silent** for the time set (2 to 60 minutes, 5 by default).
+- **The host's power is on,** where the power LED is wired; without the LED this is not checked.
+- **The USB link is the one the last report came over, and configured.** A restart, a firmware setup, an installer and a replug enumerate the USB devices anew; sleep suspends them. Each of them disarms the watchdog until the next report. A hung system does neither.
+- **The host does not answer** ARP requests on the USB network, sent to the address its reports came from. A living kernel answers them whatever its firewall; that is how a stopped agent on a living host is told from a hang. In that case the event "Sensors agent silent" is recorded and nothing is pressed.
+
+One decision per silence: after it, the watchdog waits for the next report.
+
+**What is never taken for a hang.**
+- A question that could not be asked. The server sends the ARP requests itself (three, a second apart, answers awaited for 5 s) and counts those the kernel took: a failed send, fewer requests than three, no socket, or the USB network down on the NanoKVM give the event "Watchdog could not ask the host", and nothing is pressed. Only requests that all went out and stayed unanswered count. (BusyBox's `arping` cannot be used for this: it ends with "no reply" also when no request could be sent.)
+- A change while the host was asked (the question takes seconds): the setting, a report, a restart, sleep, power off. A decision belongs to the setting it was made under: any change of the action or the time ends it, so that "notify" cannot turn into a press and a time made longer is honoured. The setting and the signs are read again right before the press. A decision dropped this way is made anew at the next look, under the setting of then and with the host asked again: a host that hung is still dealt with after the setting was changed.
+- A report from before the host's restart: each report is bound to the USB link it came over, read when it is taken in, so it cannot arm the watchdog for the link after a new enumeration.
+- A USB link whose life cannot be read.
+
+**Limits.**
+- Only with the USB network transport. Over USB serial the NanoKVM has no way to ask the host whether it lives, so the watchdog is off there.
+- A system whose kernel still answers the network while everything else is stuck is not seen as hung.
+- If the agent is stopped and the USB network adapter is disabled on the host as well, the host looks hung.
+- After the NanoKVM's own server restarts, the watchdog is armed again by the agent's next report.

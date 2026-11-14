@@ -155,6 +155,7 @@ func StartNotifyWatch() {
 const notifyLEDSettingInterval = 30 * time.Second
 
 var (
+	notifyLEDSettingMu   sync.Mutex
 	notifyLEDSettingAt   time.Time
 	notifyLEDUnconnected bool
 )
@@ -163,11 +164,15 @@ func notifyPowerLED() (bool, bool) {
 	if !ATXEnabled() {
 		return false, false
 	}
+	// The notifications' watcher and the host watchdog both ask.
+	notifyLEDSettingMu.Lock()
 	if now := time.Now(); now.Sub(notifyLEDSettingAt) >= notifyLEDSettingInterval {
 		config, err := bmc.Load(bmc.ConfigPath)
 		notifyLEDSettingAt, notifyLEDUnconnected = now, err == nil && config.PowerLEDDisconnected
 	}
-	if notifyLEDUnconnected {
+	unconnected := notifyLEDUnconnected
+	notifyLEDSettingMu.Unlock()
+	if unconnected {
 		return false, false
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)

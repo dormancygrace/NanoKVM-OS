@@ -187,6 +187,7 @@ func StartHostSensors() {
 			reconcileHostSensors()
 		}
 	}()
+	go runHostWatchdog()
 }
 
 func hostSensorsWait(stop <-chan struct{}, d time.Duration) bool {
@@ -365,7 +366,11 @@ func (s *Service) PostHostSensors(c *gin.Context) {
 		c.String(http.StatusBadRequest, "the report could not be read")
 		return
 	}
-	if err := hostsensors.Default.Accept(body, hostSensorsNetwork, time.Now()); err != nil {
+	// The link is read now, with the report in hand: the report came over
+	// this life of the USB link (the host watchdog needs that).
+	peer, _, _ := net.SplitHostPort(c.Request.RemoteAddr)
+	from := hostsensors.From{Peer: peer, Link: hostWatchdogLink()}
+	if err := hostsensors.Default.AcceptFrom(body, hostSensorsNetwork, from, time.Now()); err != nil {
 		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
@@ -412,7 +417,8 @@ func hostSensorsState() gin.H {
 		"status":       hostsensors.Default.Status(time.Now()),
 		"view":         hostSensorsView(),
 		// The helper disk with the agent: whether the computer has it.
-		"disk": hostSensorsDisk(),
+		"disk":     hostSensorsDisk(),
+		"watchdog": hostWatchdogState(),
 	}
 }
 

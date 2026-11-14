@@ -30,7 +30,7 @@ export const Addons = ({
   onOpenAcme: () => void;
   onOpenBmc: () => void;
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [status, setStatus] = useAtom(picoclawRuntimeStatusAtom);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -185,25 +185,29 @@ export const Addons = ({
   );
   // Each card once, in Installed or Available. A card whose state is not
   // known yet waits under Available.
-  const cards: { installed?: boolean; card: ReactNode }[] = [
-    { installed: status?.installed, card: picoclaw },
+  const cards: { name: string; installed?: boolean; card: ReactNode }[] = [
+    { name: 'PicoClaw', installed: status?.installed, card: picoclaw },
     {
+      name: 'RustDesk',
       installed: rustDesk?.installed ?? inventory?.rustdesk?.installed,
       card: <RustDeskAddon key="rustdesk" onOpen={onOpenRustDesk} />
     },
     {
+      name: 'acme.sh',
       installed: acmeInstalled,
       card: <AcmeAddon key="acme" onOpen={onOpenAcme} onInstalled={setAcmeInstalled} />
     },
     ...(ipmiEntry
       ? [
           {
+            name: t('settings.bmc.ipmi'),
             installed: inventory?.ipmi?.installed,
             card: <IpmiAddon key="ipmi" onOpen={onOpenBmc} entry={ipmiEntry} os={catalog?.os} />
           }
         ]
       : []),
     ...others.map((addon) => ({
+      name: addon.name.replace(/^nanokvm-/, '').replace(/[-_]+/g, ' '),
       installed: !!addon.installed,
       card: (
         <CatalogAddonCard
@@ -216,6 +220,8 @@ export const Addons = ({
       )
     }))
   ];
+  const collator = new Intl.Collator(i18n.resolvedLanguage, { sensitivity: 'base', numeric: true });
+  cards.sort((a, b) => collator.compare(a.name, b.name));
   const installed = cards.filter((item) => item.installed).map((item) => item.card);
   const available = cards.filter((item) => !item.installed).map((item) => item.card);
 

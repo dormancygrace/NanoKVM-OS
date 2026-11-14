@@ -552,7 +552,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                 ))
           )
           .map((iface) => (
-            <div key={iface.name} className="min-w-0">
+            <div key={iface.name} className="grid min-w-0">
               {section(
                 iface.wireless
                   ? t('settings.network.wifi.title')

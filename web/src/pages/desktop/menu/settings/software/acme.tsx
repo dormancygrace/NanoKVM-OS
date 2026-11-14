@@ -117,13 +117,11 @@ export const AcmeAddon = ({
                 {t('settings.software.addons.install')}
               </Button>
             )}
-            <Button
-              type={status.installed ? 'primary' : 'default'}
-              disabled={busy}
-              onClick={onOpen}
-            >
-              {t('settings.network.acme.title')}
-            </Button>
+            {status.installed && (
+              <Button type="primary" disabled={busy} onClick={onOpen}>
+                {t('settings.network.acme.title')}
+              </Button>
+            )}
           </div>
           {!status.installed && (
             <p className="text-fg-muted m-0 text-xs">{t('settings.network.acme.installHint')}</p>

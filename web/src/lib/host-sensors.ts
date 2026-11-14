@@ -74,6 +74,22 @@ export function groupSensors(sensors: HostSensor[]): HostSensorGroup[] {
     .map((item) => item.group);
 }
 
+// The agent as its report names it: "nanokvm-sensors/1.2.3 windows".
+export function agentInfo(agent: string): { version: string; system: string } | undefined {
+  const match = /^nanokvm-sensors\/(\S+)(?:\s+(.+))?$/.exec(agent);
+  return match ? { version: match[1], system: match[2] ?? '' } : undefined;
+}
+
+// Whether version a is newer than b (numbers separated by dots).
+export function newerVersion(a: string, b: string): boolean {
+  const parts = (v: string) => v.split('.').map((n) => Number.parseInt(n, 10) || 0);
+  const x = parts(a);
+  const y = parts(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++)
+    if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0);
+  return false;
+}
+
 // A reading's name across reports: the server's hostsensors.Key.
 export const sensorKey = (sensor: HostSensor) =>
   [sensor.type, sensor.hw, sensor.kind, sensor.name].join('\t');

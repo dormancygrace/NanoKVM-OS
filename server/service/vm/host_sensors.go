@@ -332,6 +332,7 @@ func hostSensorsState() gin.H {
 	if info, err := os.Stat(hostSensorsAgentFile()); err == nil && info.Mode().IsRegular() {
 		agent.Available, agent.Size = true, info.Size()
 	}
+	addonVersion := hostSensorsAddonVersion()
 	return gin.H{
 		"installed": HostSensorsInstalled(),
 		"mode":      hostSensorsMode(),
@@ -339,8 +340,11 @@ func hostSensorsState() gin.H {
 		// The NanoKVM's addresses on the USB network; empty without it.
 		"network": gin.H{"interface": hostSensorsInterface, "addresses": addresses, "path": HostSensorsIngestPath},
 		"agent":   agent,
-		"status":  hostsensors.Default.Status(time.Now()),
-		"view":    hostSensorsView(),
+		// The version of the agent the add-on brings ("" when unknown): the
+		// page compares it with the running agent's, which the report names.
+		"agentVersion": addonVersion,
+		"status":       hostsensors.Default.Status(time.Now()),
+		"view":         hostSensorsView(),
 		// The helper disk with the agent: whether the computer has it.
 		"disk": hostSensorsDisk(),
 	}
@@ -352,6 +356,26 @@ func hostSensorsState() gin.H {
 func hostSensorsDisk() gin.H {
 	attached, stale := helperDiskLun()
 	return gin.H{"attached": attached, "stale": stale, "wanted": hostSensorsMode() != hostSensorsOff}
+}
+
+// hostSensorsSourceFile is the add-on package's record of its build
+// (scripts/build-addon.py): its version is the agent's.
+var hostSensorsSourceFile = "/usr/share/nanokvm-host-sensors/source.json"
+
+func hostSensorsAddonVersion() string {
+	data, err := os.ReadFile(hostSensorsSourceFile)
+	if err != nil {
+		return ""
+	}
+	var record struct {
+		PackageVersion string `json:"package_version"`
+	}
+	if json.Unmarshal(data, &record) != nil {
+		return ""
+	}
+	// 1.2.3-r0: the revision is the package's, not the agent's.
+	version, _, _ := strings.Cut(record.PackageVersion, "-")
+	return version
 }
 
 // GetHostSensors answers GET /api/vm/host-sensors: the mode, the transports'

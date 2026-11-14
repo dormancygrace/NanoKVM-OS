@@ -29,23 +29,30 @@ const helperDiskReadme = `NanoKVM helper disk
 
 This disk comes from the NanoKVM's virtual USB drive. It is read-only.
 
-sensors.exe: the computer sensors agent for Windows. It sends this
-computer's temperatures, voltages and fan speeds to the NanoKVM
-(Settings > Services > Computer sensors). In an administrator's console:
+NanoKVM-Sensors-Setup-Windows.exe
+    The computer sensors agent for Windows. It sends this computer's
+    temperatures, voltages and fan speeds to the NanoKVM (Settings >
+    Services > Computer sensors). Double-click it: it installs the agent,
+    updates an older one, or removes it. It offers to install the PawnIO
+    driver, which processor and board sensors need.
+    From an administrator's console instead:
+        NanoKVM-Sensors-Setup-Windows.exe install
+        NanoKVM-Sensors-Setup-Windows.exe uninstall
+        NanoKVM-Sensors-Setup-Windows.exe --help
 
-    sensors.exe install       copy the agent to Program Files, offer to
-                              install the PawnIO driver (processor and
-                              board sensors need it) and start with Windows
-    sensors.exe uninstall     stop and remove it (the driver stays)
-    sensors.exe --help        the options
-
-setup.sh: a login console on the NanoKVM's USB serial port for a Linux
-computer. As root, with this disk mounted on /mnt:
-
-    sh /mnt/setup.sh          report what it found and what it would change
-    sh /mnt/setup.sh apply    make the changes (with a confirmation)
-    sh /mnt/setup.sh undo     remove them again
+NanoKVM-Serial-Console-Setup-Linux.sh
+    A login console on the NanoKVM's USB serial port for a Linux computer.
+    As root, with this disk mounted on /mnt:
+        sh /mnt/NanoKVM-Serial-Console-Setup-Linux.sh          report only
+        sh /mnt/NanoKVM-Serial-Console-Setup-Linux.sh apply    make the changes
+        sh /mnt/NanoKVM-Serial-Console-Setup-Linux.sh undo     remove them
 `
+
+// The names say what each file sets up, and for which system.
+const (
+	helperDiskConsoleName = "NanoKVM-Serial-Console-Setup-Linux.sh"
+	helperDiskSensorsName = "NanoKVM-Sensors-Setup-Windows.exe"
+)
 
 // helperDiskImage is the image S03usbdev attaches as the helper disk: the
 // composed one when there is one, the build's otherwise.
@@ -104,13 +111,13 @@ func reconcileHelperDisk() {
 		log.Errorf("helper disk: %v", err)
 		return
 	}
-	files := []helperdisk.File{{Name: "README.TXT", Data: []byte(strings.ReplaceAll(helperDiskReadme, "\n", "\r\n"))}}
+	files := []helperdisk.File{{Name: "README.txt", Data: []byte(strings.ReplaceAll(helperDiskReadme, "\n", "\r\n"))}}
 	// The console helper is part of NanoKVM OS; an image without it is
 	// still better than none.
 	if script, err := os.ReadFile(serialConsoleScriptFile()); err == nil {
-		files = append(files, helperdisk.File{Name: "SETUP.SH", Data: script})
+		files = append(files, helperdisk.File{Name: helperDiskConsoleName, Data: script})
 	}
-	files = append(files, helperdisk.File{Name: "SENSORS.EXE", Data: agent})
+	files = append(files, helperdisk.File{Name: helperDiskSensorsName, Data: agent})
 	image, err := helperdisk.Build(files)
 	if err != nil {
 		log.Errorf("helper disk: %v", err)

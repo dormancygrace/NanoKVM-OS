@@ -264,7 +264,7 @@ start_usb_dev(){
     then
             mkdir -p functions/mass_storage.disk0
             # With USB serial, a second read-only LUN carries the headless
-            # Linux console helper (setup.sh), so the computer can set up a
+            # Linux console helper (NanoKVM-Serial-Console-Setup-Linux.sh), so the computer can set up a
             # login on the serial port without any network. The LUN goes
             # away with serial, so the drives match the composition. A LUN
             # can be added or removed only while the function is not linked

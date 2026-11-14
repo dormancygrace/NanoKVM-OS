@@ -133,6 +133,9 @@ def build_dotnet(r, dotnet, pawnio, output):
     # bin/ and obj/ go to the stage, not into the source tree.
     subprocess.run([str(dotnet), 'build', str(r['directory'] / d['project']), '-c', 'Release', '-o', str(out),
                     f'-p:PawnIoSetup={pawnio}', f"-p:BaseIntermediateOutputPath={output / 'obj'}/",
+                    # The agent reports the add-on's version, and its setup
+                    # compares it with the installed agent's.
+                    f"-p:Version={r['version']}",
                     '-p:ContinuousIntegrationBuild=true'], env=env, check=True)
     binary = out / d['output']
     if not binary.is_file() or binary.read_bytes()[:2] != b'MZ':

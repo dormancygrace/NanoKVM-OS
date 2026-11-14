@@ -21,6 +21,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using System.Windows.Forms;
 using System.Threading;
 using LibreHardwareMonitor.Hardware;
 using Microsoft.Win32;
@@ -30,7 +31,11 @@ namespace NanoKvmSensors
 {
     internal static class Program
     {
-        private const string AgentVersion = "1";
+        // The version is the add-on's (the build sets it): it goes into every
+        // report, and setup compares it with the installed agent's.
+        private static readonly Version Own = Assembly.GetExecutingAssembly().GetName().Version;
+        private static string AgentVersion { get { return Own.ToString(3); } }
+        private const string Title = "NanoKVM computer sensors";
         private const string TaskName = "NanoKVM Sensors";
         // The report format's bounds (server/hostsensors).
         private const int MaxSensors = 1024;
@@ -42,6 +47,10 @@ namespace NanoKvmSensors
             AppDomain.CurrentDomain.AssemblyResolve += LoadEmbedded;
             try
             {
+                // A double click: no arguments. The window installs, updates
+                // or removes the agent.
+                if (args.Length == 0 || (args.Length == 1 && args[0] == "setup")) return Setup(null);
+                if (args.Length == 3 && args[0] == "setup" && args[1] == "--preview") return Setup(args[2]);
                 return Run(args);
             }
             catch (Exception e)
@@ -80,17 +89,22 @@ namespace NanoKvmSensors
         private const string Usage =
 @"nanokvm-sensors: send this computer's sensors to the NanoKVM plugged into it.
 
-  nanokvm-sensors [options]     run until stopped (Ctrl+C)
+On the NanoKVM's helper disk this program is NanoKVM-Sensors-Setup-Windows.exe.
+
+  (no arguments, a double click)  a window that installs the agent, updates an
+                                older installed one, or removes it
+  nanokvm-sensors install       the same without the window: copy this program
+                                to Program Files\NanoKVM and start it with
+                                Windows (a scheduled task as SYSTEM; needs an
+                                administrator's console). Offers to install
+                                the PawnIO driver first when it is missing or
+                                older than 2.0 (--yes: without asking,
+                                --no-driver: not at all). The options below
+                                become the installed agent's
+  nanokvm-sensors uninstall     stop and remove the agent (the driver stays)
+  nanokvm-sensors run [options] the agent itself, until stopped (Ctrl+C)
   nanokvm-sensors --once        print one report and exit
-  nanokvm-sensors install       copy this program to Program Files\NanoKVM
-                                and start it with Windows (a scheduled task
-                                as SYSTEM; needs an administrator's console),
-                                from wherever it is run, such as the NanoKVM's
-                                helper disk (sensors.exe there). Offers to
-                                install the PawnIO driver first when it is
-                                missing or older than 2.0 (--yes: without
-                                asking, --no-driver: not at all)
-  nanokvm-sensors uninstall     stop and remove that task (the driver stays)
+  nanokvm-sensors --version     print the version
 
 Options:
   --serial [COMn]     USB serial only; the port is found by the USB IDs
@@ -119,7 +133,10 @@ them the report is marked as limited.";
                 Func<bool> hasValue = () => i + 1 < args.Length && !args[i + 1].StartsWith("-");
                 switch (a)
                 {
-                    case "install": case "uninstall": command = a; break;
+                    case "install": case "uninstall": case "run": command = a; break;
+                    case "--version":
+                        Console.WriteLine(AgentVersion);
+                        return 0;
                     case "--once": o.Once = true; break;
                     case "--yes": o.Yes = true; break;
                     case "--no-driver": o.NoDriver = true; break;
@@ -152,22 +169,16 @@ them the report is marked as limited.";
                 if (!Uri.TryCreate(o.Url, UriKind.Absolute, out u) || (u.Scheme != "https" && u.Scheme != "http"))
                     throw new ArgumentException("--network needs a URL such as https://10.1.2.1");
             }
-            if (command == "install") return Install(args, o);
+            if (command == "install")
+            {
+                if (!IsElevated()) throw new InvalidOperationException("install needs an administrator's console");
+                if (!o.NoDriver) InstallDriver(o.Yes);
+                return InstallAgent(args.Where(a => a != "install" && a != "run" && a != "--yes" && a != "--no-driver").ToList(), o.LogFile == null);
+            }
             if (command == "uninstall")
             {
-                // Deleting a task leaves its running program: end it first.
-                Schtasks("/End /TN \"" + TaskName + "\"", true);
-                int code = Schtasks("/Delete /F /TN \"" + TaskName + "\"");
-                // The copy install made, unless this is that copy running.
-                string copy = InstalledCopy();
-                if (!string.Equals(Path.GetFullPath(Process.GetCurrentProcess().MainModule.FileName), copy, StringComparison.OrdinalIgnoreCase))
-                {
-                    for (int attempt = 0; attempt < 10 && File.Exists(copy); attempt++)
-                    {
-                        try { File.Delete(copy); } catch (Exception) { Thread.Sleep(500); }
-                    }
-                }
-                return code;
+                if (!IsElevated()) throw new InvalidOperationException("uninstall needs an administrator's console");
+                return UninstallAgent();
             }
 
             if (o.LogFile != null)
@@ -668,10 +679,35 @@ them the report is marked as limited.";
         // Install registers a task that runs this exe, where it is now, as
         // SYSTEM at every start of Windows, with the options given after
         // "install", and starts it.
-        private static int Install(string[] args, Options o)
+        // UninstallAgent ends and deletes the task and removes the copy in
+        // Program Files (unless this is that copy running).
+        private static int UninstallAgent()
         {
-            if (!IsElevated()) throw new InvalidOperationException("install needs an administrator's console");
-            if (!o.NoDriver) InstallDriver(o.Yes);
+            // Deleting a task leaves its running program: end it first.
+            Schtasks("/End /TN \"" + TaskName + "\"", true);
+            int code = Schtasks("/Delete /F /TN \"" + TaskName + "\"", true);
+            string copy = InstalledCopy();
+            if (!string.Equals(Path.GetFullPath(Process.GetCurrentProcess().MainModule.FileName), copy, StringComparison.OrdinalIgnoreCase))
+            {
+                for (int attempt = 0; attempt < 10 && File.Exists(copy); attempt++)
+                {
+                    try { File.Delete(copy); } catch (Exception) { Thread.Sleep(500); }
+                }
+            }
+            return code;
+        }
+
+        // InstallAgent registers a task that runs the agent as SYSTEM at
+        // every start of Windows, with the given options, and starts it.
+        private static int InstallAgent(List<string> rest, bool addLog)
+        {
+            rest = rest.Select(a => a.Contains(" ") ? "\"" + a + "\"" : a).ToList();
+            if (addLog)
+            {
+                rest.Add("--log");
+                rest.Add("\"" + Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NanoKVM", "nanokvm-sensors.log") + "\"");
+            }
+            rest.Insert(0, "run");
             // The task runs a copy in Program Files: this exe is usually on
             // the NanoKVM's helper disk, which is read-only and goes away
             // with the USB composition.
@@ -696,27 +732,149 @@ them the report is marked as limited.";
                     }
                 }
             }
-            var rest = args.Where(a => a != "install" && a != "--yes" && a != "--no-driver").Select(a => a.Contains(" ") ? "\"" + a + "\"" : a).ToList();
-            if (o.LogFile == null)
-            {
-                rest.Add("--log");
-                rest.Add("\"" + Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NanoKVM", "nanokvm-sensors.log") + "\"");
-            }
-            // From a definition, not from schtasks' switches: a task made with
-            // those is stopped after three days and does not run on battery.
             string xml = TaskXml.Replace("{exe}", System.Security.SecurityElement.Escape(exe))
                                 .Replace("{args}", System.Security.SecurityElement.Escape(string.Join(" ", rest)));
             string file = Path.Combine(Path.GetTempPath(), "nanokvm-sensors-task-" + Process.GetCurrentProcess().Id + ".xml");
             try
             {
                 File.WriteAllText(file, xml, Encoding.Unicode);
-                int code = Schtasks("/Create /F /TN \"" + TaskName + "\" /XML \"" + file + "\"");
+                int code = Schtasks("/Create /F /TN \"" + TaskName + "\" /XML \"" + file + "\"", true);
                 if (code != 0) return code;
-                return Schtasks("/Run /TN \"" + TaskName + "\"");
+                return Schtasks("/Run /TN \"" + TaskName + "\"", true);
             }
             finally
             {
                 try { File.Delete(file); } catch (Exception) { }
+            }
+        }
+
+        // ---- setup: the window of a double click ------------------------
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetConsoleProcessList(uint[] list, uint count);
+
+        [DllImport("kernel32.dll")]
+        private static extern bool FreeConsole();
+
+        // The version of the installed agent, null when there is none.
+        private static Version InstalledVersion()
+        {
+            string copy = InstalledCopy();
+            if (!File.Exists(copy)) return null;
+            Version version;
+            return Version.TryParse(FileVersionInfo.GetVersionInfo(copy).FileVersion, out version) ? version : new Version(0, 0);
+        }
+
+        // Setup shows what is installed and offers what fits: install, update
+        // an older agent, remove. It needs administrator rights and asks
+        // Windows for them.
+        // preview: a file to draw the window into instead of showing it for
+        // a choice (setup --preview FILE.png); nothing is asked or changed.
+        private static int Setup(string preview)
+        {
+            // A console window of our own (a double click) has no use here.
+            bool ownConsole = GetConsoleProcessList(new uint[2], 2) <= 1;
+            if (preview == null && !IsElevated())
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo(Process.GetCurrentProcess().MainModule.FileName, "setup") { UseShellExecute = true, Verb = "runas" });
+                    return 0;
+                }
+                catch (System.ComponentModel.Win32Exception)
+                {
+                    if (ownConsole) FreeConsole();
+                    MessageBox.Show("Installing or removing the agent needs administrator rights.", Title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return 1;
+                }
+            }
+            if (ownConsole && preview == null) FreeConsole();
+            Application.EnableVisualStyles();
+
+            Version installed = InstalledVersion(), driver = PawnIoVersion();
+            bool driverNeeded = driver == null || driver < new Version(2, 0, 0, 0);
+            bool newer = installed != null && Own > installed;
+            string action = null;
+            using (var form = new Form())
+            {
+                form.Text = Title;
+                form.Font = System.Drawing.SystemFonts.MessageBoxFont;
+                form.FormBorderStyle = FormBorderStyle.FixedDialog;
+                form.MaximizeBox = form.MinimizeBox = false;
+                form.StartPosition = FormStartPosition.CenterScreen;
+                form.ShowIcon = false;
+                form.AutoScaleMode = AutoScaleMode.Font;
+                var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, AutoSize = true, Padding = new Padding(16) };
+                form.Controls.Add(layout);
+                layout.Controls.Add(new Label
+                {
+                    AutoSize = true, MaximumSize = new System.Drawing.Size(460, 0), Margin = new Padding(0, 0, 0, 12),
+                    Text = "The agent reads this computer's temperatures, voltages and fan speeds and sends them to the NanoKVM plugged into it. " +
+                           "It runs in the background and starts with Windows.\r\n\r\n" +
+                           "This program: version " + AgentVersion + "\r\n" +
+                           "Installed agent: " + (installed == null ? "none" : "version " + installed.ToString(3) +
+                               (newer ? " (older)" : Own == installed ? " (the same)" : " (newer than this program)")) + "\r\n" +
+                           "PawnIO driver: " + (driver == null ? "not installed" : "version " + driver)
+                });
+                var withDriver = new CheckBox
+                {
+                    AutoSize = true, Checked = true, Margin = new Padding(0, 0, 0, 12), Visible = driverNeeded && (installed == null || newer),
+                    Text = "Install the PawnIO driver (processor and board sensors need it)"
+                };
+                layout.Controls.Add(withDriver);
+                var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0) };
+                layout.Controls.Add(buttons);
+                Func<string, string, Button> button = (text, name) =>
+                {
+                    var b = new Button { Text = text, AutoSize = true, MinimumSize = new System.Drawing.Size(96, 28), Margin = new Padding(8, 0, 0, 0) };
+                    b.Click += (sender, e) => { action = name; form.Close(); };
+                    buttons.Controls.Add(b);
+                    return b;
+                };
+                form.CancelButton = button("Close", null);
+                if (installed != null) button("Remove", "remove");
+                if (installed == null) form.AcceptButton = button("Install", "install");
+                else if (newer) form.AcceptButton = button("Update to " + AgentVersion, "install");
+                form.AutoSize = true;
+                form.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                if (preview != null)
+                {
+                    form.Shown += (sender, e) =>
+                    {
+                        using (var picture = new System.Drawing.Bitmap(form.Width, form.Height))
+                        {
+                            form.DrawToBitmap(picture, new System.Drawing.Rectangle(0, 0, form.Width, form.Height));
+                            picture.Save(preview, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                        form.Close();
+                    };
+                }
+                Application.Run(form);
+                if (preview != null) return 0;
+                if (action == "install" && !(withDriver.Visible && withDriver.Checked)) driverNeeded = false;
+            }
+            if (action == null) return 0;
+            try
+            {
+                Cursor.Current = Cursors.WaitCursor;
+                if (action == "remove")
+                {
+                    UninstallAgent();
+                    MessageBox.Show("The agent is removed. The PawnIO driver stays: remove it in Windows' installed apps if nothing else uses it.",
+                                    Title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return 0;
+                }
+                if (driverNeeded) InstallDriver(true);
+                int code = InstallAgent(new List<string>(), true);
+                if (code != 0) throw new InvalidOperationException("the task could not be registered (schtasks ended with " + code + ")");
+                MessageBox.Show("The agent, version " + AgentVersion + ", is installed and running.\r\n\r\n" +
+                                "Its readings: NanoKVM > Settings > Services > Computer sensors.", Title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return 0;
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(e.Message, Title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return 1;
             }
         }
 
@@ -755,7 +913,8 @@ them the report is marked as limited.";
                     using (Process p = Process.Start(new ProcessStartInfo(path, "-install") { UseShellExecute = false }))
                     {
                         p.WaitForExit();
-                        Console.WriteLine(p.ExitCode == 0 ? "PawnIO installed." : "The PawnIO installer ended with code " + p.ExitCode + ".");
+                        if (p.ExitCode != 0) throw new InvalidOperationException("the PawnIO installer ended with code " + p.ExitCode);
+                        Console.WriteLine("PawnIO installed.");
                     }
                 }
                 finally

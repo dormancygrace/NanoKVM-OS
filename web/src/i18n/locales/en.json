@@ -2577,7 +2577,7 @@
       "connection": "Connection",
       "modeLabel": "How the readings arrive",
       "agent": "Agent for Windows",
-      "agentHint": "The agent is on the NANOKVM helper disk, which the computer sees next to the virtual drive. Run there in an administrator's console: sensors.exe install. It offers to install the PawnIO driver, which processor and board sensors need, and starts with Windows.",
+      "agentHint": "On the computer, open the NANOKVM helper disk, which it sees next to the virtual drive, and double-click NanoKVM-Sensors-Setup-Windows.exe. It installs the agent, updates an older one or removes it, and offers to install the PawnIO driver, which processor and board sensors need.",
       "readings": "Readings",
       "offHint": "Choose how the readings arrive to see them here.",
       "mode": {
@@ -2591,7 +2591,9 @@
       "noneShown": "No reading is chosen to be shown.",
       "diskAttached": "The computer has the helper disk",
       "diskStale": "The agent appears on the helper disk after the USB devices reconnect",
-      "diskMissing": "No helper disk: it needs the virtual disk in the USB composition and the USB devices reconnected"
+      "diskMissing": "No helper disk: it needs the virtual disk in the USB composition and the USB devices reconnected",
+      "agentVersion": "agent {{version}}",
+      "agentUpdate": "The add-on brings agent {{version}}: run NanoKVM-Sensors-Setup-Windows.exe from the helper disk on the computer to update."
     }
   },
   "picoclaw": {

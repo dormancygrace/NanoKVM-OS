@@ -17,7 +17,10 @@
     <SelfContained>false</SelfContained>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <Product>NanoKVM OS</Product>
+    <!-- What Windows shows for the file, also when it asks for administrator rights. -->
+    <AssemblyTitle>NanoKVM computer sensors: agent and setup</AssemblyTitle>
     <Description>Sends this computer's sensors to the NanoKVM plugged into it</Description>
+    <!-- The add-on's version: scripts/build-addon.py passes the recipe's. -->
     <Version>1.0.0</Version>
     <Deterministic>true</Deterministic>
     <DebugType>none</DebugType>
@@ -30,6 +33,8 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
     <Reference Include="System.Management" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <!-- The PawnIO driver's installer (GPL-2.0, github.com/namazso/PawnIO.Setup),

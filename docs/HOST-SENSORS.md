@@ -17,23 +17,23 @@ Agents: Windows (64-bit, 10 and 11). Linux is not there yet.
    | USB network | the USB network in the USB composition | Reports are taken from the USB network only, never from the LAN, Wi-Fi or a VPN. |
 
    Serial, the USB network and all three HID functions do not fit into the USB endpoint budget together ([USB composition](usb-composition.md)); one of the two is enough.
-3. On the computer, open the **NANOKVM** helper disk (below) and run in an administrator's console:
+3. On the computer, open the **NANOKVM** helper disk (below) and double-click `NanoKVM-Sensors-Setup-Windows.exe`. Its window shows the version it brings, the installed agent's and the driver's, and offers what fits: **Install**, **Update** when the installed agent is older, **Remove**. It asks Windows for administrator rights.
 
-   ```
-   sensors.exe install
-   ```
+   Installing copies the agent to `Program Files\NanoKVM`, installs the PawnIO driver when it is missing (a checkbox), registers a task that starts the agent as SYSTEM with Windows, and starts it. The installed agent writes its state changes to `%ProgramData%\NanoKVM\nanokvm-sensors.log`.
 
-   It copies the agent to `Program Files\NanoKVM`, offers to install the PawnIO driver, registers a task that starts the agent as SYSTEM with Windows, and starts it. `uninstall` stops and removes the task and the copy; the driver stays. The installed agent writes its state changes to `%ProgramData%\NanoKVM\nanokvm-sensors.log`.
+   The same from an administrator's console: `NanoKVM-Sensors-Setup-Windows.exe install` (with the agent's options, which become the installed agent's) and `uninstall`, which stops and removes the task and the copy; the driver stays.
+
+The page names the version of the agent that reports, and says when the add-on brings a newer one: run the setup from the helper disk again to update.
 
 ## The helper disk
 
-The agent comes to the computer the way the [serial console helper](usb-composition.md#linux-host-setup-the-console-helper) does: on the small read-only disk labelled `NANOKVM` that the computer sees next to the virtual drive (a second LUN of it, so it costs no USB endpoint). It is one disk for both: `setup.sh` for the console, `sensors.exe` for the sensors, and a `readme.txt`.
+The agent comes to the computer the way the [serial console helper](usb-composition.md#linux-host-setup-the-console-helper) does: on the small read-only disk labelled `NANOKVM` that the computer sees next to the virtual drive (a second LUN of it, so it costs no USB endpoint). It is one disk for both, with names that say what each file sets up: `NanoKVM-Serial-Console-Setup-Linux.sh`, `NanoKVM-Sensors-Setup-Windows.exe`, and a `README.txt`.
 
 The image with the console helper alone is made when NanoKVM OS is built. The agent belongs to the add-on, so with the add-on installed the server puts the disk together itself (`server/helperdisk`, a 12 MiB FAT12 image in `/var/lib/nanokvm/helper-disk.img`, rebuilt when the add-on or the console helper changes and removed with the add-on), and `S03usbdev` attaches that one instead. The disk is shown while the sensors are on or USB serial is in the composition; it needs the virtual disk in the USB composition. The computer keeps the disk it has until the USB devices reconnect: after installing the add-on or turning the sensors on, apply the USB composition again or reconnect the cable. The page says which it is: the computer has the disk, the agent appears on it after a reconnect, or there is no disk. Only then does it offer the download (`https://<nanokvm>/nanokvm-sensors.exe`) instead.
 
 ## The agent
 
-The agent finds the NanoKVM by itself: the serial port by the USB IDs, the USB network by the adapter's address prefix (`48:da:35:6d`). Each report goes to the serial port when the NanoKVM has one and over the USB network otherwise, so the agent needs no setting when the mode changes. `nanokvm-sensors.exe --help` lists the options (`--serial COMn`, `--network URL`, `--usb-id VID:PID` for a changed USB identity, `--interval SECONDS`, `--once` to print one report).
+The agent finds the NanoKVM by itself: the serial port by the USB IDs, the USB network by the adapter's address prefix (`48:da:35:6d`). Each report goes to the serial port when the NanoKVM has one and over the USB network otherwise, so the agent needs no setting when the mode changes. `--help` lists the options (`--serial COMn`, `--network URL`, `--usb-id VID:PID` for a changed USB identity, `--interval SECONDS`), `run` is the agent itself (what the task starts), `--once` prints one report.
 
 ## The driver
 

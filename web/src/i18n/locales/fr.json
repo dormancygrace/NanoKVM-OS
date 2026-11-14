@@ -2577,7 +2577,7 @@
       "connection": "Connexion",
       "modeLabel": "Transmission des mesures",
       "agent": "Agent pour Windows",
-      "agentHint": "L’agent se trouve sur le disque d’aide NANOKVM, que l’ordinateur voit à côté du lecteur virtuel. Exécutez-le depuis ce disque dans une console d’administrateur : sensors.exe install. Il propose d’installer le pilote PawnIO, nécessaire aux capteurs du processeur et de la carte mère, et démarre avec Windows.",
+      "agentHint": "Sur l’ordinateur, ouvrez le disque d’aide NANOKVM, visible à côté du lecteur virtuel, et double-cliquez sur NanoKVM-Sensors-Setup-Windows.exe. Il installe l’agent, met à jour un agent plus ancien ou le supprime, et propose d’installer le pilote PawnIO, nécessaire aux capteurs du processeur et de la carte mère.",
       "readings": "Mesures",
       "offHint": "Choisissez comment les mesures arrivent pour les voir ici.",
       "mode": {
@@ -2591,7 +2591,9 @@
       "noneShown": "Aucune mesure n’est choisie pour l’affichage.",
       "diskAttached": "L’ordinateur dispose du disque d’aide",
       "diskStale": "L’agent apparaîtra sur le disque d’aide après la reconnexion des périphériques USB",
-      "diskMissing": "Pas de disque d’aide : il faut le disque virtuel dans la composition USB et une reconnexion des périphériques USB"
+      "diskMissing": "Pas de disque d’aide : il faut le disque virtuel dans la composition USB et une reconnexion des périphériques USB",
+      "agentVersion": "agent {{version}}",
+      "agentUpdate": "Le module apporte l’agent {{version}} : pour mettre à jour, exécutez NanoKVM-Sensors-Setup-Windows.exe depuis le disque d’aide sur l’ordinateur."
     }
   },
   "picoclaw": {

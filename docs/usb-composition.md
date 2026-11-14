@@ -241,8 +241,9 @@ button. The host gets the script in one of two ways:
 - from the **helper disk**: with USB serial and the virtual disk enabled,
   `S03usbdev` attaches a second, read-only LUN to the virtual drive, a 1440 KiB
   FAT image labelled `NANOKVM` ("NanoKVM Setup Disk") with the script as
-  `setup.sh` and a `readme.txt`. `mount -o ro /dev/disk/by-label/NANOKVM /mnt`
-  then `sh /mnt/setup.sh`. No network is needed.
+  `NanoKVM-Serial-Console-Setup-Linux.sh` and a `README.txt`.
+  `mount -o ro /dev/disk/by-label/NANOKVM /mnt` then
+  `sh /mnt/NanoKVM-Serial-Console-Setup-Linux.sh`. No network is needed.
 
 The script, in POSIX sh (dash, busybox ash):
 

@@ -4,8 +4,10 @@ import { DownloadIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
+  agentInfo,
   groupSensors,
   isShown,
+  newerVersion,
   sensorKey,
   sensorValue,
   viewOverrides,
@@ -22,6 +24,8 @@ type State = {
   serial: { port: string; state: string };
   network: { interface: string; addresses: string[]; path: string };
   agent: { path: string; available: boolean; size: number };
+  // The agent version the add-on brings; '' when unknown.
+  agentVersion: string;
   status: {
     report: {
       host: string;
@@ -89,6 +93,7 @@ export const HostSensorsPage = () => {
   };
 
   const report = state?.status.report;
+  const agent = report ? agentInfo(report.agent) : undefined;
   const overrides = state?.view?.overrides ?? {};
   const shownNow = (sensor: HostSensor) =>
     draft ? (draft[sensorKey(sensor)] ?? false) : isShown(sensor, overrides);
@@ -202,12 +207,26 @@ export const HostSensorsPage = () => {
                 {[report.host, report.os].filter(Boolean).join(' · ')}
               </span>
               <span>{t(`mode.${state.status.transport}`)}</span>
+              {agent && (
+                <span>
+                  {t('agentVersion', { version: agent.version })}
+                  {agent.system ? ` (${agent.system})` : ''}
+                </span>
+              )}
               <StatusBadge tone={state.status.stale ? 'danger' : 'success'}>
                 {state.status.stale
                   ? t('stale')
                   : t('age', { seconds: Math.round(state.status.age / 1000) })}
               </StatusBadge>
             </div>
+            {agent && state.agentVersion && newerVersion(state.agentVersion, agent.version) && (
+              <Alert
+                className="mb-3"
+                type="warning"
+                showIcon
+                message={t('agentUpdate', { version: state.agentVersion })}
+              />
+            )}
             {report.limited && (
               <Alert className="mb-3" type="info" showIcon message={t('limited')} />
             )}

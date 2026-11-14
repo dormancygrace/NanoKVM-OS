@@ -5,8 +5,8 @@
 // an add-on that brings a program for the computer, such as the computer
 // sensors agent, cannot be in that one, so the disk is put together here from
 // what is installed. Same layout as the build's: no partition table, FAT12,
-// files in the root directory under 8.3 names, fixed timestamps, so the same
-// files give the same bytes.
+// files in the root directory (long names as VFAT entries), fixed timestamps,
+// so the same files give the same bytes.
 package helperdisk
 
 import (
@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf16"
 )
 
 const (
@@ -36,8 +37,6 @@ const (
 	fatDate     = (2026-1980)<<9 | 1<<5 | 1 // 2026-01-01
 	attrArchive = 0x20
 	attrLabel   = 0x08
-	ntLowerBase = 0x08
-	ntLowerExt  = 0x10
 	label       = "NANOKVM    "
 )
 
@@ -49,29 +48,71 @@ var bootCode = append([]byte{0x0e, 0x1f, 0xbe, 0x5b, 0x7c, 0xac, 0x22, 0xc0, 0x7
 
 // File is one file of the disk's root directory.
 type File struct {
-	// Name is an 8.3 name in capitals ("SETUP.SH"); the computer shows it
-	// in lower case.
+	// Name is the file's name as the computer shows it: letters, digits,
+	// '.', '_' and '-', at most 100 characters, such as
+	// "NanoKVM-Sensors-Setup-Windows.exe".
 	Name string
 	Data []byte
 }
 
-func shortName(name string) (base, ext string, err error) {
-	base, ext, _ = strings.Cut(name, ".")
-	ok := func(s string, max int) bool {
-		if s == "" || len(s) > max {
-			return false
-		}
-		for _, c := range s {
-			if !(c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '-') {
-				return false
-			}
-		}
-		return true
+// names gives a file its directory entries' names: the 8.3 name every FAT
+// entry has (an alias BASE~N.EXT made from the long one), and the VFAT
+// entries that carry the long name, which come before it in the directory.
+func names(name string, n int) (base, ext string, long []byte, err error) {
+	if name == "" || len(name) > 100 || strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".") {
+		return "", "", nil, fmt.Errorf("not a file name for the helper disk: %q", name)
 	}
-	if !ok(base, 8) || (ext != "" && !ok(ext, 3)) || strings.Count(name, ".") > 1 {
-		return "", "", fmt.Errorf("not an 8.3 name in capitals: %q", name)
+	for _, c := range name {
+		if !(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '-' || c == '.') {
+			return "", "", nil, fmt.Errorf("not a file name for the helper disk: %q", name)
+		}
 	}
-	return base, ext, nil
+	stem := name
+	if dot := strings.LastIndexByte(name, '.'); dot > 0 {
+		stem, ext = name[:dot], strings.ToUpper(name[dot+1:])
+	}
+	if len(ext) > 3 {
+		ext = ext[:3]
+	}
+	stem = strings.ToUpper(strings.ReplaceAll(stem, ".", ""))
+	if len(stem) > 6 {
+		stem = stem[:6]
+	}
+	base = fmt.Sprintf("%s~%d", stem, n)
+	if len(base) > 8 {
+		return "", "", nil, fmt.Errorf("too many files for the alias of %q", name)
+	}
+	// The checksum of the 8.3 name ties the long entries to it.
+	short := fmt.Sprintf("%-8s%-3s", base, ext)
+	var sum byte
+	for i := 0; i < 11; i++ {
+		sum = sum>>1 | sum<<7
+		sum += short[i]
+	}
+	// 13 UTF-16 units an entry: the name, one zero, then 0xFFFF; the last
+	// part of the name comes first and carries 0x40.
+	units := utf16.Encode([]rune(name))
+	if len(units)%13 != 0 {
+		units = append(units, 0)
+		for len(units)%13 != 0 {
+			units = append(units, 0xFFFF)
+		}
+	}
+	count := len(units) / 13
+	for seq := count; seq >= 1; seq-- {
+		e := make([]byte, 32)
+		e[0] = byte(seq)
+		if seq == count {
+			e[0] |= 0x40
+		}
+		e[11], e[13] = 0x0F, sum
+		part := units[(seq-1)*13 : seq*13]
+		for i, offset := range []int{1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30} {
+			binary.LittleEndian.PutUint16(e[offset:], part[i])
+		}
+		long = append(long, e...)
+	}
+	return base, ext, long, nil
 }
 
 func dirEntry(base, ext string, attr, nt byte, cluster uint16, size uint32) []byte {
@@ -88,24 +129,21 @@ func dirEntry(base, ext string, attr, nt byte, cluster uint16, size uint32) []by
 
 // Build returns the image with the files, in their order.
 func Build(files []File) ([]byte, error) {
-	if len(files) >= rootEntries {
-		return nil, errors.New("too many files for the helper disk")
-	}
 	fat := []uint16{0xF00 | media, 0xFFF}
 	root := dirEntry(label[:8], label[8:], attrLabel, 0, 0, 0)
 	image := make([]byte, Size)
 	next := 2
 	seen := map[string]bool{}
 	id := sha256.New()
-	for _, f := range files {
-		base, ext, err := shortName(f.Name)
+	for n, f := range files {
+		base, ext, long, err := names(f.Name, n+1)
 		if err != nil {
 			return nil, err
 		}
-		if seen[f.Name] {
+		if seen[strings.ToLower(f.Name)] {
 			return nil, fmt.Errorf("two files named %s", f.Name)
 		}
-		seen[f.Name] = true
+		seen[strings.ToLower(f.Name)] = true
 		count := (len(f.Data) + sectorsPerCluster*sector - 1) / (sectorsPerCluster * sector)
 		if next-2+count > dataClusters {
 			return nil, errors.New("the files do not fit on the helper disk")
@@ -120,7 +158,11 @@ func Build(files []File) ([]byte, error) {
 			copy(image[(dataSector+(first-2)*sectorsPerCluster)*sector:], f.Data)
 			next += count
 		}
-		root = append(root, dirEntry(base, ext, attrArchive, ntLowerBase|ntLowerExt, uint16(first), uint32(len(f.Data)))...)
+		root = append(root, long...)
+		root = append(root, dirEntry(base, ext, attrArchive, 0, uint16(first), uint32(len(f.Data)))...)
+		if len(root) > rootEntries*32 {
+			return nil, errors.New("too many files for the helper disk")
+		}
 		fmt.Fprintf(id, "%s %d\n", f.Name, len(f.Data))
 		id.Write(f.Data)
 	}

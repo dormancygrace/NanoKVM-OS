@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  agentInfo,
   groupSensors,
   isShown,
+  newerVersion,
   sensorKey,
   sensorValue,
   viewOverrides
@@ -51,4 +53,15 @@ test('the stored choice is the exceptions to the default, kept for absent readin
   assert.equal(isShown(temp, overrides), false);
   assert.equal(isShown(load, overrides), false);
   assert.equal(isShown(s('GPU', 'gpu', 'Core', 'temperature', 40), overrides), true);
+});
+
+test('the agent of a report and whether the add-on brings a newer one', () => {
+  assert.deepEqual(agentInfo('nanokvm-sensors/1.2.3 windows'), {
+    version: '1.2.3',
+    system: 'windows'
+  });
+  assert.equal(agentInfo('fake/0'), undefined);
+  assert.equal(newerVersion('1.10.0', '1.9.5'), true);
+  assert.equal(newerVersion('1.0.0', '1.0.0'), false);
+  assert.equal(newerVersion('1.0', '1.0.1'), false);
 });

@@ -2577,7 +2577,7 @@
       "connection": "连接",
       "modeLabel": "读数的传输方式",
       "agent": "Windows 代理",
-      "agentHint": "代理位于 NANOKVM 辅助磁盘上，计算机会在虚拟驱动器旁看到它。在管理员控制台中从该磁盘运行：sensors.exe install。它会提示安装处理器和主板传感器所需的 PawnIO 驱动，并随 Windows 启动。",
+      "agentHint": "在计算机上打开虚拟驱动器旁的 NANOKVM 辅助磁盘，双击 NanoKVM-Sensors-Setup-Windows.exe。它可安装代理、更新旧版本或将其删除，并提示安装处理器和主板传感器所需的 PawnIO 驱动。",
       "readings": "读数",
       "offHint": "选择读数的传输方式后即可在此查看。",
       "mode": {
@@ -2591,7 +2591,9 @@
       "noneShown": "未选择要显示的读数。",
       "diskAttached": "计算机已连接辅助磁盘",
       "diskStale": "USB 设备重新连接后，代理将出现在辅助磁盘上",
-      "diskMissing": "没有辅助磁盘：需要在 USB 组合中启用虚拟磁盘并重新连接 USB 设备"
+      "diskMissing": "没有辅助磁盘：需要在 USB 组合中启用虚拟磁盘并重新连接 USB 设备",
+      "agentVersion": "代理 {{version}}",
+      "agentUpdate": "扩展包含代理 {{version}}：请在计算机上从辅助磁盘运行 NanoKVM-Sensors-Setup-Windows.exe 进行更新。"
     }
   },
   "picoclaw": {

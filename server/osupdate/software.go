@@ -31,8 +31,9 @@ var apkBareVersion = regexp.MustCompile(`^[0-9][A-Za-z0-9._+~:-]*$`)
 // SoftwarePackage is deliberately small: package catalogues can be large and
 // are searched page by page rather than sent wholesale to the browser.
 type SoftwarePackage struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Name           string `json:"name"`
+	Version        string `json:"version"`
+	RemovalBlocked string `json:"removalBlocked,omitempty"`
 }
 
 type SoftwareUpdate struct {
@@ -134,7 +135,61 @@ func checkRemovable(name string) error {
 	if protectedPackages[name] {
 		return errors.New("this protected system package cannot be removed from the web interface")
 	}
+	required, err := requiredSystemPackages()
+	if err != nil {
+		return fmt.Errorf("cannot verify system package dependencies: %w", err)
+	}
+	if required[name] {
+		return errors.New("required by NanoKVM OS; cannot be removed")
+	}
 	return nil
+}
+
+// Ask APK's solver to resolve the installed system roots, including virtual
+// dependencies and version constraints. Never consult a newer repository.
+func requiredSystemPackages() (map[string]bool, error) {
+	installed, _, err := readInstalledDB()
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"--no-network", "query", "--from", "installed", "--recursive", "--format", "json", "--fields", "name"}
+	var roots []string
+	for name := range protectedPackages {
+		if version, ok := installed[name]; ok {
+			roots = append(roots, name+"="+version)
+		}
+	}
+	if len(roots) == 0 {
+		return nil, errors.New("no installed system package roots")
+	}
+	sort.Strings(roots)
+	output, err := runAPKOutput(30*time.Second, append(args, roots...)...)
+	if err != nil {
+		return nil, fmt.Errorf("APK dependency query failed: %w", err)
+	}
+	start := strings.IndexByte(output, '[')
+	if start < 0 {
+		return nil, errors.New("APK dependency query returned no package list")
+	}
+	var packages []struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal([]byte(output[start:]), &packages); err != nil {
+		return nil, err
+	}
+	required := make(map[string]bool, len(packages))
+	for _, pkg := range packages {
+		if err := validPackageName(pkg.Name); err != nil {
+			return nil, err
+		}
+		required[pkg.Name] = true
+	}
+	for name := range protectedPackages {
+		if _, ok := installed[name]; ok && !required[name] {
+			return nil, fmt.Errorf("APK dependency query omitted system root %s", name)
+		}
+	}
+	return required, nil
 }
 
 func parseMatchingPackages(output, query string, max int) []SoftwarePackage {
@@ -285,7 +340,19 @@ func ListInstalledSoftware() ([]SoftwarePackage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot list installed packages: %s", strings.TrimSpace(output))
 	}
-	return parsePackages(output, 512), nil
+	packages := parsePackages(output, 512)
+	required, protectionErr := requiredSystemPackages()
+	for i := range packages {
+		switch {
+		case protectedPackages[packages[i].Name]:
+			packages[i].RemovalBlocked = "Protected system package"
+		case protectionErr != nil:
+			packages[i].RemovalBlocked = "Cannot verify system dependencies; refresh and try again"
+		case required[packages[i].Name]:
+			packages[i].RemovalBlocked = "Required by NanoKVM OS"
+		}
+	}
+	return packages, nil
 }
 
 // One package search at a time, the newest: each is a 45 s apk scan of every
@@ -427,6 +494,13 @@ func StartSoftware(action, name string) error {
 // RunSoftware runs only in the inherited-lock helper, so it remains alive if
 // upgrading an APK replaces the HTTP server that initiated the operation.
 func RunSoftware(action, name string) (result error) {
+	status := SoftwareStatus{State: "failed", Action: action, Package: name}
+	defer func() {
+		if result != nil {
+			status.Message = result.Error()
+			_ = saveSoftwareStatus(status)
+		}
+	}()
 	if action == "install" {
 		if err := validPackageName(name); err != nil {
 			return err
@@ -438,13 +512,6 @@ func RunSoftware(action, name string) (result error) {
 	} else if (action != "refresh" && action != "upgrade") || name != "" {
 		return errors.New("invalid software operation")
 	}
-	status := SoftwareStatus{State: "failed", Action: action, Package: name}
-	defer func() {
-		if result != nil {
-			status.Message = result.Error()
-			_ = saveSoftwareStatus(status)
-		}
-	}()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	run := func(args ...string) error {

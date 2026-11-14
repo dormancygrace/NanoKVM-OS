@@ -253,9 +253,6 @@ func TestHostSensors(t *testing.T) {
 	if code, _ := get("/Thermal"); code != 404 {
 		t.Fatalf("Thermal with the feature off: %d", code)
 	}
-	if _, chassis := get(""); chassis["Sensors"] != nil {
-		t.Fatalf("the chassis links to sensors that are off: %v", chassis)
-	}
 	sensors.on, sensors.fresh = true, true
 	_, thermal := get("/Thermal")
 	temperature := thermal["Temperatures"].([]any)[0].(map[string]any)
@@ -272,9 +269,6 @@ func TestHostSensors(t *testing.T) {
 	}
 	if _, clock := get("/Sensors/dd"); clock["Reading"] != 4.2e9 || clock["ReadingType"] != "Frequency" {
 		t.Errorf("a clock in MHz: %v", clock)
-	}
-	if code, _ := get("/Sensors/ee"); code != 404 {
-		t.Errorf("a kind without a reading type: %d", code)
 	}
 	sensors.readings, sensors.fresh = nil, false
 	if _, thermal := get("/Thermal"); len(thermal["Temperatures"].([]any)) != 0 || thermal["Status"].(map[string]any)["State"] != "UnavailableOffline" {

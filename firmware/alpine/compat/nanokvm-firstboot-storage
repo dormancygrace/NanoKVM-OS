@@ -13,7 +13,8 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 marker=/etc/nanokvm-firstboot-storage
 # syslog may not run yet this early; the reason must survive to be read later.
 reasons=/var/log/nanokvm-firstboot-storage.log
-[ -e "$marker" ] || exit 0
+migration=/etc/nanokvm-stock-migration
+[ -e "$marker" ] || [ -e "$migration" ] || exit 0
 
 log() {
     echo "nanokvm-firstboot-storage: $*" >&2
@@ -36,6 +37,46 @@ retry_later() {
 geometry_is() {
     [ "$(cat "$1/$2" 2>/dev/null)" = "$3" ]
 }
+
+sector() { cat "/sys/class/block/$1/$2" 2>/dev/null; }
+
+# A stock migration (firmware/stock-install) built a 64 MiB boot and a 768 MiB
+# root inside the old stock root and left stock's partition 3 behind them.
+# Recreate it right after the root, over the rest of the card, and format it:
+# its old files are erased, as the installer said. Only that whole layout,
+# never a card where p1 and p2 are not exactly what the migration writes.
+# Interrupted, the marker stays and the next boot finishes the same steps.
+if [ -e "$migration" ] && [ ! -e "$marker" ]; then
+    p1=$(sector mmcblk0p1 start)
+    p2=$(sector mmcblk0p2 start)
+    if ! geometry_is /sys/class/block/mmcblk0p1 size 131072 ||
+        ! geometry_is /sys/class/block/mmcblk0p2 size 1572864 ||
+        [ -z "$p1" ] || [ "$p2" != "$((p1 + 131072))" ]; then
+        # Migrated before the root was 768 MiB: stock's p3 keeps its files;
+        # nanokvm-storage removes the transaction and the marker.
+        exit 0
+    fi
+    start=$((p2 + 1572864))
+    if ! geometry_is /sys/class/block/mmcblk0p3 start "$start"; then
+        mountpoint -q /data && { umount /data || retry_later "cannot release the old data partition"; }
+        total=$(sector mmcblk0 size) || retry_later "cannot read the card size"
+        size=$((total - start))
+        [ "$size" -ge 196608 ] || retry_later "the SD card is too small for a data partition"
+        printf 'start=%s, size=%s, type=7\n' "$start" "$size" |
+            sfdisk --no-reread --no-tell-kernel -N 3 /dev/mmcblk0 ||
+            retry_later "cannot recreate partition 3"
+        sync
+        partx -u -n 3 /dev/mmcblk0 || retry_later "the kernel keeps the old partition 3"
+        geometry_is /sys/class/block/mmcblk0p3 start "$start" ||
+            retry_later "the new partition 3 does not read back at its start"
+    fi
+    mkfs.exfat -F -L NANOKVM /dev/mmcblk0p3 || retry_later "cannot format the data partition"
+    # The migration's staging went with the old filesystem.
+    rm -f "$migration" || retry_later "cannot remove the migration marker"
+    sync || retry_later "cannot persist the new data partition"
+    log "recreated the data partition after the stock migration's 768 MiB root"
+    exit 0
+fi
 
 # Recognize whole layouts, not independent offsets: a partially moved card
 # must never be mistaken for a fresh image and formatted.

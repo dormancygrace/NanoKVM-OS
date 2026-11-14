@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Stock SD migration: stage new filesystems wholly inside the old root, then
-// change one MBR sector. The old boot and the data partition are never written.
+// change one MBR sector. The old boot and the data partition are never written
+// here. The root is 768 MiB as on a full SD image; the new system's first boot
+// recreates the data partition right after it (nanokvm-firstboot-storage).
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
@@ -52,7 +54,7 @@ static struct layout plan(const unsigned char *m, uint64_t sectors) {
     uint64_t root=boot+BOOT_SECTORS;
     uint64_t end=(uint64_t)l.start[1]+l.size[1];
     if (root>UINT32_MAX || end<root+MIN_ROOT) die("old root lacks room for a 64 MiB boot and 768 MiB root");
-    l.boot=(uint32_t)boot; l.root=(uint32_t)root; l.rootsize=(uint32_t)(end-root);
+    l.boot=(uint32_t)boot; l.root=(uint32_t)root; l.rootsize=MIN_ROOT;
     return l;
 }
 static void entry(unsigned char *p, unsigned char active, unsigned char type,

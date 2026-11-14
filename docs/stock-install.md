@@ -36,7 +36,10 @@ filesystem repair or formatting is attempted during this step.
 Detach any other virtual media in the stock UI first; the installer does not
 disconnect USB networking for you. `--check` leaves mounts and USB media unchanged.
 
-Partition 3 and its files stay at their existing sectors. Wi-Fi credentials,
+**Files on partition 3 (`/data`) are erased.** The installer stages its
+payload there; once the new system boots, partition 3 is recreated right after
+the new 768 MiB root over the rest of the card and formatted, so the card has
+the partition sizes of a full SD image. Copy wanted files off first. Wi-Fi credentials,
 boot network configuration, hostname, the root password, SSH host keys and
 `root/.ssh/authorized_keys` are carried over. The existing SSH enabled/disabled
 choice is retained. Stock web users, application settings and installed tools
@@ -56,11 +59,11 @@ state and static DNS configuration are retained. A stock device with no USB
 flags keeps its stock composition (HID only); the fresh-image defaults, including
 an enabled virtual disk, are not added.
 
-**Root recovery limitation:** the current `nanokvm-stage-update` path and
-`firmware/alpine/recovery/init` cannot reinstall the root on a migrated card:
-their fixed partition-size/start checks reject this layout. Signed APK updates
-and their package rollback remain available. Restoring the entire root requires
-writing a full SD image externally (copy wanted data off the card first).
+**Root recovery:** `nanokvm-stage-update` and `firmware/alpine/recovery/init`
+accept a migrated card (64 MiB boot, the 768 MiB root right after it, then
+partition 3). A card migrated by an installer before this layout, whose root
+covers the whole old stock root, still needs a full SD image written
+externally to reinstall the root.
 
 The preflight calculates the actual space requirement: the complete payload,
 saved stock boot image and 8 MiB of headroom on `/data`, the recovery FIT plus 1 MiB free on the old boot volume,

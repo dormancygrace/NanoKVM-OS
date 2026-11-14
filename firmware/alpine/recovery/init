@@ -82,9 +82,16 @@ read_sector_field() {
 validate_layout() {
 	[ "$(read_sector_field /sys/class/block/mmcblk0p2/size)" = 1572864 ] ||
 		fail "unexpected p2 size"
-	case "$(read_sector_field /sys/class/block/mmcblk0p2/start):$(read_sector_field /sys/class/block/mmcblk0p3/start)" in
+	p2_start=$(read_sector_field /sys/class/block/mmcblk0p2/start)
+	p3_start=$(read_sector_field /sys/class/block/mmcblk0p3/start)
+	case "$p2_start:$p3_start" in
 		131073:1705984|131073:3180544|139264:1712128) ;;
-		*) fail "unexpected p3 start" ;;
+		*)
+			# A stock migration: 64 MiB boot, then the 768 MiB root, then p3.
+			[ "$(read_sector_field /sys/class/block/mmcblk0p1/size)" = 131072 ] &&
+				[ "$p2_start" = "$(($(read_sector_field /sys/class/block/mmcblk0p1/start) + 131072))" ] &&
+				[ "$p3_start" = "$((p2_start + 1572864))" ] || fail "unexpected p3 start"
+			;;
 	esac
 }
 

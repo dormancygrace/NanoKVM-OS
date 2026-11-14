@@ -25,6 +25,15 @@ A local debug image adds `-debug` before `.img.zip`; this is a build-profile
 qualifier, not an independent release version.
 
 A patch such as `v4.0.1` may publish only packages and corresponding source.
+Select **packages_only** in the Release workflow for an OTA patch without a
+GitHub Release, SD image or stock installer. The signed package snapshot and
+corresponding source are published through Pages; a Git tag reserves the version.
+Pages keeps three stable snapshots and one beta snapshot, including these patches.
+Devices discover them through the same signed APK indexes, and beta↔stable
+switching uses the same package feeds. Source and checksums are available under
+updates/vX.Y.Z/ on Pages. Subsequent version selection includes Pages updates
+and reserved tags.
+
 The latest-image badge and download link then remain on the newest release
 that actually includes an image. Stable excludes beta images; the beta channel
 can offer either stable or beta releases according to its existing ordering.

@@ -93,22 +93,17 @@ func serialConsoleState() *proto.SerialConsoleRsp {
 	rsp := &proto.SerialConsoleRsp{SerialNumber: gadgetSerialNumber(), Port: serialConsoleDevice,
 		VendorID: gadgetID("idVendor"), ProductID: gadgetID("idProduct"),
 		Script: proto.SerialConsoleFile{Path: SerialConsoleScriptPath},
-		Disk:   proto.SerialConsoleDisk{File: serialConsoleDiskFile()}}
+		Disk:   proto.SerialConsoleDisk{File: helperDiskImage()}}
 	if sum, size, err := fileSha256(serialConsoleScriptFile()); err == nil {
 		rsp.Script.Available, rsp.Script.Sha256, rsp.Script.Size = true, sum, size
 	}
-	if _, err := os.Stat(serialConsoleDiskFile()); err == nil {
+	if _, err := os.Stat(helperDiskImage()); err == nil {
 		rsp.Disk.Available = true
-		if data, err := os.ReadFile(serialConsoleLunFile); err == nil {
-			lun := strings.TrimSpace(string(data))
-			// A package upgrade replaces the image while the LUN holds the
-			// old one; the kernel then shows the path as deleted. The host
-			// sees the old image until the USB devices reconnect.
-			stale := strings.HasSuffix(lun, " (deleted)")
-			if strings.TrimSuffix(lun, " (deleted)") == serialConsoleDiskFile() {
-				rsp.Disk.Attached, rsp.Disk.Stale = true, stale
-			}
-		}
+		// A package upgrade replaces the image while the LUN holds the old
+		// one (the kernel then shows the path as deleted), and the computer
+		// sensors add-on brings another image: the host sees the old one
+		// until the USB devices reconnect.
+		rsp.Disk.Attached, rsp.Disk.Stale = helperDiskLun()
 	}
 	return rsp
 }

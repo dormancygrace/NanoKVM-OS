@@ -2560,6 +2560,41 @@
         "authError": "Die Anmeldung funktioniert nicht mehr: {{error}}",
         "changed": "Dienst, Client-ID oder Tenant wurden während der Anmeldung geändert. Melden Sie sich erneut an."
       }
+    },
+    "hostSensors": {
+      "title": "Sensoren des Computers",
+      "about": "Der Agent nanokvm-sensors auf dem Computer sendet dessen Temperaturen, Spannungen und Lüfterdrehzahlen an das NanoKVM.",
+      "download": "Stattdessen herunterladen",
+      "waiting": "Warten auf den Agenten: noch kein Bericht.",
+      "serialUnavailable": "USB-Seriell ist nicht Teil der USB-Zusammenstellung.",
+      "serialBusy": "Der serielle Anschluss wird von einer anderen Sitzung verwendet.",
+      "networkUnavailable": "Das USB-Netzwerk ist nicht Teil der USB-Zusammenstellung.",
+      "serialNote": "Solange dieser Modus aktiv ist, kann das Web-Terminal {{port}} nicht verwenden.",
+      "age": "vor {{seconds}} s",
+      "stale": "Keine aktuellen Daten",
+      "limited": "Der Agent läuft ohne Administratorrechte oder ohne den PawnIO-Treiber: Prozessor- und Mainboard-Sensoren können fehlen.",
+      "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",
+      "connection": "Verbindung",
+      "modeLabel": "Übertragung der Messwerte",
+      "agent": "Agent",
+      "agentHint": "Auf dem Computer den Hilfsdatenträger NANOKVM öffnen, der neben dem virtuellen Laufwerk erscheint. Windows: NanoKVM-Sensors-Setup-Windows.exe doppelklicken. Linux: als root sh NanoKVM-Sensors-Setup-Linux.sh ausführen. Das Setup installiert den Agenten, aktualisiert einen älteren oder entfernt ihn. Unter Windows bietet es an, den PawnIO-Treiber zu installieren, den Prozessor- und Mainboard-Sensoren benötigen.",
+      "readings": "Messwerte",
+      "offHint": "Wählen Sie, wie die Messwerte übertragen werden, um sie hier zu sehen.",
+      "mode": {
+        "off": "Aus",
+        "serial": "USB-Seriell",
+        "network": "USB-Netzwerk"
+      },
+      "choose": "Messwerte auswählen",
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "noneShown": "Es ist kein Messwert zur Anzeige ausgewählt.",
+      "diskAttached": "Der Computer hat den Hilfsdatenträger",
+      "diskStale": "Der Agent erscheint auf dem Hilfsdatenträger, sobald sich die USB-Geräte neu verbinden",
+      "diskMissing": "Kein Hilfsdatenträger: nötig sind der virtuelle Datenträger in der USB-Zusammenstellung und eine Neuverbindung der USB-Geräte",
+      "agentVersion": "Agent {{version}}",
+      "agentUpdate": "Das Add-on enthält Agent {{version}}: Zum Aktualisieren das Sensoren-Setup vom Hilfsdatenträger auf dem Computer erneut ausführen.",
+      "serialConsole": "Der Computer hat seine Anmeldekonsole auf diesem Anschluss (die Konsolenhilfe richtet sie ein), daher können die Sensoren ihn nicht nutzen. USB-Netzwerk wählen."
     }
   },
   "picoclaw": {

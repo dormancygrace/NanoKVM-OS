@@ -41,6 +41,7 @@ import {
   ShieldIcon,
   SparklesIcon,
   StethoscopeIcon,
+  ThermometerIcon,
   UsbIcon,
   UserRoundIcon,
   VideoIcon,
@@ -68,6 +69,7 @@ import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 import { MobileMenuItemContext } from '@/components/mobile-menu-context.ts';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+import { HostSensorsPage } from './host-sensors/index.tsx';
 import { builtinMenu, orderMenu, type BuiltinMenuId, type SettingsMenuEntry } from './menu.ts';
 import { SessionActions } from './session-actions.tsx';
 import styles from './sidebar.module.css';
@@ -196,6 +198,7 @@ const menuIcons: Record<string, ReactNode> = {
   'scan-text': <ScanTextIcon size={16} />,
   server: <ServerIcon size={16} />,
   'server-cog': <ServerCogIcon size={16} />,
+  thermometer: <ThermometerIcon size={16} />,
   settings: <SettingsIcon size={16} />,
   shield: <ShieldIcon size={16} />,
   sparkles: <SparklesIcon size={16} />,
@@ -296,6 +299,9 @@ export const Settings = ({
         services: null,
         'services-bmc': <BmcSettingsPage />,
         'services-rustdesk': inventory?.rustdesk.installed ? <RustDeskControls /> : undefined,
+        'services-host-sensors': inventory?.hostSensors?.installed ? (
+          <HostSensorsPage />
+        ) : undefined,
         'services-notifications': <Notifications />,
         system: null,
         'system-general': <System />,
@@ -447,6 +453,13 @@ export const Settings = ({
       setDetailOpen(true);
     }
   }, [currentTab, inventory?.rustdesk.installed]);
+
+  useEffect(() => {
+    if (currentTab === 'services-host-sensors' && inventory?.hostSensors?.installed === false) {
+      setCurrentTab('software-addons');
+      setDetailOpen(true);
+    }
+  }, [currentTab, inventory?.hostSensors?.installed]);
 
   // The add-on of the open page was removed: back to the add-on list.
   const addonPageGone =

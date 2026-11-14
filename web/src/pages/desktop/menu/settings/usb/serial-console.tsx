@@ -21,7 +21,8 @@ type SerialConsoleStatus = {
 
 type TestResult = { ok: boolean; state: string; response?: string };
 
-const diskCommand = 'mount -o ro /dev/disk/by-label/NANOKVM /mnt && sh /mnt/setup.sh';
+const diskCommand =
+  'mount -o ro /dev/disk/by-label/NANOKVM /mnt && sh /mnt/NanoKVM-Serial-Console-Setup-Linux.sh';
 
 /*
  * The headless-Linux console helper: shown while USB serial is enabled.

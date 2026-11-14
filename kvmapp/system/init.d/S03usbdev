@@ -264,14 +264,27 @@ start_usb_dev(){
     then
             mkdir -p functions/mass_storage.disk0
             # With USB serial, a second read-only LUN carries the headless
-            # Linux console helper (setup.sh), so the computer can set up a
+            # Linux console helper (NanoKVM-Serial-Console-Setup-Linux.sh), so the computer can set up a
             # login on the serial port without any network. The LUN goes
             # away with serial, so the drives match the composition. A LUN
             # can be added or removed only while the function is not linked
             # into the configuration (the kernel answers "Resource busy"
             # otherwise), so this comes before the link.
             _helper=/kvmapp/system/share/serial-console/nanokvm-serial-console.img
-            if [ -e $conf/usb.acm ] && [ -f "$_helper" ]
+            _helper_wanted=0
+            [ -e $conf/usb.acm ] && _helper_wanted=1
+            # With the computer sensors add-on the server keeps a helper disk
+            # that also holds the add-on's agent (server/service/vm/helper_disk.go).
+            # It replaces the console helper's own, and is shown while the
+            # sensors are on too, with or without USB serial.
+            if [ -f /var/lib/nanokvm/helper-disk.img ]
+            then
+                    _helper=/var/lib/nanokvm/helper-disk.img
+                    case "$(head -n 1 /etc/kvm/host-sensors 2>/dev/null)" in
+                        serial|network) _helper_wanted=1 ;;
+                    esac
+            fi
+            if [ "$_helper_wanted" = 1 ] && [ -f "$_helper" ]
             then
                     mkdir -p functions/mass_storage.disk0/lun.1
             elif [ -d functions/mass_storage.disk0/lun.1 ]

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build the serial console helper disk: a 1440 KiB FAT12 image that holds
-nanokvm-serial-console.sh as setup.sh and a readme.txt, for the NanoKVM's USB
+nanokvm-serial-console.sh as NanoKVM-Serial-Console-Setup-Linux.sh (a name
+that says what it sets up, as a VFAT long name) and a README.txt, for the NanoKVM's USB
 mass storage. The managed computer mounts it and runs the script with no
 network. Written in Python so the image is byte-for-byte reproducible (fixed
 timestamps and volume id) and needs no mtools on the build host."""
@@ -23,18 +24,21 @@ VOLUME_ID = 0x4E4B564D         # "NKVM"
 FAT_DATE = ((2026 - 1980) << 9) | (1 << 5) | 1   # 2026-01-01
 FAT_TIME = 0
 ATTR_ARCHIVE, ATTR_LABEL = 0x20, 0x08
-NT_LOWER_BASE, NT_LOWER_EXT = 0x08, 0x10
+CONSOLE = 'NanoKVM-Serial-Console-Setup-Linux.sh'
 
 README = """NanoKVM USB serial console helper
 =================================
 
-This disk comes from the NanoKVM's virtual USB drive. setup.sh prepares a
-login console on the NanoKVM's USB serial port (CDC ACM, /dev/ttyACMn) on
-the computer the NanoKVM is plugged into. Run it on that computer as root:
+This disk comes from the NanoKVM's virtual USB drive.
+NanoKVM-Serial-Console-Setup-Linux.sh prepares a login console on the
+NanoKVM's USB serial port (CDC ACM, /dev/ttyACMn) on the computer the
+NanoKVM is plugged into. Run it on that computer as root:
 
-    sh /mnt/setup.sh            report what it found and what it would change
-    sh /mnt/setup.sh apply      make the changes (with a confirmation)
-    sh /mnt/setup.sh undo       remove them again
+    sh /mnt/NanoKVM-Serial-Console-Setup-Linux.sh          report what it found
+                                                           and what it would change
+    sh /mnt/NanoKVM-Serial-Console-Setup-Linux.sh apply    make the changes
+                                                           (with a confirmation)
+    sh /mnt/NanoKVM-Serial-Console-Setup-Linux.sh undo     remove them again
 
 Replace /mnt with the directory this disk is mounted on. The script only
 reads unless you run apply; apply keeps backups and a manifest in
@@ -79,15 +83,43 @@ def dir_entry(name, ext, attr, ntres, cluster, size):
                        FAT_TIME, FAT_DATE, cluster, size)
 
 
+def names(name, n):
+    """The directory names of the n-th file: its 8.3 alias (BASE~N, EXT) and
+    the VFAT entries that carry the long name, which come before it. The same
+    as server/helperdisk, which makes the disk on the device."""
+    assert name and len(name) <= 100 and not name.startswith('.') and not name.endswith('.'), name
+    assert all(c.isascii() and (c.isalnum() or c in '._-') for c in name), name
+    stem, dot, ext = name.rpartition('.')
+    if not dot:
+        stem, ext = name, ''
+    base = f"{stem.replace('.', '').upper()[:6]}~{n}"
+    ext = ext.upper()[:3]
+    assert len(base) <= 8, name
+    short = base.encode().ljust(8) + ext.encode().ljust(3)
+    checksum = 0
+    for byte in short:
+        checksum = ((checksum >> 1) | (checksum << 7) & 0x80) + byte & 0xFF
+    units = [ord(c) for c in name]
+    if len(units) % 13:
+        units.append(0)
+        units += [0xFFFF] * (-len(units) % 13)
+    count = len(units) // 13
+    long = b''
+    for seq in range(count, 0, -1):
+        part = units[(seq - 1) * 13:seq * 13]
+        long += struct.pack('<B5HBBB6HH2H', seq | (0x40 if seq == count else 0), *part[:5], 0x0F, 0, checksum,
+                            *part[5:11], 0, *part[11:])
+    return short[:8], short[8:], long
+
+
 def build(files):
-    """files: list of (short name 8.3 as 'NAME.EXT', shown lowercase, content bytes)."""
+    """files: list of (name as the computer shows it, content bytes)."""
     fat = [0xF00 | MEDIA, 0xFFF]
     root = bytearray(dir_entry(LABEL[:8], LABEL[8:], ATTR_LABEL, 0, 0, 0))
     data = bytearray()
     next_cluster = 2
-    for short, content in files:
-        base, _, ext = short.partition('.')
-        assert base.isupper() and ext.isupper() and len(base) <= 8 and len(ext) <= 3, short
+    for n, (name, content) in enumerate(files, 1):
+        base, ext, long = names(name, n)
         count = (len(content) + SECTOR - 1) // SECTOR
         if count == 0:
             first = 0
@@ -96,8 +128,8 @@ def build(files):
             fat.extend(list(range(first + 1, first + count)) + [0xFFF])
             next_cluster += count
             data += content.ljust(count * SECTOR, b'\0')
-        root += dir_entry(base.encode().ljust(8), ext.encode().ljust(3), ATTR_ARCHIVE,
-                          NT_LOWER_BASE | NT_LOWER_EXT, first, len(content))
+        root += long + dir_entry(base, ext, ATTR_ARCHIVE, 0, first, len(content))
+    assert len(root) <= ROOT_ENTRIES * 32, 'too many files for the helper disk'
     assert next_cluster - 2 <= DATA_CLUSTERS, 'files do not fit on the helper disk'
     image = bytearray(TOTAL_SECTORS * SECTOR)
     image[0:SECTOR] = boot_sector()
@@ -118,7 +150,7 @@ def main():
     a = p.parse_args()
     script = a.script.read_bytes()
     assert script.startswith(b'#!/bin/sh'), 'not the helper script'
-    image = build([('SETUP.SH', script), ('README.TXT', README.encode())])
+    image = build([(CONSOLE, script), ('README.txt', README.encode())])
     a.output.parent.mkdir(parents=True, exist_ok=True)
     a.output.write_bytes(image)
 

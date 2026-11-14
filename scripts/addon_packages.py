@@ -16,7 +16,8 @@ import subprocess
 # them without an OS release. No published release pins one from the
 # archived NanoKVM-OS-packages repository.
 ADDONS = ('nanokvm-rustdesk', 'nanokvm-ipmi', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
-          'nanokvm-model-ocr-cyrillic', 'nanokvm-model-ocr-chinese', 'nanokvm-model-screen')
+          'nanokvm-model-ocr-cyrillic', 'nanokvm-model-ocr-chinese', 'nanokvm-model-screen',
+          'nanokvm-host-sensors')
 RELEASES = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/'
 SOURCES = tuple(RELEASES + name + '-' for name in ADDONS)
 # A release tag, which is also the APK's name without .apk.
@@ -40,6 +41,8 @@ def selected_builds(paths, changed_pins=()):
             selected.update(BUILD_ADDONS)
         elif path.startswith(('addons/ipmi/', 'firmware/cpu/sysmon-runtime/', 'server/pkg/bmc/')) or path in {'server/go.mod', 'server/go.sum'}:
             selected.add('nanokvm-ipmi')
+        elif path.startswith('addons/host-sensors/'):
+            selected.add('nanokvm-host-sensors')
         elif path.startswith('addons/model-'):
             name = 'nanokvm-' + path.split('/')[1]
             if name in MODEL_ADDONS:

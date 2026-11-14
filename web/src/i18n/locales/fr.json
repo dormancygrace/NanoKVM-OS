@@ -2560,6 +2560,41 @@
         "authError": "La connexion ne fonctionne plus : {{error}}",
         "changed": "Le service, l'ID client ou le tenant a changé pendant la connexion. Connectez-vous à nouveau."
       }
+    },
+    "hostSensors": {
+      "title": "Capteurs de l’ordinateur",
+      "about": "L’agent nanokvm-sensors de l’ordinateur envoie au NanoKVM ses températures, tensions et vitesses de ventilateurs.",
+      "download": "Télécharger à la place",
+      "waiting": "En attente de l’agent : aucun rapport pour le moment.",
+      "serialUnavailable": "Le port série USB ne fait pas partie de la composition USB.",
+      "serialBusy": "Le port série est utilisé par une autre session.",
+      "networkUnavailable": "Le réseau USB ne fait pas partie de la composition USB.",
+      "serialNote": "Tant que ce mode est actif, le terminal web ne peut pas utiliser {{port}}.",
+      "age": "il y a {{seconds}} s",
+      "stale": "Pas de données récentes",
+      "limited": "L’agent s’exécute sans droits d’administrateur ou sans le pilote PawnIO : les capteurs du processeur et de la carte mère peuvent manquer.",
+      "saveFailed": "Le réglage n’a pas pu être enregistré.",
+      "connection": "Connexion",
+      "modeLabel": "Transmission des mesures",
+      "agent": "Agent",
+      "agentHint": "Sur l’ordinateur, ouvrez le disque d’aide NANOKVM, visible à côté du lecteur virtuel. Windows : double-cliquez sur NanoKVM-Sensors-Setup-Windows.exe. Linux : en root, exécutez sh NanoKVM-Sensors-Setup-Linux.sh. L’installation installe l’agent, met à jour un agent plus ancien ou le supprime. Sous Windows, elle propose d’installer le pilote PawnIO, nécessaire aux capteurs du processeur et de la carte mère.",
+      "readings": "Mesures",
+      "offHint": "Choisissez comment les mesures arrivent pour les voir ici.",
+      "mode": {
+        "off": "Désactivé",
+        "serial": "USB série",
+        "network": "Réseau USB"
+      },
+      "choose": "Choisir les mesures",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "noneShown": "Aucune mesure n’est choisie pour l’affichage.",
+      "diskAttached": "L’ordinateur dispose du disque d’aide",
+      "diskStale": "L’agent apparaîtra sur le disque d’aide après la reconnexion des périphériques USB",
+      "diskMissing": "Pas de disque d’aide : il faut le disque virtuel dans la composition USB et une reconnexion des périphériques USB",
+      "agentVersion": "agent {{version}}",
+      "agentUpdate": "Le module apporte l’agent {{version}} : pour mettre à jour, relancez sur l’ordinateur l’installation des capteurs depuis le disque d’aide.",
+      "serialConsole": "L’ordinateur a sa console de connexion sur ce port (l’assistant de console série la configure) : les capteurs ne peuvent pas l’utiliser. Choisissez Réseau USB."
     }
   },
   "picoclaw": {

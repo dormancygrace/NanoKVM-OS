@@ -2163,6 +2163,41 @@
         "authError": "Přihlášení už nefunguje: {{error}}",
         "changed": "Během přihlášení se změnila služba, ID klienta nebo tenant. Přihlaste se znovu."
       }
+    },
+    "hostSensors": {
+      "title": "Senzory počítače",
+      "about": "Agent nanokvm-sensors v počítači posílá do NanoKVM jeho teploty, napětí a otáčky ventilátorů.",
+      "download": "Stáhnout místo toho",
+      "waiting": "Čeká se na agenta: zatím žádné hlášení.",
+      "serialUnavailable": "USB sériový port není součástí USB kompozice.",
+      "serialBusy": "Sériový port používá jiná relace.",
+      "networkUnavailable": "USB síť není součástí USB kompozice.",
+      "serialNote": "Dokud je tento režim zapnutý, webový terminál nemůže používat {{port}}.",
+      "age": "před {{seconds}} s",
+      "stale": "Žádná čerstvá data",
+      "limited": "Agent běží bez práv správce nebo bez ovladače PawnIO: senzory procesoru a desky mohou chybět.",
+      "saveFailed": "Nastavení se nepodařilo uložit.",
+      "connection": "Připojení",
+      "modeLabel": "Jak hodnoty přicházejí",
+      "agent": "Agent",
+      "agentHint": "V počítači otevřete pomocný disk NANOKVM, který je vidět vedle virtuální jednotky. Windows: poklepejte na NanoKVM-Sensors-Setup-Windows.exe. Linux: jako root spusťte sh NanoKVM-Sensors-Setup-Linux.sh. Instalace nainstaluje agenta, aktualizuje staršího nebo jej odebere. Ve Windows nabídne instalaci ovladače PawnIO, který potřebují senzory procesoru a desky.",
+      "readings": "Hodnoty",
+      "offHint": "Zvolte, jak hodnoty přicházejí, a uvidíte je zde.",
+      "mode": {
+        "off": "Vypnuto",
+        "serial": "USB sériový port",
+        "network": "USB síť"
+      },
+      "choose": "Vybrat hodnoty",
+      "save": "Uložit",
+      "cancel": "Zrušit",
+      "noneShown": "Není vybrána žádná hodnota k zobrazení.",
+      "diskAttached": "Počítač má pomocný disk",
+      "diskStale": "Agent se na pomocném disku objeví po opětovném připojení USB zařízení",
+      "diskMissing": "Pomocný disk chybí: je potřeba virtuální disk v USB kompozici a opětovné připojení USB zařízení",
+      "agentVersion": "agent {{version}}",
+      "agentUpdate": "Doplněk obsahuje agenta {{version}}: pro aktualizaci znovu spusťte v počítači instalaci senzorů z pomocného disku.",
+      "serialConsole": "Počítač má na tomto portu přihlašovací konzoli (nastavuje ji pomocník sériové konzole), takže jej senzory nemohou používat. Zvolte USB síť."
     }
   },
   "picoclaw": {

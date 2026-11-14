@@ -2560,6 +2560,41 @@
         "authError": "登录已失效：{{error}}",
         "changed": "登录期间服务、客户端 ID 或租户已更改。请重新登录。"
       }
+    },
+    "hostSensors": {
+      "title": "计算机传感器",
+      "about": "计算机上的 nanokvm-sensors 代理将其温度、电压和风扇转速发送到 NanoKVM。",
+      "download": "改为下载",
+      "waiting": "正在等待代理：尚无报告。",
+      "serialUnavailable": "USB 串口不在 USB 组合中。",
+      "serialBusy": "串口正被另一个会话占用。",
+      "networkUnavailable": "USB 网络不在 USB 组合中。",
+      "serialNote": "启用此模式时，网页终端无法使用 {{port}}。",
+      "age": "{{seconds}} 秒前",
+      "stale": "没有新数据",
+      "limited": "代理在没有管理员权限或没有 PawnIO 驱动的情况下运行：可能缺少处理器和主板传感器。",
+      "saveFailed": "无法保存设置。",
+      "connection": "连接",
+      "modeLabel": "读数的传输方式",
+      "agent": "代理",
+      "agentHint": "在计算机上打开虚拟驱动器旁的 NANOKVM 辅助磁盘。Windows：双击 NanoKVM-Sensors-Setup-Windows.exe。Linux：以 root 身份运行 sh NanoKVM-Sensors-Setup-Linux.sh。安装程序可安装代理、更新旧版本或将其删除。在 Windows 上会提示安装处理器和主板传感器所需的 PawnIO 驱动。",
+      "readings": "读数",
+      "offHint": "选择读数的传输方式后即可在此查看。",
+      "mode": {
+        "off": "关闭",
+        "serial": "USB 串口",
+        "network": "USB 网络"
+      },
+      "choose": "选择读数",
+      "save": "保存",
+      "cancel": "取消",
+      "noneShown": "未选择要显示的读数。",
+      "diskAttached": "计算机已连接辅助磁盘",
+      "diskStale": "USB 设备重新连接后，代理将出现在辅助磁盘上",
+      "diskMissing": "没有辅助磁盘：需要在 USB 组合中启用虚拟磁盘并重新连接 USB 设备",
+      "agentVersion": "代理 {{version}}",
+      "agentUpdate": "扩展包含代理 {{version}}：请在计算机上再次运行辅助磁盘中的传感器安装程序进行更新。",
+      "serialConsole": "计算机在此端口上运行登录控制台（由串口控制台助手设置），传感器无法使用它。请选择 USB 网络。"
     }
   },
   "picoclaw": {

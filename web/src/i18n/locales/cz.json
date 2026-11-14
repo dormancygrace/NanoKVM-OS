@@ -2686,7 +2686,7 @@
     "routingNote": "Ve výchozím stavu je směrována pouze podsíť rozhraní. Pokud chcete přidávat trasy na protějšky, povolte „Směrovat povolené IP adresy“.",
     "routeAllowedIPs": "Směrovat povolené IP adresy",
     "routingHelp": "Přidat trasy z AllowedIPs adres, včetně výchozí trasy pro 0.0.0.0/0 nebo ::/0.",
-    "openvpnNote": "Povolený může být vždy jen jeden profil pro OpenVPN. Povolené profily se po restartu znovu připojí. Jsou podporovány směrované TUN profily (TAP, skripty a interaktivní SSO/MFA ověřování nejsou). Po dobu trvání (vpn) připojení je nastavení DNS z (vpn) serveru uplatňováno v rámci veškerého fungování zařízení.",
+    "openvpnNote": "Povolený může být vždy jen jeden profil pro OpenVPN. Povolené profily se po restartu znovu připojí. Jsou podporovány profily TUN a TAP (TAP bez mostu: NanoKVM převezme adresu přidělenou serverem); skripty a interaktivní SSO/MFA ověřování nejsou. Po dobu trvání (vpn) připojení je nastavení DNS z (vpn) serveru uplatňováno v rámci veškerého fungování zařízení.",
     "note": "Povolený může být vždy jen jeden profil pro WireGuard. Po naimportování není provedeno automatické připojení. Pro nastavení DNS je možné použít IP adresy; „executable hooks“ a SaveConfig nejsou podporovány. Nečinnost znamená, že tunel nemá žádné nedávné ustavení spojení, nikoli nezbytně že spojení spadlo.",
     "downConfirm": "Vypnout {{name}}?",
     "downDescription": "Spojení, která k NanoKVM vedou tímto tunelem, skončí – možná i tato stránka.",

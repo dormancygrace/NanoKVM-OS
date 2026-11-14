@@ -27,10 +27,18 @@ Upload `.ovpn` files with any referenced certificate/key files in the same
 selection. The GUI runs Alpine's OpenVPN 2 client (`openvpn`), installed from
 VPN settings, and shows whether a tunnel uses the kernel's data-channel offload.
 Enter requested username/password or private-key passphrase through the profile
-controls. Routed TUN profiles are supported; TAP, executable scripts and
+controls. TUN and TAP profiles are supported; executable scripts and
 interactive SSO/MFA are not. Server DNS applies to the whole device while
 connected and is restored on disconnect. Arbitrary providers are not guaranteed
 compatible.
+
+A TAP profile puts the NanoKVM on the server's Ethernet segment without a
+bridge: it takes the address and routes the server pushes (`server` or
+`server-bridge` with an address pool); router advertisements and IPv6
+autoconfiguration from that segment are ignored, and an address from DHCP
+through the tunnel (`route-gateway dhcp`, `server-bridge` without a pool) is
+not requested. The kernel's data-channel offload works with TUN only, so a
+TAP tunnel is encrypted by OpenVPN itself and is several times slower.
 
 ## Tailscale
 

@@ -128,7 +128,7 @@
     "openvpnUninstallWarning": "OpenVPN sera arrêté et supprimé. Les profils et paramètres existants restent sur l'appareil.",
     "confirm": "Oui",
     "cancel": "Non",
-    "openvpnNote": "Un seul profil OpenVPN peut être activé à la fois. Les profils activés se reconnectent après un redémarrage. Les profils TUN routés sont pris en charge ; TAP, les scripts et le SSO/MFA interactif ne le sont pas. Le DNS du serveur s'applique à tout l'appareil pendant la connexion.",
+    "openvpnNote": "Un seul profil OpenVPN peut être activé à la fois. Les profils activés se reconnectent après un redémarrage. Les profils TUN et TAP sont pris en charge (TAP sans pont : le NanoKVM prend l'adresse attribuée par le serveur) ; les scripts et le SSO/MFA interactif ne le sont pas. Le DNS du serveur s'applique à tout l'appareil pendant la connexion.",
     "credentials": "Identifiants",
     "credentialsRequired": "Identifiants requis",
     "username": "Nom d'utilisateur",

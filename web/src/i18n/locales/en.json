@@ -128,7 +128,7 @@
     "openvpnUninstallWarning": "OpenVPN will be stopped and removed. Existing profiles and settings remain on the device.",
     "confirm": "Yes",
     "cancel": "No",
-    "openvpnNote": "One OpenVPN profile can be enabled at a time. Enabled profiles reconnect after a restart. Routed TUN profiles are supported; TAP, scripts and interactive SSO/MFA are not. Server DNS applies to the whole device while connected.",
+    "openvpnNote": "One OpenVPN profile can be enabled at a time. Enabled profiles reconnect after a restart. TUN and TAP profiles are supported (TAP without a bridge: the NanoKVM takes the address the server pushes); scripts and interactive SSO/MFA are not. Server DNS applies to the whole device while connected.",
     "credentials": "Credentials",
     "credentialsRequired": "Credentials required",
     "username": "Username",

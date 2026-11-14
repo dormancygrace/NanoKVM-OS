@@ -11,6 +11,10 @@ import (
 type Parsed struct {
 	Config    string
 	NeedsAuth bool
+	// TAP: the profile wants an Ethernet (TAP) device, not a routed TUN one.
+	// The normalized profile keeps "dev-type tap", so the type survives
+	// normalizing it again.
+	TAP bool
 }
 
 // maxOpenVPNLine is the longest line OpenVPN 2 reads whole (OPTION_LINE_SIZE
@@ -35,6 +39,9 @@ func Normalize(data string, assets map[string]string) (Parsed, error) {
 	block := []string{}
 	output := []string{}
 	remote, trust, serverCheck := false, false, false
+	// The device type from "dev" (by its name, as OpenVPN infers it) and
+	// from "dev-type", which wins when both are given.
+	named, typed := "", ""
 	connection := false
 	lineError := func(n int, msg string) (Parsed, error) { return Parsed{}, fmt.Errorf("line %d: %s", n, msg) }
 	for number, raw := range strings.Split(data, "\n") {
@@ -118,10 +125,23 @@ func Normalize(data string, assets map[string]string) (Parsed, error) {
 		}
 		switch key {
 		case "dev", "dev-type":
-			if len(args) != 1 || (key == "dev-type" && args[0] != "tun") || (key == "dev" && !strings.HasPrefix(args[0], "tun")) {
-				return lineError(number+1, "use a routed TUN profile")
+			kind := ""
+			if len(args) == 1 {
+				for _, k := range []string{"tun", "tap"} {
+					if (key == "dev-type" && args[0] == k) || (key == "dev" && strings.HasPrefix(args[0], k)) {
+						kind = k
+					}
+				}
 			}
-			continue
+			if kind == "" {
+				return lineError(number+1, "use a TUN or TAP profile")
+			}
+			if key == "dev" {
+				named = kind
+			} else {
+				typed = kind
+			}
+			continue // The service names the device.
 		case "client", "tls-client", "verb", "mute", "auth-retry", "ignore-unknown-option", "keysize":
 			continue
 		case "block-outside-dns":
@@ -181,7 +201,11 @@ func Normalize(data string, assets map[string]string) (Parsed, error) {
 	if !serverCheck {
 		output = append(output, "remote-cert-tls server")
 	}
-	// The service supplies a unique TUN device name for status and DNS cleanup.
+	if typed == "tap" || (typed == "" && named == "tap") {
+		result.TAP = true
+		output = append(output, "dev-type tap")
+	}
+	// The service supplies a unique device name for status and DNS cleanup.
 	result.Config = "client\n" + strings.Join(output, "\n") + "\n"
 	if len(result.Config) > 256*1024 {
 		return Parsed{}, fmt.Errorf("combined profile and certificates exceed 256 KiB")

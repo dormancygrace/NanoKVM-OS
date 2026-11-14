@@ -268,7 +268,7 @@ func (s *Service) startAttempt(p Profile, attempt int, generation uint64) error 
 		return e
 	}
 	// Validate and canonicalize persisted profiles again before handing them to
-	// a root daemon. The service owns the runtime TUN device name.
+	// a root daemon. The service owns the runtime device name.
 	profilePath := s.path(p.ID, ".ovpn")
 	b, e := os.ReadFile(profilePath)
 	if e != nil {
@@ -300,10 +300,26 @@ func (s *Service) startAttempt(p Profile, attempt int, generation uint64) error 
 	if e = removeStaleDCO(deviceName(p.ID)); e != nil {
 		return e
 	}
+	devType := "tun"
+	if normalized.TAP {
+		devType = "tap"
+		// A new device for every start. One left by an OpenVPN that did
+		// not exit cleanly (killed, out of memory) keeps that OpenVPN's
+		// addresses and routes, and a pushed default route there would
+		// catch the way to the server. The callers hold s.mu and found no
+		// OpenVPN of this profile running, so the device is no one's.
+		name := deviceName(p.ID)
+		if e = removeTAP(name); e == nil {
+			e = prepareTAP(name)
+		}
+		if e != nil {
+			return e
+		}
+	}
 	args := []string{
 		"--config", profilePath,
 		"--dev", deviceName(p.ID),
-		"--dev-type", "tun",
+		"--dev-type", devType,
 		"--log", s.runtime(p.ID, ".log"),
 		"--script-security", "2",
 		"--up", "/etc/openvpn/up.sh",
@@ -352,7 +368,7 @@ func (s *Service) stop(id string) (result error) {
 	defer func() {
 		result = errors.Join(result, s.clearDNS(id))
 		if s.pid(id) == 0 {
-			result = errors.Join(result, removeStaleDCO(deviceName(id)))
+			result = errors.Join(result, removeStaleDCO(deviceName(id)), removeTAP(deviceName(id)))
 		}
 	}()
 	pid := s.pid(id)
@@ -380,6 +396,48 @@ func (s *Service) stop(id string) (result error) {
 	}
 	return fmt.Errorf("OpenVPN has not stopped")
 }
+
+// prepareTAP creates the TAP device of a profile before OpenVPN opens it,
+// with IPv6 router advertisements and address autoconfiguration off from the
+// first frame: a TAP device is on the server's Ethernet segment, whose
+// routers would otherwise give the NanoKVM addresses and a default route.
+// Addresses and routes come only from what the server pushes, as with TUN.
+// OpenVPN attaches to the device. The device outlives OpenVPN with whatever
+// it had: the caller removes an old one first, and stop removes it.
+var prepareTAP = func(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if out, e := exec.CommandContext(ctx, "ip", "tuntap", "add", "dev", name, "mode", "tap").CombinedOutput(); e != nil {
+		return fmt.Errorf("cannot create the TAP device: %s", strings.TrimSpace(string(out)))
+	}
+	for _, key := range []string{"accept_ra", "autoconf"} {
+		// No such file: a kernel without IPv6, nothing to switch off.
+		if e := os.WriteFile(filepath.Join("/proc/sys/net/ipv6/conf", name, key), []byte("0\n"), 0o644); e != nil && !errors.Is(e, os.ErrNotExist) {
+			return e
+		}
+	}
+	return nil
+}
+
+// removeTAP removes a TAP device prepareTAP made; a TUN device goes with its
+// OpenVPN by itself. Called only when no OpenVPN of the profile runs.
+var removeTAP = func(name string) error {
+	flags, e := os.ReadFile(filepath.Join("/sys/class/net", name, "tun_flags"))
+	if e != nil {
+		return nil
+	}
+	value, e := strconv.ParseUint(strings.TrimSpace(string(flags)), 0, 32)
+	if e != nil || value&0x0002 == 0 { // IFF_TAP
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if out, e := exec.CommandContext(ctx, "ip", "tuntap", "del", "dev", name, "mode", "tap").CombinedOutput(); e != nil {
+		return fmt.Errorf("cannot remove the TAP device: %s", strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func (s *Service) clearDNS(id string) error {
 	// OpenVPN's down script removes the record; one killed leaves it.
 	name := deviceName(id)

@@ -18,7 +18,7 @@ func TestNormalizeAndRejectExecutableInputs(t *testing.T) {
 	if _, e = Normalize(p.Config, nil); e != nil {
 		t.Fatal("normalized profile not stable", e)
 	}
-	for _, line := range []string{"up /bin/sh", "plugin /tmp/injected.so", "config /etc/private", "log /etc/shadow", "management /tmp/socket unix", "dev tap0", "ca ../root.key", "auth-user-pass /etc/passwords", "script-security 3", "setenv LD_PRELOAD /tmp/x"} {
+	for _, line := range []string{"up /bin/sh", "plugin /tmp/injected.so", "config /etc/private", "log /etc/shadow", "management /tmp/socket unix", "dev null", "dev-type tunnel", "ca ../root.key", "auth-user-pass /etc/passwords", "script-security 3", "setenv LD_PRELOAD /tmp/x"} {
 		if _, e := Normalize(profile+line+"\n", nil); e == nil {
 			t.Error("accepted", line)
 		}
@@ -27,6 +27,22 @@ func TestNormalizeAndRejectExecutableInputs(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+// TAP: by the device name or by dev-type (which wins); the type survives
+// normalizing again (the service does it at every start), and a TUN profile
+// carries no type line.
+func TestTAPProfile(t *testing.T) {
+	for src, tap := range map[string]bool{"dev tap0\n": true, "dev tun\ndev-type tap\n": true, "dev tap\ndev-type tun\n": false, "": false} {
+		p, e := Normalize(strings.Replace(profile, "dev tun\n", src, 1), nil)
+		if e != nil || p.TAP != tap || strings.Contains(p.Config, "dev-type") != tap {
+			t.Fatal(src, e, p.TAP)
+		}
+		if again, e := Normalize(p.Config, nil); e != nil || again.TAP != tap || strings.Count(again.Config, "dev-type") > 1 {
+			t.Fatal("type not kept:", src, e)
+		}
+	}
+}
+
 func TestReferencedCredentials(t *testing.T) {
 	src := "client\ndev tun\nremote vpn.example.test\nca root.crt\ncert client.crt\nkey client.key\ntls-auth ta.key 1\n"
 	p, e := Normalize(src, map[string]string{"root.crt": "TEST-CA", "client.crt": "TEST-CERT", "client.key": "TEST-KEY", "ta.key": "TEST-STATIC"})

@@ -164,9 +164,17 @@ check_recovery_layout() {
 		die "$DATA_ROOT is not the exFAT data partition (mmcblk0p3) that recovery reads"
 	[ "$(sector_field mmcblk0p2 size)" = 1572864 ] ||
 		die "the root partition is not where recovery expects it"
-	case "$(sector_field mmcblk0p2 start):$(sector_field mmcblk0p3 start)" in
+	p2_start=$(sector_field mmcblk0p2 start)
+	p3_start=$(sector_field mmcblk0p3 start)
+	case "$p2_start:$p3_start" in
 		131073:1705984|131073:3180544|139264:1712128) ;;
-		*) die "the data partition is not where recovery expects it" ;;
+		*)
+			# A stock migration: 64 MiB boot, then the 768 MiB root, then p3.
+			[ "$(sector_field mmcblk0p1 size)" = 131072 ] &&
+				[ "$p2_start" = "$(($(sector_field mmcblk0p1 start) + 131072))" ] &&
+				[ "$p3_start" = "$((p2_start + 1572864))" ] ||
+				die "the data partition is not where recovery expects it"
+			;;
 	esac
 }
 

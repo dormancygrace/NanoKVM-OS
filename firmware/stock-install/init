@@ -147,7 +147,8 @@ umask 022
 tar --numeric-owner -xpzf "$stage/alpine-rootfs.tar.gz" -C /realroot
 [ -f /realroot/etc/alpine-release ] && [ -x /realroot/bin/busybox ] &&
     [ -x /realroot/etc/init.d/nanokvm-app ] || fail "new root is incomplete"
-# Never run the fresh-image allocator on an existing data partition.
+# The fresh-image allocator does not apply: the first boot recreates the data
+# partition through /etc/nanokvm-stock-migration (nanokvm-firstboot-storage).
 rm -f /realroot/etc/nanokvm-firstboot-storage
 # The root bundle seeds USB defaults for a new SD image. Stock's
 # complete flag set (including an empty, HID-only set) must replace them.
@@ -170,8 +171,8 @@ if [ "$(cat "$stage/ssh-state")" = on ]; then
 else
     touch /realroot/etc/kvm/ssh_stop
 fi
-# The normal storage service removes this transaction after the new layout
-# boots, including when power fails just after the MBR commit.
+# The first boot of the new layout recreates partition 3 right after the root
+# (this transaction with it), also when power fails just after the MBR commit.
 touch /realroot/etc/nanokvm-stock-migration
 sync
 umount /realroot/boot

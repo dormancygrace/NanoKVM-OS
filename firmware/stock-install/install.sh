@@ -105,7 +105,8 @@ need_data=$(( $(du -sk "$bundle" | awk '{print $1}') + ($(wc -c </boot/boot.sd) 
 [ ! -e /boot/dbg.sd ] || fail "remove the existing debug boot override first"
 stage=/data/.nanokvm-stock-install
 [ ! -e "$stage" ] || fail "$stage already exists; inspect its status before starting another migration"
-echo "Ready: keep partition 3; build a 64 MiB boot and $(( $3 / 2048 )) MiB root inside old partition 2."
+echo "Ready: build a 64 MiB boot and $(( $3 / 2048 )) MiB root inside old partition 2."
+echo "ALL FILES ON PARTITION 3 (/data) WILL BE ERASED: the new system recreates it after the root. Copy them off first."
 echo "The stock OS and installed applications will be replaced. Network and SSH access settings are retained."
 echo "The web login becomes admin/admin and requires a new password. Keep power connected."
 [ -z "$data_luns" ] || echo "Partition 3, shared as a USB disk, will be detached from the USB host."

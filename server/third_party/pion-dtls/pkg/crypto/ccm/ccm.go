@@ -183,11 +183,14 @@ func sliceForAppend(in []byte, n int) (head, tail []byte) {
 		panic("ccm: output length overflow")
 	}
 
-	if total := len(in) + n; cap(in) >= total {
-		head = in[:total]
+	if n <= cap(in)-len(in) {
+		// Spare capacity may hold Seal's plaintext. Extend without clearing
+		// it so exact in-place encryption can read before overwriting.
+		head = in[:len(in)+n]
 	} else {
-		head = make([]byte, total)
-		copy(head, in)
+		// Let append perform checked growth. This branch allocates a new
+		// backing array, so zeroing the new region cannot change plaintext.
+		head = append(in, make([]byte, n)...)
 	}
 	tail = head[len(in):]
 

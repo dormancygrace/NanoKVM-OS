@@ -95,8 +95,9 @@ export const Usb = ({ part }: { part: UsbPart }) => {
 
   function toggle(name: UsbDevice) {
     if (!status || !draft || busy.current || !canToggleDevice(draft, name, status)) return;
-    setDraft(toggleDevice(draft, name));
-    setSelection('custom');
+    const next = toggleDevice(draft, name);
+    setDraft(next);
+    setSelection(hasUsbDevice(next) ? 'custom' : 'disabled');
     setError('');
   }
 
@@ -206,7 +207,9 @@ export const Usb = ({ part }: { part: UsbPart }) => {
                   description={
                     selection === 'custom'
                       ? t('settings.usb.customDescription')
-                      : t(`settings.usb.presets.${selection}.description`)
+                      : selection === 'disabled'
+                        ? t('settings.usb.empty')
+                        : t(`settings.usb.presets.${selection}.description`)
                   }
                   htmlFor="usb-preset"
                   stacked
@@ -222,7 +225,10 @@ export const Usb = ({ part }: { part: UsbPart }) => {
                     options={[
                       ...usbPresets.map((preset) => ({
                         value: preset.id,
-                        label: t(`settings.usb.presets.${preset.id}.title`),
+                        label:
+                          preset.id === 'disabled'
+                            ? t('settings.network.ethernet.disabled')
+                            : t(`settings.usb.presets.${preset.id}.title`),
                         disabled: !status || !fitsBudget(preset.composition, status)
                       })),
                       { value: 'custom', label: t('settings.usb.custom') }

@@ -24,6 +24,16 @@ rc-update del hwdrivers boot >/dev/null 2>&1 || true
 # 2 s) unless savecache kept it at shutdown; it rebuilds the tree by itself
 # when a script or a setting changed since.
 [ ! -x /etc/init.d/savecache ] || rc-update add savecache shutdown
+# bootmisc waits for the server (after 4.2.1; see the boot order below). The
+# rc_after line written further down marks the move as done, so a runlevel the
+# user changed later stays; bootmisc is added to default before it leaves
+# boot, so a step that fails is retried next time.
+if [ -f /etc/conf.d/bootmisc ] && ! grep -q '^[[:space:]]*rc_after=' /etc/conf.d/bootmisc; then
+    if [ -e /etc/runlevels/boot/bootmisc ]; then
+        rc-update add bootmisc default
+        rc-update del bootmisc boot
+    fi
+fi
 
 # Boot time settings of Alpine services (NanoKVM boot order):
 # - sshd's depend() runs `sshd -G`, which waits for the kernel's random pool
@@ -31,6 +41,9 @@ rc-update del hwdrivers boot >/dev/null 2>&1 || true
 #   sshd, and the config binds no single address, so it needs nothing more.
 # - bootmisc's copy of the kernel log on the SD card at every boot duplicates
 #   the boot log archive.
+# - bootmisc waits for the server: it writes utmp and wtmp, and its cleanup
+#   of /run and /tmp has nothing to do on tmpfs. hostname stays in boot: the
+#   server checks request Host names against it.
 # - udev-trigger replays the add event of every device at boot, about 530 on
 #   the SG2002. Without coldplug it replays those with a /dev node and the
 #   network interfaces: the same nodes, permissions and links, and the same
@@ -43,6 +56,9 @@ if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd
 fi
 if [ -f /etc/conf.d/bootmisc ]; then
     sed -i 's/^log_dmesg="YES"$/log_dmesg="NO"/' /etc/conf.d/bootmisc
+fi
+if [ -f /etc/conf.d/bootmisc ] && ! grep -q '^[[:space:]]*rc_after=' /etc/conf.d/bootmisc; then
+    printf '%s\n' '# NanoKVM: after the server' 'rc_after="nanokvm-app"' >> /etc/conf.d/bootmisc
 fi
 # NanoKVM udev coldplug default: evaluated when OpenRC sources the config.
 # Preserve service-local, exported, global and legacy-uppercase preferences.

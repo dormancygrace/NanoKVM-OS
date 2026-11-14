@@ -282,7 +282,7 @@ jobs:
               assert "PE32+" in out and "x86-64" in out, out
               assert os.stat(program).st_mode & 0o777 == 0o644, program
               assert len(record["pawnio"]["sha256"]) == 64 and record["pawnio"]["tag"], record["pawnio"]
-              # The agents share the add-on's version.
+              # The agents carry the version of the add-on.
               import re
               for path in recipe["files"]:
                   if path.endswith(".sh"):

@@ -319,20 +319,17 @@ export const Software = () => {
                 <span className="min-w-0 truncate">
                   {pkg.name} <span className="text-fg-muted">{pkg.version}</span>
                 </span>
-                <div className="flex max-w-[55%] flex-col items-end gap-1">
+                {!pkg.removalBlocked && !protectedPackages.has(pkg.name) && (
                   <Button
                     size="small"
                     danger
                     icon={<Trash2Icon size={14} />}
-                    disabled={working || !!pkg.removalBlocked || protectedPackages.has(pkg.name)}
+                    disabled={working}
                     onClick={() => void previewRemoval(pkg.name)}
                   >
                     {t('settings.software.remove')}
                   </Button>
-                  {pkg.removalBlocked && (
-                    <span className="text-fg-muted text-right text-xs">{pkg.removalBlocked}</span>
-                  )}
-                </div>
+                )}
               </div>
             ))}
           </div>

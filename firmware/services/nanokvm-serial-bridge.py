@@ -19,16 +19,28 @@ import tty
 
 
 class ResizeParser:
-    def __init__(self, nonce, resize):
+    """Takes the browser's size replies out of the input. drop: byte strings
+    removed whole wherever they come, for echoes of this bridge's own query
+    (they carry its secret nonce, so nothing typed matches them)."""
+
+    def __init__(self, nonce, resize, drop=()):
         self.prefix = ("\x1b]777;nkos-size;1;" + nonce + ";").encode()
         self.pending = b""
         self.resize = resize
+        self.drop = tuple(drop)
 
     def feed(self, data):
         data = self.pending + data
         self.pending = b""
         output = bytearray()
         while data:
+            dropped = next((d for d in self.drop if data.startswith(d)), None)
+            if dropped:
+                data = data[len(dropped):]
+                continue
+            if any(d.startswith(data) for d in self.drop):
+                self.pending = data
+                break
             if data.startswith(self.prefix):
                 end = data.find(b"\x07", len(self.prefix))
                 if end < 0 and len(data) < len(self.prefix) + 24:
@@ -67,15 +79,23 @@ def main():
     master, slave = os.openpty()
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
     os.set_blocking(master, False)
+    # -8: the line is 8-bit clean. Without it agetty takes the high bit of a
+    # UTF-8 byte typed at the login prompt (Cyrillic, say) for parity, and
+    # then erases with parity bytes the terminal cannot show: Backspace seems
+    # dead, and the session gets the parity settings too.
     child = subprocess.Popen(
-        ["/sbin/agetty", "-o", "-- \\u", "--noreset", "--noclear", "-L",
+        ["/sbin/agetty", "-8", "-o", "-- \\u", "--noreset", "--noclear", "-L",
          "9600", os.ttyname(slave).removeprefix("/dev/"), "xterm-256color"],
         start_new_session=True, stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     nonce = secrets.token_hex(16)
     query = ("\x1b]777;nkos-resize;1;" + nonce + "\x07").encode()
+    # The NanoKVM's ttyGS0 echoes for a moment when it is first opened after a
+    # boot, before the terminal sets it raw: a query waiting then comes back,
+    # with ECHOCTL as ^[...^G. Passed on, agetty would take it for typed text.
+    echoes = (query, query.replace(b"\x1b", b"^[").replace(b"\x07", b"^G"))
     parser = ResizeParser(nonce, lambda r, c: fcntl.ioctl(
-        master, termios.TIOCSWINSZ, struct.pack("HHHH", r, c, 0, 0)))
+        master, termios.TIOCSWINSZ, struct.pack("HHHH", r, c, 0, 0)), echoes)
     queues = {serial: bytearray(), master: bytearray()}
     next_query = 0
     last_output = 0

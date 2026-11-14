@@ -753,13 +753,11 @@ them the report is marked as limited.";
         // programs write: a new directory under the agent's own in Program
         // Files (its parents are the administrators'), with a name nobody can
         // guess, open to SYSTEM and the administrators alone and inheriting
-        // nothing. A file is created new, never over an existing one, and is
-        // kept open against writing and deleting until the directory goes,
-        // after the program that read it has ended.
+        // nothing. A file is created new, never over an existing one, and the
+        // directory goes after the program that read it has ended.
         private sealed class Staging : IDisposable
         {
             private readonly string dir;
-            private readonly List<FileStream> held = new List<FileStream>();
 
             public Staging(string root)
             {
@@ -782,13 +780,11 @@ them the report is marked as limited.";
             {
                 string path = Path.Combine(dir, name);
                 using (FileStream file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None)) write(file);
-                held.Add(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read));
                 return path;
             }
 
             public void Dispose()
             {
-                foreach (FileStream file in held) file.Dispose();
                 try { Directory.Delete(dir, true); } catch (Exception) { }
             }
         }

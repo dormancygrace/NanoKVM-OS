@@ -104,6 +104,9 @@ func (s *Service) serveRemote(r *remoteSession, source remotemedia.Source, mount
 				_ = os.WriteFile(forcedEjectDevice, []byte("1"), 0600)
 			}
 		}
+		if r.mounted {
+			recordMedium(r.actor, "")
+		}
 		r.mounted = false
 	}()
 	select {
@@ -256,7 +259,7 @@ func (s *Service) ConnectSMB(c *gin.Context) {
 }
 
 func (s *Service) connectRemoteURL(c *gin.Context, kind string, open func(context.Context) (remotemedia.Source, string, uint64, error)) {
-	if _, err := s.startRemote(kind, "", open); err != nil {
+	if _, err := s.startRemote(kind, "", webActor(c), open); err != nil {
 		c.JSON(409, gin.H{"code": -2, "msg": err.Error()})
 		return
 	}
@@ -266,9 +269,9 @@ func (s *Service) connectRemoteURL(c *gin.Context, kind string, open func(contex
 
 // startRemote reserves the drive and connects a URL source in the
 // background. The session's ready channel gets the outcome.
-func (s *Service) startRemote(kind, location string, open func(context.Context) (remotemedia.Source, string, uint64, error)) (*remoteSession, error) {
+func (s *Service) startRemote(kind, location, actor string, open func(context.Context) (remotemedia.Source, string, uint64, error)) (*remoteSession, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-	r := &remoteSession{kind: kind, name: "remote.iso", location: location, closed: make(chan struct{}), cancel: cancel,
+	r := &remoteSession{kind: kind, name: "remote.iso", location: location, actor: actor, closed: make(chan struct{}), cancel: cancel,
 		ready: make(chan error, 1), released: make(chan struct{})}
 	if err := s.reserveRemote(r); err != nil {
 		r.close()
@@ -281,6 +284,7 @@ func (s *Service) startRemote(kind, location string, open func(context.Context) 
 			r.name, r.size = name, size
 			s.mu.Unlock()
 			err = s.serveRemote(r, source, func() error {
+				recordMedium(r.actor, r.name)
 				r.ready <- nil
 				return nil
 			})

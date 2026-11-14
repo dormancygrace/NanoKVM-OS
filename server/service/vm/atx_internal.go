@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"NanoKVM-Server/journal"
 	"NanoKVM-Server/pkg/bmc"
 )
 
@@ -90,6 +91,8 @@ func (s *Service) GetATXInternal(c *gin.Context) {
 
 // PressATXInternal executes a power action or single press (bmc.ATXPath).
 func (s *Service) PressATXInternal(c *gin.Context) {
+	// The only client of this API is the IPMI add-on's daemon.
+	c.Request = c.Request.WithContext(journal.WithActor(c.Request.Context(), "IPMI"))
 	pressATXInternal(c, ATX{})
 }
 

@@ -16,6 +16,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"NanoKVM-Server/journal"
 )
 
 // Kind is what an event is about; each channel picks the kinds it gets.
@@ -163,6 +165,8 @@ type Service struct {
 	authErrors map[string]string
 
 	startOnce sync.Once
+	// record, when set, gets every event that is dispatched: the journal.
+	record func(Event)
 }
 
 func newService(path string) *Service {
@@ -236,8 +240,24 @@ var (
 
 // Default is the device's notification service, with its stored settings.
 func Default() *Service {
-	stdOnce.Do(func() { std = newService(ConfigPath) })
+	stdOnce.Do(func() {
+		std = newService(ConfigPath)
+		std.record = func(e Event) {
+			journal.Default.Add(journal.Entry{Time: e.Time, Kind: string(e.Kind), Severity: e.Severity.String(),
+				Message: e.Message, Vars: e.Vars, Details: e.Details})
+		}
+	})
 	return std
+}
+
+// Describe puts a journal entry into the words of language (English when
+// the language or the message is not known there).
+func Describe(language string, e journal.Entry) (title, body string) {
+	if !slices.Contains(Languages, language) {
+		language = Languages[0]
+	}
+	r := render(Event{Message: e.Message, Vars: e.Vars, Details: e.Details, Time: e.Time}, language, nil)
+	return r.Title, r.Body
 }
 
 // Emit queues an event for the device's channels.
@@ -302,6 +322,12 @@ func (s *Service) dispatch(e Event) {
 	if repeated || held {
 		log.Debugf("notifications: repeated %s held back", e.Message)
 		return
+	}
+	// The journal gets what the channels would, whether or not a channel
+	// takes it: after the repeats are held back, so that an outsider's
+	// logins cannot fill it.
+	if s.record != nil && e.Kind != KindTest {
+		s.record(e)
 	}
 	var targets []Channel
 	for _, ch := range config.Channels {

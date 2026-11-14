@@ -3,12 +3,15 @@ package vm
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/internal/gpioio"
+	"NanoKVM-Server/journal"
+	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 )
 
@@ -51,7 +54,11 @@ func (s *Service) SetGpio(c *gin.Context) {
 		duration = 800 * time.Millisecond
 	}
 
-	if err := writeGpio(c.Request.Context(), device, duration); err != nil {
+	ctx := c.Request.Context()
+	if principal, ok := middleware.CurrentPrincipal(c); ok {
+		ctx = journal.WithActor(ctx, principal.Username+" (web)")
+	}
+	if err := writeGpio(ctx, device, duration); err != nil {
 		rsp.ErrRsp(c, -3, fmt.Sprintf("operation failed: %s", err))
 		return
 	}
@@ -80,8 +87,19 @@ func (s *Service) GetGpio(c *gin.Context) {
 	rsp.OkRspWithData(c, data)
 }
 
+// writeGpio presses a button of the host: every power action of the page,
+// of Redfish, IPMI and MCP ends here, so here it gets into the journal,
+// with the actor its request named.
 func writeGpio(ctx context.Context, device string, duration time.Duration) error {
-	return atxPulse.Pulse(ctx, duration, func() (gpioio.Line, error) {
+	err := atxPulse.Pulse(ctx, duration, func() (gpioio.Line, error) {
 		return gpioio.Open(device, true)
 	})
+	if err == nil {
+		button := "power"
+		if device == atxHardware().GPIOReset {
+			button = "reset"
+		}
+		journal.Action(ctx, "action.button", map[string]string{"button": button, "seconds": strconv.FormatFloat(duration.Seconds(), 'f', 1, 64)})
+	}
+	return err
 }

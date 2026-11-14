@@ -18,5 +18,9 @@
   },
   "screen.bsod": { "title": "Écran bleu sur l'hôte", "body": "Windows s'est arrêté sur une erreur." },
   "screen.panic": { "title": "Kernel panic sur l'hôte", "body": "La console de l'hôte affiche un plantage." },
-  "test": { "title": "Notification de test", "body": "Les notifications de ce NanoKVM arrivent bien sur ce canal." }
+  "test": { "title": "Notification de test", "body": "Les notifications de ce NanoKVM arrivent bien sur ce canal." },
+  "action.button": { "title": "Bouton pressé", "body": "{actor} a appuyé sur le bouton {button} pendant {seconds} s." },
+  "action.media-inserted": { "title": "Image montée", "body": "{actor} a inséré {image} dans le lecteur virtuel." },
+  "action.media-ejected": { "title": "Image éjectée", "body": "{actor} a retiré l'image du lecteur virtuel." },
+  "journal.dropped": { "title": "Événements non enregistrés", "body": "{count} événements ont été omis : plus que le journal n'en accepte par minute." }
 }

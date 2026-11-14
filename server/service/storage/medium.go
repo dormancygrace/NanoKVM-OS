@@ -83,7 +83,7 @@ func (s *Service) InsertURL(ctx context.Context, rawURL, username, password stri
 		if err := remotemedia.ValidateSMBOptions(options); err != nil {
 			return err
 		}
-		r, err = s.startRemote("smb", shown.String(), func(ctx context.Context) (remotemedia.Source, string, uint64, error) {
+		r, err = s.startRemote("smb", shown.String(), "", func(ctx context.Context) (remotemedia.Source, string, uint64, error) {
 			source, err := remotemedia.OpenSMB(ctx, options)
 			if err != nil {
 				return nil, "", 0, err
@@ -95,7 +95,7 @@ func (s *Service) InsertURL(ctx context.Context, rawURL, username, password stri
 		if err := remotemedia.ValidateHTTPOptions(options); err != nil {
 			return err
 		}
-		r, err = s.startRemote("http", shown.String(), func(ctx context.Context) (remotemedia.Source, string, uint64, error) {
+		r, err = s.startRemote("http", shown.String(), "", func(ctx context.Context) (remotemedia.Source, string, uint64, error) {
 			source, err := remotemedia.OpenHTTP(ctx, options)
 			if err != nil {
 				return nil, "", 0, err

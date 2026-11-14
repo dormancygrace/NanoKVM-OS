@@ -87,11 +87,9 @@ func (w *hostWatch) step(now time.Time) {
 }
 
 func (w *hostWatch) stepPower(now time.Time) {
-	// The HDMI rule needs the power state even when power events are off.
-	on, ok := false, w.wants(notify.KindPower) || w.wants(notify.KindHDMI)
-	if ok {
-		on, ok = w.power()
-	}
+	// Always: the journal records power changes whether or not a channel
+	// takes them, and reading the LED costs nothing.
+	on, ok := w.power()
 	if !ok {
 		// Starting afresh, a LED that never changes again does not count.
 		w.powerState.reset()
@@ -102,9 +100,6 @@ func (w *hostWatch) stepPower(now time.Time) {
 		return
 	}
 	w.powerAt = now
-	if !w.wants(notify.KindPower) {
-		return
-	}
 	if on {
 		w.emit(notify.Event{Kind: notify.KindPower, Severity: notify.SeverityInfo, Message: "power.on"})
 	} else {
@@ -113,8 +108,10 @@ func (w *hostWatch) stepPower(now time.Time) {
 }
 
 func (w *hostWatch) stepHDMI(now time.Time) {
+	// While capture runs, for whatever reason: the journal records the
+	// picture's changes too, but capture is not kept running for it.
 	signal, ok := w.hdmi()
-	if !ok || !w.wants(notify.KindHDMI) {
+	if !ok {
 		w.hdmiState.reset()
 		w.hdmiSince = time.Time{}
 		return

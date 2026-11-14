@@ -18,5 +18,9 @@
   },
   "screen.bsod": { "title": "Blue screen on the host", "body": "Windows stopped with an error." },
   "screen.panic": { "title": "Kernel panic on the host", "body": "The host's console shows a crash." },
-  "test": { "title": "Test notification", "body": "Notifications from this NanoKVM reach this channel." }
+  "test": { "title": "Test notification", "body": "Notifications from this NanoKVM reach this channel." },
+  "action.button": { "title": "Button pressed", "body": "{actor} pressed the {button} button for {seconds} s." },
+  "action.media-inserted": { "title": "Image mounted", "body": "{actor} put {image} into the virtual drive." },
+  "action.media-ejected": { "title": "Image ejected", "body": "{actor} took the image out of the virtual drive." },
+  "journal.dropped": { "title": "Events not recorded", "body": "{count} events were left out: more than the journal takes in a minute." }
 }

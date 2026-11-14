@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"NanoKVM-Server/journal"
 	"NanoKVM-Server/service/controlmode"
 
 	"github.com/google/jsonschema-go/jsonschema"
@@ -159,7 +160,7 @@ func powerHandler(executor *toolExecutor, power PowerControl) protocol.ToolHandl
 			return nil, ToolOKResult{}, err
 		}
 		defer release()
-		if err := power.Do(ctx, action); err != nil {
+		if err := power.Do(journal.WithActor(ctx, "MCP"), action); err != nil {
 			return nil, ToolOKResult{}, err
 		}
 		return nil, ToolOKResult{OK: true}, nil

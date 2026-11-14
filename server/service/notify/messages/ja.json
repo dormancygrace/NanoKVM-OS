@@ -18,5 +18,9 @@
   },
   "screen.bsod": { "title": "ホストでブルースクリーン", "body": "Windows がエラーで停止しました。" },
   "screen.panic": { "title": "ホストで Kernel panic", "body": "ホストのコンソールにクラッシュが表示されています。" },
-  "test": { "title": "テスト通知", "body": "この NanoKVM からの通知はこのチャンネルに届きます。" }
+  "test": { "title": "テスト通知", "body": "この NanoKVM からの通知はこのチャンネルに届きます。" },
+  "action.button": { "title": "ボタンが押されました", "body": "{actor} が {button} ボタンを {seconds} 秒間押しました。" },
+  "action.media-inserted": { "title": "イメージをマウントしました", "body": "{actor} が {image} を仮想ドライブに挿入しました。" },
+  "action.media-ejected": { "title": "イメージを取り出しました", "body": "{actor} が仮想ドライブからイメージを取り出しました。" },
+  "journal.dropped": { "title": "記録されなかったイベント", "body": "{count} 件のイベントを省略しました（1 分あたりの記録上限を超過）。" }
 }

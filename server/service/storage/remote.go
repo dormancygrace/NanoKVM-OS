@@ -30,6 +30,8 @@ type remoteSession struct {
 	closeOnce sync.Once
 	readBytes atomic.Uint64
 	mounted   bool // guarded by Service.mu
+	// actor is who connected it, for the journal.
+	actor string
 	// location is where a URL source comes from, without credentials or a
 	// query, for the services that show it (Redfish).
 	location string
@@ -84,7 +86,7 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 	if err != nil {
 		return
 	}
-	r := &remoteSession{kind: "browser", ws: ws, closed: make(chan struct{}), released: make(chan struct{})}
+	r := &remoteSession{kind: "browser", ws: ws, closed: make(chan struct{}), released: make(chan struct{}), actor: webActor(c)}
 	defer r.close()
 	stopWatch := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopWatch()
@@ -145,6 +147,7 @@ func (s *Service) ConnectRemote(c *gin.Context) {
 		}
 	}()
 	_ = s.serveRemote(r, reader, func() error {
+		recordMedium(r.actor, r.name)
 		return r.send(gin.H{"type": "mounted", "name": r.name, "size": r.size})
 	})
 }

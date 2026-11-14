@@ -18,5 +18,9 @@
   },
   "screen.bsod": { "title": "Pantalla azul en el host", "body": "Windows se ha detenido con un error." },
   "screen.panic": { "title": "Kernel panic en el host", "body": "La consola del host muestra un fallo." },
-  "test": { "title": "Notificación de prueba", "body": "Las notificaciones de este NanoKVM llegan a este canal." }
+  "test": { "title": "Notificación de prueba", "body": "Las notificaciones de este NanoKVM llegan a este canal." },
+  "action.button": { "title": "Botón pulsado", "body": "{actor} pulsó el botón {button} durante {seconds} s." },
+  "action.media-inserted": { "title": "Imagen montada", "body": "{actor} insertó {image} en la unidad virtual." },
+  "action.media-ejected": { "title": "Imagen expulsada", "body": "{actor} retiró la imagen de la unidad virtual." },
+  "journal.dropped": { "title": "Eventos no registrados", "body": "Se omitieron {count} eventos: más de los que el registro admite por minuto." }
 }

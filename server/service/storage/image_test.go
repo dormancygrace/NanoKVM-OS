@@ -69,3 +69,37 @@ func imageFixture(t *testing.T) (root, outside string) {
 	}
 	return root, outside
 }
+
+// Only a change of the drive's type or name asks for a reconnection, and a
+// mount that failed after the change leaves no trace of it: the next one
+// must see the change again.
+func TestSetDriveReportsAChangedDrive(t *testing.T) {
+	dir := t.TempDir()
+	for _, file := range []*string{&roFlag, &cdromFlag, &inquiryString} {
+		original := *file
+		t.Cleanup(func() { *file = original })
+		*file = filepath.Join(dir, filepath.Base(original))
+	}
+	for _, step := range []struct {
+		cdrom         bool
+		name          string
+		changed, fail bool
+	}{{false, "Disk", true, false}, {false, "Disk", false, false}, {true, "CD", true, true}, {true, "CD", true, false},
+		{true, "CD", false, false}, {true, "Remote ISO", true, false}} {
+		changed, restore, err := setDrive(step.cdrom, step.name)
+		if err != nil || changed != step.changed {
+			t.Errorf("setDrive(%v, %q) = %v, %v; want %v", step.cdrom, step.name, changed, err, step.changed)
+		}
+		if step.fail {
+			restore()
+		}
+	}
+	// Failing halfway (the name cannot be written) undoes the first half.
+	inquiryString = filepath.Join(dir, "missing", "inquiry_string")
+	if _, _, err := setDrive(false, "Disk"); err == nil {
+		t.Error("setDrive wrote a name that cannot be written")
+	}
+	if flag, _ := os.ReadFile(cdromFlag); string(flag) != "1" {
+		t.Errorf("a failed setDrive left cdrom=%q", flag)
+	}
+}

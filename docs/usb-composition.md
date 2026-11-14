@@ -123,10 +123,15 @@ writable, inquiry string "NanoKVM User Disk"), so the USB devices reconnect.
 Formatting anew and deleting are refused while the disk is on. It needs the
 virtual disk function (it is another LUN of the same function, so it costs
 no endpoints), and the Images menu never lists it: hidden directories under
-`/data` are the device's own. Mounting or ejecting a CD/disk image rebinds
-the gadget too, so the computer loses and regains the user disk for a
-moment; what it wrote is on the image, which the NanoKVM does not touch
-while the disk is on.
+`/data` are the device's own. Mounting or ejecting a CD/disk image is a
+medium put into or taken out of the virtual drive and leaves the other USB
+devices alone; an image mounted over another leaves the drive empty for 2.5
+seconds in between, so that the computer notices. Only a change of the drive
+itself, from a disk to a CD drive or back, or to another SCSI name (a remote
+ISO), rebinds the gadget, because a computer reads a drive's type and name
+once, when it connects: then the
+computer loses and regains the user disk for a moment; what it wrote is on
+the image, which the NanoKVM does not touch while the disk is on.
 
 While the disk is off, the file list under the card browses, uploads,
 downloads and deletes its files. Files and whole folders can be picked or

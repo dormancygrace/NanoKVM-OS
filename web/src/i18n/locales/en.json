@@ -1555,7 +1555,7 @@
         "busy": "The disk is busy. Wait for the current operation and try again.",
         "missing": "The user disk image is gone. Create it again.",
         "failed": "The user disk request failed.",
-        "notice": "Mounting or ejecting a CD/disk image reconnects the USB devices too; the computer sees the user disk again afterwards with what it wrote. The whole image is allocated on the SD card at creation, so the large sizes take a while.",
+        "notice": "Changing the virtual drive between disk and CD reconnects the USB devices too; the computer sees the user disk again afterwards with what it wrote. The whole image is allocated on the SD card at creation, so the large sizes take a while.",
         "files": {
           "title": "Files on the user disk",
           "host": "Eject this drive on the computer, then turn the user disk off above to manage its files.",

@@ -150,15 +150,23 @@ func (s *Service) serveRemote(r *remoteSession, source remotemedia.Source, mount
 			err = errors.New("USB medium changed while connecting")
 		}
 	}
-	changed := false
+	changed, restore := false, func() {}
 	if err == nil {
-		changed, err = setDrive(true, storageidentity.Read(hid.USBFlagsDir).Inquiry("remote"))
+		changed, restore, err = setDrive(true, storageidentity.Read(hid.USBFlagsDir).Inquiry("remote"))
 	}
 	if err == nil {
-		err = os.WriteFile(mountDevice, []byte(remotemedia.DevicePath), 0600)
+		if err = os.WriteFile(mountDevice, []byte(remotemedia.DevicePath), 0600); err != nil {
+			restore()
+		}
 	}
 	if err == nil && changed {
-		err = reconnectUSB()
+		// A failed reconnection leaves the medium in: the deferred cleanup
+		// ejects it, and the drive is put back once it is empty.
+		if err = reconnectUSB(); err != nil {
+			if os.WriteFile(mountDevice, []byte("\n"), 0600) == nil || os.WriteFile(forcedEjectDevice, []byte("1"), 0600) == nil {
+				restore()
+			}
+		}
 	}
 	if err == nil {
 		r.mounted = true

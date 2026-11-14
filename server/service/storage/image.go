@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -140,13 +141,20 @@ type imageMountError struct {
 
 func (e *imageMountError) Error() string { return e.msg }
 
+// mediumSwapPause is how long the drive stays empty between a mounted image
+// and the one that replaces it. A computer learns of a medium change by
+// asking the drive, about once a second: with no time between the two it
+// never sees the drive empty, and Windows 11 showed the first volume's label
+// and files 15 s after the swap. With 1 s it had the second volume within
+// 2 s, every time (as with 2 s, ten swaps in all); 2.5 s leaves a margin.
+var mediumSwapPause = 2500 * time.Millisecond
+
 // mountLocalImage puts an already validated file (or no file: eject) on the
 // virtual disk. The drive is removable, so the computer learns of a medium
-// put into the empty drive or taken out from the drive itself, as with a card
-// reader or a CD drive. The USB devices reconnect only when the drive changes
-// (setDrive) or when the image replaces a mounted one: that swap takes no
-// time, the computer never sees the drive empty, and Windows went on showing
-// the old volume's files for seconds. Callers hold s.mu.
+// put in or taken out from the drive itself, as with a card reader or a CD
+// drive; the USB devices reconnect only when the drive changes (setDrive).
+// An image that replaces a mounted one waits mediumSwapPause in between.
+// Callers hold s.mu.
 func mountLocalImage(file string, cdrom, force bool) error {
 	h := hid.GetHid()
 	h.Lock()
@@ -189,20 +197,35 @@ func mountLocalImage(file string, cdrom, force bool) error {
 	if cdrom {
 		kind = "cdrom"
 	}
-	changed, err := setDrive(cdrom, storageidentity.Read(hid.USBFlagsDir).Inquiry(kind))
+	changed, restore, err := setDrive(cdrom, storageidentity.Read(hid.USBFlagsDir).Inquiry(kind))
 	if err != nil {
 		log.Errorf("set the drive to %s failed: %s", kind, err)
 		return &imageMountError{code: -2, msg: "set drive mode failed"}
 	}
+	if replaced && !changed {
+		// Keyboard and mouse go on meanwhile; s.mu keeps other media away.
+		h.Unlock()
+		time.Sleep(mediumSwapPause)
+		h.Lock()
+		if err := requireActiveUSBStorage(); err != nil {
+			log.Warnf("USB storage went away during the medium change: %s", err)
+			return &imageMountError{code: -3, msg: "Enable USB storage before mounting an image"}
+		}
+	}
+	// The kernel refuses some files imageFile accepts (an empty one).
 	if err := os.WriteFile(mountDevice, []byte(file), 0o666); err != nil {
 		log.Errorf("mount file %s failed: %s", file, err)
+		restore()
 		return &imageMountError{code: -2, msg: "mount image failed"}
 	}
-	if !changed && !replaced {
+	if !changed {
 		return nil
 	}
 	if err := reconnectUSB(); err != nil {
 		log.Errorf("reconnect USB failed: %s", err)
+		if err := ejectLocalImage(true, os.WriteFile); err == nil {
+			restore()
+		}
 		return &imageMountError{code: -2, msg: "reconnect USB failed"}
 	}
 	return nil
@@ -213,19 +236,40 @@ func mountLocalImage(file string, cdrom, force bool) error {
 // anything. The computer reads a drive's type and name once, when the USB
 // devices connect, so a change needs a reconnection (reconnectUSB) and
 // nothing else does: with the same drive, a mount is a medium put in.
+//
+// "Changed" is told from the kernel's values, so those must stay what the
+// computer was last told. A caller whose mount fails before the computer
+// has reconnected calls restore, which puts the drive back (it is empty
+// then, as it must be for these writes); otherwise the next mount would
+// find the new values in place and skip the reconnection the computer
+// still needs. setDrive does the same itself when it fails halfway.
 // Callers hold the HID lock.
-func setDrive(cdrom bool, inquiry string) (changed bool, err error) {
+func setDrive(cdrom bool, inquiry string) (changed bool, restore func(), err error) {
 	flag := "0"
 	if cdrom {
 		flag = "1"
 	}
+	paths := []string{roFlag, cdromFlag, inquiryString}
 	before := driveIdentity()
-	for _, item := range []struct{ path, value string }{{roFlag, flag}, {cdromFlag, flag}, {inquiryString, inquiry}} {
-		if err := os.WriteFile(item.path, []byte(item.value), 0o666); err != nil {
-			return false, fmt.Errorf("%s: %w", filepath.Base(item.path), err)
+	old := make([]string, len(paths))
+	for i, path := range paths {
+		data, _ := os.ReadFile(path)
+		old[i] = strings.TrimRight(string(data), "\n")
+	}
+	restore = func() {
+		for i, path := range paths {
+			if err := os.WriteFile(path, []byte(old[i]), 0o666); err != nil {
+				log.Errorf("put the drive's %s back: %s", filepath.Base(path), err)
+			}
 		}
 	}
-	return driveIdentity() != before, nil
+	for i, value := range []string{flag, flag, inquiry} {
+		if err := os.WriteFile(paths[i], []byte(value), 0o666); err != nil {
+			restore()
+			return false, func() {}, fmt.Errorf("%s: %w", filepath.Base(paths[i]), err)
+		}
+	}
+	return driveIdentity() != before, restore, nil
 }
 
 // driveIdentity is the drive's type and name as the kernel holds them.

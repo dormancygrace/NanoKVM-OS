@@ -143,20 +143,25 @@ func checkRemovable(name string) error {
 		return errors.New("required by NanoKVM OS; cannot be removed")
 	}
 	if wireguardPackages[name] && wireguardProfiles() {
-		return errors.New("used by WireGuard profiles; delete them on the WireGuard page first")
+		return errors.New("used by WireGuard profiles; uninstall WireGuard on its page")
 	}
 	return nil
 }
 
 // WireGuard is not a dependency of the OS; it stays while there are
-// profiles (the WireGuard page refuses Uninstall the same way).
+// profiles. Its own page uninstalls it, asking about the profiles and
+// turning the tunnels off first.
 var wireguardPackages = map[string]bool{"wireguard-tools": true, "wireguard-tools-wg": true, "wireguard-tools-wg-quick": true}
 
-var wireguardProfilesPath = "/etc/kvm/wireguard/profiles.json"
+var wireguardDir = "/etc/kvm/wireguard"
 
-// wireguardProfiles: an index that cannot be read counts as profiles.
+// wireguardProfiles: an index that cannot be read counts as profiles; kept
+// profiles of a WireGuard uninstalled on its page do not.
 func wireguardProfiles() bool {
-	data, err := os.ReadFile(wireguardProfilesPath)
+	if _, err := os.Stat(wireguardDir + "/uninstalled"); err == nil {
+		return false
+	}
+	data, err := os.ReadFile(wireguardDir + "/profiles.json")
 	if errors.Is(err, os.ErrNotExist) {
 		return false
 	}

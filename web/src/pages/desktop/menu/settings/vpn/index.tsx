@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Input, message, Popconfirm, Switch, Tooltip } from 'antd';
+import { Alert, Button, Checkbox, Input, message, Popconfirm, Switch, Tooltip } from 'antd';
 import { CheckIcon, FileUpIcon, PencilIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -38,6 +38,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
   const [busy, setBusy] = useState(false);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
+  const [purge, setPurge] = useState(false);
   const operation = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const mounted = useRef(true);
@@ -136,7 +137,7 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
   }
   function uninstall() {
     void run(() =>
-      http.post('/api/extensions/wireguard/uninstall', undefined, { timeout: SLOW_CALL_TIMEOUT })
+      http.post('/api/extensions/wireguard/uninstall', { purge }, { timeout: SLOW_CALL_TIMEOUT })
     );
   }
   const formatBytes = (n: number) => `${(n / 1048576).toFixed(1)} MiB`;
@@ -161,26 +162,26 @@ export function WireGuard({ setIsLocked }: { setIsLocked: (locked: boolean) => v
           <SettingRow
             label={<StatusBadge tone="success">{t('vpn.wireguardInstalled')}</StatusBadge>}
           >
-            {profiles.length > 0 ? (
-              <Tooltip title={t('vpn.wireguardUninstallProfiles')}>
-                <Button danger disabled icon={<Trash2Icon size={16} />}>
-                  {t('vpn.wireguardUninstall')}
-                </Button>
-              </Tooltip>
-            ) : (
-              <Popconfirm
-                title={t('vpn.wireguardUninstall')}
-                description={t('vpn.wireguardUninstallWarning')}
-                onConfirm={uninstall}
-                okText={t('vpn.confirm')}
-                cancelText={t('vpn.cancel')}
-                disabled={busy}
-              >
-                <Button danger loading={busy} icon={<Trash2Icon size={16} />}>
-                  {t('vpn.wireguardUninstall')}
-                </Button>
-              </Popconfirm>
-            )}
+            <Popconfirm
+              title={t('vpn.wireguardUninstall')}
+              description={
+                <div className="max-w-xs space-y-2">
+                  <div>{t('vpn.wireguardUninstallWarning')}</div>
+                  <Checkbox checked={purge} onChange={(e) => setPurge(e.target.checked)}>
+                    {t('vpn.uninstallPurge')}
+                  </Checkbox>
+                </div>
+              }
+              onOpenChange={(open) => open && setPurge(false)}
+              onConfirm={uninstall}
+              okText={t('vpn.confirm')}
+              cancelText={t('vpn.cancel')}
+              disabled={busy}
+            >
+              <Button danger loading={busy} icon={<Trash2Icon size={16} />}>
+                {t('vpn.wireguardUninstall')}
+              </Button>
+            </Popconfirm>
           </SettingRow>
         )}
         <input

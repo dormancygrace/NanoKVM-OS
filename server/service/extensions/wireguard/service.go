@@ -26,6 +26,7 @@ import (
 	"NanoKVM-Server/pkg/resolvconf"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/service/extensions/apkpkg"
+	"NanoKVM-Server/service/extensions/vpn"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -75,21 +76,23 @@ var (
 	installed      = func() bool { _, err := exec.LookPath("wg-quick"); return err == nil }
 )
 
-// keepTools keeps WireGuard while there are profiles: selected in the APK
+// keepTools keeps WireGuard while there are profiles, unless the user
+// uninstalled it and kept them (the uninstalled marker): selected in the APK
 // world when it is installed (nothing downloaded), installed when it is not.
 // It is missing with profiles after an update from a release before the
 // world selection (apk removed it with the OS dependency), a factory package
-// reset, or a removal over SSH; Uninstall and the Software page refuse while
-// there are profiles. The update lock may be busy (an update, a package
-// operation) and the repository out of reach: retried, 1 min doubling up to
-// 30 min. A running tunnel lives in the kernel and does not wait for this;
-// the boot restore retries on its own until the tools are back.
+// reset, or a removal over SSH; the Software page refuses while there are
+// profiles. The update lock may be busy (an update, a package operation) and
+// the repository out of reach: retried, 1 min doubling up to 30 min. A
+// running tunnel lives in the kernel and does not wait for this; the boot
+// restore retries on its own until the tools are back.
 func (s *Service) keepTools(sleep func(time.Duration)) {
 	for delay := time.Minute; ; delay = min(2*delay, 30*time.Minute) {
 		s.mu.Lock()
 		profiles, err := s.profiles()
+		_, marked := os.Stat(s.uninstalled())
 		s.mu.Unlock()
-		if err != nil || len(profiles) == 0 {
+		if err != nil || len(profiles) == 0 || marked == nil {
 			return
 		}
 		if installed() {
@@ -106,25 +109,33 @@ func (s *Service) keepTools(sleep func(time.Duration)) {
 	}
 }
 
+// uninstalled marks profiles kept by Uninstall: WireGuard is not installed
+// again by itself for them; Install removes the mark.
+func (s *Service) uninstalled() string { return filepath.Join(s.dir, "uninstalled") }
+
 // Install installs WireGuard from the repositories.
 func (s *Service) Install(c *gin.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var rsp proto.Response
-	if installed() {
-		rsp.OkRsp(c)
-		return
+	if !installed() {
+		if err := installPackage(toolsPackage); err != nil {
+			rsp.ErrRsp(c, -1, "WireGuard installation failed: "+err.Error())
+			return
+		}
 	}
-	if err := installPackage(toolsPackage); err != nil {
-		rsp.ErrRsp(c, -1, "WireGuard installation failed: "+err.Error())
+	if err := os.Remove(s.uninstalled()); err != nil && !errors.Is(err, os.ErrNotExist) {
+		rsp.ErrRsp(c, -1, "WireGuard is installed, but cannot save that")
 		return
 	}
 	rsp.OkRsp(c)
 }
 
-// Uninstall removes WireGuard, only without profiles: a profile is a tunnel
-// someone may reach the device through, and with no profile no tunnel runs.
+// Uninstall turns the tunnels off (wg-quick is needed for that, so before
+// the package goes), removes WireGuard and, with purge, the profiles. Kept
+// profiles are marked so that WireGuard is not installed again for them.
 func (s *Service) Uninstall(c *gin.Context) {
+	purge := vpn.Purge(c)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var rsp proto.Response
@@ -133,9 +144,24 @@ func (s *Service) Uninstall(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "cannot read WireGuard profiles")
 		return
 	}
-	if len(profiles) > 0 {
-		rsp.ErrRsp(c, -1, "delete the WireGuard profiles before uninstalling WireGuard")
+	// No boot restore of a profile without WireGuard.
+	if err = os.Remove(filepath.Join(s.dir, "active")); err != nil && !errors.Is(err, os.ErrNotExist) {
+		rsp.ErrRsp(c, -1, "cannot disable WireGuard autostart")
 		return
+	}
+	for _, p := range profiles {
+		if existsInterface(p.ID) {
+			if err = s.quick("down", p.ID); err != nil {
+				rsp.ErrRsp(c, -1, "WireGuard could not be turned off; package was kept: "+err.Error())
+				return
+			}
+		}
+	}
+	if !purge && len(profiles) > 0 {
+		if err = atomicWrite(s.uninstalled(), nil); err != nil {
+			rsp.ErrRsp(c, -1, "cannot save WireGuard state")
+			return
+		}
 	}
 	if installed() {
 		if err = apkpkg.Run("remove", toolsPackage); err != nil {
@@ -146,6 +172,13 @@ func (s *Service) Uninstall(c *gin.Context) {
 	if installed() {
 		rsp.ErrRsp(c, -1, "WireGuard is still installed: another package requires it")
 		return
+	}
+	if purge {
+		if err = vpn.RemoveState(s.dir); err != nil {
+			rsp.ErrRsp(c, -1, "WireGuard was removed, but its profiles could not be deleted: "+err.Error())
+			return
+		}
+		s.failures = map[string]string{}
 	}
 	rsp.OkRsp(c)
 }

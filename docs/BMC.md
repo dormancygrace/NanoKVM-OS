@@ -24,13 +24,28 @@ From version 0.2.0 the IPMI add-on also adds an "IPMI status" section to that pa
 - **"Unless the host is on/off"** uses the power LED; a press that changes nothing is skipped.
 - **Power LED connected** (on by default): turn it off when the NanoKVM's power LED header is not wired to the host. An unwired LED line reads "off" whatever the host does, so a forced power-off would be reported done without a press, and fencing would believe a running host is off. With the setting off, Redfish omits `PowerState`, IPMI answers Get Chassis Status with an error ("not in this state"; IPMI has no "unknown", and "on" would make a fence agent skip a power-on), and every power request presses; a forced power-off of a host that is already off holds the button, which leaves it off. Fence agents (`fence_redfish`, `fence_ipmilan`) read the state before acting, so with the setting off they refuse rather than act blindly; direct requests (`ipmitool chassis power off`, a Redfish `Reset`) press.
 - **The hold of a forced power-off** is the power menu's long press, 5 s, unless the settings page sets its own.
-- **Redfish** serves `/redfish/v1/` (no login), `Systems/1`, `Chassis/1`, `Managers/1` and `SessionService`; with its own switch also the virtual drive (below).
+- **Redfish** serves `/redfish/v1/` (no login), `Systems/1`, `Chassis/1`, `Managers/1` and `SessionService`; with its own switch also the virtual drive, and the host's sensors while its agent reports them (both below).
   - It accepts HTTP Basic and `X-Auth-Token` sessions (`POST /redfish/v1/SessionService/Sessions`).
   - With Redfish off, `/redfish/` answers 404.
 - **IPMI** is IPMI v2.0 / RMCP+ only.
   - Cipher suites 3 and 17; other suites and IPMI v1.5 sessions are refused.
   - It serves Get Device ID, Get Chassis Status, Chassis Control, Get Channel Cipher Suites and the session commands.
-- **Not served:** boot device selection, sensors, SOL. The NanoKVM cannot tell the host's firmware what to start from: put the virtual drive first in the firmware's boot order once, or choose it in the firmware's boot menu through the web page.
+- **Not served:** boot device selection, SOL; sensors only over Redfish, not IPMI. The NanoKVM cannot tell the host's firmware what to start from: put the virtual drive first in the firmware's boot order once, or choose it in the firmware's boot menu through the web page.
+
+## The host's sensors through Redfish
+
+A BMC reads a board's sensors itself; the NanoKVM gets them from the agent of the Computer sensors add-on, which runs in the host's system. While that feature is on (Services > Computer sensors), Redfish passes the readings on, without a switch of its own; with it off, these resources do not exist.
+
+| Resource | Holds |
+| --- | --- |
+| `Chassis/1/Thermal` | temperatures (`ReadingCelsius`) and fans (`Reading` in RPM): what monitoring made for BMCs reads |
+| `Chassis/1/Power` | voltages (`ReadingVolts`); no `PowerControl`, since the agent reads the power of single parts, not what the computer draws |
+| `Chassis/1/Sensors` | every reading Redfish has a type for, one resource each: temperatures, voltages, currents, power, fans, percentages (load, fan control, levels), frequencies, energy, humidity, flow |
+
+- **All readings are served,** also those the page is set not to show.
+- **A sensor keeps its name in `Sensors`:** the member's `Id` is made of the part and the reading's name, the same in every report and after a restart. In the arrays of `Thermal` and `Power` Redfish names a member by its place (`MemberId`), which can change when the agent finds another sensor; each member links to its `Sensors` resource (`RelatedItem`).
+- **A silent agent** (the host is off, in its firmware, or the agent stopped) leaves the resources without readings and with `Status.State` `UnavailableOffline`: an old reading never passes for a current one.
+- **Not served:** data sizes, throughput, noise and factors (Redfish has no reading type for them).
 
 ## Virtual media through Redfish
 

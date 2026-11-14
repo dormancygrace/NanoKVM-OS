@@ -129,7 +129,18 @@ export const usbPresets: { id: string; composition: UsbComposition }[] = [
   },
   // what RustDesk needs: input and the speaker, so it matches a preset
   { id: 'remote', composition: { ...hid, ...none, disk: true, audio: true, mode: 'normal' } },
-  { id: 'control', composition: { ...hid, ...none, mode: 'normal' } }
+  { id: 'control', composition: { ...hid, ...none, mode: 'normal' } },
+  {
+    id: 'disabled',
+    composition: {
+      keyboard: false,
+      relative: false,
+      absolute: false,
+      ...none,
+      userDisk: false,
+      mode: 'normal'
+    }
+  }
 ];
 
 // The HID-only compatibility profile (USB 1.1 descriptors) has no network,
@@ -153,6 +164,7 @@ export function sameComposition(a: UsbComposition, b: UsbComposition) {
 }
 
 export function matchingPreset(composition: UsbComposition) {
+  if (!usbDevices.some((name) => composition[name])) return 'disabled';
   return (
     usbPresets.find((preset) =>
       sameComposition(

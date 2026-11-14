@@ -541,15 +541,6 @@ export const Wifi = () => {
             {tr('applying')}
           </div>
         )}
-
-        {/* Both roles of the radio: joining networks and the access point. */}
-        {state?.supported && !state.apMode && (
-          <WifiCountry
-            state={state}
-            locked={locked}
-            onRestarting={() => track({ enabled: true })}
-          />
-        )}
       </SettingsSection>
 
       {/* The two roles of the radio: joining a network, or serving one. */}
@@ -593,7 +584,16 @@ export const Wifi = () => {
             {
               key: 'ap',
               label: t('settings.network.wifiAp.title'),
-              children: <WifiAccessPoint />
+              children: (
+                <div className="space-y-6">
+                  <WifiCountry
+                    state={state}
+                    locked={locked}
+                    onRestarting={() => track({ enabled: true })}
+                  />
+                  <WifiAccessPoint />
+                </div>
+              )
             }
           ]}
         />

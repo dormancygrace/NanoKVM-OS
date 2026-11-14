@@ -14,11 +14,12 @@ import { Uninstall } from './uninstall.tsx';
 type HeaderProps = {
   state: State | undefined;
   onSuccess: () => void;
+  revision: number;
 };
 
 type Loading = '' | 'restarting' | 'stopping';
 
-export const Header = ({ state, onSuccess }: HeaderProps) => {
+export const Header = ({ state, onSuccess, revision }: HeaderProps) => {
   const { t } = useTranslation();
 
   const [loading, setLoading] = useState<Loading>('');
@@ -57,7 +58,7 @@ export const Header = ({ state, onSuccess }: HeaderProps) => {
 
   return (
     <div className="flex items-center justify-between">
-      <VPNVersion name="tailscale" />
+      {state && state !== 'notInstall' ? <VPNVersion key={revision} name="tailscale" /> : <div />}
 
       <div className="flex items-center gap-2">
         {state && ['notLogin', 'stopped', 'running'].includes(state) && (

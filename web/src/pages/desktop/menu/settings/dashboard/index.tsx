@@ -539,74 +539,86 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           </div>
         )}
       </div>
-      {section(
-        t('settings.network.title'),
-        <div className="grid gap-4 sm:grid-cols-2">
-          {sys?.interfaces
-            .filter(
-              (iface) =>
-                iface.enabled !== false &&
-                (!admin ||
-                  !(
-                    iface.kind === 'wireguard' ||
-                    iface.name === 'tailscale0' ||
-                    iface.kind === 'tun'
-                  ))
-            )
-            .map((iface) => (
-              <div key={iface.name} className="min-w-0 text-sm">
-                <div className="mb-2 flex items-center gap-2">
-                  {iface.kind === 'wireguard' ? (
-                    <WireGuardIcon />
-                  ) : iface.wireless ? (
-                    <WifiIcon size={16} />
-                  ) : (
-                    <EthernetPortIcon size={16} />
-                  )}
-                  <span className="min-w-0 wrap-break-word" title={iface.name}>
-                    {iface.kind === 'wireguard'
-                      ? wireguardNames.get(iface.name) || 'WireGuard'
-                      : iface.name}
-                  </span>
-                  {/* Beside the name: in a half-width column a right-aligned
+      <div className="grid gap-4 md:grid-cols-2">
+        {sys?.interfaces
+          .filter(
+            (iface) =>
+              iface.enabled !== false &&
+              (!admin ||
+                !(
+                  iface.kind === 'wireguard' ||
+                  iface.name === 'tailscale0' ||
+                  iface.kind === 'tun'
+                ))
+          )
+          .map((iface) => (
+            <div key={iface.name} className="grid min-w-0">
+              {section(
+                iface.wireless
+                  ? t('settings.network.wifi.title')
+                  : iface.name === 'eth0'
+                    ? t('settings.network.ethernet.name')
+                    : iface.name,
+                <div className="text-sm">
+                  <div className="mb-2 flex items-center gap-2">
+                    {iface.kind === 'wireguard' ? (
+                      <WireGuardIcon />
+                    ) : iface.wireless ? (
+                      <WifiIcon size={16} />
+                    ) : (
+                      <EthernetPortIcon size={16} />
+                    )}
+                    <span className="min-w-0 wrap-break-word" title={iface.name}>
+                      {iface.kind === 'wireguard'
+                        ? wireguardNames.get(iface.name) || 'WireGuard'
+                        : iface.name}
+                    </span>
+                    {/* Beside the name: in a half-width column a right-aligned
                       badge ends up far from its interface. */}
-                  <span className="ml-1 shrink-0">
-                    <StatusBadge tone={iface.up && iface.connected ? 'success' : 'neutral'}>
-                      {t(
-                        iface.up && iface.connected
-                          ? 'dashboard.connected'
-                          : 'dashboard.disconnected'
-                      )}
-                    </StatusBadge>
-                  </span>
-                </div>
-                {iface.kind === 'wireguard' && (
-                  <div className="text-fg-muted mb-1 text-xs">
-                    {wireguardNames.get(iface.name) ? 'WireGuard' : iface.name}
+                    <span className="ml-1 shrink-0">
+                      <StatusBadge tone={iface.up && iface.connected ? 'success' : 'neutral'}>
+                        {t(
+                          iface.up && iface.connected
+                            ? 'dashboard.connected'
+                            : 'dashboard.disconnected'
+                        )}
+                      </StatusBadge>
+                    </span>
                   </div>
-                )}
-                {iface.wireless && iface.connected && extra.wifi?.connected && (
-                  <p className="text-fg mb-1 break-all">{extra.wifi.ssid}</p>
-                )}
-                <div className={iface.connected ? 'text-fg' : 'text-fg-muted'}>
-                  {iface.addresses.map((addr) => (
-                    <div key={addr} className="break-all">
-                      {addr}
+                  {iface.kind === 'wireguard' && (
+                    <div className="text-fg-muted mb-1 text-xs">
+                      {wireguardNames.get(iface.name) ? 'WireGuard' : iface.name}
                     </div>
-                  ))}
-                </div>
-                <div className="text-fg-muted mt-2 text-xs">
-                  MTU {iface.mtu}
-                  {iface.mac ? ` · ${iface.mac}` : ''}
-                </div>
-                <div className="text-fg-muted mt-1 text-xs">
-                  RX {bytes(iface.received)} · TX {bytes(iface.sent)}
-                </div>
-              </div>
-            )) ?? '—'}
-        </div>,
-        admin ? 'network-general' : undefined
-      )}
+                  )}
+                  {iface.wireless && iface.connected && extra.wifi?.connected && (
+                    <p className="text-fg mb-1 break-all">{extra.wifi.ssid}</p>
+                  )}
+                  <div className={iface.connected ? 'text-fg' : 'text-fg-muted'}>
+                    {iface.addresses.map((addr) => (
+                      <div key={addr} className="break-all">
+                        {addr}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-fg-muted mt-2 text-xs">
+                    MTU {iface.mtu}
+                    {iface.mac ? ` · ${iface.mac}` : ''}
+                  </div>
+                  <div className="text-fg-muted mt-1 text-xs">
+                    RX {bytes(iface.received)} · TX {bytes(iface.sent)}
+                  </div>
+                </div>,
+                admin
+                  ? iface.wireless
+                    ? 'network-wifi'
+                    : iface.name === 'eth0'
+                      ? 'network-ethernet'
+                      : 'network-general'
+                  : undefined
+              )}
+            </div>
+          )) ?? '—'}
+      </div>
       <div className="grid gap-4 md:grid-cols-2">
         {admin &&
           section(

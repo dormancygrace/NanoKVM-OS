@@ -11,14 +11,16 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+
+	"NanoKVM-Server/internal/crontab"
 )
 
 const indexScheduleMarker = "# nanokvm-apk-index-refresh"
 const indexRefreshCommand = "/usr/sbin/nkos-update refresh-indexes"
 
-var indexScheduleMu sync.Mutex
+// The crontab is shared with Scheduled tasks: one lock for both.
+var indexScheduleMu = &crontab.Mu
 var indexCrontabPath = "/etc/crontabs/root"
 var indexScheduleExec = func(input []byte, name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

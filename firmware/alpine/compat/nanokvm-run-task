@@ -1,0 +1,22 @@
+#!/bin/sh
+# run-task ID DIR PROGRAM [ARG...]: one run of a scheduled task (Services >
+# Scheduled tasks), from crond or "Run now", in DIR. The first 64 KiB of its
+# output and its exit status go to /run/nanokvm/tasks (RAM, cleared at boot):
+#   ID.status  "running START" or "exited CODE START END" (Unix times)
+#   ID.log     standard output and errors together
+# Output past the limit is read and dropped, so a talkative task never blocks.
+id=$1 dir=$2
+shift 2 || exit 2
+case $id in
+    t[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+    *) exit 2 ;;
+esac
+run=/run/nanokvm/tasks
+mkdir -p "$run" || exit 1
+start=$(date +%s)
+echo "running $start" > "$run/$id.status"
+(
+    cd "$dir" 2>/dev/null || cd /
+    "$@"
+    echo "exited $? $start $(date +%s)" > "$run/$id.status"
+) 2>&1 | { head -c 65536 > "$run/$id.log"; cat > /dev/null; }

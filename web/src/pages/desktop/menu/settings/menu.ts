@@ -76,6 +76,12 @@ export const builtinMenu = [
     icon: 'bell',
     title: { key: 'settings.notifications.title' }
   },
+  {
+    id: 'services-schedule',
+    order: 40,
+    icon: 'clock',
+    title: { key: 'settings.schedule.title' }
+  },
 
   { id: 'system', order: 70, icon: 'shield', title: { key: 'settings.system.title' } },
   { id: 'system-general', order: 10, icon: 'settings', title: { key: 'settings.system.device' } },

@@ -2,6 +2,7 @@ package vm
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -9,6 +10,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -192,7 +197,7 @@ func executeScript(path, runType string) ([]byte, error) {
 	cmd = exec.Command(argv[0], argv[1:]...)
 	switch runType {
 	case "foreground":
-		return cmd.CombinedOutput()
+		return runForeground(cmd, scriptRunLimit)
 	case "background":
 		cmd.Stdout = nil
 		cmd.Stderr = nil
@@ -208,6 +213,79 @@ func executeScript(path, runType string) ([]byte, error) {
 	default:
 		return nil, errInvalidScript
 	}
+}
+
+// "Run" in the Scripts window waits for the script: at most scriptRunLimit,
+// so that the answer comes before the browser stops waiting (60 s), with the
+// first scriptOutputLimit bytes of its output, as a startup run keeps.
+const (
+	scriptRunLimit    = 50 * time.Second
+	scriptOutputLimit = autostartLogLimit
+)
+
+// runForeground runs cmd and returns its output, standard output and errors
+// together. Output past the limit is read and dropped, so a talkative script
+// is never blocked. At the time limit the script and what it started (its
+// process group) are killed. The output ends with a note when it was cut,
+// the script was stopped, or it exited with a code other than 0.
+func runForeground(cmd *exec.Cmd, limit time.Duration) ([]byte, error) {
+	out := &cappedOutput{limit: scriptOutputLimit}
+	cmd.Stdout, cmd.Stderr = out, out
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// A process it left in the background may hold the output open.
+	cmd.WaitDelay = time.Second
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	var stopped atomic.Bool
+	timer := time.AfterFunc(limit, func() {
+		stopped.Store(true)
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	})
+	err := cmd.Wait()
+	timer.Stop()
+	output := out.bytes()
+	if out.cut {
+		output = fmt.Appendf(output, "\n[output cut after %d KiB]", scriptOutputLimit>>10)
+	}
+	var exit *exec.ExitError
+	switch {
+	case stopped.Load():
+		output = fmt.Appendf(output, "\n[stopped after %d s; use Run in background for longer scripts]", int(limit/time.Second))
+	case errors.As(err, &exit):
+		output = fmt.Appendf(output, "\n[exit code %d]", exit.ExitCode())
+	case err != nil && !errors.Is(err, exec.ErrWaitDelay):
+		return output, err
+	}
+	return output, nil
+}
+
+// cappedOutput keeps the first limit bytes written to it.
+type cappedOutput struct {
+	mu    sync.Mutex
+	limit int
+	data  []byte
+	cut   bool
+}
+
+func (c *cappedOutput) Write(p []byte) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// All of it is reported written: a short write would stop the copy and
+	// leave the script blocked on a full pipe.
+	n := len(p)
+	if room := c.limit - len(c.data); n > room {
+		c.cut = true
+		p = p[:max(room, 0)]
+	}
+	c.data = append(c.data, p...)
+	return n, nil
+}
+
+func (c *cappedOutput) bytes() []byte {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.data
 }
 
 func removeScript(root, name string) error {

@@ -384,8 +384,12 @@ root-file-system/image installation checks still run for every release.
 The ordinary platform/build.sh step commands remain available for a full build.
 Before cache lookup, input coverage is checked against Bash-parsed step/helper
 bodies and their upstream references. Undeclared repository paths or pins fail
-the build. Compiler and NanoKVM build flags participate in the fingerprint;
-release version/channel metadata stays in the always-fresh packaging stage.
+the build. Every rebuilt component and preparation step also runs under
+`strace` (required on local build hosts, installed by CI): actual repository
+reads by child scripts and compilers must be covered before a cache stamp is
+accepted. Python bytecode reads are checked against their source files.
+Compiler flags and the normalized kernel/patch options participate in the
+fingerprint; cache settings and release metadata do not.
 Unknown restored image files are pruned and newly undeclared outputs are rejected.
 
 Component logs list BUILD and REUSE decisions; --verify checks that every

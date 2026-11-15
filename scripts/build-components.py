@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Reuse verified component outputs; packaging, source and signing remain fresh."""
 import argparse
+import codecs
+from importlib.util import source_from_cache
 import hashlib
 import json
 import os
@@ -11,10 +13,11 @@ import shlex
 import shutil
 import stat
 import subprocess
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = 2
+SCHEMA = 3
 # paths, upstream pins, dependencies, outputs consumed by later steps.
 COMPONENTS = {
     'kernel': (['platform/kernel'], ['linux'], [], ['images/Image', 'component-support/kernel']),
@@ -101,6 +104,10 @@ def hashed(value):
 def declared_inputs(name):
     paths, pins, dependencies, _ = COMPONENTS[name]
     result_paths, result_pins = set(COMMON + paths), set(pins)
+    if name not in ('web', 'firmware'):
+        # toolchain-id fingerprints this entire tree and the Buildroot pin.
+        result_paths.add('firmware/buildroot')
+        result_pins.add('buildroot')
     for dependency in dependencies:
         more_paths, more_pins = declared_inputs(dependency)
         result_paths.update(more_paths)
@@ -159,6 +166,43 @@ def check_input_coverage(functions, lock):
             pending.extend(c for c in call.findall(body) if c in bodies and c not in visited)
 
 
+def run_checked(root, out, name, command, env):
+    """Audit real helper/compiler reads before accepting a component stamp."""
+    paths, _ = declared_inputs(name)
+    opened = set()
+    with tempfile.TemporaryDirectory(prefix='component-inputs-', dir=out) as temporary:
+        trace = Path(temporary) / 'files'
+        # -yy resolves returned file descriptors, including relative openat
+        # calls made after chdir or through a directory fd in a child process.
+        subprocess.run(['strace', '--seccomp-bpf', '-f', '-qq', '-yy', '-s', '0',
+                        '-e', 'trace=open,openat,openat2', '-o', str(trace),
+                        *command], cwd=root, env=env, check=True)
+        with trace.open() as log:
+            for line in log:
+                match = re.search(r' = [0-9]+<(/.*)>$', line.rstrip())
+                if not match:
+                    continue
+                value = codecs.escape_decode(match[1].encode())[0]
+                path = Path(os.fsdecode(value).removesuffix(' (deleted)'))
+                if path.is_relative_to(out) or not path.is_relative_to(root) or path.is_dir():
+                    continue
+                relative = path.relative_to(root)
+                if '.git' in relative.parts:
+                    continue  # Build metadata is not a compiled source input.
+                if '__pycache__' in relative.parts:
+                    # An existing .pyc must not hide an undeclared Python import.
+                    relative = Path(source_from_cache(str(relative)))
+                relative = relative.as_posix()
+                if relative == 'platform/sources.lock':
+                    continue  # Individual pins are checked/fingerprinted above.
+                opened.add(relative)
+    unknown = sorted(p for p in opened if not any(p == item or p.startswith(item + '/')
+                                                for item in paths))
+    if unknown:
+        raise ValueError(f'{name}: undeclared repository reads: ' + ', '.join(unknown))
+    print(f'{name}: audited {len(opened)} repository inputs', flush=True)
+
+
 class Inputs:
     def __init__(self, root, out):
         self.root = root
@@ -172,9 +216,9 @@ class Inputs:
         functions = subprocess.check_output([str(root / 'platform/build.sh'), '-o', str(out),
                                             'component-functions'], cwd=root, text=True)
         check_input_coverage(functions, self.lock)
-        # These values affect packaging/publication, not compiled components.
-        release_env = {'NANOKVM_VERSION', 'NANOKVM_APK_VERSION', 'NANOKVM_PREVIOUS',
-                       'NANOKVM_CHANNEL', 'NANOKVM_KERNEL_PROFILE', 'NANOKVM_PATCH_GIT'}
+        # Explicit output-affecting flags only. Kernel/profile options are
+        # normalized below; helper source/tool/output locations are supplied by
+        # build.sh. Cache controls and release metadata do not change binaries.
         compiler_env = {'CC', 'CXX', 'AR', 'LD', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS',
                         'LDFLAGS', 'MAKEFLAGS', 'SOURCE_DATE_EPOCH', 'GOFLAGS',
                         'GOEXPERIMENT', 'CGO_CFLAGS', 'CGO_LDFLAGS', 'RUSTFLAGS'}
@@ -182,8 +226,7 @@ class Inputs:
                         'kernel_profile': os.environ.get('NANOKVM_KERNEL_PROFILE', 'release'),
                         'patch_git': os.environ.get('NANOKVM_PATCH_GIT', '0'),
                         'environment': {k: v for k, v in os.environ.items()
-                                        if k in compiler_env or
-                                        (k.startswith('NANOKVM_') and k not in release_env)},
+                                        if k in compiler_env},
                         'host': [platform.machine(), platform.libc_ver(), platform.python_version()]}
         self.toolchain = toolchain
 
@@ -287,12 +330,14 @@ def build(root, out, steps, verify=False):
             records.pop(name, None)
             save_state(path, records)  # Interrupted builds cannot retain a valid stamp.
             if name in ('modules', 'initramfs', 'boot', 'native', 'tools') and not kernel_work:
-                subprocess.run([str(root / 'platform/build.sh'), '-o', str(out), 'kernel-state'],
-                               cwd=root, env=dict(os.environ, NANOKVM_PATCH_GIT='0'), check=True)
+                run_checked(root, out, name,
+                            [str(root / 'platform/build.sh'), '-o', str(out), 'kernel-state'],
+                            dict(os.environ, NANOKVM_PATCH_GIT='0'))
                 kernel_work = True
             if name == 'native' and not osdrv_work:
-                subprocess.run([str(root / 'platform/build.sh'), '-o', str(out), 'osdrv-source'],
-                               cwd=root, env=dict(os.environ, NANOKVM_PATCH_GIT='0'), check=True)
+                run_checked(root, out, name,
+                            [str(root / 'platform/build.sh'), '-o', str(out), 'osdrv-source'],
+                            dict(os.environ, NANOKVM_PATCH_GIT='0'))
                 osdrv_work = True
             # A changed producer gets a clean destination, including producers
             # that overwrite a file without clearing its containing directory.
@@ -303,9 +348,9 @@ def build(root, out, steps, verify=False):
                 elif target.exists() or target.is_symlink():
                     target.unlink()
             print(f'BUILD {name}', flush=True)
-            subprocess.run([str(root / 'platform/build.sh'), '-o', str(out), name], cwd=root,
-                           env=dict(os.environ, NANOKVM_PATCH_GIT=os.environ.get('NANOKVM_PATCH_GIT', '0')),
-                           check=True)
+            run_checked(root, out, name,
+                        [str(root / 'platform/build.sh'), '-o', str(out), name],
+                        dict(os.environ, NANOKVM_PATCH_GIT=os.environ.get('NANOKVM_PATCH_GIT', '0')))
             if name == 'kernel':
                 kernel_work = True
             elif name == 'modules':

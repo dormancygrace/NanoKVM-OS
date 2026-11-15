@@ -108,7 +108,11 @@ export GIT_CEILING_DIRECTORIES=$out
 
 # The Release workflow sets the versions of a release; local builds read
 # firmware/alpine/release.env.
-version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")}
+version=
+case " ${steps[*]} " in
+    *" payloads "* | *" packages "* | *" rootfs "* | *" image "* | *" stock-installer "* | *" source "*)
+        version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")} ;;
+esac
 # Official Alpine packages.
 profile=stock
 release=7.3.4-nanokvm-os-r10
@@ -1435,7 +1439,12 @@ esac
 
 # Buildroot requires invalidation when the SDK configuration changes. A
 # namespace isolates entries even when local builds share a cache directory.
-export CCACHE_NAMESPACE="nkos-$(toolchain_id)"
+for step in "${steps[@]}"; do
+    case $step in
+        toolchain|kernel|kernel-state|modules|uboot|opensbi|fip|boot|native|tpu|system|server|tools)
+            export CCACHE_NAMESPACE="nkos-$(toolchain_id)"; break ;;
+    esac
+done
 
 for step in "${steps[@]}"; do
     case $step in

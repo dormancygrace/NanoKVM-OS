@@ -20,8 +20,8 @@ runs:
         case "$MODE" in restore|save) ;; *) echo 'Use restore or save' >&2; exit 1 ;; esac
         key=$(python3 scripts/build-components.py --out "$OUT" --key)
         [ ${#key} = 64 ]
-        echo "key=components-v2-$ImageOS-${NANOKVM_KERNEL_PROFILE:-release}-$key" >> "$GITHUB_OUTPUT"
-        echo "prefix=components-v2-$ImageOS-${NANOKVM_KERNEL_PROFILE:-release}-" >> "$GITHUB_OUTPUT"
+        echo "key=components-v3-$ImageOS-${NANOKVM_KERNEL_PROFILE:-release}-$key" >> "$GITHUB_OUTPUT"
+        echo "prefix=components-v3-$ImageOS-${NANOKVM_KERNEL_PROFILE:-release}-" >> "$GITHUB_OUTPUT"
 
     # Cache final outputs and small immutable ABI exports. Working source
     # trees/objects are recreated only when a consumer needs rebuilding.

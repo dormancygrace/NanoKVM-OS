@@ -8,8 +8,8 @@ through usb0 is explicitly dropped.
 
 ## Enable
 
-1. Install matching updated Alpine base and application packages. The base must
-   contain `/usr/sbin/nkos-usb-internet`, the updated S30usbnet and OpenRC watcher.
+1. The Alpine base package must provide `/usr/sbin/nkos-usb-internet`, its
+   S30usbnet hooks and the OpenRC watcher, matching the application package.
 2. In Settings → USB, enable USB network (NCM) and apply the composition.
 3. Turn on Internet over USB. This does not rebind the USB gadget.
 4. Let the managed computer obtain an address through DHCP. If its old lease
@@ -31,12 +31,11 @@ options until renewing.
 
 - `/etc/kvm/usb/usb.internet` persists the independent preference. Only the admin
   API can change it. Missing NCM/uplink is a saved waiting state, not an error.
-- Existing S03usbdev still owns the sole gadget implementation. Its existing
-  S30usbnet start/stop hooks call the new Alpine helper under the existing lock.
-  The Alpine compatibility script lives in `firmware/alpine/compat/S30usbnet`.
-  Legacy Buildroot sources remain unchanged; this feature ships in Alpine packages.
+- S03usbdev owns the gadget. Its S30usbnet start/stop hooks call the Alpine
+  helper under the USB lock. The script lives in
+  `firmware/alpine/compat/S30usbnet`.
 - The helper owns one usb0 IPv4 address and one isolated dnsmasq process.
-  While [network boot](netboot.md) is on, `netboot.port` in the runtime
+  While [network boot](NETBOOT.md) is on, `netboot.port` in the runtime
   directory makes dnsmasq hand iPXE clients (DHCP option 175 only) the boot
   script on `<usb0 address>:<port>`; other clients never get a boot file.
   DNS listens only on the USB address/interface while active. No other DNS or
@@ -72,9 +71,9 @@ options until renewing.
   recognized as compatible; custom/additional rules in that table suppress
   offload. No `flags offload` or hardware acceleration claim is made. Kernel
   rejection of the flowtable falls back to ordinary NAT and is shown in the UI.
-- There is no generic flow offload table: acceleration is USB-scoped (the
-  wildcard `nkos_flow` of early releases is gone; the package upgrade
-  deletes one left in the kernel). `nkos_mss` is retained.
+- There is no generic flow offload table: acceleration is USB-scoped. A
+  leftover wildcard `nkos_flow` table is deleted on package upgrade;
+  `nkos_mss` is kept.
 - OpenRC `nanokvm-usb-internet` watches link/address/route/rule and foreign nft
   changes, with a five-second fallback reconciliation. Gateway/interface changes
   replace the table and discard its cached flows. Connections using a previous
@@ -102,24 +101,10 @@ The response includes `enabled`, `state`, `address`, `uplink`, `flowOffload`,
 waiting-ncm, waiting-uplink, dhcp-disabled, subnet-conflict, unavailable, error.
 Status older than twenty seconds is considered unavailable.
 
-## Verification
-
-- Go tests with native `teststub`: helper planning/ownership/policy, VM
-  persistence/rollback, existing USB composition, proto and router.
-- Actual Linux namespace qualification: local/active DHCP options, gateway/DNS,
-  DNS query, NAT ping, no uplink, repeated application without DHCP/rule restart,
-  start/stop preference preservation, local access after disable, foreign policy
-  preservation, Ethernet/Wi-Fi switch and link loss, VPN route selection, custom
-  subnet conflict and automatic alternative, NCM removal, event-driven watcher.
-- Prefix validation, Alpine service dependency/failure checks and package payload
-  checks, including new helper/service and canonical S30usbnet.
-- Production TypeScript/Vite build, changed-file ESLint, USB composition tests.
-- Chrome **Main**: local preview of the real USB settings components with modeled
-  API responses; independent enable/disable and waiting states. This is GUI
-  qualification, not a device/Windows end-to-end test.
+## Limits
 
 On `usb0` the gadget driver rejects TSO, scatter-gather, checksum offload and
-hardware GRO, and its receive path uses `netif_rx`; software GRO has shown no
+hardware GRO, and its receive path uses `netif_rx`; software GRO gives no
 speed gain.
 
 ## References

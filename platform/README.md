@@ -283,10 +283,10 @@ not qualify newly built boot images.
 ## Component optimization profiles
 
 Kernel and modules use GCC `-O3` without LTO; source-owned userspace
-uses scalar `-O2`. USB audio explicitly selects float Opus with the
-`audio` profile. Handwritten vendor RVV/assembly remains available.
-See [component profiles](../docs/component-build-profiles.md) for the optional
-RustDesk performance build, measurement limits and release checksum policy.
+uses scalar `-O2`. USB audio uses the small core for float Opus encoding with the
+`smallcore` profile; tinyalsa and the capture helper use the `audio` profile. Handwritten vendor RVV/assembly remains available.
+See [component profiles](../docs/COMPONENT-BUILD-PROFILES.md) for the profile
+of each component, the reasons for it and the RustDesk build.
 
 ## HDMI-light media runtime
 

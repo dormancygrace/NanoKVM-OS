@@ -22,7 +22,7 @@ New entries are appended with an atomic replacement, directory mode 0700 and fil
 mode 0600. Imports are serialized and symlink/non-regular targets are refused.
 The GUI does not remove keys or replace the existing list.
 
-[Settings backup and reset](settings-recovery.md) includes this same authorized-keys
+[Settings backup and reset](SETTINGS-RECOVERY.md) includes this same authorized-keys
 file in its users category: **Keep users** retains it, independently of **Keep apps**.
 
 Imports are logged with the administrator, connection address and added key

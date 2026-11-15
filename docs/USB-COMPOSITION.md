@@ -3,7 +3,7 @@
 NanoKVM exposes several independent USB functions through the SG2002 DWC2
 device controller. The **Settings > USB Gadget > Composition** page (and the
 toolbar's USB Gadget quick menu, which opens the same panel) reports the
-active functions and edits a draft against the measured controller budget.
+active functions and edits a draft against the controller's endpoint budget.
 Selecting a preset or changing an individual switch does not reconnect USB.
 **Apply** sends the complete composition; **Discard changes** restores the
 active values. There is no separate USB switch: applying a composition
@@ -49,8 +49,7 @@ uses per-interface device classes; enabling any of those three functions
 requires the composite IAD class, which some firmware does not recognize.
 
 USB network and serial are **not mutually exclusive**. For example, keyboard +
-network + storage + serial uses 6 IN / 4 OUT. The interface no longer tells the
-user to disable USB network as a prerequisite for serial.
+network + storage + serial uses 6 IN / 4 OUT.
 
 ### USB identity
 
@@ -116,8 +115,8 @@ computer sees as a third drive of the virtual storage device, for BIOS update
 files, profiles and logs. Create it at one of the offered sizes (64 MiB to
 4 GiB; the whole image is allocated on the card at once, the data partition
 is exFAT; BusyBox `mkfs.vfat -F 32 -s 1|8` lays it out as FAT32 with one
-512-byte sector per cluster up to 256 MiB and 4 KiB clusters from 512 MiB,
-checked on the device at 64, 256, 512 and 1024 MiB), then turn it on: that is a composition change
+512-byte sector per cluster up to 256 MiB and 4 KiB clusters from 512 MiB),
+then turn it on: that is a composition change
 (`usb.userdisk` names the image, `S03usbdev` adds `lun.2`, removable,
 writable, inquiry string "NanoKVM User Disk"), so the USB devices reconnect.
 Formatting anew and deleting are refused while the disk is on. It needs the
@@ -140,7 +139,7 @@ dropped onto the list; folders are created first (`mkdir` with
 reported, so an interrupted folder upload can simply be repeated. Existing
 files are never overwritten. Dropping a folder preserves empty subfolders;
 the folder picker only reports paths containing files. Each request mounts
-and unmounts the image, about 0.1 s per small file on a Cube.
+and unmounts the image, about 0.1 s per small file.
 
 The admin-only `PUT /api/vm/device/virtual` requires all seven explicit boolean
 fields, `mode` (`normal` or `hid-only`) and the `revision` returned by GET; an
@@ -176,7 +175,7 @@ allocates HID minors when the objects are created, so absolute-only remains
 
 ## Endpoint accounting
 
-Live SG2002 hardware reports seven device endpoint numbers and six configured
+The SG2002 controller has seven device endpoint numbers and six configured
 non-zero dedicated IN FIFOs. Endpoint zero is the USB control endpoint and is
 not included below.
 
@@ -223,10 +222,9 @@ udev rule when stable naming matters. CDC ACM cannot carry BIOS/UEFI output or
 kernel messages emitted before the host USB stack loads; those still require
 HDMI or a physical motherboard UART with firmware console redirection.
 
-Old system images started a NanoKVM login getty on `/dev/ttyGS0`. That process
-would compete with the browser terminal for the same gadget-side port. The
-downstream image removes it, and the application performs the same one-time
-inittab migration when serial is first enabled on an older image.
+NanoKVM runs no login getty on `/dev/ttyGS0`: it would compete with the
+browser terminal for the port. Enabling serial removes such an inittab entry
+if one is present.
 
 ## Linux host setup: the console helper
 
@@ -305,9 +303,7 @@ nothing. It refuses while the web terminal holds the port.
 ## Limits
 
 Virtual ACM is a USB byte stream: its baud setting is not a measurement of
-physical UART throughput. The serial path has mostly been tested with a
-Windows host; Linux hosts (getty authentication, replug rules, boot behaviour)
-have had less testing.
+physical UART throughput.
 
 See the [Linux gadget serial documentation](https://docs.kernel.org/usb/gadget_serial.html)
 for the host/device distinction and the
@@ -318,19 +314,11 @@ for the login service.
 
 Before configuring a profile, the scripts unbind the gadget and remove its
 configuration and OS-descriptor links. Functions are then linked in the script's
-fixed order. Reusing old links used to append RNDIS after HID/disk following an
-ACM session, shifting its interface number from MI_00 to MI_04 and producing
-Windows Code 10. Stable ordering fixed this in a real normal → serial → normal
-cycle without a driver reinstall. Unlinking also releases references before
-updating HID attributes. Function objects themselves are reused.
-
-An already-unbound controller must not be unbound again: the vendor kernel
-returns ENODEV. Both profiles now check UDC state before unbinding, including
-when `start` follows `stop`.
-
-Unit tests cover file
-rollback (including a second rollback failure), explicit false/missing fields,
-all 128 manual selections and both budget directions.
+fixed order, so interface numbers stay stable across profile changes (Windows
+reports Code 10 when the network interface moves away from MI_00). Function
+objects themselves are reused. The scripts check the UDC state first and never
+unbind an already-unbound controller, which the vendor kernel answers with
+ENODEV.
 
 `bcdDevice` is a profile hint. If it says HID-only while configured RNDIS, NCM or
 mass-storage links exist, the server treats the profile as normal so those
@@ -353,7 +341,7 @@ Releasing the first finger after a two-finger gesture does not send a left click
 A cancelled touch or leaving the page releases held buttons. The gestures apply
 to the touch input adapter, selected automatically for touch devices.
 
-Toolbar and input handlers follow the applied per-function USB status. A disabled keyboard has no toolbar button, virtual keyboard or key interception. The active mouse mode falls back to an enabled USB function without overwriting the browser preference. The mode chooser appears only when both mice are enabled. Pointer Lock and the relative touchpad guide appear only where applicable. USB composition is the place to change gadget functions; the old HID-only toggle is no longer duplicated in the mouse menu.
+Toolbar and input handlers follow the applied per-function USB status. A disabled keyboard has no toolbar button, virtual keyboard or key interception. The active mouse mode falls back to an enabled USB function without overwriting the browser preference. The mode chooser appears only when both mice are enabled. Pointer Lock and the relative touchpad guide appear only where applicable. USB composition is the place to change gadget functions.
 
 When the controlling browser disconnects and exactly one viewer remains, that viewer automatically receives control unless it explicitly selected view-only. With several remaining viewers, none is chosen automatically; the same rule is applied as viewers leave. A visible View only / Take control action supplements the lock icon on touch screens.
 
@@ -366,11 +354,11 @@ The USB flags are files in `/etc/kvm/usb` on the F2FS root partition:
 
 `S03usbdev`, `S03usbhid`, `S30usbnet` and the server read them there. Each write is a rename followed by a sync of the directory, so a power cut leaves either the old file or the new one. Recovery with preserved settings keeps them with the rest of `/etc/kvm`.
 
-Releases before this one kept them on the FAT boot partition, which has no journal. `/usr/libexec/nanokvm/usb-flags-migrate` moves them:
-- **When:** before USB startup and before the replacement application starts. During a live package update, migration waits until the old server stops writing `/boot`. A base-only update leaves the old layout in use; the new application requires a base package that supports migration. A migration error prevents startup instead of selecting default USB settings.
+USB flags found on the FAT `/boot` partition are moved to `/etc/kvm/usb` by `/usr/libexec/nanokvm/usb-flags-migrate`:
+- **When:** before USB startup and before the application starts. During a live package update, migration waits until the running server stops writing `/boot`. The application requires a base package that supports migration. A migration error prevents startup instead of selecting default USB settings.
 - **Which set wins:** whenever `/boot` holds any of them, that set replaces `/etc/kvm/usb`.
 - **Power cuts:** the new set and its atomically published manifest are complete before `/boot` is cleaned, and `/boot` is clean before the new set takes the old one's place. A run interrupted at any point is finished by the next one.
 
-**Rollback.** A channel rollback to an older release finds no flags on `/boot`. That release's gadget comes up with keyboard and mice only, and the composition can be set again in its USB settings. After a later upgrade, the flags that release wrote on `/boot` move over again.
+**Rollback.** A release that reads the flags from `/boot` finds none there after migration: its gadget comes up with keyboard and mice only, and the composition can be set again in its USB settings. Flags it writes on `/boot` move over again on the next upgrade.
 
-**Card reader.** The flags can no longer be edited on the card from a computer: they are on the Linux partition.
+**Card reader.** The flags cannot be edited on the card from a computer: they are on the Linux partition.

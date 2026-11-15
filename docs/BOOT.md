@@ -22,8 +22,8 @@
 partition (`activate-bootloader`), so devices get a new bootloader with an
 ordinary update. The kernel package rewrites `boot.sd`
 (`nanokvm-activate-kernel`). The new image is written as `boot.new`, read
-back from the card and renamed over `boot.sd`, so `boot.sd` is always there,
-also for a U-Boot older than the fallback; the result is read back again.
+back from the card and renamed over `boot.sd`, so `boot.sd` is always there;
+the result is read back again.
 Before that, the image being replaced is copied to `boot.prev`, but only when
 it is known to be good: its hash, recorded in `boot.sd.sha256` when it was
 installed, matches the card (a `boot.sd` with no records is the image the
@@ -37,14 +37,12 @@ from it, the system starts, but without the drivers that need them.
 
 The application (`nanokvm-app`), USB HID (`nanokvm-usb`) and the runtime
 policy need the storage setup and `nanokvm-board`, which fails only when the
-settings recovery it runs first fails (docs/settings-recovery.md): then the
+settings recovery it runs first fails (docs/SETTINGS-RECOVERY.md): then the
 restored configuration cannot be used and they stay stopped. The board's
 hardware steps (configuration, identity, receiver detection) and the media
-modules no longer stop them: if one fails, the board warns and the server
+modules do not stop them: if one fails, the board warns and the server
 still starts, without video if need be, so settings, updates, ATX power and
-the keyboard and mouse stay reachable. Before, one failed step at boot, for
-example a receiver that did not answer once, left a remote device with
-nothing listening (SSH is off by default). The receiver model is probed once
+the keyboard and mouse stay reachable. The receiver model is probed once
 per chip and kept (`/etc/kvm/hdmi_version`, with the chip UID in
 `/etc/kvm/hdmi_uid`); a boot does not touch I2C4 for it again, and
 `S15kvmhwd re-detect` probes it anew. The hardware watchdog needs only
@@ -53,7 +51,7 @@ application does not turn into a reboot loop.
 
 ## What the ROM does
 
-Observed on a NanoKVM PCIe, 2026-10-17, from its UART log:
+The ROM reports each step on the UART console:
 
 - **Every boot** first offers about 1 s to a UART download (`URPL`), then
   initializes the SD card (`SDI`) and loads `fip.bin` (`BS/SD`).
@@ -61,12 +59,12 @@ Observed on a NanoKVM PCIe, 2026-10-17, from its UART log:
   download (`USBI`, `USBW/1000`), tries eMMC (absent on these boards), reports
   `Boot failed (8)`, and about 5 s later its watchdog resets the board. The
   cycle repeats every 8.6 s. It does not look for any other file name.
-- **`fip.bin` with a bad header** (its first 4 KiB zeroed): `PARAM1 magic`
-  error, then `DL cancelled. Load flash.` It skips the USB window, fails on
-  eMMC and the watchdog resets it: the same loop, with the UART window only.
-- **`fip.bin` cut short** (300 000 of 630 272 bytes): the FSBL starts and
-  initializes DDR, then fails the OpenSBI checksum (`monitor_cksum`), and the
-  loop is the same as for a bad header.
+- **`fip.bin` with a bad header:** `PARAM1 magic` error, then
+  `DL cancelled. Load flash.` It skips the USB window, fails on eMMC and the
+  watchdog resets it: the same loop, with the UART window only.
+- **`fip.bin` cut short:** the FSBL starts and initializes DDR, then fails
+  the OpenSBI checksum (`monitor_cksum`), and the loop is the same as for a
+  bad header.
 
 So a damaged `fip.bin` never boots, and the board never stops retrying: a
 download at the start of the next cycle always gets a chance.
@@ -82,7 +80,7 @@ partition and takes two variables from it, ignoring any other:
 - `extraargs=...` is appended to the kernel command line.
 
 The file can be edited from Linux or, with the card in a reader, from a PC.
-Images write a commented template. U-Boot from earlier images does not read it.
+Images write a commented template.
 
 The boot log on the serial console is short on purpose (each character costs
 87 us at 115 200 baud): the ROM's own lines, the FSBL banner and
@@ -105,8 +103,7 @@ board's own when the package is installed or upgraded on a selected board,
 and `activate-kernel` when it activates a board's boot image, so a new card
 shows its logo from the first boot after the board is selected. Beta, Lite and PCIe have their
 panel on GPIO I2C, which `nkoled` drives; Alpha's is on a hardware I2C
-controller, so Alpha has no logo yet. On the PCIe stand the logo costs about
-15 ms of boot (301 bytes).
+controller, so Alpha has no logo. The logo adds about 15 ms to the boot.
 
 ## Testing a FIP without writing it
 
@@ -125,7 +122,7 @@ mmc rescan
 
 These are the values the ROM leaves after a normal SD boot (the CLK pad
 `0x03001a00` reads 0x48 in both cases). Then `run bootcmd` boots Linux from
-the card. The U-Boot changes of #252 and #256 were measured this way.
+the card.
 
 Our U-Boot has `CONFIG_BOOTDELAY=-2`; the delay comes from `uEnv.txt` on
 the card, which this U-Boot cannot read before the pads are set. It
@@ -176,7 +173,7 @@ still waiting.
 **With a card reader:** remove the card, copy a good `fip.bin` to its FAT boot
 partition, verify the hash.
 
-**Without one, over UART** (done for a missing, a bad-header and a truncated
+**Without one, over UART** (works for a missing, a bad-header and a truncated
 `fip.bin`): run the ROM UART download tool with a
 good FIP; it catches the next cycle of the ROM's loop, with no power cycle.
 Set the pads, `run bootcmd`, and in Linux put the good file back
@@ -185,8 +182,7 @@ alone: `fatload mmc 0:1 0x85000000 fip.prev; fatwrite mmc 0:1 0x85000000
 fip.bin ${filesize}`.
 
 **Over USB:** when `fip.bin` is missing, the ROM also waits 1 s per cycle for
-a USB download (VID:PID 3346:1000). The SDK has a USB download tool; this
-path has not been tried on NanoKVM.
+a USB download (VID:PID 3346:1000). NanoKVM OS does not support this path.
 
 Do not attempt OTP/eFuse changes.
 

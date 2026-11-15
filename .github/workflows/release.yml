@@ -195,9 +195,7 @@ jobs:
           NANOKVM_PATCH_GIT: '0'
           NANOKVM_VERSION: ${{ steps.version.outputs.version }}
           NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
-        run: |
-          python3 scripts/build-components.py --out "$OUT"
-          platform/build.sh -o "$OUT" hashes source
+        run: python3 scripts/build-components.py --out "$OUT"
 
       - name: Verify component reuse
         if: steps.version.outputs.skip != 'true'
@@ -211,6 +209,14 @@ jobs:
         with:
           out: ${{ env.OUT }}
           mode: save
+
+      - name: Hashes and corresponding source
+        if: steps.version.outputs.skip != 'true'
+        env:
+          NANOKVM_PATCH_GIT: '0'
+          NANOKVM_VERSION: ${{ steps.version.outputs.version }}
+          NANOKVM_APK_VERSION: ${{ steps.version.outputs.apk_version }}
+        run: platform/build.sh -o "$OUT" hashes source
 
       # The packages, root file system and SD image (always built, as a check
       # that the packages install), signed with a throwaway key: this job runs

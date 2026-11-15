@@ -48,6 +48,14 @@ func TestCronNext(t *testing.T) {
 			t.Errorf("%s across DST: %v", expr, runs)
 		}
 	}
+	// The autumn hour comes twice (Berlin, 2026-10-25): both 02:30s, CEST first.
+	if berlin, err := time.LoadLocation("Europe/Berlin"); err == nil {
+		s, _ := parseCron("30 2 * * *")
+		runs := s.next(time.Date(2026, 10, 25, 0, 0, 0, 0, berlin), 2)
+		if len(runs) != 2 || runs[0].UTC().Format("15:04") != "00:30" || runs[1].UTC().Format("15:04") != "01:30" {
+			t.Errorf("repeated hour: %v", runs)
+		}
+	}
 }
 
 // Our tasks round-trip; other lines stay; a quote cannot leave its word.

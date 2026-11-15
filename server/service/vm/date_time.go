@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"NanoKVM-Server/internal/crontab"
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/timeconfig"
@@ -44,11 +45,29 @@ func (s *Service) SetDateTime(c *gin.Context) {
 		rsp.ErrRsp(c, -1, err.Error())
 		return
 	}
+	previous, _ := deviceTime.Read()
 	if err := deviceTime.Save(cfg); err != nil {
 		rsp.ErrRsp(c, -2, "Cannot apply date and time settings; previous configuration was restored where possible")
 		return
 	}
+	if previous.Timezone != cfg.Timezone {
+		restartCrondForZone()
+	}
 	s.GetDateTime(c)
+}
+
+// restartCrondForZone makes a running crond take a new time zone: musl reads
+// /etc/localtime once per process (it caches by path, not contents), so the
+// jobs of Scheduled tasks would keep running at the old zone's times. Jobs
+// already running go on: crond's restart ends only crond. A failure is
+// logged; the zone itself has been saved.
+var restartCrondForZone = func() {
+	if _, err := crontab.Exec(nil, "rc-service", "crond", "status"); err != nil {
+		return // not running: it reads the new zone when it starts
+	}
+	if output, err := crontab.Exec(nil, "rc-service", "crond", "restart"); err != nil {
+		log.Warnf("restart crond for the new time zone: %v: %s", err, output)
+	}
 }
 
 // The clock a browser may set: later than this OS can be built, earlier than

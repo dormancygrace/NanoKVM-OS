@@ -168,33 +168,24 @@ func (s cronSchedule) matches(t time.Time) bool {
 }
 
 // next returns up to count run times after from, in from's location, looking
-// at most five years ahead (a schedule such as "Feb 31" never runs). Whole
-// months, days and hours that cannot match are skipped; a jump that a DST
-// change would send backwards or nowhere moves a minute on instead.
+// at most five years ahead (a schedule such as "Feb 31" never runs). It walks
+// elapsed time, as crond checks each minute's local time: an hour that cannot
+// match (by its month, day or hour) is passed to its local end in one step,
+// a matching one minute by minute. No instant is jumped over, so a DST gap
+// is crossed and an hour repeated in autumn is seen twice, as crond sees it.
 func (s cronSchedule) next(from time.Time, count int) []time.Time {
 	var runs []time.Time
-	loc := from.Location()
 	t := from.Truncate(time.Minute).Add(time.Minute)
 	limit := from.AddDate(5, 0, 0)
 	for len(runs) < count && t.Before(limit) {
-		var jump time.Time
-		switch {
-		case !s.month[t.Month()-1]:
-			jump = time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, loc)
-		case !s.dom[t.Day()] && !s.dow[t.Weekday()]:
-			jump = time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, loc)
-		case !s.hour[t.Hour()]:
-			jump = time.Date(t.Year(), t.Month(), t.Day(), t.Hour()+1, 0, 0, 0, loc)
-		default:
-			if s.minute[t.Minute()] {
-				runs = append(runs, t)
-			}
-			jump = t.Add(time.Minute)
+		if !s.month[t.Month()-1] || (!s.dom[t.Day()] && !s.dow[t.Weekday()]) || !s.hour[t.Hour()] {
+			t = t.Add(time.Duration(60-t.Minute()) * time.Minute)
+			continue
 		}
-		if !jump.After(t) {
-			jump = t.Add(time.Minute)
+		if s.minute[t.Minute()] {
+			runs = append(runs, t)
 		}
-		t = jump
+		t = t.Add(time.Minute)
 	}
 	return runs
 }

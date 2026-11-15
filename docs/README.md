@@ -3,7 +3,7 @@
 ## Installing and updating
 
 - [Installing NanoKVM OS](INSTALL.md): SD image, card layout, write policy
-- [Migrating stock Sipeed firmware](STOCK-INSTALL.md): replace the stock system on the same card (experimental)
+- [Migrating stock Sipeed firmware](STOCK-INSTALL.md): replace the stock system on the same card
 - [Package updates](UPDATES.md): system and application updates
 - [Software packages and add-ons](SOFTWARE-PACKAGE-UPDATES.md): package indexes and optional software
 - [Settings backup, migration and factory reset](SETTINGS-RECOVERY.md)

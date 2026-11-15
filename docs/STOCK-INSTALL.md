@@ -1,9 +1,9 @@
 # Migrating stock Sipeed firmware to NanoKVM OS
 
-The migration is experimental: an offline package for the stock updater, or
+An offline package for the stock updater, or
 an installer script run over SSH, replaces stock Sipeed firmware with NanoKVM OS
 on the same card. Releases with a full SD image include the migration package.
-It has not yet been verified on stock devices: the [full SD image](INSTALL.md) is the supported way to install.
+For a clean installation, use the [full SD image](INSTALL.md).
 
 Both methods install the same `nanokvm_X.Y.Z.tar.gz` release asset. This is a
 stock **offline application update package**, not an APK. It replaces the stock

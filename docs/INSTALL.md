@@ -6,9 +6,9 @@ instead.
 
 ## Migrating stock firmware
 
-An experimental [stock migration package and GitHub SSH installer](STOCK-INSTALL.md)
-replace stock firmware on the same card. The supported installation below uses
-the full SD image.
+The [stock migration package and GitHub SSH installer](STOCK-INSTALL.md)
+replace stock firmware on the same card. A clean
+installation uses the full SD image below.
 
 ## Fresh SD card
 

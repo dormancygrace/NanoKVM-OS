@@ -49,6 +49,8 @@ func (k *KvmVision) HasHDMISignal() bool {
 
 func (k *KvmVision) SetFrameDetect(uint8) {}
 
+func (k *KvmVision) SetWatermark([]uint32, []int32, int) int { return 0 }
+
 func (k *KvmVision) Close() {}
 
 func (k *KvmVision) ApplyMonitorProfile(string) error { return nil }

@@ -40,6 +40,7 @@ import {
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
+  StampIcon,
   StethoscopeIcon,
   ThermometerIcon,
   UsbIcon,
@@ -123,6 +124,9 @@ const Updates = lazyPage(() => import('./updates').then((module) => ({ default: 
 const Usb = lazyPage(() => import('./usb').then((module) => ({ default: module.Usb })));
 const VideoSettings = lazyPage(() =>
   import('./video').then((module) => ({ default: module.VideoSettings }))
+);
+const WatermarkPage = lazyPage(() =>
+  import('./video/watermark.tsx').then((module) => ({ default: module.WatermarkPage }))
 );
 const VPNList = lazyPage(() =>
   import('./vpn/list').then((module) => ({ default: module.VPNList }))
@@ -208,6 +212,7 @@ const menuIcons: Record<string, ReactNode> = {
   settings: <SettingsIcon size={16} />,
   shield: <ShieldIcon size={16} />,
   sparkles: <SparklesIcon size={16} />,
+  stamp: <StampIcon size={16} />,
   stethoscope: <StethoscopeIcon size={16} />,
   usb: <UsbIcon size={16} />,
   user: <UserRoundIcon size={16} />,
@@ -288,6 +293,7 @@ export const Settings = ({
   // Typed object literals: a misspelt id is a type error, also here.
   const adminPages: Partial<Record<BuiltinMenuId, ReactNode>> = isAdmin
     ? {
+        'video-watermark': <WatermarkPage />,
         usb: null,
         'usb-composition': <Usb part="composition" />,
         'usb-identity': <Usb part="identity" />,
@@ -313,7 +319,7 @@ export const Settings = ({
         system: null,
         'system-general': <System />,
         'system-users': <Account />,
-        'system-security': <Security />,
+        'system-security': <Security onOpenWatermark={() => changeTab('video-watermark')} />,
         'system-date-time': <DateTimeSettings />,
         'system-recovery': <Recovery />,
         'system-updates': <Updates />,
@@ -353,7 +359,8 @@ export const Settings = ({
     : {};
   const pages: Partial<Record<BuiltinMenuId, ReactNode>> = {
     dashboard: <Dashboard navigate={changeTab} />,
-    video: <VideoSettings setIsLocked={setIsLocked} />,
+    video: null,
+    'video-general': <VideoSettings setIsLocked={setIsLocked} />,
     appearance: <Appearance />,
     account: isAdmin ? undefined : <Account />,
     about: <About />,

@@ -2,7 +2,15 @@
 // requests still use.
 
 // A tab id "<group>-<page>" is shown inside its expandable group.
-export const settingsGroups = ['usb', 'network', 'services', 'system', 'ai', 'software'] as const;
+export const settingsGroups = [
+  'video',
+  'usb',
+  'network',
+  'services',
+  'system',
+  'ai',
+  'software'
+] as const;
 export type SettingsGroup = (typeof settingsGroups)[number];
 
 // The group's own entry, which expands it instead of opening a page.
@@ -27,6 +35,8 @@ export const settingsParentOf = (id: string) => settingsGroupOf(id) ?? settingsC
 // Pages that moved: Device is part of System > General, Extensions became
 // Software, and VPN providers were briefly inside Network.
 const aliases: Record<string, string> = {
+  // Video became a group: its general settings and the watermark.
+  video: 'video-general',
   // USB became a group: its composition and its identity.
   usb: 'usb-composition',
   device: 'system-general',

@@ -462,7 +462,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             )}
             {line(t('dashboard.sessions'), sessions)}
           </dl>,
-          'video'
+          'video-general'
         )}
         {section(
           t('dashboard.memory'),

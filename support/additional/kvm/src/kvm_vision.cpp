@@ -1460,6 +1460,11 @@ int kvmv_set_first_capture_yuv420(uint8_t want)
     return 0;
 }
 
+int kvmv_set_watermark(const uint32_t *argb, const int *geometry, int count, int ref_width, int margin)
+{
+    return mmf_watermark_set(argb, geometry, count, ref_width, margin);
+}
+
 static void apply_capture_rate(void)
 {
     static uint64_t last_ms = 0;

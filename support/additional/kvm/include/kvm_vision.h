@@ -119,6 +119,9 @@ int kvmv_set_capture_fps(uint8_t fps);
 /* Capture mode of the first capture start (1: 4:2:0), which has no encoder
    to follow. Called by the server before kvmv_init. */
 int kvmv_set_first_capture_yuv420(uint8_t want);
+/* The watermark of every stream (mmf_watermark_set); count 0 removes it.
+ * Returns the regions shown, or a negative errno. */
+int kvmv_set_watermark(const uint32_t *argb, const int *geometry, int count, int ref_width, int margin);
 uint8_t kvmv_hdmi_signal_active(void);
 /* Parks (1) or resumes (0) the VPSS outputs while nobody reads frames. A
    read resumes them by itself. */

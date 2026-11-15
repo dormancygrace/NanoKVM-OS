@@ -23,6 +23,13 @@ export type SettingsMenuEntry = {
 export const builtinMenu = [
   { id: 'dashboard', order: 10, icon: 'dashboard', title: { key: 'dashboard.title' } },
   { id: 'video', order: 20, icon: 'video', title: { key: 'videoSettings.title' } },
+  { id: 'video-general', order: 10, icon: 'settings', title: { key: 'settings.network.general' } },
+  {
+    id: 'video-watermark',
+    order: 20,
+    icon: 'stamp',
+    title: { key: 'videoSettings.watermark.title' }
+  },
 
   { id: 'usb', order: 30, icon: 'usb', title: { key: 'settings.usb.gadget' } },
   {

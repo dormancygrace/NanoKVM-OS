@@ -16,6 +16,7 @@
 #include <inttypes.h>
 #include <pthread.h>
 #include <mutex>
+#include <vector>
 #include <time.h>
 
 #include <fcntl.h>		/* low-level i/o */
@@ -31,6 +32,7 @@
 #include "cvi_sys.h"
 #include <linux/vpss_uapi.h>
 #include "cvi_ive.h"
+#include "cvi_region.h"
 #include "sample_comm.h"
 #include "kvm_mmf.hpp"
 #include "internal/frame_buffer.hpp"
@@ -260,9 +262,195 @@ static bool vpss_rate_thins;   // the last known stream rate is below the input 
 // next to a video stream. It never counts as thinning the video stream.
 static int vpss_chn_max_fps[MMF_VI_MAX_CHN];
 
-// The setting: absent or anything but "0" is on.
+/*
+ * Watermark: up to MMF_WATERMARK_BLOCKS ARGB8888 pictures that the VPSS draws
+ * into every enabled output (one RGN overlay region per block and output).
+ * The region engine works on VPSS outputs only, so while a watermark is set no
+ * output takes frames straight from capture (_vi_direct_setting_on). Each
+ * block is given for a reference picture width and scaled to each output, so
+ * it covers the same share of every stream. Its place is a fraction of the
+ * free room inside the margin (0 left or top, 1000 right or bottom), which
+ * keeps a layout on any aspect ratio. Regions of one layer must not overlap;
+ * a block that overlaps one on layer 0 goes to layer 1.
+ */
+struct wm_block {
+	std::vector<uint32_t> argb;
+	int w, h, x_permille, y_permille;
+};
+static std::mutex wm_lock;
+static std::atomic<bool> wm_on;
+static std::vector<wm_block> wm_blocks;
+static int wm_ref_w, wm_margin;
+static struct {
+	uint32_t chn_w, chn_h;
+	bool attached[MMF_WATERMARK_BLOCKS];
+	bool tried;
+} wm_out[MMF_VI_MAX_CHN];
+
+static RGN_HANDLE _wm_handle(int ch, int block)
+{
+	return 16 + ch * MMF_WATERMARK_BLOCKS + block;
+}
+
+// A block scaled to sw x sh: bilinear on premultiplied colour, so transparent
+// pixels do not darken the edges.
+static std::vector<uint32_t> _wm_scale(const wm_block &b, int sw, int sh)
+{
+	std::vector<uint32_t> out((size_t)sw * sh);
+	for (int y = 0; y < sh; ++y) {
+		const float fy = std::max(0.0f, (y + 0.5f) * b.h / sh - 0.5f);
+		const int y0 = std::min((int)fy, b.h - 1), y1 = std::min(y0 + 1, b.h - 1);
+		const float ty = fy - y0;
+		for (int x = 0; x < sw; ++x) {
+			const float fx = std::max(0.0f, (x + 0.5f) * b.w / sw - 0.5f);
+			const int x0 = std::min((int)fx, b.w - 1), x1 = std::min(x0 + 1, b.w - 1);
+			const float tx = fx - x0;
+			const uint32_t p[4] = { b.argb[(size_t)y0 * b.w + x0], b.argb[(size_t)y0 * b.w + x1],
+				b.argb[(size_t)y1 * b.w + x0], b.argb[(size_t)y1 * b.w + x1] };
+			const float k[4] = { (1 - tx) * (1 - ty), tx * (1 - ty), (1 - tx) * ty, tx * ty };
+			float a = 0, r = 0, g = 0, bl = 0;
+			for (int i = 0; i < 4; ++i) {
+				const float pa = (p[i] >> 24) / 255.0f;
+				a += k[i] * pa;
+				r += k[i] * pa * (p[i] >> 16 & 0xff);
+				g += k[i] * pa * (p[i] >> 8 & 0xff);
+				bl += k[i] * pa * (p[i] & 0xff);
+			}
+			const uint32_t A = (uint32_t)(a * 255 + 0.5f);
+			out[(size_t)y * sw + x] = a > 0 ? A << 24 | (uint32_t)(r / a + 0.5f) << 16
+				| (uint32_t)(g / a + 0.5f) << 8 | (uint32_t)(bl / a + 0.5f) : 0;
+		}
+	}
+	return out;
+}
+
+static void _wm_detach_locked(int ch)
+{
+	MMF_CHN_S chn = { CVI_ID_VPSS, 0, ch };
+	for (int i = 0; i < MMF_WATERMARK_BLOCKS; ++i) {
+		if (!wm_out[ch].attached[i]) continue;
+		CVI_RGN_DetachFromChn(_wm_handle(ch, i), &chn);
+		CVI_RGN_Destroy(_wm_handle(ch, i));
+		wm_out[ch].attached[i] = false;
+	}
+	wm_out[ch].tried = false;
+}
+
+// One block on an output of cw x ch_h, scaled and placed for that size.
+static int _wm_attach_block_locked(int ch, int i, uint32_t cw, uint32_t ch_h)
+{
+	const wm_block &b = wm_blocks[i];
+	const float s = (float)cw / wm_ref_w;
+	const int sw = std::min<int>(cw, std::max(2, (int)(b.w * s + 0.5f))) & ~1;
+	const int sh = std::min<int>(ch_h, std::max(2, (int)(b.h * s + 0.5f))) & ~1;
+	const int m = (int)(wm_margin * s + 0.5f);
+	const int room_x = std::max(0, (int)cw - sw - 2 * m), room_y = std::max(0, (int)ch_h - sh - 2 * m);
+	int x = m + (int)((int64_t)room_x * b.x_permille / 1000);
+	int y = m + (int)((int64_t)room_y * b.y_permille / 1000);
+	x = std::max(0, std::min(x, (int)cw - sw)) & ~1;
+	y = std::max(0, std::min(y, (int)ch_h - sh)) & ~1;
+	RGN_ATTR_S region = {};
+	region.enType = OVERLAY_RGN;
+	region.unAttr.stOverlay.enPixelFormat = PIXEL_FORMAT_ARGB_8888;
+	region.unAttr.stOverlay.stSize.u32Width = sw;
+	region.unAttr.stOverlay.stSize.u32Height = sh;
+	region.unAttr.stOverlay.u32CanvasNum = 1;
+	region.unAttr.stOverlay.stCompressInfo.enOSDCompressMode = OSD_COMPRESS_MODE_NONE;
+	const RGN_HANDLE handle = _wm_handle(ch, i);
+	int result = CVI_RGN_Create(handle, &region);
+	if (result != CVI_SUCCESS) return result;
+	MMF_CHN_S chn = { CVI_ID_VPSS, 0, ch };
+	RGN_CHN_ATTR_S at = {};
+	at.bShow = CVI_TRUE;
+	at.enType = OVERLAY_RGN;
+	at.unChnAttr.stOverlayChn.stPoint.s32X = x;
+	at.unChnAttr.stOverlayChn.stPoint.s32Y = y;
+	for (CVI_U32 layer = 0; layer < 2; ++layer) {
+		at.unChnAttr.stOverlayChn.u32Layer = layer;
+		result = CVI_RGN_AttachToChn(handle, &chn, &at);
+		if (result == CVI_SUCCESS) break;
+	}
+	if (result == CVI_SUCCESS) {
+		std::vector<uint32_t> pixels = _wm_scale(b, sw, sh);
+		BITMAP_S bitmap = { PIXEL_FORMAT_ARGB_8888, (CVI_U32)sw, (CVI_U32)sh, pixels.data() };
+		result = CVI_RGN_SetBitMap(handle, &bitmap);
+		if (result != CVI_SUCCESS) CVI_RGN_DetachFromChn(handle, &chn);
+	}
+	if (result != CVI_SUCCESS) {
+		CVI_RGN_Destroy(handle);
+		return result;
+	}
+	wm_out[ch].attached[i] = true;
+	return CVI_SUCCESS;
+}
+
+// Every output as the watermark and the outputs' state say: the blocks on
+// each enabled output at its current size, nowhere else. A block that failed
+// is not tried again until the output or the watermark changes.
+static int _wm_sync(void)
+{
+	std::lock_guard<std::mutex> guard(wm_lock);
+	int shown = 0;
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
+		VPSS_CHN_ATTR_S attr;
+		const bool want = wm_on && priv.vpss_chn_enabled[ch] && CVI_VPSS_GetChnAttr(0, ch, &attr) == CVI_SUCCESS;
+		if (wm_out[ch].tried && (!want || wm_out[ch].chn_w != attr.u32Width || wm_out[ch].chn_h != attr.u32Height))
+			_wm_detach_locked(ch);
+		if (want && !wm_out[ch].tried) {
+			wm_out[ch].tried = true;
+			wm_out[ch].chn_w = attr.u32Width;
+			wm_out[ch].chn_h = attr.u32Height;
+			for (int i = 0; i < (int)wm_blocks.size(); ++i) {
+				const int result = _wm_attach_block_locked(ch, i, attr.u32Width, attr.u32Height);
+				if (result != CVI_SUCCESS) {
+					fprintf(stderr, "[kvm_mmf] watermark block %d on output %d failed: %#x\n", i, ch, result);
+					fflush(stderr);
+				}
+			}
+		}
+		for (int i = 0; i < MMF_WATERMARK_BLOCKS; ++i) shown += wm_out[ch].attached[i];
+	}
+	return shown;
+}
+
+static void _wm_detach(int ch)
+{
+	std::lock_guard<std::mutex> guard(wm_lock);
+	_wm_detach_locked(ch);
+}
+
+int mmf_watermark_set(const uint32_t *argb, const int *geometry, int count, int ref_width, int margin)
+{
+	{
+		std::lock_guard<std::mutex> guard(wm_lock);
+		if (!argb || count <= 0) {
+			wm_on = false;
+			wm_blocks.clear();
+		} else {
+			if (count > MMF_WATERMARK_BLOCKS || ref_width < 2 || margin < 0) return -EINVAL;
+			std::vector<wm_block> blocks;
+			for (int i = 0; i < count; ++i) {
+				const int *g = geometry + 4 * i;
+				if (g[0] < 2 || g[1] < 2 || g[0] > ref_width || g[2] < 0 || g[2] > 1000 || g[3] < 0 || g[3] > 1000)
+					return -EINVAL;
+				blocks.push_back({ std::vector<uint32_t>(argb, argb + (size_t)g[0] * g[1]), g[0], g[1], g[2], g[3] });
+				argb += (size_t)g[0] * g[1];
+			}
+			wm_blocks = std::move(blocks);
+			wm_ref_w = ref_width;
+			wm_margin = margin;
+			wm_on = true;
+		}
+		// New blocks go to every output again.
+		for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) _wm_detach_locked(ch);
+	}
+	return _wm_sync();
+}
+
+// The setting: absent or anything but "0" is on. A watermark needs the VPSS.
 static bool _vi_direct_setting_on(void)
 {
+	if (wm_on) return false;
 	FILE *setting = fopen("/etc/kvm/hevc_vi_direct", "r");
 	if (!setting) return true;
 	const bool off = fgetc(setting) == '0';
@@ -492,6 +680,7 @@ static int _mmf_vpss_set_chn_enabled(int ch, bool enable)
 		if (!enable) _mmf_reclaim_disabled_pool(ch);
 		return CVI_SUCCESS;
 	}
+	if (!enable) _wm_detach(ch);
 	result = enable ? CVI_VPSS_EnableChn(0, ch) : CVI_VPSS_DisableChn(0, ch);
 	if (result != CVI_SUCCESS) {
 		// A failed rollback keeps the actual binding state for the next retry.
@@ -500,6 +689,7 @@ static int _mmf_vpss_set_chn_enabled(int ch, bool enable)
 	}
 	priv.vpss_chn_enabled[ch] = enable;
 	if (!enable) _mmf_reclaim_disabled_pool(ch);
+	else _wm_sync();
 	return CVI_SUCCESS;
 }
 
@@ -602,6 +792,7 @@ static void _mmf_vi_direct_recheck(uint64_t now = venc_now_us())
 	static uint64_t last_us;
 	if (now - last_us < 1000000) return;
 	last_us = now;
+	_wm_sync();	// outputs resized meanwhile
 	// A late VPSS job may have kept a disabled pool busy on its first reclaim.
 	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) _mmf_reclaim_disabled_pool(ch);
 	for (int ch = 0; ch < MMF_VENC_MAX_CHN; ++ch) {
@@ -638,6 +829,7 @@ int mmf_video_path(void)
 		if (priv.venc[ch].is_inited && (priv.venc[ch].type == 1 || priv.venc[ch].type == 2)) cfg = &priv.venc[ch].cfg;
 	if (!cfg) return MMF_VIDEO_PATH_NONE;
 	if (vi_direct_venc >= 0) return MMF_VIDEO_PATH_DIRECT;
+	if (wm_on) return MMF_VIDEO_PATH_WATERMARK;
 	if (!_vi_direct_setting_on()) return MMF_VIDEO_PATH_SETTING;
 	if ((int)priv.vi_size.u32Width != cfg->w || (int)priv.vi_size.u32Height != cfg->h) return MMF_VIDEO_PATH_SIZE;
 	if (vpss_rate_thins) return MMF_VIDEO_PATH_RATE;
@@ -1017,6 +1209,8 @@ static CVI_S32 _mmf_vpss_deinit_new(VPSS_GRP VpssGrp)
 {
 	CVI_S32 s32Ret = CVI_SUCCESS;
 
+	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) _wm_detach(ch);
+
 	s32Ret = CVI_VPSS_StopGrp(VpssGrp);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("Vpss Stop Grp %d failed! Please check param\n", VpssGrp);
@@ -1298,6 +1492,7 @@ static bool _mmf_vpss_bt709_supported(void)
 // Keeps the aspect ratio and crops the group input to the output's ratio.
 static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width, int height, PIXEL_FORMAT_E format, int fps, int depth, bool mirror, bool flip)
 {
+	_wm_detach(VpssChn);	// the output's size may change
 	VPSS_GRP_ATTR_S stGrpAttr;
 	VPSS_CROP_INFO_S   stChnCropInfo;
 	VPSS_CHN_ATTR_S chn_attr = {};
@@ -1375,6 +1570,7 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 	}
 
 	priv.vpss_chn_enabled[VpssChn] = true;
+	_wm_sync();
 	return s32Ret;
 }
 

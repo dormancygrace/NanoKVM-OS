@@ -82,7 +82,9 @@ Either takes about 5 % of a CPU core. 1080p90 H.265 keeps 90 fps while yolov5s r
 - DWA: rotation, mirroring and lens correction;
 - RGN: overlays and masks in the encoded picture.
 
-The media library in the image does not open their devices: `CVI_SYS_Init` skips them (cvi_mpi patch 0012). A feature that uses them must load the module and enable them in that patch.
+`CVI_SYS_Init` does not open their devices (cvi_mpi patch 0012). DWA is unused.
+
+RGN draws the [watermark](VIDEO.md#watermark). The server loads `cv181x_rgn` when a watermark is on, and the region library opens `/dev/cvi-rgn` on its first call. A region is drawn by the VPSS as it writes an output, so it exists only on VPSS outputs, not on frames taken straight from capture. Each watermark block gets an ARGB8888 canvas in video memory (4 bytes a pixel) and a region handle on every output (16 + 8 × output + block). The VPSS draws up to eight regions per layer on an output, in two layers; regions of one layer must not overlap.
 
 ## DDR bandwidth
 

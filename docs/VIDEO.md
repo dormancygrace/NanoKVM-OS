@@ -158,6 +158,17 @@ The frame rate is capped by the larger of the input and the encoded size, in eit
 
 Direct playback (lowest latency by default, or smooth), JPEG colour sampling, frame-change detection and HDMI recovery are in Video settings. MJPEG adapts quality to how fast viewers take frames, and recovers up to the selected quality ceiling. Opening the menu or page reads the device settings rather than overwriting them from browser storage.
 
+## Watermark
+
+**Settings → Video → Watermark** (administrators) puts up to eight blocks of text and pictures into every stream: H.264, H.265, MJPEG, screenshots, recordings and RustDesk. The VPSS draws them into each output (the [region engine](ACCELERATORS.md#dwa-and-rgn)), so a viewer cannot remove them and they are the same for every viewer.
+
+- **Blocks.** The editor composes each block from text (up to three lines, font size, colour, bold), an optional logo and a background, with an opacity, and sends it as a PNG with 8-bit alpha. A block is drawn for a 1920-pixel-wide picture, at most 960 × 270, and all blocks together have at most as many pixels as one such block. Each is scaled to the stream's width, so it covers the same share of every stream.
+- **Placement.** Blocks are dragged in the preview, or put in a corner, at an edge or in the centre. A place is kept as a fraction of the free room inside the margin, so a layout lands the same way on 16:9, 16:10, 21:9 and portrait pictures. Blocks must not overlap: the VPSS draws at most two overlapping regions (two layers of eight).
+- **Cost.** Video no longer goes [straight from capture](#video-straight-from-capture) while the watermark is on: every stream goes through the VPSS, about 6 ms more latency at 1080p60 and 25 ms at 2160p30. The video path status gives the watermark as the reason. The blocks take video memory on every output: up to about 4 MiB per output at 2160p.
+- **Machine readers.** Screen text (OCR), crash-screen detection and MCP screenshots read the same outputs, so they see the watermark too.
+
+Files: `/etc/kvm/watermark/settings.json` (on/off, margin, block places, the editor's design) and `/etc/kvm/watermark/block-N.png`. API: `GET` and `POST /api/vm/video/watermark` (administrators). `POST` takes `enabled`, `margin`, `design` and `blocks`, each `{x, y, image}` with `x` and `y` in thousandths of the free room (0 left or top, 1000 right or bottom) and `image` a base64 PNG; a block without `image` keeps the saved picture of the same index.
+
 ## Video straight from capture
 
 The receiver's frame arrives in DDR as packed 4:2:2 (UYVY). Normally the VPSS reads it and writes a converted copy for the encoder. Video straight from capture lets the encoder read the capture buffer itself, which saves one frame copy of memory traffic and about 6 ms from the end of a captured frame to the encoded frame at 1080p60 (about 25 ms at 2160p30). The colours do not change.
@@ -165,7 +176,7 @@ The receiver's frame arrives in DDR as packed 4:2:2 (UYVY). Normally the VPSS re
 - **H.265** reads the packed 4:2:2 capture buffer and subsamples it (osdrv patch 0011).
 - **H.264** takes only 4:2:0. The capture bridge then writes 4:2:0 (NV21) itself (osdrv patch 0013, VI parameter `nk_yuv420`, `/sys/module/cv181x_vi/parameters/nk_yuv420`, set by the native library as capture starts). In this 4:2:0 capture the VPSS reads NV21 for every other output, so MJPEG gets 4:2:0 chroma resolution; Video settings says the capture is 4:2:0.
 
-**When it is on.** Only for a stream at the input size and rate, without mirror or flip. MJPEG, scaled streams, a stream rate below the input rate and mirrored or flipped capture use the VPSS. When MJPEG or frame detection reads the same output as video (above 1920 pixels the two share one) in 4:2:2 capture, or frame detection in 4:2:0 capture, that output returns to the VPSS until they have been gone for 2 s. MJPEG on its own output (the 4:2:2 choice, without frame detection) leaves video straight from capture. Next to a video stream the server captures MJPEG at up to 30 fps, its own output limited to 1920×1080.
+**When it is on.** Only for a stream at the input size and rate, without mirror or flip, and without a [watermark](#watermark). MJPEG, scaled streams, a stream rate below the input rate and mirrored or flipped capture use the VPSS. When MJPEG or frame detection reads the same output as video (above 1920 pixels the two share one) in 4:2:2 capture, or frame detection in 4:2:0 capture, that output returns to the VPSS until they have been gone for 2 s. MJPEG on its own output (the 4:2:2 choice, without frame detection) leaves video straight from capture. Next to a video stream the server captures MJPEG at up to 30 fps, its own output limited to 1920×1080.
 
 The capture mode (4:2:2 or 4:2:0) can change only when capture starts. It is 4:2:0 while an H.264 stream encodes the whole input at the input rate and the setting is on. When a new encoder, a codec change, the setting or a lower stream rate needs the other mode, capture restarts once: a short gap and a new key frame. MJPEG or frame detection joining or leaving never changes the mode. For the first capture start the server picks the mode the device's own stream will want (4:2:0 for an H.264 device codec over WebRTC or Direct at the input size and rate); a wrong guess costs one restart.
 

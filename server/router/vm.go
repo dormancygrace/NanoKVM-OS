@@ -66,6 +66,8 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/screen/text/settings", service.SetScreenTextSettings)      // turn text recognition on or off
 	api.GET("/vm/video/capabilities", service.GetVideoCapabilities)            // video choices and limits
 	admin.POST("/vm/video", middleware.RequireVideo, service.SetVideoSettings) // apply video settings together
+	admin.GET("/vm/video/watermark", service.GetWatermark)                     // the watermark of every stream
+	admin.POST("/vm/video/watermark", middleware.RequireVideo, service.SetWatermark)
 
 	api.GET("/vm/input-region", service.GetInputRegion)
 	api.POST("/vm/input-region", service.SetInputRegion)

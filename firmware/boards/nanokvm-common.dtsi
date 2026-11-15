@@ -253,9 +253,10 @@
 
 &cpu0 {
 	#cooling-cells = <2>;
-	// C906 has the pre-ratification T-Head vector ISA, not standard RVV 1.0.
+	// C906 has the pre-ratification T-Head vector ISA, not standard RVV 1.0,
+	// and the half-precision scalar instructions (Zfh, which includes Zfhmin).
 	riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicntr", "zicsr",
-			       "zifencei", "zihpm", "xtheadvector";
+			       "zifencei", "zihpm", "zfh", "zfhmin", "xtheadvector";
 };
 &{/soc} {
 	soc_temp: temperature-sensor@30e0000 {

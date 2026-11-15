@@ -104,8 +104,8 @@ func TestRequireDeviceHost(t *testing.T) {
 		host, remote string
 		want         int
 	}{
-		{"192.168.1.21", "192.168.1.5:5000", http.StatusOK},
-		{"192.168.1.21:8080", "192.168.1.5:5000", http.StatusOK},
+		{"192.0.2.21", "192.168.1.5:5000", http.StatusOK},
+		{"192.0.2.21:8080", "192.168.1.5:5000", http.StatusOK},
 		{"[fe80::1]", "192.168.1.5:5000", http.StatusOK},
 		{"localhost:80", "127.0.0.1:5000", http.StatusOK},
 		{"kvm-73d8", "192.168.1.5:5000", http.StatusOK},
@@ -113,7 +113,7 @@ func TestRequireDeviceHost(t *testing.T) {
 		{"dashboard.example", "192.168.1.5:5000", http.StatusOK},
 		{"evil.example", "192.168.1.5:5000", http.StatusMisdirectedRequest},
 		{"kvm-73d8.evil.example", "192.168.1.5:5000", http.StatusMisdirectedRequest},
-		{"192.168.1.21.nip.io", "192.168.1.5:5000", http.StatusMisdirectedRequest},
+		{"192.0.2.21.nip.io", "192.168.1.5:5000", http.StatusMisdirectedRequest},
 		{"kvm.example", "10.0.0.9:5000", http.StatusOK}, // trusted proxy
 	} {
 		request := httptest.NewRequest(http.MethodPost, "/api/x", nil)

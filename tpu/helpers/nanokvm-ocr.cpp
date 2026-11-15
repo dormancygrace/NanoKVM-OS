@@ -980,7 +980,7 @@ int main(int argc, char **argv) {
     // under the same hold, outside the TPU's memory: then nothing is held, as
     // the kernel clears every byte of it it hands out (64 MiB) and the hold
     // would only keep the file there. Between runs the cache loses a few of
-    // its pages (14 of 6427 on the stand); the runtime reads those itself.
+    // its pages (well under 1 %); the runtime reads those itself.
     auto start = std::chrono::steady_clock::now();
     const int scale = pic.width > 1280 ? 2 : 1;
     const Picture half = scale == 2 ? half_size(pic) : Picture{};

@@ -7,7 +7,7 @@ DDR parameter block (`test/cv181x/ddr_param.bin`) of the same tree, as the
 SDK's `make_helpers/fip.mk` does. This BL2 loads and CRC-checks the DDR
 parameter block but only logs its first word: the DDR setup is compiled in.
 The result is byte-identical to the stock FIP's chip configuration and DDR
-parameters, which the build used before.
+parameters.
 
 ## Source of the stock BL2
 
@@ -32,7 +32,7 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 | Patch | Change |
 |---|---|
 | `0001-build-with-upstream-gcc.patch` | Standard ISA names, C906 CSRs by number, no stack protector or PIE, linker flags |
-| `0002-c906-mpll-1000mhz.patch` | C906 PLL 1000 MHz instead of 850 MHz (previously a one-instruction binary patch of the stock BL2) |
+| `0002-c906-mpll-1000mhz.patch` | C906 PLL 1000 MHz instead of 850 MHz |
 | `0003-ddr3-reset-low-200us.patch` | DDR3 RESET# low for 200 us (JESD79-3), from sophgo/fsbl 2026.10.28 |
 | `0004-sd-fast-boot-read.patch` | OpenSBI and U-Boot read from SD at 4 bits and 50 MHz instead of the ROM's 1 bit (see below) |
 | `0005-lz4-opensbi.patch` | OpenSBI as an LZ4 frame, decoded after the clock switch; `decompress_lz4()` checks the decoder's result |
@@ -51,15 +51,9 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 The boot ROM reads `bl2.bin` itself, at its own 1 bit and 4.2 MHz, about
 2 ms per KB, before BL2 can speed anything up; and at 115 200 baud each
 console character costs BL2 87 us. Built with `-Os`, garbage-collected
-sections.
+sections; `0006`-`0008` take bl2.bin from 35.8 KB to 18.3 KB.
 
-| | bl2.bin | BL2 start to exit |
-|---|---|---|
-| `0005` | 35.8 KB | 149-150 ms |
-| `0006` LZ4 decoder, no LZ4F/xxHash/LZMA | 20.9 KB | 147 ms |
-| `0007` + `0008` quiet console, unused paths | 18.3 KB | 103 ms |
-
-The console now shows the banner, `DDR BIST PASS`, failures, and the
+The console shows the banner, `DDR BIST PASS`, failures, and the
 ROM's own `SD/...` line for each load. A build with `LOG_LEVEL := 3` in
 the Makefile prints the step marks again (`P2S`, `MS`, `L2`, ...).
 
@@ -76,7 +70,7 @@ Patch `0004` switches the card when BL2 starts loading: ACMD6 to a 4-bit
 bus, CMD6 to SD High Speed, the PHY settings U-Boot's and Linux's
 `cv1800b` driver use in that mode, and divider 1: 12.5 MHz until
 `sys_pll_init()`, 50 MHz after it. (Divider 0, the undivided 25 MHz,
-made each ROM load take seconds.) The card's RCA comes from the ROM's
+makes each ROM load take seconds.) The card's RCA comes from the ROM's
 last command (CMD13 with RCA << 16 in the argument register); the ROM
 keeps the host settings between loads. When the High Speed switch fails
 the card runs at 25 MHz after the PLL switch; when the 4-bit switch fails
@@ -91,29 +85,15 @@ retry against a card that does not answer spends up to about 1 s in
 timeouts. If the card cannot be restored, the loads keep failing, and
 BL2's path for exhausted retries ends in the ROM's watchdog reset
 (observed with a cut `fip.bin`, `docs/BOOT.md`), after which the ROM
-identifies the card from CMD0. Forcing the rollback after
-`sys_pll_init()` on the stand gave the ROM's registers back (1 bit,
-divider 3, the same PHY values) and a normal boot, with BL2 at 301 ms.
+identifies the card from CMD0. A rollback after `sys_pll_init()` restores
+the ROM's registers (1 bit, divider 3, the same PHY values), and the boot
+continues normally.
 
-Each ROM load, timed with the microsecond counter: param2 (4 KB) 12.0 ->
-4.2 ms, DDR parameters (8 KB) 20.5 -> 5.5 ms. At 50 MHz a 512-byte load
-takes 2.2 ms, and large ones come in at about 9 MB/s, not the bus's
-~23 MB/s (Linux and U-Boot): the ROM apparently reads cluster by cluster.
-
-Measured on a NanoKVM PCIe (console log, read time of each image, the
-switch made after `sys_pll_init()` only):
-
-| Bus | OpenSBI (136 704 B) | U-Boot (145 408 B) |
-|---|---|---|
-| ROM: 1 bit, 16.7 MHz | 78 ms | 83 ms |
-| 4 bits, 16.7 MHz | 30 ms | 31 ms |
-| 4 bits, 25 MHz | 24 ms | 25 ms |
-| 4 bits, 50 MHz High Speed | 17 ms | 18 ms |
-
-From BL2 start to its exit (time records at `0x0E000010`): 333 ms before,
-210-211 ms with the switch after `sys_pll_init()` (four boots), 149-150 ms
-with the switch before the parameter blocks and LZ4 images (`0005`, three
-boots).
+At 50 MHz a 512-byte ROM load takes 2.2 ms, and large ones come in at about
+9 MB/s, not the bus's ~23 MB/s (Linux and U-Boot): the ROM apparently reads
+cluster by cluster. From BL2 start to its exit (time records at
+`0x0E000010`), BL2 takes 333 ms at the ROM's bus settings and 149-150 ms with
+`0004` and `0005`.
 
 A FIP loaded over the ROM's UART window does not exercise this, nor the
 direct reads below: the ROM then reports UART as the boot source and BL2
@@ -127,8 +107,8 @@ prints a line per load. Patch `0010` makes BL2 find fip.bin itself, by
 name in the root directory of the first partition (FAT16 or FAT32, as the
 ROM does), as up to 16 runs of sectors, and check that its first sector
 is the PARAM1 the ROM booted with; then each load is one CMD18 per run:
-SDMA into DRAM, PIO into SRAM (an SDMA transfer into SRAM reported
-completion before its data had all arrived). Each load is still
+SDMA into DRAM, PIO into SRAM (an SDMA transfer into SRAM reports
+completion before its data have all arrived). Each load is still
 CRC-checked. The PARAM1 compare catches a lookup that lands on anything but
 a FIP; the exact-name match is what selects fip.bin over fip.prev.
 
@@ -139,19 +119,18 @@ a FIP; the exact-name match is what selects fip.bin over fip.prev.
 | U-Boot header, 512 B | 2.2 ms | 0.2 ms |
 | U-Boot, 192 KB | 22.8 ms | 8.3 ms |
 
-BL2 start to exit: 103 -> 81 ms; bl2.bin grows by 2.3 KB (about 4.5 ms
-of the ROM's own read of it).
+BL2 start to exit: 81 ms instead of 103 ms with the ROM loader; bl2.bin
+grows by 2.3 KB (about 4.5 ms of the ROM's own read of it).
 
-On an SD boot the ROM reports one try per load, which sent any failed
-load to `p_rom_api_flash_init()` (eMMC) at once. BL2 now tries each
-round three times on SD: direct, the ROM loader, the ROM loader at the
-ROM's bus settings (`sd_fast_disable()`). A direct read forced to fail on
-the stand was loaded by the ROM loader on the second try.
+On an SD boot the ROM reports one try per load, which would send any failed
+load to `p_rom_api_flash_init()` (eMMC) at once. BL2 tries each load three
+times on SD: direct, the ROM loader, the ROM loader at the ROM's bus
+settings (`sd_fast_disable()`).
 
 ## Compression
 
 With reading at that speed, decoding dominates: U-Boot as LZMA (145 KB)
-took 39 ms to decode, as LZ4 (191 KB) 2.5 ms, for about 5 ms more
+takes 39 ms to decode, as LZ4 (191 KB) 2.5 ms, for about 5 ms more
 reading. `scripts/nanokvm-fip.py` therefore packs U-Boot (`B3Z4`) and
 OpenSBI as LZ4 frames (`lz4 -12 -B5 --no-frame-crc`; the FIP CRCs cover
 the compressed bytes). 256 KiB blocks: `0005`'s LZ4F decoder allocated
@@ -160,9 +139,7 @@ fixed; `0006` replaces it with a decoder that allocates nothing and
 accepts any frame the validator does. BL2 loads OpenSBI into a buffer and, when it starts
 with the LZ4 frame magic, decodes it to its run address after
 `load_loader_2nd()` has switched the clocks to the PLLs, at most up to
-the U-Boot header; other content is copied as before. BL2 from start to
-exit: 210 ms with LZMA U-Boot and plain OpenSBI, 173-174 ms with both as
-LZ4 (three boots).
+the U-Boot header; other content is copied.
 
 ## DDR
 
@@ -182,11 +159,9 @@ DDR init takes 9 ms instead of 31 ms. The write-DQ leveling runs a
 shorter BIST at each delay it tries (`cvx16_bist_wdqlvl_init`: no command
 repeats, no GOTO loop; about 20 ms) and tries every third delay
 (`piwdqlvl_dly_step` 2 -> 6, written after `phy_init()`; about 2 ms).
-Read back from the PHY after three boots each, the write DQ delays the new
-code chooses (0x44/0x47) lie inside the range the old code chose from
-boot to boot (0x40-0x48), in a window about 110 codes wide; the new
-results repeat exactly. The other training steps vary between boots the
-same way with both.
+Read back from the PHY, the write DQ delays it chooses (0x44/0x47) repeat
+exactly from boot to boot and lie inside the range the full leveling chooses
+(0x40-0x48), in a window about 110 codes wide.
 
 Its DDR3-1866 settings (`ddr_config/ddr3_1866_x16`) were checked against
 the Nanya 2 Gbit DDR3 J-die datasheet (NT5CB128M16JR, -EK: 1866 13-13-13,
@@ -198,24 +173,22 @@ temperature the part needs refresh every 3.9 us, which the controller
 does not do by itself; the SoC slows down at 75 °C.
 
 `0012` lets the controller calibrate ZQ every 128 ms (ZQCS, ZQCTL1 in
-units of 1024 DFI clocks): it ran the long calibration at initialization
-only, so the DRAM's output driver and ODT impedance were never corrected
-for temperature and voltage drift. Each ZQCS takes 64 tCK.
+units of 1024 DFI clocks): otherwise it runs the long calibration at
+initialization only, so the DRAM's output driver and ODT impedance are never
+corrected for temperature and voltage drift. Each ZQCS takes 64 tCK.
 
 `0013` calls `sys_pll_init()` first in `load_ddr()` instead of in
-`load_rest()`: until then the C906 ran about 40 times slower, and the FAT
-lookup, the parameter loads and their CRCs ran in that phase. DDR init
+`load_rest()`: until then the C906 runs about 40 times slower, and the FAT
+lookup, the parameter loads and their CRCs would run in that phase. DDR init
 itself waits on the hardware and does not get faster.
 
-BL2 start to exit with `0010`-`0013`: 46 ms (81 ms with `0010`; DDR init
-7 ms). memtester on 96 MB passes with each step.
+With `0010`-`0013`, BL2 takes 46 ms from start to exit, against 333 ms at
+the ROM's bus settings; DDR init takes 7 ms. memtester on 96 MB passes.
 
 ## Upstream changes not taken
 
 From sophgo/fsbl up to the 2026.11.06 release (its DDR part is `0011`):
 - `ddr_suspend.c`: DDR self-refresh suspend, which NanoKVM OS does not use.
-- `FSBL_FASTBOOT` (AXI at 500 MHz while loading): a separate change, to be
-  measured.
 - APLL 614440960 instead of 614400000 (-66.7 ppm from 98.304 MHz), with no
   stated reason; it would change the audio clock.
 - eMMC clock 375 MHz: these boards have no eMMC.

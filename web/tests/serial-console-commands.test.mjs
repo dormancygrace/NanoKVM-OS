@@ -4,7 +4,7 @@ import test from 'node:test';
 import { fetchCommands, scriptArgs } from '../src/lib/serial-console-commands.ts';
 
 const sha = 'a'.repeat(64);
-const origin = { https: true, browser: 'https://192.168.1.20' };
+const origin = { https: true, browser: 'https://192.0.2.20' };
 
 test('every fetch command checks the hash before it runs the script', () => {
   const commands = fetchCommands(origin, '10.0.0.1', sha, ' --serial abc');
@@ -14,7 +14,7 @@ test('every fetch command checks the hash before it runs the script', () => {
     assert.ok(check > 0, command);
     assert.ok(run > check, command);
   }
-  assert.match(commands.network, /^curl -fsS -k https:\/\/192\.168\.1\.20\//);
+  assert.match(commands.network, /^curl -fsS -k https:\/\/192\.0\.2\.20\//);
   assert.match(commands.usb, /^curl -fsS -k https:\/\/10\.0\.0\.1\//);
 });
 

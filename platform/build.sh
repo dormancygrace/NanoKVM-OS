@@ -550,9 +550,8 @@ initramfs() {
         done
     done
     "$kbuild/usr/gen_init_cpio" -t 0 "$i/initramfs.list" > "$i/initramfs.cpio"
-    # lz4 legacy format, the one Linux unpacks: 0.24 s against 0.49 s for zstd
-    # -19 on the stand, though /init starts only 0.08 s sooner because the
-    # unpacking overlaps driver probing; the larger file costs U-Boot 16 ms.
+    # lz4 legacy format, the one Linux unpacks: it unpacks in half the time of
+    # zstd -19, which outweighs the larger file U-Boot has to load.
     "$host/lz4" -q -f -l -12 "$i/initramfs.cpio" "$img/initramfs.cpio.lz4"
     # Their licenses, from the toolchain step; nanokvm-kernel installs them.
     rm -rf "${img:?}/licenses/initramfs"

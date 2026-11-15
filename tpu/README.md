@@ -122,15 +122,6 @@ Measured on a NanoKVM, whole 1080p screen, with a viewer watching the video:
 On photos of real screens (a GitHub page, a BIOS setup, a kernel panic)
 `latin` with the second reading leaves 1.6–2.1 % of characters wrong.
 
-Tried and dropped:
-- PP-OCRv6 tiny: about as accurate on clean pages, 8.5 % wrong on a photo.
-- Keeping the models loaded: one language takes 89–119 MiB, which does not
-  fit beside the video.
-- Copying the model files into memory: the copies pushed the page cache out,
-  and the next read loaded more from the SD card.
-- Korean (PP-OCRv5): needs 33 layers in BF16 to stay accurate; left for
-  later.
-
 ## Screen classifier
 
 `models/screen/`, ours (GPL-3.0-or-later): a small CNN (0.4 M weights, input

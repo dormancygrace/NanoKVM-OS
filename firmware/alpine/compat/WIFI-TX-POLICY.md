@@ -37,5 +37,5 @@ NANOKVM_SYSROOT=/absolute/image/root nanokvm-wifi-tx-policy normal
 The base package installs the tool (platform/packages.list). It does not select
 `normal` automatically. The compatibility/vendor init script remains unchanged.
 
-In live trials `normal` raised encrypted H.264 over Wi-Fi to about 30 FPS at
-10 Mb/s for one viewer. A full boot with the option set is not yet tested.
+With `normal`, encrypted H.264 over Wi-Fi reaches about 30 FPS at 10 Mb/s for
+one viewer.

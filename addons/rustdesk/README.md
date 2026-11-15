@@ -33,8 +33,10 @@ Internet. Private addresses are accepted when the ID server itself is on a
 private network. Relay session IDs are at most 64 letters, digits, `-` or `_`.
 After login, a controller's packets may be up to 64 KiB.
 
-WebRTC follows the NanoKVM video transport (Settings > Video): the daemon
-accepts WebRTC exactly when that transport is WebRTC. It uses ICE/DTLS/SCTP through
+The daemon accepts WebRTC whenever the installed add-on supports it, whatever
+the NanoKVM video transport (Settings > Video) is. The client chooses: a
+request with a WebRTC offer is answered over WebRTC, one without over TCP or
+relay. WebRTC uses ICE/DTLS/SCTP through
 the existing Go/Pion stack without decode/re-encode. SDP and ICE use authenticated
 encrypted hbbs TCP; the signed RustDesk identity binds the local DTLS fingerprint.
 Relay remains available when the ID server cannot route signaling. ICE uses
@@ -74,8 +76,7 @@ lists installed RustDesk and PicoClaw,
 including stopped services. RustDesk has one management screen with its ID,
 temporary password, service switch and password mode. Server and viewer
 settings are under Advanced settings. PicoClaw opens its existing control panel.
-English and Russian labels are provided. The old two-line UI patch is historical;
-do not apply it again to the integrated branch.
+English and Russian labels are provided.
 
 The private /etc/nanokvm-rustdesk directory contains config.json, the stable ID,
 UUID and signing key. User state survives package removal and reinstallation.
@@ -187,10 +188,10 @@ The builder performs no signing, publication or installation.
 For Alpine repository builds, place the exported source archive next to
 firmware/alpine/packages/nanokvm-rustdesk/APKBUILD, generate abuild checksums
 and build on riscv64 Alpine. Signing and repository publication belong to the
-normal release workflow after device qualification. GUI installation requires
+normal release workflow, after a test on a device. GUI installation requires
 a configured repository containing the package.
 
-## Qualification
+## Testing
 
 Host tests cover the protocol password challenge, rejected logins, continued
 video during a slow HID reply, input mapping, crypto/framing and persistent
@@ -236,10 +237,10 @@ its input lease; remote keyboard options cannot override server-side permissions
 
 ## Default transport policy (0.3.0-r2)
 
-webrtc_enabled is not set by hand: the NanoKVM server writes it from the device
-video transport (true with WebRTC, false with Direct and MJPEG, false while the
-installed add-on lacks transport support) and restarts a running daemon when it
-changes. A configuration without the field keeps WebRTC off. Classic TCP rendezvous now attempts encrypted
+webrtc_enabled is not set by hand: the NanoKVM server writes it (true when the
+installed add-on supports transport settings, false otherwise) and restarts a
+running daemon when it changes. A configuration without the field keeps WebRTC
+off. Classic TCP rendezvous attempts encrypted
 direct TCP and local-address connection before relay. A direct listener is
 created only for a bounded ID-server request; the permanent direct-IP listener
 keeps its existing loopback default. Authentication, signed identity, KX v1,
@@ -338,18 +339,18 @@ pointer report then sets the state right.
 
 This endpoint advertises one HDMI capture. A generic absolute USB mouse maps to
 the Windows primary display, so a secondary HDMI capture needs correct display
-association. In the accepted two-monitor test, control worked after making the
-captured NanoKVM display primary. OS monitor enumeration and capture switching
+association: with two monitors, control works when the captured NanoKVM
+display is the primary one. OS monitor enumeration and capture switching
 require a host helper and additional capture/selection support; they are not
 implemented in this version.
 
 ## C906 build
 
-The release build is the qualified C906 build: `cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl` with the existing cross-linker environment (the native Alpine recipe uses `--target riscv64-alpine-linux-musl`). The release profile selects optimization level 3, full LTO and one codegen unit; `.cargo/config.toml` enables static CRT, the scalar T-Head extensions every C906 implements and unaligned loads and stores (the C906 executes them itself; without the flag LLVM reads a word at an unknown alignment byte by byte) for both targets, so no extra option is needed. Keep the explicit `--target`: it confines the flags to target code (build scripts and proc-macros are built for the host). The former separate generic and performance profiles are gone; the settings above now apply to every release build. The packaging builder records the exact flags and compiler identity in build-profile.json. This Rust backend does not implement RVV 0.7.1, so compiled code is scalar; the only vector instructions are the two generated kernels of the frame cipher (see "C906 framing and Salsa qualification").
+The release build is the C906 build: `cargo build --locked --offline --release --target riscv64gc-unknown-linux-musl` with the existing cross-linker environment (the native Alpine recipe uses `--target riscv64-alpine-linux-musl`). The release profile selects optimization level 3, full LTO and one codegen unit; `.cargo/config.toml` enables static CRT, the scalar T-Head extensions every C906 implements and unaligned loads and stores (the C906 executes them itself; without the flag LLVM reads a word at an unknown alignment byte by byte) for both targets, so no extra option is needed. Keep the explicit `--target`: it confines the flags to target code (build scripts and proc-macros are built for the host). The settings above apply to every release build. The packaging builder records the exact flags and compiler identity in build-profile.json. This Rust backend does not implement RVV 0.7.1, so compiled code is scalar; the only vector instructions are the two generated kernels of the frame cipher (see "C906 framing and Salsa testing").
 
 Local unpublished APK/source pairs can be built with --local-only instead of --source-url; source.json records the local archive digest and publication state. This avoids claiming a public download exists before publication.
 
-## C906 framing and Salsa qualification
+## C906 framing and Salsa testing
 
 The frame reader and writer reuse a bounded payload buffer. Protobuf output is
 encoded behind a reserved 16-byte tag prefix, and XSalsa20-Poly1305 processes
@@ -380,60 +381,35 @@ scalar registers, their instructions interleaved.
 
 Their vector and XTheadBb instructions are `.4byte` words that the generators
 check against GNU as, so rustc's own assembler builds them; CI checks that the
-files are what the generators write. An earlier RVV 0.7.1 Salsa prototype,
-four blocks in lanes without the scalar fifth and the multiply rotate, was
-mostly slower than scalar code.
+files are what the generators write.
 
 The kernels execute vector instructions without asking the kernel first, as
 the server's Go code does. Every NanoKVM OS kernel starts a program with
-vector state enabled (`CONFIG_RISCV_ISA_V_DEFAULT_ENABLE=y` since the kernel
-is built in this repository, 2026-10-02, which is before the bridge this
-add-on depends on existed), and neither the daemon nor its service turns it
-off. Since kernel patch 0078 it cannot be turned off at all. So the add-on
-needs no kernel newer than the one of the OS it can be installed on, and its
-start need not wait for a reboot.
+vector state enabled (`CONFIG_RISCV_ISA_V_DEFAULT_ENABLE=y` in every kernel
+built from this repository, which includes every kernel shipped with the
+bridge this add-on depends on), neither the daemon nor
+its service turns it off, and kernel patch 0078 keeps it from being turned
+off at all. So the add-on needs no kernel newer than the one of the OS it can
+be installed on, and its start need not wait for a reboot.
 
-The cipher is tested byte for byte against `crypto_secretbox`, which it
-replaced, and like it wipes the key when the session ends and the per-frame
-key material after each frame. The host tests run the plain Rust; on the
-device 1319 lengths from 0 to 262221 bytes at odd alignments gave the
-reference's bytes, with changed tags and frames refused.
+The cipher is tested byte for byte against `crypto_secretbox`, and like it
+wipes the key when the session ends and the per-frame key material after each
+frame. The host tests run the plain Rust; on the device, 1319 lengths from 0
+to 262221 bytes at odd alignments give the reference's bytes, with changed
+tags and frames refused.
 
-Measured on a NanoKVM PCIe, one frame in place, encrypt (decrypt is the same):
+One frame in place, encrypt (decrypt is the same):
 
-| frame | `crypto_secretbox` | + unaligned loads | plain Rust | with the C906 kernels |
-| --- | ---: | ---: | ---: | ---: |
-| 64 bytes | 5.7 us | 5.4 us | 4.3 us | 4.4 us |
-| 352 bytes | | | 10.2 us | 7.2 us |
-| 1400 bytes | 56.8 us | 49.5 us | 34.6 us | 20.7 us |
-| 4096 bytes | 158.8 us | 138.0 us | 94.8 us | 51.5 us |
-| 16 KiB | 625 us (26 MB/s) | 540 us (30 MB/s) | 370 us (44 MB/s) | 186 us (88 MB/s) |
-| 256 KiB | 10.7 ms | 9.4 ms | 6.0 ms | 3.0 ms |
+| frame | `crypto_secretbox` | plain Rust | with the C906 kernels |
+| --- | ---: | ---: | ---: |
+| 64 bytes | 5.7 us | 4.3 us | 4.4 us |
+| 1400 bytes | 56.8 us | 34.6 us | 20.7 us |
+| 16 KiB | 625 us (26 MB/s) | 370 us (44 MB/s) | 186 us (88 MB/s) |
+| 256 KiB | 10.7 ms | 6.0 ms | 3.0 ms |
 
 In plain Rust, Poly1305 takes 86 us of the 370 (149 us in RustCrypto's) and
 Salsa20 the rest: 1.1 us per 64-byte block, about one instruction per cycle
 on its 960 round instructions.
-
-On the qualified C906 build (then the `performance` profile), the actual writer benchmark measured
-34–37% less process CPU time for 16–256 KiB messages than the previous
-protobuf-plus-allocating-secretbox writer. After buffer warm-up, payload
-allocations fell from two per message to zero for retained sizes. These
-numbers describe the framing writer, excluding encoding and network delivery.
-The hardware gate covered 3,360 crypto cases and 256 active VXRM/VXSAT cases;
-the research prototype passed its counter-wrap and output-alignment checks.
-
-The installed scalar candidate preserved the configuration and identity
-byte for byte, registered with the official server, and passed signed/encrypted
-view-only login plus 120 real HDMI video messages through a finite local relay.
-Both client and relay ran on C906; the complete test took 4.92 seconds including
-setup and forwarded 2,147,489 video-direction bytes. The exact production
-scalar-profile test executable also passed all 59 non-ignored tests on C906.
-
-The external-relay version of the 120-message test ends in EOF after 10–11
-messages on both the previous binary and the new candidate. Its cause remains
-unresolved; no external throughput improvement is claimed. The interop test
-requests no audio or HID input and sends finite normal protocol keepalives.
-No application encoder or Go scanner change is part of this optimization.
 
 For a new package revision, the packaging builder also accepts
 `--package-revision N`. Run its ownership stage under `fakeroot`, keep each

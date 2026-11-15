@@ -359,9 +359,9 @@ export function imageFromPixels(
 }
 
 export const sampleValues: OledValues = {
-  ip: '192.168.1.20',
-  eth_ip: '192.168.1.20',
-  wifi_ip: '192.168.4.128',
+  ip: '192.0.2.20',
+  eth_ip: '192.0.2.20',
+  wifi_ip: '198.51.100.128',
   hostname: 'kvm-1a2b',
   codec: 'H264',
   uptime: '3h05m',

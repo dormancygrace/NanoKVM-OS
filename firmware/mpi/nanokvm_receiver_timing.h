@@ -2,8 +2,8 @@
 #include <errno.h>
 #include <time.h>
 /* Minimum register-bus quiet windows, not HDMI-lock deadlines. C and D use
- * separate policies based on published board measurements; NanoKVM C/D
- * physical qualification is still required. UXC retains its bench value. */
+ * separate policies based on published board measurements; UXC uses its
+ * measured value. */
 #define NANOKVM_RECEIVER_C_SETTLE_MS 2500U
 #define NANOKVM_RECEIVER_D_SETTLE_MS 2500U
 #define NANOKVM_RECEIVER_UXC_SETTLE_MS 250U

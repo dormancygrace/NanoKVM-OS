@@ -69,8 +69,8 @@ panel's built-in layout (the address, the stream, the frame rate and link
 marks, moved every minute against burn-in). A layout for the other panel
 or one that does not parse is not used. The format is described in
 `support/kvm_system/main/lib/oled_layout/oled_layout.h`. The IP window, the
-Wi-Fi setup pages and the sleep settings are unchanged. Earlier boot logos,
-including `/boot/logo.bin`, are no longer drawn.
+Wi-Fi setup pages and the sleep settings are unchanged. Other boot logos,
+including `/boot/logo.bin`, are not drawn.
 
 Known limit: first boot cannot tell a Lite with a 0x3c module from a PCIe
 board. No second signal for PCIe is known. Such a Lite gets the PCIe profile
@@ -99,24 +99,18 @@ Sources:
   `pinctrl-cv18xx.c` for pull bits; GPIO controller labels match GPIO-v2.
 
 Host fixtures exercise all selection outcomes, errors, ambiguous responses
-and the Alpha no-beta-pin-access invariant. Device acceptance must identify
-the exact artifact and board; local PCIe success does not qualify Cube/Lite.
+and the Alpha no-beta-pin-access invariant. Test a build on each board model
+it changes: a result on a NanoKVM PCIe does not carry over to Cube or Lite.
 
 
 ## Community hardware validation
 
 **NanoKVM Cube Full (serial-production / beta profile)** has been tested by
-[gxcreator](https://github.com/gxcreator). After the board-detection fix, the
-reporter confirmed that the profile was correctly selected as beta and the OLED
-worked on beta13: [confirmation in issue #2](https://github.com/dormancygrace/NanoKVM-OS/issues/2#issuecomment-5694454091).
-This records the tested board, functions, and release rather than treating Cube
-validation as pending.
+[gxcreator](https://github.com/gxcreator): the profile is selected as beta and
+the OLED works ([issue #2](https://github.com/dormancygrace/NanoKVM-OS/issues/2#issuecomment-5694454091)).
 
 **NanoKVM Lite** has been tested by
-[Korenchkin](https://github.com/Korenchkin), who reported successful boot,
-1080p60 video and KVM control after upgrading from v2.5 to v3:
-[hardware report #215](https://github.com/dormancygrace/NanoKVM-OS/issues/215).
-The board revision and HDMI receiver were not identified. USB networking and
-advanced features such as WireGuard were not tested. The report also describes
-Enter reopening the menu after selecting an image; that UI issue remains
-separate from the confirmed basic hardware functionality.
+[Korenchkin](https://github.com/Korenchkin): it boots, and 1080p60 video and
+KVM control work after an upgrade from v2.5 to v3
+([hardware report #215](https://github.com/dormancygrace/NanoKVM-OS/issues/215)).
+USB networking and features such as WireGuard are not covered by that report.

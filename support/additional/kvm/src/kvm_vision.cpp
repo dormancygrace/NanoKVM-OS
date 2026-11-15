@@ -929,9 +929,9 @@ void* vi_subsystem_detection(void *)
                     }
                 } else if (try_res == 2) {
                     kvmv_cfg.hdmi_try_rounds = 0;
-                    // Cannot obtain HDMI input / No signal on HDMI. Keep the
-                    // one-second pause auto_try_res used to take, instead of
-                    // probing again after the 10 ms active poll.
+                    // Cannot obtain HDMI input / No signal on HDMI. Pause one
+                    // second instead of probing again after the 10 ms
+                    // active poll.
                     nanokvm::sleep_ms(1000);
                 }
             } else if (kvmv_cfg.vi_detect_state == 2){

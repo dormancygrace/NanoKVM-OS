@@ -47,9 +47,9 @@ type MenuTooltipProps = Omit<ComponentProps<typeof Tooltip>, 'children'> & {
 
 // The label of a button of the menu bar, the same for every button: one look
 // (the mobile rail's popover class when inside the rail) and one behaviour.
-// With a mouse it shows on hover and focus. A touch screen has no hover: a tap
-// used to leave the label on the screen until something else was tapped. There
-// a long press shows it, a tap does not, and it goes away by itself.
+// With a mouse it shows on hover and focus. A touch screen has no hover, and a
+// tap must not leave the label on the screen until something else is tapped.
+// There a long press shows it, a tap does not, and it goes away by itself.
 export function MenuTooltip({
   title,
   placement,

@@ -10,7 +10,7 @@ in [docs/BUILD.md](../docs/BUILD.md) and [platform/README.md](../platform/README
 | [boards/](boards/README.md) | SG2002 device trees for alpha, beta and PCIe, and the first-boot board detection |
 | [buildroot/](buildroot/README.md) | Buildroot external tree: cross toolchain, host tools and initramfs utilities only |
 | `cpu/` | C906 assembly for Go's TLS ChaCha20-Poly1305 and `bytes.Index`, and opt-in Go sysmon policies |
-| `crypto/` | OpenSSL code for the C906 and the SG2002 crypto engine, and crypto benchmarks |
+| `crypto/` | OpenSSL patches for the C906 and the SG2002 crypto engine, with their generators and tests |
 | `mpi/` | Media library compatibility code and the vendor ISP object list |
 | `probes/` | EDID profile generators (`edid120/`) used by the platform build |
 | `sensor/` | LT6911 HDMI receiver driver patches |
@@ -28,6 +28,3 @@ in [docs/BUILD.md](../docs/BUILD.md) and [platform/README.md](../platform/README
   through `scripts/nanokvm_cpu_profile.py`, and
   `scripts/audit-kbuild-profile.py` checks the kernel build for it. See the
   CPU profile section of [docs/BUILD.md](../docs/BUILD.md).
-
-The notes on the earlier Buildroot and Linux 7.2.3 port that used to be here
-are in the Git history of this file.

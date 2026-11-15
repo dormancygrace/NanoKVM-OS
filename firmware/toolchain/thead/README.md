@@ -7,7 +7,7 @@ Linux C code excludes automatic floating-point/vector instructions.
 The original kernel Zacas/Zabha assembler support is retained for runtime-gated
 alternatives, not as a claim that C906 implements those extensions.
 
-## Evidence required
+## Verifying a build
 
 1. Compile from clean target outputs, including libc and compiler runtimes.
 2. Compare the installed firmware with the previous build on the same device.
@@ -21,12 +21,9 @@ ordinary loop auto-vectorization in `riscv_preferred_simd_mode` and
 float-add loop remains scalar even with the extension enabled. This must not be
 reported as automatic vectorization.
 
-That loop restriction does not exclude vector lowering of compiler built-ins.
-The later `-O2` cryptodev comparison binary contains compiler-generated
-XTheadVector string comparison and buffer-copy sequences in `main`; those paths
-executed successfully on C906 on both kernels.
-This is separate from loop auto-vectorization and does not reclassify every
-ambiguous vector mnemonic in a mixed Go/C binary.
+That loop restriction does not exclude vector lowering of compiler built-ins:
+`-O2` code can contain compiler-generated XTheadVector string comparison and
+buffer-copy sequences.
 
 Go targets `GORISCV64=rva20u64`; its backend has no T-Head target. CGO-generated
 C and native libraries use GCC and the new profile. The NanoKVM Go runtime
@@ -38,7 +35,7 @@ from a mixed Go/C binary does not by itself establish a T-Head implementation.
 The closed ISP/3A algorithm objects of the SDK are not used: the HDMI
 receiver's YUV bypasses the ISP's image processing.
 JavaScript runs in the user's browser and has no C906 compiler ISA flags.
-OpenSBI and bootloader firmware are outside this optimization change.
+OpenSBI and bootloader firmware are outside this profile.
 
 ## Kernel inline assembly
 

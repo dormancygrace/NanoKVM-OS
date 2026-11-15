@@ -365,7 +365,7 @@ def manifest(source: bytes, candidate: bytes, *, output_name: str) -> dict[str, 
         "notes": [
             "Generated for offline review; no EDID was programmed.",
             "The base preferred QHD30 DTD and CTA native-count semantics remain unchanged.",
-            "Actual LT6911UXC acceptance, source mode discovery, and 120 Hz capture remain unqualified.",
+            "Not checked here: LT6911UXC acceptance, source mode discovery and 120 Hz capture.",
         ],
     }
 

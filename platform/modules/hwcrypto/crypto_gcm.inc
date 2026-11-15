@@ -92,26 +92,11 @@ static void sg2_ghash_pad(struct ghash_ctx *g, unsigned int len)
 #define SG2_GCM_STEP 1024
 /*
  * Shortest text for this path, and shortest text that is cut for a short
- * piece. Measured with the application stopped, AES-256, us.
- *
- * Encryption, copies -> here: 512 B 20.2 -> 21.0 and 768 B 24.8 -> 24.9 (not
- * taken); 1024 B 28.6 -> 28.3, 1400 B 37.0 -> 34.3, 2048 B 45.0 -> 41.6,
- * 4080 B 74.7 -> 65.5.
- *
- * Decryption in place depends on where the ciphertext is. Still in the cache
- * (the benchmark's own encryption through the copies left it there) the
- * copies take 22.2 / 29.9 / 33.3 / 53.7 us for 1024 / 1400 / 2048 / 4080 B;
- * not in the cache (written by the engine, as by a network card) they take
- * 29.5 / 35.3 / 40.6 / 59.7 and this path 25.1 / 29.6 / 36.7 / 58.3.
- *
- * Cut or not, encrypt / decrypt: 8176 B 115 / 104 uncut, 103 / 94 cut;
- * 16368 B 219 / 196 and 189 / 173; 4080 B cut from 3072: 62 / 59 against
- * 65 / 57; 2048 B cut: 43.7 / 39.0 against 41.7 / 36.3.
- *
- * A caller that may not sleep comes here from SG2_GCM_CUT: its copies (one
- * lock for set and engine) encrypt 1024 / 1400 / 2048 B in 25.9 / 32.5 /
- * 39.4 us, this path in 30.1 / 36.3 / 43.9; 4080 B 67.5 and 67.0, 8176 B
- * 115 and 110.
+ * piece (AES-256). From 1024 B this path encrypts faster than the copies;
+ * below that it gains nothing. Decryption gains when the ciphertext is not
+ * in the cache, as when a network card wrote it. Cutting pays from about
+ * 4 KiB on and loses below. A caller that may not sleep comes here only from
+ * SG2_GCM_CUT: below that its copies are faster.
  */
 #define SG2_GCM_MIN 1024
 #define SG2_GCM_CUT 4096

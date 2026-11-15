@@ -298,8 +298,8 @@ void OLED_Fill(void)
 
 // The font index of a character: the 4-pixel font has no lower case (its
 // table ends at ']'), so letters are drawn upper case there; anything the
-// font lacks is a space. The index used to run past the table, for example
-// for the lower-case letters of the Wi-Fi password the PCIe display shows.
+// font lacks is a space. The index must stay inside the table, also for the
+// lower-case letters of the Wi-Fi password the PCIe display shows.
 static uint8_t oled_glyph(char chr, uint8_t sizey)
 {
 	const size_t glyphs = sizey == 4 ? sizeof(oled_asc2_0804) / sizeof(oled_asc2_0804[0])

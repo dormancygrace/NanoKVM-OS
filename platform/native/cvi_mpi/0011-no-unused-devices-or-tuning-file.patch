@@ -20,8 +20,7 @@ With this patch:
 - the tuning file is not looked for;
 - the I2C-info warning is dropped.
 
-That is eight log lines per capture start; the stand had 25 starts since
-boot.
+That is eight log lines fewer per capture start.
 ---
 --- a/modules/sys/src/cvi_sys.c
 +++ b/modules/sys/src/cvi_sys.c

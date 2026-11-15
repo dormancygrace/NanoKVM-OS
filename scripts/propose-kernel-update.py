@@ -10,7 +10,8 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'dormancygrace/NanoKVM-OS'
-IDENTITY = {'name': 'Gleb Pesin', 'email': 'dormancygrace@gmail.com'}
+IDENTITY = {'name': 'github-actions[bot]',
+            'email': '41898282+github-actions[bot]@users.noreply.github.com'}
 # Proposal branches are BRANCH_PREFIX + 'upstream-' + candidate. Only the part
 # after the first '/' names the candidate (see proposed()).
 BRANCH_PREFIX = 'deps/'

@@ -414,7 +414,7 @@
 +/* SPDX-License-Identifier: Apache-2.0 */
 +#ifndef OSSL_NANOKVM_AES_HWCRYPTO_H
 +#define OSSL_NANOKVM_AES_HWCRYPTO_H
-+/* Wall-clock break-even with the shared descriptor (stand, openssl speed -elapsed). */
++/* Wall-clock break-even with the shared descriptor (openssl speed -elapsed). */
 +#define HWCRYPTO_AES_BLOCK_MIN 512
 +#define HWCRYPTO_AES_CTR_MIN 512
 +#define HWCRYPTO_AES_CONTINUE_MIN 512

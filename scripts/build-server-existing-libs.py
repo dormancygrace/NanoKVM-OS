@@ -143,8 +143,7 @@ subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -bu
                 '-o', str(out/'nkos-standby'), './cmd/nkos-standby'],
                cwd=repo/'server', env=helper_env, check=True)
 files.append(out/'nkos-standby')
-manifest = {'qualification': 'cross-build only',
-            'custom_runtime_expected': custom_runtime_expected,
+manifest = {'custom_runtime_expected': custom_runtime_expected,
             'custom_runtime_present': custom_runtime_present,
             'websocket_c906_present': websocket_mask_present,
             'websocket_c906': json.loads((websocket/'manifest.json').read_text()),

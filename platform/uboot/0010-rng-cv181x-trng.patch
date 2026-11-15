@@ -102,7 +102,7 @@
 + * - a second seed on an instantiated DRBG raises the "illegal command
 + *   sequence" alarm, after which the core ignores every command until the
 + *   alarm is cleared and the core zeroized; ZEROIZE with an alarm pending
-+ *   hung the bus on the stand. So the seed clears ALARMS and ISTAT,
++ *   hangs the bus. So the seed clears ALARMS and ISTAT,
 + *   zeroizes, and instantiates from fresh noise; every command checks
 + *   ALARMS; the core is zeroized again after the read.
 + * - the block sits behind the efuse clock gates: with them off, any access

@@ -20,13 +20,13 @@ The generic platform uses `-Os` (patch `0003`), no LTO, no RVV 1.0 code (`CC_SUP
 
 The ELF manifest enforces the two PMP extents. Default upstream separates RX and RW firmware domains and denies S/U access to both. U-Boot copies these no-map reservations into the Linux DT. Its exact-address/size deduplication keeps the existing 128 KiB board reservation and adds the 64 KiB RW reservation. Do not replace the static Linux node with one overlapping 192/512 KiB node. The SD partition layout can remain unchanged.
 
-The M-mode DT has no static `reserved-memory` children. The stock FIP carries no BLCP/BLCP_2ND image (both sizes are zero), so the FSBL starts no small core (`No C906L image.`) and nothing uses the 2 MiB at `0x8d000000`; the earlier `c906l@8d000000` node in this DT only made U-Boot copy a useless `no-map` reservation into every Linux DT. Without it, and without the `c906l` node the board DTs used to carry, those 2 MiB are available to Linux. `scripts/nanokvm-fip.py` rejects a FIP that carries a BLCP_2ND image, because that image would run in an unreserved region. No OpenSBI or U-Boot code refers to `0x8d000000`.
+The M-mode DT has no static `reserved-memory` children. The stock FIP carries no BLCP/BLCP_2ND image (both sizes are zero), so the FSBL starts no small core (`No C906L image.`) and nothing uses the 2 MiB at `0x8d000000`. A `c906l@8d000000` node would only make U-Boot copy a useless `no-map` reservation into every Linux DT, so neither this DT nor the board DTs have one, and those 2 MiB are available to Linux. `scripts/nanokvm-fip.py` rejects a FIP that carries a BLCP_2ND image, because that image would run in an unreserved region. No OpenSBI or U-Boot code refers to `0x8d000000`.
 
 The FSBL passes `fw_dynamic_info` with U-Boot's entry and S-mode, so use FW_DYNAMIC. Its fixed FDT pointer `0x80011000` points inside a larger modern MONITOR. Patch `0001` adds optional `FW_DYNAMIC_FDT_ADDR`: the embedded DT initializes the generic platform and is relocated to the specified next-argument address. The default behavior of upstream FW_DYNAMIC remains unchanged when the option is absent.
 
 ## Vendor adaptation decisions
 
-| Vendor behavior | Decision and evidence |
+| Vendor behavior | Decision |
 |---|---|
 | C906 cache/CSR setup | Retain the FSBL's. Pinned `fsbl/lib/cpu/riscv/bl1_entrypoint.S` and `bl2_entrypoint.S` initialize mxstatus/mhcr/mcor and PLIC delegation before MONITOR. |
 | C906 draft vector VS | Patch `0002` restores SG2002 mstatus[24:23] after generic hart initialization, including warm-hart startup. Vendor 0.9 used `0x01800000`; ratified upstream uses `0x600`. Without the SG2002 handoff, the installed Linux 7.2.9 faults at CSR_VLENB in `riscv_v_setup_vsize`. Standard VS and other SoCs are unchanged; firmware remains scalar. |
@@ -81,7 +81,7 @@ takes effect at the next boot. How the ROM behaves with a missing or damaged `fi
 replace it and how to recover without a card reader are in
 [docs/BOOT.md](../../docs/BOOT.md).
 
-When qualifying a new OpenSBI, capture the full boot from FSBL through OpenSBI
+When testing a new OpenSBI, capture the full boot from FSBL through OpenSBI
 and U-Boot to Linux. Check the OpenSBI version, timer/PLIC initialization, both
 domain regions, DT address and S-mode handoff; then kernel boot,
 reserved-memory warnings, SBI PMU, storage/network, application/video and a

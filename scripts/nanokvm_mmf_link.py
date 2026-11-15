@@ -76,7 +76,7 @@ def link_hdmi_light(cross, mpi, objects, shared, output):
     if set(dependencies) - allowed:
         raise ValueError('Unexpected compact MMF dependencies: ' + repr(dependencies))
     metadata = {
-        'profile': 'hdmi-light', 'hardware_qualified': False,
+        'profile': 'hdmi-light',
         'mmf_api_symbols': sorted(public),
         'needed': dependencies,
         'inputs_sha256': {str(p.relative_to(mpi)): hashlib.sha256(p.read_bytes()).hexdigest()

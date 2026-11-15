@@ -6,8 +6,8 @@ false) gave up after msecs_to_jiffies(1): one tick, at most 4 ms at
 HZ=250. A 1920x1080 SAD takes about 7 ms and a full-picture DMA copy
 about 5 ms, so they were reported as failures while the engine still
 ran, and the reset after a failed operation (0012) then stopped the
-engine in the middle of its writes: wrong results, and the SoC hung
-on the stand. Polling (bInstant true) already allows 100 ms (10000
+engine in the middle of its writes: wrong results, or a hung SoC.
+Polling (bInstant true) already allows 100 ms (10000
 waits of 10 us); the interrupt path now allows the same.
 
 The limit is a read-only module parameter (timeout_ms): libkvm uses

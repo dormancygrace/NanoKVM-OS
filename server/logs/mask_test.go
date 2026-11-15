@@ -7,7 +7,7 @@ import (
 
 func TestMaskAddresses(t *testing.T) {
 	in := strings.Join([]string{
-		"inet 192.168.4.128/24 brd 192.168.4.255 scope global eth0",
+		"inet 198.51.100.128/24 brd 198.51.100.255 scope global eth0",
 		"default via 10.0.0.1 dev eth0 metric 202",
 		"inet 127.0.0.1/8 scope host lo",
 		"netmask 255.255.255.0 any 0.0.0.0",
@@ -30,7 +30,7 @@ func TestMaskAddresses(t *testing.T) {
 		"<4>[   17.743626] rwnx_send_sm_connect_req drv_vif_index:0 connect to of AP(2) channel:2412 auth_type:3",
 	}, "\n")
 	out := MaskAddresses(in)
-	for _, leaked := range []string{"192.168.4.128", "192.168.4.255", "10.0.0.1", "48:da:35", "fe80::4ada", "2001:db8", "2001:470:20:23", "HomeNetwork", "Upstairs", "Mesh Net", "Office Wi-Fi", "SyntheticHome595", "Cafe Net", "GuestNet", "Forgotten Home595", "of AP("} {
+	for _, leaked := range []string{"198.51.100.128", "198.51.100.255", "10.0.0.1", "48:da:35", "fe80::4ada", "2001:db8", "2001:470:20:23", "HomeNetwork", "Upstairs", "Mesh Net", "Office Wi-Fi", "SyntheticHome595", "Cafe Net", "GuestNet", "Forgotten Home595", "of AP("} {
 		if strings.Contains(out, leaked) {
 			t.Errorf("%q not masked:\n%s", leaked, out)
 		}
@@ -43,9 +43,9 @@ func TestMaskAddresses(t *testing.T) {
 }
 
 func TestSanitizeFileHidesSecretsAndMasks(t *testing.T) {
-	in := "proto: https\nauthentication:\n  jwt:\n    secretKey: hunter2hunter2\nturn:\n    api_key: zzz\nhost 192.168.1.20\npsk=\"wifi-pass\"\nlast line without newline 10.1.2.3"
+	in := "proto: https\nauthentication:\n  jwt:\n    secretKey: hunter2hunter2\nturn:\n    api_key: zzz\nhost 192.0.2.20\npsk=\"wifi-pass\"\nlast line without newline 10.1.2.3"
 	out := SanitizeFile([]byte(in))
-	for _, leaked := range []string{"hunter2", "wifi-pass", "zzz", "192.168.1.20", "10.1.2.3"} {
+	for _, leaked := range []string{"hunter2", "wifi-pass", "zzz", "192.0.2.20", "10.1.2.3"} {
 		if strings.Contains(out, leaked) {
 			t.Errorf("%q leaked:\n%s", leaked, out)
 		}

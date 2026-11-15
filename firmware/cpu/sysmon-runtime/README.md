@@ -24,12 +24,12 @@ nanokvm-manifest.json records the resulting vendored source checksums.
 `runtime.memmove` on riscv64 copies byte by byte whenever the source and
 destination alignments differ. Video frames hit that case on every copy behind
 a WebSocket (2, 4 or 10 bytes) or TLS record (5 bytes) header, and at 1080p75
-those byte loops were the most expensive user-space code on the device. The
+those byte loops would be the most expensive user-space code on the device. The
 C906 accesses misaligned words natively and fast (a platform property the
 NanoKVM kernel states), so prepare.py sends that case straight to the
 existing 8-byte loops, which then load and store misaligned words, as Linux's
-fast-unaligned usercopy does; aligning the destination first cost more than
-it saved (8-48 byte copies 20-45% faster without it). There is no run-time
+fast-unaligned usercopy does; the destination is not aligned first, because
+that costs more than it saves (8-48 byte copies are 20-45% faster without it). There is no run-time
 check. The co-aligned path is unchanged. Pointer-carrying memory is always
 pointer-aligned on both sides, so it never takes this path.
 
@@ -53,14 +53,10 @@ hold no pointers and use bytes. A destination that starts inside the source
 is copied backward, in chunks that are loaded completely before they are
 stored.
 
-Measured on the SG2002 (runtime benchmarks, best of 6, vector on/off):
-1.15-1.27x for co-aligned copies of 64 B-4 KiB, 1.4-2.4x when the alignments
-differ, no change at 32 B. NanoKVM-Server under a WebRTC H.264 1080p60 viewer
-(ABBA twice, 120 s per round): 51.07-51.12% of the core with the vector
-loop, 51.39-51.55% without, about 0.7% of the server's CPU; system time and
-context switches unchanged. The last pair ran under a heavier load (context
-switches 84k -> 128k per round) and also favoured the vector loop, 54.3% vs
-56.0%.
+With the runtime benchmarks on the SG2002, the vector loop copies 64 B-4 KiB
+1.15-1.27x as fast as the scalar one when co-aligned and 1.4-2.4x as fast when
+the alignments differ; it saves about 0.7% of NanoKVM-Server's CPU under a
+WebRTC H.264 1080p60 viewer.
 
 ## Vector memclr
 
@@ -70,16 +66,13 @@ same build constant as the vector memmove. It clears bytes up
 to an 8-byte boundary, then stores a zeroed LMUL 4 group as 8-byte elements,
 64 bytes per store, then the last `n % 8` bytes. An aligned pointer-sized word
 is always one element, so it is never seen half cleared. Byte elements are
-not used: at 64 KiB they were 11-16% slower than the scalar loop.
+not used because at 64 KiB they are 11-16% slower than the scalar loop.
 
-Measured on the SG2002 (runtime benchmarks, best of 3, vector on/off):
-1.1x at 64 B, 1.16-1.27x at 256 B, 1.32-1.33x at 4 KiB, 1.03-1.14x at
-64 KiB; no change below 64 B or from 1 MiB, where memory bandwidth decides.
-memclr is about 0.5% of NanoKVM-Server's CPU under WebRTC, so no
-server-level gain was expected. An A/B of the server with and without this
-loop (both with the vector memmove, eight 120 s rounds) showed none: rounds
-3-7 were 28.5-28.8% for both builds, round 2 29.7% with it; the first and
-last rounds (31.3% and 16.6%, both without it) are unexplained outliers.
+With the runtime benchmarks on the SG2002, the vector loop clears 1.32-1.33x
+as fast as the scalar one at 4 KiB; below 64 B and from 1 MiB, where memory
+bandwidth decides, there is no difference. memclr is about 0.5% of
+NanoKVM-Server's CPU under WebRTC, so the server as a whole does not
+measurably gain.
 
 ## Timer slack policy
 
@@ -97,7 +90,7 @@ Both hooks must run without a P; they use atomic words and a direct prctl
 syscall, without allocation. This deliberately targets NanoKVM's runtime:
 an independently configured child allowance equal to the sysmon override is
 also restored. Foreign library threads which do not enter Go mstart1 are not
-covered; inspect actual application threads when qualifying a build.
+covered; inspect the actual application threads when testing a build.
 
 ## Sleep floor policy
 

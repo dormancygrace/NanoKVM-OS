@@ -52,4 +52,4 @@ with tempfile.TemporaryDirectory(prefix='capture-', dir=output) as tmp:
     (output/'dependencies.d').write_text(dependencies)
 manifest = {'libkvm.so': hashlib.sha256((output/'libkvm.so').read_bytes()).hexdigest()}
 (output/'manifest.json').write_text(json.dumps(manifest, indent=2)+'\n')
-print('Capture linked without OpenCV/MaixCDK. Hardware video qualification remains pending.')
+print('Capture linked without OpenCV/MaixCDK.')

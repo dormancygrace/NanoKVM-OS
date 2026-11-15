@@ -3,8 +3,8 @@ Subject: [PATCH] vi: no developer log by default
 
 vi_log_lv defaulted to every level, INFO and DBG included. The event
 thread prints "VI duration(ms)" at INFO every 100 frames, about every
-1.7 s at 60 Hz. That line was 646 of 1141 kernel log lines on the
-stand. The server archives the kernel log to the SD card whenever it
+1.7 s at 60 Hz, more than half of all kernel log lines. The server
+archives the kernel log to the SD card whenever it
 changes, checking every minute, so this one line forced a full rewrite
 each minute.
 

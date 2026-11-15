@@ -29,13 +29,13 @@ var WolMacFile = "/etc/kvm/cache/wol"
 const maxWolHistory = 100
 
 // wolMacMutex serialises every read-modify-write of WolMacFile; concurrent
-// wakes, renames and deletes used to overwrite each other's changes.
+// wakes, renames and deletes would otherwise overwrite each other's changes.
 var wolMacMutex sync.Mutex
 
 // Any user may wake, and every wake runs ether-wake and broadcasts on the
 // LAN: each user one a second on average, five at once, and all users
-// together twice that. One user filling a single shared budget used to
-// starve the others, the administrator included.
+// together twice that. With a single shared budget one user could starve
+// the others, the administrator included.
 var (
 	wolLimiter      = &wakeLimiter{burst: 10, every: time.Second / 2}
 	wolUserMu       sync.Mutex

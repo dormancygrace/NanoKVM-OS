@@ -233,6 +233,27 @@ const PageLoading = () => (
   </div>
 );
 
+// The settings page open in this browser tab, so that a reload opens it
+// again. sessionStorage lives as long as the tab: a new tab starts closed.
+const openTabKey = 'nanokvm-settings-open-tab';
+const readOpenTab = () => {
+  try {
+    return sessionStorage.getItem(openTabKey);
+  } catch {
+    return null;
+  }
+};
+const writeOpenTab = (tab: string | null) => {
+  try {
+    if (tab) sessionStorage.setItem(openTabKey, tab);
+    else sessionStorage.removeItem(openTabKey);
+  } catch {
+    // Storage unavailable: a reload starts with the settings closed.
+  }
+};
+// Read once per page load: the menu renders Settings in more than one place.
+let reopenTab = readOpenTab();
+
 export const Settings = ({
   tooltipPlacement = 'bottom'
 }: {
@@ -500,6 +521,18 @@ export const Settings = ({
     [setKeyboardLock, setSubmenuOpenCount]
   );
 
+  // After a reload, open the page that was open before it.
+  useEffect(() => {
+    if (!reopenTab) return;
+    setRequest(reopenTab);
+    reopenTab = null;
+  }, [setRequest]);
+
+  // Remember the open page for a reload.
+  useEffect(() => {
+    if (isModalOpen) writeOpenTab(currentTab);
+  }, [isModalOpen, currentTab]);
+
   useEffect(() => {
     if (!request || isLocked) return;
     const requested = resolveSettingsTab(request);
@@ -564,6 +597,7 @@ export const Settings = ({
 
     if (!modalOpenRef.current) return;
     modalOpenRef.current = false;
+    writeOpenTab(null);
     setKeyboardLock({ source: 'settings-modal', locked: false });
     setIsModalOpen(false);
     setCurrentTab('dashboard');

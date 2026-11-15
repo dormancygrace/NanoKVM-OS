@@ -75,7 +75,10 @@ func TestCronNext(t *testing.T) {
 }
 
 // next agrees with a scan of every minute of a year, in zones whose offset
-// changes on the hour, at :30 and at :45.
+// changes on the hour, at :30 and at :45. A regression guard: the DST skip
+// came back twice after its first fix (7a8e51d5, a gap looped for ever):
+// f03ebba7 jumped over the first of a repeated hour, 9cb7765c over a :45
+// change in Pacific/Chatham.
 func TestCronNextAgainstScan(t *testing.T) {
 	for _, zone := range []string{"Pacific/Chatham", "Australia/Lord_Howe", "Europe/Berlin", "America/New_York"} {
 		loc, err := time.LoadLocation(zone)

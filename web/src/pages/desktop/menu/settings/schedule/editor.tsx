@@ -6,6 +6,7 @@ import * as api from '@/api/schedule.ts';
 import { getScripts } from '@/api/script.ts';
 import { formatDeviceMinute } from '@/lib/date-time.ts';
 import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
+import { TimeOfDay } from '@/components/time-of-day.tsx';
 
 import { fromCron, toCron, weekdayName, type When } from './when.ts';
 
@@ -191,33 +192,13 @@ export const TaskEditor = ({ task, onClose }: EditorProps) => {
             />
           )}
           {'hour' in when && (
-            <div className="flex items-center gap-2" aria-label={t('settings.schedule.time')}>
-              <Select
-                className="w-28"
-                value={when.hour}
-                aria-label={t('settings.schedule.time')}
-                onChange={(hour: number) => setWhen({ ...when, hour })}
-                options={Array.from({ length: 24 }, (_, hour) => ({
-                  value: hour,
-                  label: new Intl.DateTimeFormat(i18n.language, {
-                    timeZone: 'UTC',
-                    hourCycle: preferences.format === '12' ? 'h12' : 'h23',
-                    hour: '2-digit'
-                  }).format(Date.UTC(2026, 0, 1, hour))
-                }))}
-              />
-              <span>:</span>
-              <Select
-                className="w-20"
-                value={when.minute}
-                aria-label={t('settings.schedule.minuteOfHour')}
-                onChange={(minute: number) => setWhen({ ...when, minute })}
-                options={Array.from({ length: 60 }, (_, minute) => ({
-                  value: minute,
-                  label: String(minute).padStart(2, '0')
-                }))}
-              />
-            </div>
+            <TimeOfDay
+              hour={when.hour}
+              minute={when.minute}
+              hourLabel={t('settings.schedule.time')}
+              minuteLabel={t('settings.schedule.minuteOfHour')}
+              onChange={(hour, minute) => setWhen({ ...when, hour, minute })}
+            />
           )}
           {when.mode === 'custom' && (
             <>

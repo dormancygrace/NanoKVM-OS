@@ -18,10 +18,8 @@ It calls these component builders:
 
 Run them through `platform/build.sh`: it prepares their pinned sources and toolchain.
 The update format is described in [docs/UPDATES.md](../docs/UPDATES.md).
-The retired Docker builder and stock NanoKVM tarball/manifest release scripts
-are available in Git history; current releases use signed Alpine APKs.
-Buildroot is limited to the platform compiler, host tools and boot initramfs;
-the previous Buildroot OS and private addon-manager build paths were removed.
+Releases use signed Alpine APKs. Buildroot is limited to the platform compiler,
+host tools and boot initramfs.
 
 ## Alpine port tooling
 

@@ -278,7 +278,7 @@ the actual platform dependency graph.
 Recipe cleanup changes the toolchain input fingerprint. Existing output must not
 be reused under a new fingerprint; the next full platform build must still
 reproduce every output the change does not touch. A dependency/configuration check alone does
-not qualify newly built boot images.
+not test newly built boot images.
 
 ## Component optimization profiles
 
@@ -293,8 +293,6 @@ of each component, the reasons for it and the RustDesk build.
 The standard build and `nanokvm` ship the two-library HDMI-light bundle. Open MPI components are linked into `libkvm_mmf.so`; the HDMI receiver's YUV bypasses the ISP's image processing, so no ISP/3A algorithm library is linked or shipped. `platform/build.sh native` always selects this bundle.
 
 APK owns the old MPI library paths and removes files no longer shipped when upgrading `nanokvm`; the existing transaction hook restarts the application after the update. Do not overlay individual libraries in a running process or retain old MPI DSOs alongside the new set. Native license notices are included in the application package.
-
-Measured on a NanoKVM PCIe: about 0.63 MiB lower server PSS, no demonstrated CPU improvement.
 
 
 ### Application package split

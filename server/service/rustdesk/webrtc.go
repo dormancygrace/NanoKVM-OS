@@ -45,9 +45,8 @@ const rtcMaxQueue = 64 << 10
 // How much the congestion window grows in a round trip without loss: eight
 // packets. SCTP's rule is one (RFC 9260 7.2.2), with half the window gone at
 // every loss: on a path that loses a packet now and then the window stays far
-// below what the path carries. Measured with packets dropped at random on the
-// stand's Wi-Fi, received Mbit/s, one -> eight: 12.3 -> 17.0 at 1 %,
-// 16.0 -> 22.6 at 0.3 %, 28 both ways without loss; sixteen adds nothing at 1 %.
+// below what the path carries. Eight raises throughput by about 40 % at 0.3-1 %
+// random loss and changes nothing without loss; sixteen adds nothing more.
 const rtcCwndStep = 8 * 1200
 
 type rtcCommand struct {

@@ -3,8 +3,8 @@ Subject: [PATCH] bl2: print the banner, the DDR result and failures only
 
 At 115 200 baud each console character costs BL2 87 us, and it printed
 about 1 400 of them on every boot, step marks for each load, the DDR
-package fields piece by piece, the PLL and RTC steps: BL2 ran 150 ms with
-them and 100 ms without any (LOG_LEVEL 1, on the stand).
+package fields piece by piece, the PLL and RTC steps: about a third of
+BL2's time.
 
 Keep the banner, "DDR BIST PASS" and every failure message; the step marks
 become INFO, and INFO is compiled out below LOG_LEVEL_INFO, strings

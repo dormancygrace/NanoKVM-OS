@@ -14,7 +14,7 @@ scripts:
 - `/kvmapp` carries the current server, web UI and native vendor libraries;
 - `/data` remains exFAT;
 - partition 2 remains F2FS;
-- OpenRC wrappers call the already qualified board scripts in a visible order.
+- OpenRC wrappers call the existing board scripts in a visible order.
 
 There is no A/B partition scheme and no automatic rollback timer. Development
 FITs can be loaded manually from U-Boot. The installed migration uses a one-shot
@@ -103,8 +103,9 @@ reserved for an explicit operator hold or a reproducibility test.
 
 Kernel, matching modules and board FITs use the same APK update path. The kernel
 trigger activates the board-specific FIT and records that a reboot is required.
-Full recovery images remain necessary for partition layout, filesystem, FIP or
-bootloader changes. Moving to another Alpine stable branch is an explicit system
+The bootloader (`fip.bin`) is updated by the `nanokvm-bootloader` package,
+which keeps `/boot/fip.prev` for recovery ([docs/UPDATES.md](../../docs/UPDATES.md));
+partition layout and filesystem changes need a full recovery image. Moving to another Alpine stable branch is an explicit system
 upgrade rather than an incidental package update.
 
 ## Signing keys

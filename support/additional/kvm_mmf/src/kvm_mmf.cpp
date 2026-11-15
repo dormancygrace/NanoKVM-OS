@@ -507,7 +507,7 @@ static int _mmf_vpss_set_chn_enabled(int ch, bool enable)
 // NV21 at the VI size without mirror or flip (VPSS would have applied them);
 // its VPSS channel is disabled so a full queue there cannot stall the group.
 // The VI channel attributes stay untouched: CVI_VI_SetChnAttr on a running VI
-// bound to VPSS stops its frames for good (stand, 2026-10-20). The startup
+// bound to VPSS stops its frames for good. The startup
 // policy keeps at most one latest frame; UHD still uses next-frame snap jobs.
 static int _mmf_vi_direct_set(int ch, bool on)
 {
@@ -2482,7 +2482,7 @@ static int _mmf_tile_map_images(const VIDEO_FRAME_S &v)
 	const int uv_rows = (chroma_rows + 1) / 2 / 16; // whole block rows of the larger parity
 	// The kept planes keep the frame's row strides, so SAD and the copy see
 	// images of one layout. SAD by 16x16 blocks writes one value per block:
-	// its outputs have a block's size (checked on the stand).
+	// its outputs have a block's size.
 	// The marks are read by the CPU, byte by byte, after every SAD: they are
 	// cached (CVI_IVE_CreateImage maps uncached memory, where each byte read
 	// went to DRAM). The engine writes them and the CPU only reads them, after

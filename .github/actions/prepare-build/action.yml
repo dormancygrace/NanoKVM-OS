@@ -18,7 +18,7 @@ runs:
   using: composite
   steps:
     # A toolchain build needs about 25 GB. GitHub guarantees only 14 GB, but
-    # the runners had 86 GB free (2026-10-16); the cleanup, 3.5 minutes of
+    # the runners usually have far more free; the cleanup, 3.5 minutes of
     # removing preinstalled SDKs and the tool cache (no setup-* action can
     # run after it), runs only when space is short.
     - name: Disk space

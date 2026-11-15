@@ -10,8 +10,7 @@ Each such poll was still logged as an error, three ways:
 - base "jobs wait(0) work(1) done(0)";
 - the encoder's "encoder timeout happened in non_block mode".
 
-The stand logged 119 encoder timeouts and 33 VPSS failures since boot.
-Its kernel log, archived to the SD card, was mostly these lines.
+The kernel log, archived to the SD card, filled up with these lines.
 
 Only a wait of 100 ms or more that ends without a frame is now an error.
 The encoder poll message is a trace. The "Grp invalid," warning for a job

@@ -75,8 +75,8 @@ apply_zram() {
 # Reclaim for the swap set up here. With ZRAM alone, a swapped page comes back
 # by decompression in RAM, while an evicted file page, the server's own code
 # among them, comes back from the SD card at about 22 MB/s: prefer swapping,
-# and read one page per fault, since ZRAM has no seek to save. On the stand,
-# 130 MiB held under a live stream refaulted 3.5-4.8 times fewer file pages.
+# and read one page per fault, since ZRAM has no seek to save. Under memory
+# pressure with a live stream this refaults several times fewer file pages.
 # With SD swap the kernel defaults stay: swapping more would wear the card.
 VM_SYSCTL=${NANOKVM_VM_SYSCTL:-/proc/sys/vm}
 SWAPS=${NANOKVM_PROC_SWAPS:-/proc/swaps}
@@ -95,9 +95,7 @@ apply_reclaim() {
     # No extra reclaim after a fragmentation event (the kernel boosts it by
     # default). With video and the TPU taking tens of MiB from the CMA region
     # such events come often, and the boost evicted page cache still in use.
-    # On the stand with a live stream, eight text reads with and without:
-    # kswapd reclaimed about a fifth less, direct reclaim (which stalls the
-    # reader) fell from 500-1500 pages to 0-650, the reads 0.2-0.4 s faster.
+    # Without it, direct reclaim (which stalls the reader) falls sharply.
     { echo 0 > "$VM_SYSCTL/watermark_boost_factor"; } 2>/dev/null || true
 }
 

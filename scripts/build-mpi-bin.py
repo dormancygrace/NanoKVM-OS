@@ -94,4 +94,4 @@ with tempfile.TemporaryDirectory(prefix='bin-link-', dir=out) as temp:
         results.extend([archive, shared])
     for path in results:
         shutil.copy2(path, mpi / 'lib' / path.name)
-print('BIN and ISP_BIN compiled against pinned json-c/miniz. Hardware configuration qualification is separate.')
+print('BIN and ISP_BIN compiled against pinned json-c/miniz.')

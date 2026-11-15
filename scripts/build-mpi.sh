@@ -29,4 +29,4 @@ for module in sys vi vpss vo rgn gdc ive venc vdec misc; do
     make -C "$MPI/modules/$module" PWD="$MPI/modules/$module" CROSS_COMPILE="$CROSS" CHIP_ARCH=CV181X \
         OSDRV_PATH="$OSDRV" KERNEL_PATH="$KERNEL" ISP_SRC_RELEASE=0 OPT_LEVEL="$opt_flags" -B -j"$JOBS"
 done
-printf '%s\n' 'Core MPI compile passed; ISP closure and hardware qualification remain pending.'
+printf '%s\n' 'Core MPI compile passed.'

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Pull request test budget (AGENTS.md, "Tests: delete by default").
+"""Pull request test budget.
 
-Added test lines must stay within a third of added code lines, unless the pull
-request description has a line "Test-budget: <reason>".
+Tests are kept only where they guard a security boundary, build integrity, a
+pure function with tricky edges or a bug that already came back. Added test
+lines must stay within a third of added code lines, unless the pull request
+description has a line "Test-budget: <reason>".
 
   check-test-budget.py BASE_REF HEAD_REF   (description read from $GITHUB_EVENT_PATH)
 """
@@ -41,5 +43,5 @@ if tests > code // 3:
     if reason:
         print(f'over budget, accepted: {reason.group(0)}')
     else:
-        sys.exit('Test lines exceed a third of the code lines. Delete tests (AGENTS.md), '
+        sys.exit('Test lines exceed a third of the code lines. Delete tests, '
                  'or add a "Test-budget: <reason>" line to the pull request description.')

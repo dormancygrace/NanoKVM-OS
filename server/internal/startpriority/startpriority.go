@@ -5,20 +5,15 @@
 // The boot is CPU-bound on the single C906 core: from the first service to the
 // first frame the CPU is busy all the time, and the services that start after
 // the application (chronyd, syslog, crond, sshd, the watchdog) compete with
-// the server for it. At nice -10 the server reached its first frame about
-// 2.3 s sooner on the stand (17.5 s after kernel start, from 19.6-20.2 s).
-// The boost ends a few seconds after the first viewer, and a minute after the
-// start at the latest.
+// the server for it. At nice -10 the server reaches its first frame about
+// 2 s sooner. The boost ends a few seconds after the first viewer, and a
+// minute after the start at the latest.
 //
 // After it the server stays at nice -5. At nice 0 any other CPU-bound task of
 // the device (a package update, a download, a build in an SSH session) gets
-// the core in equal turns, and the video threads run late: with one such task
-// beside a 2560x1440 60 fps WebRTC session the browser dropped 74 to 93
-// frames in 8 s, and 3 to 8 with the server at nice -5 (15 to 23 at -2, 2 to
-// 12 at -10; none without the other task). The other task lost nothing: it
-// ran at the same speed, since the server leaves it the same share of the
-// core. A task that wakes 1250 times a second kept its p99 (24 to 37 us) and
-// saw its p99.9 go from 0.2 to 1 ms; ten runs of ls took as long as before.
+// the core in equal turns and the video threads run late, so the browser
+// drops frames; -2 is not enough and -10 adds nothing. At -5 the other task
+// keeps its share of the core and runs at the same speed.
 //
 // Linux sets the nice value per thread. Threads inherit it from the thread
 // that creates them, so raising every thread at the start covers the Go

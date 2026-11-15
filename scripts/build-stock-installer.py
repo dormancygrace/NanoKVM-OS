@@ -2,7 +2,6 @@
 """Build the stock offline package (also used by the GitHub SSH installer).
 
 Uses completed platform outputs; no signing keys, device access or root needed.
-The installer is experimental until the stock boot chain is qualified.
 """
 import argparse
 import gzip

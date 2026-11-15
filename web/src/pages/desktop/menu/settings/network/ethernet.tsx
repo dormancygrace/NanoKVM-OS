@@ -23,7 +23,7 @@ function isIPv4(value: string) {
   );
 }
 
-// "192.168.1.20/24": the address and the subnet mask of its prefix length
+// "192.0.2.20/24": the address and the subnet mask of its prefix length
 // (1-30, as the server accepts).
 function parseCIDR(value: string) {
   const match = /^([^/]+)\/(\d{1,2})$/.exec(value.trim());

@@ -227,7 +227,7 @@ def manifest(source: bytes, candidate: bytes, *, output_name: str) -> dict[str, 
             "Generated for offline review; no EDID was programmed.",
             "The QHD30 preferred DTD, VIC47 720p120 DTD, FHD60 and 720p60 DTDs remain present.",
             "The 161.13 MHz reduced-blanking clock reports 39.9993 Hz with 2720x1481 totals.",
-            "Actual receiver/source acceptance and QHD40 capture performance remain unqualified.",
+            "Not checked here: receiver/source acceptance and QHD40 capture performance.",
             "SG2002 5M30 documentation does not guarantee QHD40; H.265 is the preferred initial trial codec.",
         ],
     }

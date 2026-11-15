@@ -396,7 +396,7 @@ func writeEthernetConfig(config proto.EthernetConfig) error {
 }
 
 // validateStaticEthernet takes the address alone with a subnet mask, or in
-// CIDR form (192.168.1.20/24); with CIDR the mask may be empty, and a mask
+// CIDR form (192.0.2.20/24); with CIDR the mask may be empty, and a mask
 // that is given must agree with the prefix length.
 func validateStaticEthernet(address string, subnetMask string, gateway string) (netip.Prefix, netip.Addr, error) {
 	address = strings.TrimSpace(address)

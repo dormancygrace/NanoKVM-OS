@@ -41,21 +41,9 @@ inside the function and no vector state lives across calls.
 `bufSize` is five blocks (320 bytes) on riscv64. `XORKeyStream` only passes
 multiples of it; it never lets the 32-bit counter wrap inside one call.
 
-Kernel variants measured on the device by thread CPU time, 20 KiB per call,
-in one run while video streamed (the shipped kernel reaches 94 MB/s when the
-device is quieter):
-
-| kernel | MB/s |
-| --- | ---: |
-| generic Go | 26 |
-| RV64I scalar assembly, 1 block | 32 |
-| XTheadVector, 4 blocks | 65 |
-| XTheadVector 4 + scalar 1, 16 strided stores (`th.vsse.v`) | 75 |
-| XTheadVector 4 + scalar 1, 2 segment stores | 79 |
-| same, rounds only (no add/store/XOR) | 91 |
-
-Those rounds ran at the vector datapath limit (1600 vector instructions of
-two cycles per 320 bytes). `th.vrgather.vv` costs four cycles, so byte
+The rounds run at the vector datapath limit: with shift, shift, or rotates
+they take 1600 vector instructions of two cycles per 320 bytes.
+`th.vrgather.vv` costs four cycles, so byte
 permutes for the 16 and 8 bit rotates do not pay, and LMUL 2 or 4 has the
 same throughput per element. On the C906 `th.vmacc.vx` issues every two
 cycles like `th.vadd.vv`, so the two-instruction rotate cuts the vector
@@ -63,19 +51,8 @@ instructions to 1280 per 320 bytes, and `th.srriw` keeps the scalar block
 below the vector one (224 issue slots per double round against 256 vector
 cycles).
 
-The shipped kernel against the previous one (the rows above), stand,
-2026-11-02, `go test -bench`, `src`/`dst` at offset 5, two rounds:
-
-| bytes | 64 | 256 | 1024 | 1400 | 4096 | 16384 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| previous, MB/s | 10.9 | 32.4 | 50.5 | 58.7 | 77.0 | 73.0 |
-| vmacc rotates, MB/s | 13.3 | 37.4 | 63.0 | 70.2 | 98.2 | 91.9 |
-| generic Go, MB/s | 4.7 | 16.4 | 20.0 | 22.0 | 26.4 | 26.0 |
-
-Through `crypto/tls` (TLS 1.2 ChaCha20-Poly1305 over `net.Pipe`, CPU per
-record for Seal plus Open, three alternating rounds): 16 KiB 731 -> 644 us
-(-12%), 4 KiB -10%, 1400 bytes -7.5%, 64-512 bytes -1 to -3% (the record
-overhead dominates).
+With `go test -bench` (`src`/`dst` at offset 5) the kernel runs at 70 MB/s
+for 1400 bytes and 98 MB/s for 4096, against 22 and 26 MB/s for generic Go.
 
 In the `nanokvmqemu` build the generic code still fills five-block buffers,
 which wastes up to four blocks per message. Compare against an unpatched
@@ -159,12 +136,6 @@ package, builds both and runs the upstream, big-integer oracle (states with
 h2 up to 5 and extreme clamped keys), alignment and guard-page tests on
 scalar RISC-V QEMU (built with `--tags nanokvmqemu`); its deliberate corrupted-result control must fail.
 
-Stand, 2026-11-02, against the previous C906 Poly1305 (a hand-scheduled
-radix-2^64 `update`), server stopped, thread CPU, best of five: `update`
-1408 B 178-196 -> 199-204 MB/s, 16 KiB 194-199 -> 204-209 MB/s;
-`crypto/tls` ChaCha20-Poly1305 record (Seal + Open) 1400 B 116.8 -> 116.7 us,
-4 KiB -1.5%, 16 KiB 620 -> 608 us (-2%).
-
 ### Vector kernel (`gen_poly1305_vector.py`)
 
 On the C906 a `mul`, `mulhu` or `th.mula` with an operand wider than 32 bits
@@ -203,16 +174,10 @@ the kernel into WORDs. On the device, `TestC906Vector` compares `update` with
 `updateScalar` and the big-integer oracle around the group boundaries, at
 every offset, with extreme keys and accumulators up to h2 = 7. The reduction and guard-page tests run `updateScalar` as a second variant.
 
-Stand, 2026-11-09, `go test -bench C906VectorGroups` (offset 5, MB/s):
-
-| bytes | 240 | 320 | 480 | 800 | 1360 | 16320 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `updateScalar` | 177 | 180 | 184 | 190 | 190 | 188 |
-| vector kernel | 165 | 190 | 216 | 252 | 276 | 288 |
-
-ChaCha20-Poly1305 Seal (`TestC906Measure`, thread CPU, medians, three
-alternating runs, server running): 1400 B 49.4 -> 53.0 MB/s (+7%), 16 KiB
-64.6 -> 73.1-78.4 MB/s (+13-21%).
+The vector kernel takes runs of at least four groups because at three it is
+slower: with `go test -bench C906VectorGroups` (offset 5) 240 bytes hash at
+165 MB/s against 177 for `updateScalar`, 320 bytes at 190 against 180, and
+16320 bytes at 288 against 188.
 
 ```sh
 B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
@@ -220,27 +185,6 @@ python3 gen_poly1305_vector.py --binutils $B --go --check sum_vector_riscv64.s
 # on the device, in /var/tmp:
 ./poly1305.test -test.v
 ./poly1305.test -test.run XXX -test.bench C906VectorGroups
-```
-
-## Earlier baseline results
-
-Device, by thread CPU time (MB/s, medians of 7 interleaved runs of 5 rounds,
-with video streaming in the background), base = unpatched GOROOT:
-
-| | 1400 B base | 1400 B new | 16 KiB base | 16 KiB new |
-| --- | ---: | ---: | ---: | ---: |
-| ChaCha20 part of Seal | 25.3 | 49.3 | 27.0 | 77.7 |
-| Poly1305, message at offset 5 | 93.5 | 197.4 | 96.8 | 202.7 |
-| ChaCha20-Poly1305 Seal | 19.4 | 34.2 | 20.3 | 49.2 |
-
-`tls-smoke.go` sends random data over a crypto/tls 1.3 loopback connection
-and checks that it arrives intact with TLS_CHACHA20_POLY1305_SHA256. With 16
-KiB writes (Seal on the client, Open on the server) user time went from about
-118 to 60 ms per MiB.
-
-```sh
-GOROOT=/path/to/prepared-goroot GOOS=linux GOARCH=riscv64 go build -o /tmp/tls-smoke tls-smoke.go
-/var/tmp/tls-smoke 16 16384
 ```
 
 ## Tests
@@ -267,6 +211,16 @@ wrap inside a call, unaligned and in-place buffers, guard bytes around dst),
 `SetCounter`, the end of the counter space) and a stress run with a CPU
 profile, GC and four goroutines.
 
+`tls-smoke.go` sends random data over a crypto/tls 1.3 loopback connection
+and checks that it arrives intact with TLS_CHACHA20_POLY1305_SHA256. With 16
+KiB writes (Seal on the client, Open on the server) it takes about 60 ms of
+user time per MiB, against 118 with an unpatched GOROOT.
+
+```sh
+GOROOT=/path/to/prepared-goroot GOOS=linux GOARCH=riscv64 go build -o /tmp/tls-smoke tls-smoke.go
+/var/tmp/tls-smoke 16 16384
+```
+
 ## The same ChaCha20 in the Linux kernel
 
 `gen_chacha_linux.py` emits the same five-block kernel for `lib/crypto`
@@ -282,10 +236,9 @@ encoder, the vector round schedule and the GNU as/objdump check of
 python3 gen_chacha_linux.py --binutils $B --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
 ```
 
-On the device, a test module with the same assembly and glue matched
-`chacha_block_generic()` and ran at 98 MB/s
-for a 1420-byte WireGuard packet and 116 MB/s for 16 KiB (81 and 93 with
-the three-instruction rotates), against 47-49 for the generic kernel code.
+It produces the same output as `chacha_block_generic()` and runs at 98 MB/s
+for a 1420-byte WireGuard packet and 116 MB/s for 16 KiB, against 47-49 MB/s
+for the generic kernel code.
 
 ## Poly1305 in the Linux kernel
 
@@ -299,15 +252,9 @@ per `kernel_vector_begin()` and only where `may_use_simd()`; everything else
 stays with CRYPTOGAMS. It converts the CRYPTOGAMS state to 26-bit limbs and
 back, after folding h2 as `poly1305_emit` does.
 
-A test module linking the same glue, CRYPTOGAMS and the generated assembly
-matched the loaded `libpoly1305` (CRYPTOGAMS on the stand's kernel). The
-cases were random
-keys, lengths, alignments and update splits, in process context and with
-bottom halves disabled, all-ones keys and messages, and a thread hashing
-inside the vector section against a CPU hog. It then timed both: 2026-11-09
-on the stand, MB/s at offset 5, CRYPTOGAMS -> vector: 320 B 151 -> 132
-(hence six groups), 480 B 160 -> 161, 640 B 166 -> 183, 1420 B (a WireGuard
-packet) 166 -> 218, 4096 B 180 -> 272, 16 KiB 178 -> 283.
+The vector path starts at six groups: at offset 5, 320 bytes hash at
+132 MB/s against 151 for CRYPTOGAMS, 480 bytes at 161 against 160, and a
+1420-byte WireGuard packet at 218 against 166.
 `kernel_vector_begin()` plus `kernel_vector_end()` costs about 210 ns.
 
 ## GHASH in the Linux kernel and in OpenSSL
@@ -323,39 +270,19 @@ The kernel uses four tables, OpenSSL and Go two. The code is scalar
 (XTheadBb, XTheadMemIdx) and runs in any context.
 
 Table lookups depend on the key and the data, as in OpenSSL's portable 4-bit
-GHASH: this is not constant-time code. The code it replaced emulated the
-product with integer multiplies of operands below 2^32 and was constant-time,
-at about 390 cycles per block (41 MB/s with four blocks in XTheadVector lanes,
-27 MB/s scalar).
+GHASH: this is not constant-time code.
 
-Measured on the SG2002, 1408 bytes, tables in the L1 data cache: one table
-79 MB/s (202 cycles per block), two tables 114 MB/s (141), four tables
-142 MB/s (113). There is no L2 cache, and a table line evicted between
-messages costs about 110 ns to bring back: with the L1 data cache emptied
-before every message, 1408 bytes took 31 us with one or two tables and 42 us
-with four (12.7 and 10.9 us when cached). Inside AES-GCM records of OpenSSL
-two and four tables measured the same and one table was slower from 4 KiB, so
-OpenSSL uses two.
+With 1408 bytes and the tables in the L1 data cache, one table takes 202
+cycles per block, two 141 and four 113. There is no L2 cache, and a table
+line evicted between messages costs about 110 ns to bring back: with the L1
+data cache emptied before every message, 1408 bytes take 31 us with one or
+two tables and 42 us with four. Inside OpenSSL's AES-GCM records two tables
+are as fast as four and one is slower from 4 KiB, so OpenSSL uses two.
 
 The kernel's gcm(aes) hashes while the crypto engine encrypts, so GHASH is
-what a record waits for. Measured there with the application stopped (the
-driver that works on the caller's memory; means of three loads of the module
-for an atomic caller, two for one that may sleep; encrypt / decrypt, AES-256,
-us, two tables -> four):
-
-| | atomic caller | caller that may sleep |
-|---|---|---|
-| 256 B | 13.6 / 12.1 -> 13.3 / 11.7 | 16.7 / 12.6 -> 16.1 / 12.7 |
-| 512 B | 18.0 / 15.5 -> 17.4 / 14.8 | 22.2 / 19.5 -> 21.4 / 16.7 |
-| 1024 B | 26.1 / 21.1 -> 24.3 / 19.8 | 28.7 / 25.4 -> 27.3 / 24.2 |
-| 1400 B | 33.8 / 26.6 -> 31.8 / 24.4 | 36.0 / 30.6 -> 34.0 / 28.4 |
-| 4080 B | 72.8 / 54.5 -> 66.1 / 47.2 | 71.3 / 64.1 -> 64.1 / 56.8 |
-| 16 KiB | 217 / 199 -> 196 / 178 | 205 / 195 -> 187 / 174 |
-| 64 KiB | 806 / 809 -> 732 / 734 | 740 / 775 -> 660 / 672 |
-
-An OpenVPN DCO tunnel (AES-256-GCM, UDP) beside a 20 Mbit/s video stream
-carried the same with either: 65-67 Mbit/s in, 44-45 out. The kernel uses
-four; a key takes 16 KiB.
+what a record waits for; there four tables are faster (a 1400-byte AES-256
+request from an atomic caller: 31.8 / 24.4 us to encrypt / decrypt, against
+33.8 / 26.6 with two). The kernel uses four; a key takes 16 KiB.
 
 The generator runs every variant it can emit on random keys and messages
 against a bit-serial GHASH (an interpreter of the instructions it uses), and
@@ -365,13 +292,6 @@ checks that a patch contains the generated file:
 python3 gen_ghash_table.py --selftest 50 --flavor linux --tables 4 --name ghash_blocks_c906 --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
 python3 gen_ghash_table.py --flavor openssl --tables 2 --name ossl_ghash_blocks_c906 --check ../../crypto/openssl-c906/0010-ghash-c906.patch
 ```
-
-In the kernel, with the engine driver running AES-CTR and this GHASH on the
-CPU meanwhile, one `gcm(aes)` request of 1400 bytes (AES-256) went from 55.6 us
-to 32.2 us encrypting and from 46.7 to 25.8 us decrypting; the software
-`gcm_base(ctr-aes-lib,ghash-lib)` from 134.6 to 112.5 us. OpenVPN with
-AES-256-GCM in the kernel (DCO, UDP, the SG2002 as the server on a 100 Mbit/s
-link): 85 Mbit/s received and 69 sent before, 89 and 81 after.
 
 ## Multi-buffer HMAC-SHA1 (`server/internal/sha1mb`)
 
@@ -391,13 +311,10 @@ lives in the server module, not in the prepared GOROOT.
   v26-v31; each step starts from the chaining value again). The 1190 vector
   instructions of a step (1414 with shift, shift, or) are list-scheduled
   for an assumed result latency of 6 cycles; in program order the kernel
-  took about 1.6 times as long.
+  takes about 1.6 times as long.
 - Scalar code interleaved with the rounds copies the next step's four
   blocks into a stack buffer with byte loads, as big-endian words and
   transposed, so W is loaded with two LMUL 8 loads; no alignment is needed.
-  Copying little-endian words and swapping them with 16 `th.vrgather.vv`
-  per step measured the same. Leaving out the copy (wrong results) was
-  about 7% faster, which bounds the cost of the byte swap and transpose.
 - Go splits each message (up to three parts) into segments: runs of whole
   blocks inside one part are read in place; blocks that straddle parts and
   the padded tail are copied to a scratch buffer. Each message goes to the
@@ -407,16 +324,10 @@ lives in the server module, not in the prepared GOROOT.
 - Batches of one message use crypto/sha1, as do host and `nanokvmqemu`
   builds (`internal/xtheadvector`).
 
-Device, thread CPU time per packet, medians of 7 interleaved rounds with
-video streaming. Messages are a 12-byte header, the payload and a 4-byte
-ROC; crypto/hmac is used as pion/srtp does (Reset, Write, Write, Sum):
-
-| batch | crypto/hmac | SumBatch | speedup |
-| --- | ---: | ---: | ---: |
-| video, 13 x 1200 B + 600 B | 45.8 us | 17.1 us | 2.7x |
-| audio, 4 x 172 B | 12.1 us | 4.7 us | 2.6x |
-| 2 x 1200 B | 44.7 us | 27.7 us | 1.6x |
-| 4 x 4096 B | 148.9 us | 44.5 us | 3.3x |
+For a video frame of 13 x 1200 B + 600 B (each message a 12-byte header, the
+payload and a 4-byte ROC), `SumBatch` takes 17.1 us of thread CPU time per
+packet on the device, against 45.8 us with crypto/hmac used as pion/srtp uses
+it (Reset, Write, Write, Sum).
 
 The Go part (scheduling, segments, copies) takes about 1.4 us per packet.
 
@@ -426,10 +337,6 @@ kernel computes for them only the outer block of each HMAC
 (`Key.OuterBatch`, four per step), and whole HMACs for what the engine does
 not take: audio, retransmissions, RTCP, short packets.
 
-`vmacc.vx` rotates against shift, shift, or (2026-11-02, stand, server
-stopped, thread CPU per packet, medians of five interleaved rounds): video
-13 x 1200 B + 600 B 17.5 -> 15.9 us (-9%), audio 4 x 172 B 8.5 -> 7.6 us
-(-11%).
 A vector instruction costs about two cycles whatever `vl` is, so idle lanes
 cost as much as busy ones: 14 video packets fill 271 of 320 lane steps.
 
@@ -451,15 +358,15 @@ python3 ../firmware/cpu/go-crypto-c906/check-binary.py --binutils $B \
 The WebRTC payloaders split each access unit at its start codes, and the
 key frame parameter set scan looks for them too. `bytes.Index(b, {0,0,1})`
 stops at every zero byte of coded video and calls IndexByte again from
-there; on the stand's stream (a zero in about 170 bytes) it never switches
+there; on typical coded video (a zero in about 170 bytes) it never switches
 to Horspool. `annexb.Index` uses `indexStartCode` from
 `gen_annexb_riscv64.py` instead: two overlapping LMUL 8 loads compared with
 zero find each `00 00`, and a scalar load checks the third byte. Inputs
 under 64 bytes and host and `nanokvmqemu` builds (`internal/xtheadvector`)
 use bytes.Index.
 
-On the device, 9 KB access units shaped like the stand's stream: 7.5 us per
-unit, bytes.Index 21 us.
+A 9 KB access unit of typical coded video takes 7.5 us, against 21 us with
+bytes.Index.
 
 ```sh
 python3 gen_annexb_riscv64.py --binutils $B --check ../../../server/internal/annexb/annexb_riscv64.s
@@ -473,9 +380,9 @@ GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go test -c -o annexb.test ./internal/ann
 
 `gen_aes_c906.py --flavor linux` writes the AES block encryption and
 decryption of the kernel's `lib/crypto`
-(`platform/kernel/0080-crypto-riscv-c906-aes.patch`), which had only the
-generic C code on the C906: its RISC-V backend needs the vector crypto
-extensions.
+(`platform/kernel/0080-crypto-riscv-c906-aes.patch`), which otherwise has
+only the generic C code on the C906: its RISC-V backend needs the vector
+crypto extensions.
 
 The C906 executes about one instruction per cycle on this code, so the
 functions are built for the instruction count. Each direction has four
@@ -487,14 +394,12 @@ columns are interleaved, so a loaded value is used no sooner than two
 instructions later. The round keys are the ones `lib/crypto/aes.c` prepares
 (the Equivalent Inverse Cipher to decrypt).
 
-Measured on the device for one block, in ns (AES-128 / AES-256): the kernel's
-C code, which keeps one table, rotates each word and reads the whole table
-before every block, 802 / 1072; OpenSSL's assembly 672 / 918; this code 599 /
-814 to encrypt and 592 / 807 to decrypt. Through the kernel API `ecb(aes)`
-with a 128-bit key takes 2.83 us for 64 bytes instead of 3.67 and 10.1 us for
-256 bytes instead of 13.4.
+One block takes 599 / 814 ns (AES-128 / AES-256) to encrypt and 592 / 807 ns
+to decrypt, against 802 / 1072 for the kernel's generic C code (one table,
+each word rotated, the whole table read before every block) and 672 / 918
+for OpenSSL's assembly.
 
-Table lookups depend on the key and the data: like the code it replaces, this
+Table lookups depend on the key and the data: like the generic C code, this
 is not constant-time, and it does not read the whole table before a block,
 which the generic code does as a hardening measure without a guarantee.
 
@@ -508,10 +413,10 @@ with `in` and `out` unaligned.
 
 ### AES-GCM in Go
 
-Go has no AES or GHASH assembly for riscv64: `crypto/aes` ran the generic
+Upstream Go has no AES or GHASH assembly for riscv64: `crypto/aes` runs the generic
 block (about 0.9 us) and `crypto/cipher`'s GCM the generic GHASH, which
 multiplies with integer multiplications and takes the C906 about 8 us per
-block. A TLS record of 16 KiB with AES-128-GCM took 11.7 ms to write and read.
+block.
 
 `prepare.py` puts three things into `crypto/internal/fips140/aes`, used
 always (NanoKVM OS runs on this CPU only):
@@ -534,18 +439,11 @@ In Go assembly the T-Head instructions are `WORD`s, each checked against GNU
 as (`goasm_c906.py`, `--binutils`). X8, X9, X18 and X20 take the place of s0,
 s1 and t6, and nothing is saved: Go's ABI0 has no callee-saved registers.
 
-Time to write and read one TLS record through `crypto/tls` on the device, in
-us (stock Go / with only the block functions / with GHASH tables / with the
-counter-mode loop):
-
-| | 16 B | 1400 B | 16 KiB |
-|---|---|---|---|
-| AES-128-GCM | 101 / 89 / 66 / 76 | 1074 / 872 / 254 / 212 | 11680 / 9400 / 2270 / 1700 |
-| AES-256-GCM | 108 / 87 / 70 / 76 | 1184 / 909 / 296 / 257 | 12880 / 9850 / 2710 / 2160 |
-| ChaCha20-Poly1305, for comparison | 63 | 121 | 548 |
+Writing and reading one 16 KiB AES-128-GCM record through `crypto/tls` on the
+CPU takes 1700 us, against 11680 us with stock Go.
 
 Like the kernel and OpenSSL versions, the table GHASH and the AES tables are
-not constant-time; Go's generic GHASH was.
+not constant-time; Go's generic GHASH is.
 
 `gcm/gcm_riscv64.go` also sends the bulk of a message to the SG2002's crypto
 engine (`/dev/nanokvm-hwcrypto`), the way OpenSSL does: from 1024 bytes the
@@ -556,16 +454,10 @@ take 20 to 300 us of this CPU and wait for nothing else. Without the device,
 without permission to open it, or after the driver gave the engine up, the
 code above does all of it.
 
-One TLS record written and read, application stopped, in us (software ->
-with the engine):
-
-| | 512 B | 768 B | 1024 B | 1400 B | 2048 B | 4096 B | 8192 B | 16 KiB |
-|---|---|---|---|---|---|---|---|---|
-| AES-128-GCM | 136 -> 135 | 160 -> 158 | 183 -> 166 | 228 -> 187 | 290 -> 204 | 509 -> 300 | 931 -> 452 | 1754 -> 724 |
-| AES-256-GCM | 161 -> 149 | 196 -> 185 | 232 -> 174 | 279 -> 193 | 367 -> 219 | 631 -> 302 | 1175 -> 450 | 2225 -> 727 |
-
-With the engine from 512 bytes the 512-byte record took 147 to 175 us and the
-768-byte one 154 to 184: Go's own AES is the faster one there.
+The engine starts at 1024 bytes because below that Go's own AES is faster: a
+512-byte record takes 136 us (AES-128) or 161 us (AES-256) in Go and 147 to
+175 us with the engine. A 16 KiB AES-128-GCM record takes 724 us with the
+engine.
 
 `Open` decrypts through the driver before it has checked the tag, and clears
 its output when the tag is wrong. If the driver reports its engine lost in a
@@ -586,14 +478,14 @@ python3 gen_ghash_table.py --flavor go --tables 2 --name ghashBlocksC906 --selft
 ## SHA-256 and SHA-512 blocks (`gen_sha2_c906.py`)
 
 `--flavor linux` writes the same blocks for the kernel's `lib/crypto`
-(`platform/kernel/0079-crypto-riscv-c906-sha2.patch`), which had only the
-generic C code on the C906: its RISC-V backends need the vector crypto
-extensions. One `sha256` digest of 4096 bytes through the kernel API takes
-160.3 us instead of 173.5 us.
+(`platform/kernel/0079-crypto-riscv-c906-sha2.patch`), which otherwise has
+only the generic C code on the C906: its RISC-V backends need the vector
+crypto extensions. One `sha256` digest of 4096 bytes through the kernel API
+takes 160.3 us, against 173.5 us with the generic code.
 
 `gen_sha2_c906.py --flavor go` writes `sha256block_riscv64.s` and `sha512block_riscv64.s`, which `prepare.py` puts in place of Go's riscv64 assembly under the same name `block`: there is no selection at run time. It is the generator of OpenSSL's blocks (`firmware/crypto/openssl-c906`): rounds 0 to 15 once, then one body of 16 rounds run three or four times, about 4.5 KiB of code; w[i-1], w[i-2] and w[i-16] stay in registers and a loaded value is used no sooner than two instructions later. The XTheadBb instructions are `WORD`s, each checked against GNU as (`--binutils`); the instruction stream is the one the generator executes against a plain implementation in `--selftest`.
 
-Measured on the device (`sha256.Sum256` and `sha512.Sum512`, MB/s at 16 / 64 / 1024 / 16384 bytes): SHA-256 with Go's block 3.1 / 7.2 / 15.1 / 16.0, with the previous unrolled C906 block 4.2 / 10.0 / 22.3 / 23.8, now 4.4 / 10.6 / 23.8 / 25.4; SHA-512 with Go's block 2.3 / 9.0 / 21.2 / 24.1, now 2.7 / 12.8 / 33.0 / 39.2. The tests of `crypto/sha256`, `crypto/sha512` and `crypto/hmac` pass on the device.
+At 16 KiB, `sha256.Sum256` runs at 25.4 MB/s against 16.0 with Go's block, and `sha512.Sum512` at 39.2 MB/s against 24.1. The tests of `crypto/sha256`, `crypto/sha512` and `crypto/hmac` pass on the device.
 
 ```sh
 B=.../buildroot-output/host/bin/riscv64-buildroot-linux-musl-
@@ -614,13 +506,7 @@ Each instruction is a `WORD` that GNU as produced from the mnemonic, and objdump
 
 `prepare.py` puts the file in place of Go's. NanoKVM OS runs only on the C906, so there is no selection at run time and no `internal/cpu` flag for XTheadBb (Linux reports it neither in `riscv_hwprobe` nor in `/proc/cpuinfo`).
 
-Measured on the device with `go test -bench` when both blocks were in one binary: 1 s per benchmark, median of 3 interleaved runs. Rates are in MB/s.
-
-| | Go's block | C906 block | |
-| --- | ---: | ---: | ---: |
-| SHA-1, 8 bytes | 1.97 | 3.45 | 1.75x |
-| SHA-1, 1 KiB | 29.00 | 40.26 | 1.39x |
-| SHA-1, 8 KiB | 30.62 | 42.80 | 1.40x |
+With `go test -bench`, SHA-1 of 8 KiB runs at 42.80 MB/s against 30.62 with Go's block.
 
 SRTP keeps the multi-buffer HMAC-SHA1 described above. crypto/sha1 covers single messages, RTCP and the other callers.
 
@@ -657,22 +543,9 @@ takes that no-Zbb round and changes two things:
 A round is about 162 instructions, against about 287 for Go's generic
 permutation. Both figures are static counts of the loop body.
 
-On the device (C906 at 1 GHz, NanoKVM server running, load below 1.6), five
-alternating runs of each binary, medians:
-
-| Benchmark | Generic | C906 | Speedup |
-| --- | ---: | ---: | ---: |
-| Keccak-f[1600] permutation | 9.34 µs | 4.63 µs | 2.0× |
-| SHA3-256, 1350 B | 111.5 µs | 61.9 µs | 1.8× |
-| SHAKE128, 1350 B | 95.1 µs | 52.6 µs | 1.8× |
-| ML-KEM-768 key generation | 1.678 ms | 1.438 ms | −14% |
-| ML-KEM-768 encapsulation | 2.026 ms | 1.778 ms | −12% |
-| ML-KEM-768 decapsulation | 1.903 ms | 1.801 ms | −5% |
-
-The permutation is measured in one binary. The other rows compared the C906
-permutation with the generic one in the same binary. A TLS server
-encapsulates once per `X25519MLKEM768` handshake, so the saving is about
-0.25 ms of CPU per handshake, around 1% of a full handshake.
+On the device the permutation takes 4.63 µs against 9.34 µs for the generic
+one. A TLS server encapsulates once per `X25519MLKEM768` handshake, so the
+saving is about 0.25 ms of CPU per handshake, around 1% of a full handshake.
 
 `--binutils` checks every `th.srri` WORD against GNU as. `--check`
 regenerates the file and compares. CI does both.

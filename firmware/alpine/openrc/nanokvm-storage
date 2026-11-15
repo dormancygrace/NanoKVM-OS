@@ -135,7 +135,7 @@ start() {
     fi
     mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
     # f2fs background GC compacts the root partition whenever the device is
-    # idle, and wrote the SD card by megabytes per minute on an idle stand.
+    # idle, and writes the SD card by megabytes per minute on an idle device.
     # Foreground GC still reclaims space when free sections run low. Root is
     # mounted from the kernel command line, and OpenRC's root service is
     # not enabled, so an /etc/fstab entry would not apply.

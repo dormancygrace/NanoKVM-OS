@@ -65,4 +65,4 @@ license_dir.mkdir(parents=True, exist_ok=True)
 shutil.copy2(inih / 'LICENSE.txt', license_dir / 'LICENSE.txt')
 manifest = {'libkvm_mmf.so': hashlib.sha256((output / 'libkvm_mmf.so').read_bytes()).hexdigest()}
 (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-print('MMF compiled and linked. Hardware qualification is separate; LT6911UXC identification is supported.')
+print('MMF compiled and linked; LT6911UXC identification is supported.')

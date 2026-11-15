@@ -5,8 +5,8 @@ Subject: [PATCH] vi: no error print for a short VI frame poll above the ioctl
 failure again. The native library polls with short timeouts (5 ms when it
 pre-submits the next frame, 200 ms when it switches a capture path): a poll
 that finds no frame yet is normal, and each one went to syslog as
-"vi_sdk_get_chn_frame ioctl failed" (about 8 lines a second on the stand
-with MJPEG next to a 1440p60 H.264 stream). A blocking read or a wait of
+"vi_sdk_get_chn_frame ioctl failed" (several lines a second with MJPEG
+next to an H.264 stream). A blocking read or a wait of
 100 ms or more that ends without a frame still prints, as in osdrv 0009.
 
 ---

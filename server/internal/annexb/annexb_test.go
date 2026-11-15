@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// coded returns size bytes shaped like the stand's coded video: a zero byte
+// coded returns size bytes shaped like typical coded video: a zero byte
 // in about 170, a zero pair in about 2200, each pair followed by the
 // emulation prevention byte 03, and no start code.
 func coded(r *rand.Rand, size int) []byte {

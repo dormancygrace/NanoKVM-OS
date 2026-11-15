@@ -50,7 +50,7 @@ for name in ('LICENSE', 'LICENSE.txt', 'COPYING'):
     if (mpi / name).is_file():
         shutil.copy2(mpi / name, output / ('cvi-mpi-' + name))
 manifest = {
-    'profile': 'hdmi-light', 'hardware_qualified': False,
+    'profile': 'hdmi-light',
     'files': {p.name: {'bytes': p.stat().st_size,
                      'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
               for p in sorted(bundle.glob('*.so'))},
@@ -60,4 +60,4 @@ manifest = {
 }
 manifest['total_bytes'] = sum(p['bytes'] for p in manifest['files'].values())
 (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-print('HDMI-light media bundle:', manifest['total_bytes'], 'bytes; hardware qualification is separate.')
+print('HDMI-light media bundle:', manifest['total_bytes'], 'bytes.')

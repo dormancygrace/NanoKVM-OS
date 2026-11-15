@@ -35,7 +35,7 @@ rc-update del hwdrivers boot >/dev/null 2>&1 || true
 #   the SG2002. Without coldplug it replays those with a /dev node and the
 #   network interfaces: the same nodes, permissions and links, and the same
 #   modules, since the NanoKVM services load theirs (the SD Wi-Fi drivers are
-#   kept from udev anyway). On the stand the server started 1 s sooner. An
+#   kept from udev anyway). The server starts about 1 s sooner. An
 #   rc_coldplug the user set stays.
 if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd; then
     # shellcheck disable=SC2016 # literal text

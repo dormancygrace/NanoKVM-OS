@@ -59,7 +59,7 @@
 		/* Video memory: one reusable CMA region of 144 MiB for every
 		 * video resolution. Linux uses its idle pages (movable
 		 * allocations only) and migrates them away when video asks.
-		 * The pre-ready-queue measurements were 39.8 MiB at portrait
+		 * Measured video use was 39.8 MiB at portrait
 		 * 1080p100, 53.9 MiB at 1440p60 with MJPEG, and 102.7 MiB at
 		 * 2160p30. Current QHD adds a 7.03 MiB VI block and can reclaim
 		 * 15.82 MiB of idle VPSS output buffers. Video, MJPEG and
@@ -70,8 +70,8 @@
 		 * unmovable kernel memory. */
 		/* Kernel crash log (pstore/ramoops): an oops panics and reboots,
 		 * and the dump and the last console output are kept here across
-		 * that reboot for /var/log/nanokvm-crash. The stock small-core
-		 * range at 0x8d000000 is unused (platform/opensbi/README.md): it
+		 * that reboot for /var/log/nanokvm-crash. The small core does not use
+		 * this range (platform/opensbi/README.md): it
 		 * lies above where U-Boot puts the DT and the initramfs (fdt_high
 		 * and initrd_high 0x8cffffff) and below its relocated copy at the
 		 * top of RAM. A power loss clears it. */

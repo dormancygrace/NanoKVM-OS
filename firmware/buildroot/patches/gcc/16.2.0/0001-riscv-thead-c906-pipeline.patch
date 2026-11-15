@@ -3,8 +3,8 @@ Subject: [PATCH] RISC-V: a measured pipeline model and costs for thead-c906
 
 -mtune=thead-c906 used GCC's generic pipeline (mul 10, div 34/66 cycles) and
 costs that do not match the core. This adds a thead-c906 pipeline with
-latencies measured on a SG2002 (C906 at 1 GHz) in November 2026, with
-dependent and independent chains of each instruction:
+latencies measured on a SG2002 (C906 at 1 GHz) with dependent and
+independent chains of each instruction:
 
 - ALU 1; load 2 (fld 3); an ALU result reaches a load address in 2; store
   data is read late;
@@ -20,8 +20,7 @@ reservation, because riscv_sched_variable_issue asserts that every insn has
 one.
 
 Measured with Linux 7.3 on a NanoKVM: against stock -mtune=thead-c906, the
-kernel is within noise on system call microbenchmarks; earlier C906 models
-that used optimistic or pessimistic numbers were 3-6% slower.
+kernel is within noise on system call microbenchmarks.
 ---
 --- a/gcc/config/riscv/riscv-opts.h
 +++ b/gcc/config/riscv/riscv-opts.h

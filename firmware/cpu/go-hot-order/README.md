@@ -4,9 +4,9 @@ The C906 has a 2-way 32 KiB instruction cache, no second level, and a small
 TLB. `NanoKVM-Server` has 10 MiB of Go code, and the Go linker lays functions
 out package by package: the few hundred functions a WebRTC video stream runs
 are spread over all of it. Streaming 2560x1440 H.265 at 60 fps (21 Mbit/s,
-2100 packets a second), the server took about 180 instruction-cache misses per
-packet in user mode, at about 180 cycles each, and its code pages kept falling
-out of the TLB.
+2100 packets a second), the server in the default layout takes about 180
+instruction-cache misses per packet in user mode, at about 180 cycles each,
+and its code pages keep falling out of the TLB.
 
 The server is therefore linked with the functions of that workload first,
 those that call each other next to each other:
@@ -27,26 +27,11 @@ those that call each other next to each other:
 
 ## Measured
 
-NanoKVM PCIe, the stream above over Wi-Fi, the same kernel and engine driver,
-A/B/A; busy share of the core over 15 s windows and a 120 s sampling profile:
-
-| | default order | this order |
-| --- | ---: | ---: |
-| busy | 35.3 to 36.6% | 32.1 to 32.9% |
-| server, user mode: samples of 120 000 | 28 426 | 24 753 |
-| server, user mode: instruction-cache misses | 46.8 M | 34.3 M |
-| server, user mode: TLB misses | 26.1 M | 17.4 M |
-| server, in the kernel: instruction-cache misses | 25.3 M | 20.2 M |
-| instructions per 15 s | 1167 to 1228 M | 1163 to 1253 M |
-
-The same instructions run; fewer of them wait. The kernel gains too, because
-the server evicts less of its code.
-
-Two things that did not help, measured the same way: the 300 hottest functions
-in order of their samples, without regard to who calls whom, gave about half
-of this (busy 33.7 to 35.5%); and Go code without compressed instructions,
-where every branch target is aligned to 4 bytes but the code is 25% larger,
-was slower (10% more instruction-cache misses).
+With the stream above, the core is busy 32.1 to 32.9% of the time with this
+order and 35.3 to 36.6% with the default one, for the same number of
+instructions; the server's user-mode instruction-cache misses fall from
+46.8 M to 34.3 M per 120 s. The kernel gains too, because the server evicts
+less of its code.
 
 ## Making the order again
 
@@ -71,5 +56,4 @@ the video path, or when the numbers above no longer hold:
    on the same stream.
 
 The profile this order was made from: 26 729 user samples of the server in
-120 s, on the build of 2026-11-10 with the engine's cipher-and-hash chain in
-use.
+120 s, with the engine's cipher-and-hash chain in use.

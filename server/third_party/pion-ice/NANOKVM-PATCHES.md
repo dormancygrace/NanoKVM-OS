@@ -1,35 +1,112 @@
 # NanoKVM ICE changes
 
-Base: github.com/pion/ice/v4 v4.4.9. MIT license retained; only the NanoKVM tests (`tcp_mux_*_test.go`) are kept; compare the named release from the Go module proxy.
+Base: github.com/pion/ice/v4 v4.4.9 (uses pion/transport/v5). MIT license
+retained. Only the NanoKVM tests (`tcp_mux_*_test.go`) are kept; compare with
+the named release from the Go module proxy. `UPSTREAM-SHA256.json` covers the
+complete v4.4.9 module.
 
-`agent.go` and `path_mtu.go` implement opt-in authenticated datagram path probing. Nomination logic is not replaced. Without `PathMTUObserver`, upstream transport behavior is retained.
+| File | Change |
+| --- | --- |
+| `agent.go`, `path_mtu.go` | Opt-in authenticated datagram path-MTU probing on the selected pair. Nomination logic is not replaced. |
+| `gather.go` | Local TURN/UDP control endpoint kept as local relay-candidate metadata for route accounting. |
+| `tcp_mux.go` | ICE-TCP length guard for RFC 4571 framing. |
 
-`gather.go` resolves a local TURN/UDP control endpoint once when a path observer is enabled, passes that same numeric endpoint to the TURN client, and retains it as local metadata in `CandidateRelay`. The metadata survives local candidate copies but is not advertised in SDP. This lets the route observer account for the actual control route rather than the allocated relay address. Relay probing remains disabled until egress qualification.
+Upstream options NanoKVM does not use: padded connectivity checks and
+`WithInsecureSkipVerify`. TURN certificate verification stays enabled.
 
-`tcp_mux.go` refuses to write a packet longer than 65535 bytes on an ICE-TCP stream: the RFC 4571 length header has 16 bits, and upstream would frame it with a truncated length that desynchronises every later packet. `tcp_mux_frame_test.go` covers the largest and the first oversized packet.
+## Path MTU probing
 
-See [transport policy and qualification limits](../../../docs/webrtc-pmtu-design.md).
+Only transports that implement `PathMTUObserver` get probing; other Pion ICE
+users keep upstream behaviour. NanoKVM enables it, with frame batching, for
+every video peer. The Linux route side is in `server/common/pathmtu`.
 
-The v4.4.5 refresh uses transport/v5. TURN endpoint metadata uses the upstream
-single UDP resolution and candidate generation checks are preserved.
+### Start size and route limits
 
-The v4.4.7 refresh preserves pre-created UDP mux connections on initial construction and requests the configured relay address family from TURN.
+- Each selected UDP pair starts at UDP 1232 / RTP 1216, or a smaller known
+  route limit.
+- Sockets use `IP_PMTUDISC_DO` / `IPV6_PMTUDISC_DO`, so local IP fragmentation
+  never hides a too-large packet.
+- An RTM_GETROUTE lookup for the source/destination pair gives the interface,
+  gateway and route MTU; for IPv6 the interface MTU also applies. These are
+  upper bounds, never proof of delivery. Discovery stops at IP 1500.
 
-The v4.4.8 refresh sends the peer-reflexive type preference in Binding-request PRIORITY attributes, including nomination and renomination. Local PMTU probing and TURN endpoint metadata are unchanged. The upstream hash manifest is regenerated from the complete v4.4.8 module, including entries left stale by the previous refresh.
+### Probes
 
-The additional boundary test in tcp_mux_bounds_test.go covers 0, 1, 65535 and
-65536 bytes and checks that rejection writes nothing. The shared length guard
-also bounds the allocation size flagged by CodeQL in tcp_mux.go.
+- Probes are authenticated STUN Binding requests on the selected pair. They
+  carry no USE-CANDIDATE and do not enter nomination handling.
+- Repeated optional SOFTWARE attributes pad each request before
+  MESSAGE-INTEGRITY; each value is shorter than 128 UTF-8 characters.
+- A response is accepted only after the normal ICE integrity check and matching
+  transaction ID, pair, local/remote candidate and response address. The small
+  response proves the complete large request arrived.
+- Two independent matching responses are required before the media size grows.
+  A probe transaction expires after 2 seconds.
+- Blocked ICMP is handled by probe acknowledgements and timeouts. There is no
+  ICMP error-queue consumer.
 
-TURN v5.1.3 validates the source of relayed data. The unconnected UDP socket
-opened by `ListenPacket` is exposed to TURN through `net.PacketConn` only, so
-its configured numeric server remains the source to validate. This avoids
-`vnet.UDPConn.RemoteAddr` returning a typed-nil `*net.UDPAddr` that otherwise
-overrides that server. Connected TCP/TLS/DTLS adapters retain `RemoteAddr`.
+### Search and revalidation
 
-The v4.4.9 refresh adds optional padded connectivity checks, deterministic
-ICE-lite address-family priorities and WithInsecureSkipVerify. NanoKVM does
-not enable either new option: its existing authenticated adaptive PMTU probes
-remain independent, and TURN certificate verification remains enabled. Local
-PMTU, TURN endpoint/source-validation and ICE-TCP framing changes are retained.
-The hash manifest covers the complete v4.4.9 Go module.
+- A change of selected pair or route resets the learned size.
+- Failed upward probes lower the search ceiling. After three failures the
+  current media size is revalidated before the binary search continues; a
+  failed revalidation returns to the start size.
+- Connected checks run at up to 1 Hz; a steady size is revalidated every
+  10 seconds. This is not instant loss recovery.
+- A lowered ceiling is kept until a route reset or failed revalidation. A path
+  MTU that grows without a route change is not rediscovered.
+
+### RTP budget
+
+- Per-peer packetizers keep their sequencer and capture-clock origin across
+  size changes. Each viewer is packetized separately, which costs some CPU and
+  allocations per viewer.
+- The budget reserves the largest negotiated SRTP tag (16 bytes). No RTP header
+  extensions are sent; adding extensions or other encapsulation requires
+  updating this accounting.
+- A writer guard below the NACK cache and before SRTP (`server/common/rtpmtu`)
+  drops cached RTP/RTX packets larger than the current budget.
+- A media budget below 32 bytes produces no video packets.
+
+### Limits
+
+- Unknown or unsupported UDP paths keep the start size; untracked sockets never
+  probe upward.
+- TURN relay candidates never grow, because relay egress fragmentation is not
+  under local control. Their ceiling is UDP 1168 / RTP 1152, lowered by a
+  smaller known first-leg route. Local TURN/UDP uses the resolved control
+  endpoint and bind address minus IP/UDP and a 64-byte Send Indication reserve;
+  remote relays use the host-to-relay route.
+- TCP candidates do not probe. Existing smaller route budgets are kept,
+  including budgets too small to probe.
+- No guarantee is given for arbitrary tunnels, TURN/TCP or very small paths.
+- Netlink lookups run on the ICE task loop with a 100 ms receive timeout; a
+  route query takes about 1 ms.
+
+### TURN control endpoint (`gather.go`)
+
+With a path observer enabled, the local TURN/UDP control endpoint is resolved
+once, the same numeric endpoint is passed to the TURN client, and it is kept as
+local metadata in `CandidateRelay`. The metadata survives candidate copies and
+is not advertised in SDP. The route observer then accounts for the real control
+route instead of the allocated relay address. The relay address family
+requested from TURN follows the configuration.
+
+The unconnected UDP socket from `ListenPacket` is passed to TURN only as
+`net.PacketConn`, so TURN validates relayed data against the configured numeric
+server (a `vnet.UDPConn.RemoteAddr` typed-nil would otherwise override it).
+Connected TCP/TLS/DTLS adapters keep `RemoteAddr`.
+
+## ICE-TCP framing (`tcp_mux.go`)
+
+A packet longer than 65535 bytes is refused on an ICE-TCP stream: the RFC 4571
+length header has 16 bits, and a truncated length would desynchronise every
+later packet. The shared length guard also bounds the allocation size.
+`tcp_mux_frame_test.go` and `tcp_mux_bounds_test.go` cover 0, 1, 65535 and
+65536 bytes and check that a rejected packet writes nothing.
+
+## References
+
+[RFC 8899](https://www.rfc-editor.org/rfc/rfc8899.html),
+[RFC 8201](https://www.rfc-editor.org/rfc/rfc8201.html),
+[RFC 8489 duplicate attributes and SOFTWARE](https://www.rfc-editor.org/rfc/rfc8489.html#section-14),
+[RFC 4571](https://www.rfc-editor.org/rfc/rfc4571.html).

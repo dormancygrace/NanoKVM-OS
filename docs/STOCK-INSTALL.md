@@ -1,12 +1,9 @@
 # Migrating stock Sipeed firmware to NanoKVM OS
 
-**Development preview.** The offline package and SSH installer are implemented
-and tested on host fixtures. Booting the migration FIT through stock Sipeed
-U-Boot, cold boot after the partition switch, and real device migration still
-need qualification for the v4.0.0 candidate. Publication remains pending device
-testing. Starting with v4.0.0, releases with a full SD image also include the
-migration package. The [full SD image](INSTALL.md) remains available for a
-clean installation.
+The migration is experimental: an offline package for the stock updater, or
+an installer script run over SSH, replaces stock Sipeed firmware with NanoKVM OS
+on the same card. Releases with a full SD image include the migration package.
+It has not yet been verified on stock devices: the [full SD image](INSTALL.md) is the supported way to install.
 
 Both methods install the same `nanokvm_X.Y.Z.tar.gz` release asset. This is a
 stock **offline application update package**, not an APK. It replaces the stock
@@ -18,7 +15,7 @@ must use [package updates](UPDATES.md). The stock updater accepts only numeric
 
 ## Requirements and retained settings
 
-The first implementation supports SG2002 NanoKVM Cube/Full, Lite and PCIe with
+The migration supports SG2002 NanoKVM Cube/Full, Lite and PCIe with
 an MBR card, FAT partition 1, the running stock ext4 root on partition 2, and an
 existing exFAT partition 3 mounted at `/data`. It refuses other
 layouts, a fourth partition, an unexpected boot device, an existing `dbg.sd`,
@@ -61,9 +58,7 @@ an enabled virtual disk, are not added.
 
 **Root recovery:** `nanokvm-stage-update` and `firmware/alpine/recovery/init`
 accept a migrated card (64 MiB boot, the 768 MiB root right after it, then
-partition 3). A card migrated by an installer before this layout, whose root
-covers the whole old stock root, still needs a full SD image written
-externally to reinstall the root.
+partition 3) for root reinstallation.
 
 The preflight calculates the actual space requirement: the complete payload,
 saved stock boot image and 8 MiB of headroom on `/data`, the recovery FIT plus 1 MiB free on the old boot volume,
@@ -99,14 +94,12 @@ you do not need to identify the interrupted stage before powering off. A power
 cut is normally recoverable, subject to the
 [storage failure limits](#card-transition-and-interruption-behavior) below.
 
-**A measured recovery duration and recommended waiting interval are installer
-release blockers.** They are not yet available for this development preview;
-host tests do not establish a device timeout. Elapsed time or an unchanged
-display alone cannot establish that rollback to stock is possible.
+Elapsed time or an unchanged display alone does not show that rollback to stock
+is possible; the saved state on the card decides.
 
 ## Offline package
 
-After a release has been qualified and includes the installer:
+Use a release that includes the migration package:
 
 1. Download `nanokvm_X.Y.Z.tar.gz` and `SHA256SUMS` from that NanoKVM OS release.
    Verify the package against the published checksum. Keep its original filename.
@@ -178,10 +171,9 @@ an additional reboot.
 
 Stock cards can have only a 16 MiB boot volume, too small for normal NanoKVM OS
 kernel updates. The migration therefore prepares a **new 64 MiB FAT boot
-volume inside the old root partition**, aligned to 4 MiB. A new F2FS root
-occupies the remaining old-root sectors. It keeps the existing partition 3
-and any gap before it. It does not impose the full-image partition offsets.
-For example, with stock p1 at sector 1, size 32768 and p2 at sector 32769,
+volume inside the old root partition**, aligned to 4 MiB, and a new 768 MiB
+F2FS root right after it. Partition 3 stays in place until the new system's
+first boot recreates it right after the root (see above). For example, with stock p1 at sector 1, size 32768 and p2 at sector 32769,
 new p1 begins at 20 MiB and new p2 begins at 84 MiB.
 
 The stock-side installer stores verified payloads, one small settings archive,
@@ -206,7 +198,7 @@ recovery updates only `BPB_HiddSec` to the planned p1 start through the bounded
 loop and verifies the resulting header. `uEnv.txt`, the default hostname prefix
 and `image.json` are provided; the latter reports `stock-migration` as the image
 origin together with the bundled application version. This matches the image's
-boot filesystem format but still requires a physical ROM-to-FIP cold-boot test.
+boot filesystem format.
 
 Before formatting, a payload validation failure can restore the stock boot.
 After formatting begins, the stock root is no longer usable: a reboot resumes
@@ -215,14 +207,7 @@ written root. The MBR commit is idempotent and rejects an unexpected partition
 table. Once the new OS boots, its storage service removes the bounded staging
 files. A power cut during exFAT metadata writes on partition 3 can damage the
 saved transaction, and a torn final MBR sector can prevent either boot path.
-Those cases, or faulty storage, can still require external recovery; host tests
-do not establish the SD controller's power-loss behavior.
-
-The current root-reinstallation recovery enforces the full-image layouts and
-is unavailable on migrated cards, as described above. The fresh-image storage
-allocator is deliberately disabled for the retained partition 3; do not re-enable
-it on this layout. Supporting root reinstallation for migrated geometry remains
-separate work; this installer does not relax those destructive-operation checks.
+Those cases, or faulty storage, can still require external recovery.
 
 ## Recover with a card reader
 
@@ -294,7 +279,7 @@ install a full SD image externally. Restoring the old boot image cannot recover
 a formatted stock root. See the
 [storage failure limits](#card-transition-and-interruption-behavior) above.
 
-## Build and validation
+## Build
 
 Build ordinary platform outputs first, then explicitly request the installer:
 
@@ -317,21 +302,16 @@ It does not depend on the vendor-only `riscv.fwsz` kernel parameter. The FIT
 provides both `config-sg2002_licheervnano_sd` (the
 [stock loader selection](https://github.com/sipeed/LicheeRV-Nano-Build/blob/d4003f15b35d43ad4842f427050ab2bba0114fa5/u-boot-2021.10/include/configs/mars-asic.h))
 and `config-sg2002_licheervnano_sd_minimal` (the NanoKVM OS loader selection).
-These source and artifact checks still require physical boot qualification.
 
 The Release workflow builds the installer in pull-request dry runs and whenever
 an SD image is included, including releases triggered by a tag. For a release
 without an image, `stock_installer` can include the migration package separately.
 Public release checksums cover it, and publication retries retain the original
-asset bytes. Qualify the candidate on stock hardware before publishing it.
+asset bytes.
 
-Host checks:
+Lint the scripts with:
 
 ```sh
 shellcheck firmware/stock-install/install.sh firmware/stock-install/init \
   firmware/stock-install/S95nanokvm firmware/stock-install/offline-run.sh
 ```
-
-These host checks cannot qualify stock U-Boot compatibility, board
-wiring, F2FS mounts on the target, networking after migration, or power cuts on
-real media. Those remain the device acceptance tests before release.

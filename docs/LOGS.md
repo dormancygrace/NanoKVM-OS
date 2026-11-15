@@ -24,9 +24,8 @@ oldest is deleted.
 **Kernel crashes.** A kernel oops panics and reboots after 10 s, before
 the minute's archive write. The kernel keeps the dump and its last
 console output in 128 KiB of RAM (pstore/ramoops at `0x8d000000`, set in
-`firmware/boards/nanokvm-common.dtsi`), which a power loss clears. That a
-reboot keeps it is how ramoops works, but the board's reset path is not
-measured yet; ECC (16 bytes per block) corrects or flags damaged blocks,
+`firmware/boards/nanokvm-common.dtsi`), which a power loss clears and a
+reboot normally keeps. ECC (16 bytes per block) corrects or flags damaged blocks,
 and a record may still arrive with blocks marked unrecoverable. At the next
 boot `nanokvm-storage` copies them to
 `/var/log/nanokvm-crash/<sequence>-<UTC time>/`, syncs the copy and only

@@ -2,18 +2,20 @@
 
 The SG2002 has engines beside the CPU:
 
-- the IVE, for image comparisons and filters;
-- the TPU, for neural networks;
-- DWA, for dewarp and rotation;
-- RGN, for overlays;
-- the AXI monitors in front of the DDR controller;
-- the true random number generator, which U-Boot reads to seed Linux ([Random numbers](#random-numbers)).
+| Engine | Purpose | Used by NanoKVM OS |
+|---|---|---|
+| [IVE](#ive) | image comparisons, filters, DMA copies | MJPEG changed-tiles detection |
+| [TPU](#tpu) | neural networks | on-screen text reading, screen-crash classifier |
+| [DWA, RGN](#dwa-and-rgn) | dewarp and rotation; overlays | not used |
+| [AXI monitors](#ddr-bandwidth) | DDR traffic per port | on demand (`/proc/ddr_bandwidth`) |
+| [TRNG](#random-numbers) | random numbers | U-Boot, to seed Linux |
+| [CryptoDMA](#cryptodma) | AES, SHA-1, SHA-256 | kernel crypto API, WebRTC SRTP and DTLS, OpenSSL, Go |
 
-NanoKVM OS builds and installs drivers for the others, but loads them only when something uses them. MJPEG uses the IVE to send only the parts of the screen that changed ([Video](VIDEO.md#mjpeg-changed-tiles-only)); the server loads its driver for the first tiled viewer. All numbers on this page are from a NanoKVM PCIe with a 1920 × 1080 input at 90 Hz.
+Performance figures on this page are for a 1920 × 1080 input at 90 Hz.
 
 ## Loading
 
-The device tree describes every engine. Without a rule, udev would load their drivers at boot by device-tree alias. `/etc/modprobe.d/nanokvm-accelerators.conf` blacklists them, which stops only that automatic load, so an idle device holds no memory and has no device nodes. A user loads a driver by name:
+The device tree describes every engine, so udev would load their drivers at boot by device-tree alias. `/etc/modprobe.d/nanokvm-accelerators.conf` blacklists them; this stops only the automatic load. An idle engine therefore holds no memory and has no device node. An explicit `modprobe` by name loads a driver:
 
 | Module | Device |
 |---|---|
@@ -23,7 +25,9 @@ The device tree describes every engine. Without a rule, udev would load their dr
 | `cv181x_rgn` | `/dev/cvi-rgn` |
 | `cv181x_aximon` | `/proc/ddr_bandwidth` |
 
-For example, `modprobe cv181x_tpu`. The media modules load first at boot (`nanokvm-modules`), so their dependencies are already present.
+For example, `modprobe cv181x_tpu`. The media modules load first at boot (`nanokvm-modules`), so the dependencies are already present. The server loads `cv181x_ive` for the first tiled MJPEG viewer ([Video](VIDEO.md#mjpeg-changed-tiles-only)) and `cv181x_tpu` on first use of the TPU.
+
+The CryptoDMA driver is different: it loads at boot (see [CryptoDMA](#cryptodma)).
 
 ## Memory
 
@@ -36,9 +40,9 @@ Nothing is reserved for either while it is idle.
 
 ## IVE
 
-`cv181x_ive` (`/dev/cvi-ive`) handles frame difference, SAD, thresholds, filters and DMA copies.
+`cv181x_ive` (`/dev/cvi-ive`) runs frame difference, SAD, thresholds, filters and DMA copies. MJPEG uses SAD in 16 × 16 blocks to find the tiles that changed; the results are bit-exact against the CPU.
 
-Measured: SAD in 16 × 16 blocks, bit-exact against the CPU.
+SAD in 16 × 16 blocks:
 
 | Picture | Time |
 |---|---|
@@ -47,28 +51,28 @@ Measured: SAD in 16 × 16 blocks, bit-exact against the CPU.
 | 1280 × 720 | 2.5 ms |
 | 1920 × 1080 | 5.5 ms |
 
-Measured at 1920 × 1080 with the tiled MJPEG layout: SAD over the 67 whole block rows about 8 ms, the 16-row strip below them under 1 ms, a DMA copy of the whole luma plane about 6 ms. SAD in 16 × 16 blocks compares whole block rows only (rows 1072-1079 of a 1080-high picture are left out) and writes one value per block: its outputs need only the block grid's size.
+With the tiled MJPEG layout at 1920 × 1080, SAD over the 67 whole block rows takes about 8 ms, the 16-row strip below them under 1 ms, and a DMA copy of the whole luma plane about 6 ms. SAD compares whole block rows only (rows 1072–1079 of a 1080-high picture are left out) and writes one value per block, so its output buffer needs only the block grid's size.
 
-**An operation longer than 4 ms used to fail while it ran.** An operation that sleeps until the engine's interrupt gave up after one tick (`msecs_to_jiffies(1)`, 4 ms at HZ=250), and patch 0012 then reset the engine in the middle of its writes: a full HD SAD returned wrong maps, and the SoC hung twice on the stand. Osdrv patch 0020 waits as long as the polling path (100 ms), as the read-only module parameter `timeout_ms`; NanoKVM OS uses full-size IVE operations only with a driver that has it.
+**Module parameter.** `timeout_ms` (read-only, default 100) is how long an operation may run when its caller sleeps until the engine's interrupt; it equals the polling path's limit. User space reads it to recognise a driver that waits long enough: NanoKVM OS uses full-size IVE operations only when the parameter is present.
 
-**A 3840 × 2160 operation hangs the engine.** Before osdrv patch 0012, one such operation left every later two-input operation reading its second image from a stale address, with wrong results and no error, until the board restarted. The patch resets the engine after an operation that times out. The vendor user library does not report IVE errors, so callers must check sizes themselves.
+**Failure behaviour.** An operation that times out resets the engine, so later operations work again. A 3840 × 2160 operation hangs the engine and ends in that reset. The vendor user library does not report IVE errors, so callers must check picture sizes themselves.
 
 ## TPU
 
-The TPU runs neural networks: about 0.5 TOPS INT8, and BF16 too.
+The TPU runs neural networks: about 0.5 TOPS INT8, and BF16.
 
-**Driver.** `cv181x-tpu` (`/dev/cvi-tpu0`) is part of the kernel since r6. It is Armbian's mainline port of the vendor driver (kernel patches 0047 and 0048, from armbian/build#10760). Patch 0047 also carries our changes: DMA mappings are retained until queued jobs finish, and device initialization failures are checked. The TPU has no IOMMU. The driver takes dma-buf buffers and gives the runtime their bus address, and its character-device interface is that of the vendor runtime.
+**Driver.** `cv181x_tpu` (`/dev/cvi-tpu0`) is built with the kernel. It is Armbian's mainline port of the vendor driver (kernel patches 0047 and 0048), with DMA mappings kept until queued jobs finish and device initialisation failures checked. The TPU has no IOMMU: the driver takes dma-buf buffers and gives the runtime their bus address. Its character-device interface is that of the vendor runtime.
 
-**Runtime.** Sophgo's cviruntime, ported to dma-buf heaps, is linked into the programs of the core package `nanokvm-tpu`: `nanokvm-ocr` (text on the screen) and `nanokvm-screen` (the screen-crash classifier). Their models are add-ons; see [tpu/README.md](../tpu/README.md). Like the other SOPHGO components without a licence file, its source is fetched at build time ([DISTRIBUTION.md](DISTRIBUTION.md)).
+**Runtime.** Sophgo's cviruntime, ported to dma-buf heaps, is linked into the programs of the core package `nanokvm-tpu`: `nanokvm-ocr` (text on the screen) and `nanokvm-screen` (the screen-crash classifier). Their models are add-ons; see [tpu/README.md](../tpu/README.md). Like the other SOPHGO components without a licence file, its source is fetched at build time ([DISTRIBUTION.md](DISTRIBUTION.md)). Without `/dev/cvi-tpu0` the runtime aborts, so the server loads the driver before it starts a model.
 
-**Measured:**
+**Performance:**
 
 | Model | Time | CMA |
 |---|---|---|
 | yolov8n, 640 × 640, INT8 | 34.5 ms | 7.7 MB |
 | yolov5s | 69 ms | 16.8 MB |
 
-Either takes about 5 % of a core. 1080p90 H.265 keeps 90 fps while yolov5s runs without pause.
+Either takes about 5 % of a CPU core. 1080p90 H.265 keeps 90 fps while yolov5s runs continuously.
 
 ## DWA and RGN
 
@@ -77,16 +81,16 @@ Either takes about 5 % of a core. 1080p90 H.265 keeps 90 fps while yolov5s runs 
 - DWA: rotation, mirroring and lens correction;
 - RGN: overlays and masks in the encoded picture.
 
-The media library in the image does not open their devices: `CVI_SYS_Init` skips them (cvi_mpi patch 0012). A feature that uses them loads the module and enables them in that patch.
+The media library in the image does not open their devices: `CVI_SYS_Init` skips them (cvi_mpi patch 0012). A feature that uses them must load the module and enable them in that patch.
 
 ## DDR bandwidth
 
-The AXI monitors in front of the DDR controller count the bytes read and written per port. `cv181x_aximon`, a small driver of our own, exposes them in `/proc/ddr_bandwidth`:
+The AXI monitors in front of the DDR controller count the bytes read and written per port. `cv181x_aximon` exposes them in `/proc/ddr_bandwidth`:
 
 - first line: the time in nanoseconds since sampling started;
 - then one line per port, with the bytes read and written.
 
-Two reads a few seconds apart give the rate. The register layout is that of Sophgo's osdrv `mon` driver, whose own module only prints to the console.
+Two reads a few seconds apart give the rate. The register layout is that of Sophgo's osdrv `mon` driver.
 
 | Port | Masters |
 |---|---|
@@ -97,81 +101,129 @@ Two reads a few seconds apart give the rate. The register layout is that of Soph
 | `vc` | the H.264/H.265 and JPEG encoders |
 | `hsperi` | high-speed peripherals |
 
-Measured at 1920 × 1080, 90 Hz:
+Typical traffic at 1920 × 1080, 90 Hz:
 
 | Load | DDR traffic |
 |---|---|
 | Idle, no viewer | 373 MB/s, the capture writing 1920 × 1080 × 2 bytes × 90 |
 | H.265 at 90 fps to one viewer, through VPSS | 1.6 GB/s (VPSS 653 MB/s, encoder 519 MB/s, CPU 58 MB/s) |
-| The same, plus yolov5s on the TPU | 2.3 GB/s (TPU 697 MB/s); the video kept 89.5 fps |
+| The same, plus yolov5s on the TPU | 2.3 GB/s (TPU 697 MB/s); the video keeps 89.5 fps |
 
 ## Random numbers
 
-The TRNG of the security subsystem (SG2002 TRM, section 22.2) seeds a DRBG from its noise source and returns 128 bits per command. Linux has no driver for it: U-Boot reads it once per boot (`platform/uboot/0010-rng-cv181x-trng.patch`) and puts two values into `/chosen` before it starts Linux:
+The TRNG of the security subsystem (SG2002 TRM, section 22.2) seeds a DRBG from its noise source and returns 128 bits per command. Linux has no driver for it. U-Boot reads it once per boot (`platform/uboot/0010-rng-cv181x-trng.patch`) and puts two values into `/chosen` before it starts Linux:
 
-- `rng-seed`, 32 bytes: the 256 bits the kernel needs to count its CRNG as seeded. Linux credits a boot loader's seed by default (`random.trust_bootloader`), so `random: crng init done` is printed at 0.000000, before any driver runs; without it, about 2 to 4 s. From then on the kernel reseeds from interrupt timing and CPU jitter, as on any board without a hardware generator;
+- `rng-seed`, 32 bytes: the 256 bits the kernel needs to count its CRNG as seeded. Linux credits a boot loader's seed by default (`random.trust_bootloader`), so `random: crng init done` appears at 0.000000, before any driver runs (without the seed, after about 2 to 4 s). From then on the kernel reseeds from interrupt timing and CPU jitter;
 - `kaslr-seed`, 8 bytes, for a kernel built with `RANDOMIZE_BASE`.
 
-Linux clears both properties once it has read them. If the TRNG fails in U-Boot, U-Boot prints `No RNG device` or `dm_rng_read failed` and boots as before, without the seeds.
+Linux clears both properties once it has read them.
 
-The registers are those of the Synopsys NIST TRNG core, which the TRM documents only in part. A second seed on a running generator is an illegal command sequence for that core: it raises an alarm, and the core then ignores every command; a zeroize with an alarm pending hung the bus. The driver therefore clears the alarms and the status, zeroizes the core, instantiates it from fresh noise, checks the alarms after every command, and zeroizes it again after its read. Every wait has a timeout.
+**Failure behaviour.** If the TRNG fails, U-Boot prints `No RNG device` or `dm_rng_read failed` and boots without the seeds. Every wait of the U-Boot driver has a timeout, and it checks the core's alarms after every command; a core in alarm state ignores commands, and reseeding a running generator raises an alarm, so the driver zeroizes and re-instantiates the core for each read.
 
-The block sits behind the efuse clock gates. With the gates off, any access to its registers hangs the bus, and the board restarts through the watchdog. U-Boot's device tree node names both clocks, so the driver enables them before it touches a register; Linux turns them off again at boot as unused. Do not read its registers with `devmem`.
-
-Checked on the NanoKVM PCIe stand: three boots, `crng init done` at 0.000000 each time; with a `RANDOMIZE_BASE` kernel, `_text` at a different address each boot. The Linux driver this replaces, with the same command sequence, read 1 MiB without an alarm across 64 seeds, and gzip -9 did not compress its output.
+**Do not read its registers with `devmem`.** The block sits behind the efuse clock gates, which Linux turns off at boot as unused. With the gates off, any access to its registers hangs the bus and the board restarts through the watchdog.
 
 ## CryptoDMA
 
-Unlike the engines above, the CryptoDMA engine (AES, SM4, DES, SHA) is in use: its driver, `nanokvm_hwcrypto`, loads at boot unless `/etc/kvm/disable_hardware_aes` exists. The driver offers AES and the SHA hashes; SM4, DES, 3DES and Base64 had no user and are not offered. Base64 on the engine also lost to a table-driven C version on the C906 (80 to 90 MB/s): an encoding below 1 KiB and a decoding at any size took longer, 5.7 against 0.5 us for 48 bytes. Kernel users of these algorithms, such as IPsec or OpenVPN data channel offload with AES-GCM, reach it through the kernel Crypto API; the server's SRTP uses the driver's own device.
+The CryptoDMA engine runs AES (ECB, CBC, CTR; 128-, 192- and 256-bit keys), SHA-1 and SHA-256. Its driver, `nanokvm_hwcrypto`, loads at boot (`/etc/init.d/S94hwcrypto`) unless `/etc/kvm/disable_hardware_aes` exists; if it does not load, the application uses software AES. The engine also implements DES, 3DES, SM4 and Base64; the driver does not offer them.
 
-**Callers that cannot sleep.** A caller in softirq, such as OpenVPN's kernel data channel encrypting a packet, runs its AES request (ECB, CBC, CTR, GCM, CCM, CMAC) on the engine at once, with its own set of DMA memory; the engine registers are owned under a spinlock with bottom halves off, for one transaction at a time. Until 4.1.0 such requests went through an ordered workqueue, which cost more than the encryption of a packet. The SHA hashes from such callers still use the queue. AES requests too short for the engine go to the software implementation, the kernel's AES block code for the C906 (0.6 us per block with a 128-bit key; the engine costs about 4.5 us before the first byte). The limits were measured per mode and key length (128 / 192 / 256 bits): ECB up to 112 / 96 / 96 bytes, CTR up to 144 / 128 / 112 bytes, GCM text up to 96 / 80 / 64 bytes. The kernel has no software `cbc(aes)`, so CBC requests use the engine at any length.
+There is no `/dev/crypto`; use the kernel crypto API or the hwcrypto ioctls.
 
-**The engine on the caller's memory.** For AES in ECB, CTR and CBC decryption (the modes where a block needs no result of the block before it) the driver no longer copies a request into its DMA buffers and back. It maps the caller's pages, pinning them when they are a process's, and gives the engine one chain of descriptors, a descriptor per range with its own IV; the engine answers once, at the end of the chain. This serves the kernel's `ecb(aes)`, `cbc(aes)` and `ctr(aes)` from 192 bytes (below three cache lines the copies are faster), `gcm(aes)` from 1 KiB (4 KiB for a caller that may not sleep), `HWCRYPTO_RUN` from 16 KiB and `HWCRYPTO_GCM` from 8 KiB.
+### Kernel crypto API
 
-- **What qualifies.** Every range of the request starts on a 16-byte boundary and is a whole number of blocks, except that the last may end inside one. For a process, input and output also sit at the same offset in their pages and are either the same buffer or do not overlap. Anything else, CBC encryption and the other algorithms take the copies as before.
-- **Whole cache lines only.** The CPU is not coherent with DMA: after the engine has written, the driver invalidates the cache over what it wrote, in whole 64-byte lines, and a byte the CPU wrote into such a line meanwhile would be lost. So the engine writes only the whole lines of a range of the caller's memory; a head or tail that shares its line with other data goes through the set's own buffer, as more descriptors of the same chain, and the CPU copies those few bytes afterwards.
-- **GCM.** The engine is three times as fast as GHASH (333 against 100 MB/s), so a request takes the time of its GHASH plus whatever the engine runs with nothing for the CPU to hash. A start takes up to 16 KiB; meanwhile the CPU hashes the ciphertext of the pieces before (encryption) or of the piece after (decryption in place, where the engine writes the plaintext over the ciphertext; the first piece is hashed before its start). The piece with nothing to overlap is made the short one: the first of an encryption, the last of a decryption in place. The engine is given back as soon as it is done, while GHASH goes on. `E(J0)` for the tag is one more descriptor of the first chain.
-- **When the engine is lost.** Through the copies the driver writes a request's output only after the engine has finished it, so a failed request leaves the caller's data as it was. On the caller's memory two things differ.
+The driver registers these algorithms (driver names `nanokvm-*`):
 
-  An engine that does not report a chain done within 20 ms (a 64 KiB chain takes 0.7 ms) may still be reading and writing the caller's memory, and the driver knows no reset or abort of the block that would stop it. The request cannot be completed then: its memory goes back to the caller, who frees or reuses it (a slab object, an skb, a process's buffer; a page reference keeps none of them), and a late write of the engine would land in whatever is there next. The caller cannot be held forever either, it may be a softirq. So the driver stops the system (`panic`; the device restarts after 10 s, `kernel.panic`). The legacy single-descriptor copy path still gives up a lost engine until reboot without panicking. The descriptor-chain path also serves the large `HWCRYPTO_GCM` fallback on kernel copies; a timeout or unsuccessful status in that path stops the system too. In the soaks of this change (hours under video, millions of requests) the engine never failed to answer.
+| Algorithm | Priority |
+|---|---|
+| `ecb(aes)`, `cbc(aes)`, `ctr(aes)` | 300 |
+| `sha1`, `sha256` | 300 |
+| `gcm(aes)`, `ccm(aes)`, `cmac(aes)` | 400 |
 
-  A request in place can also fail with part of its buffer written: when the engine was given up meanwhile by a request through the copies, the next start of the request on the caller's memory returns `EIO`. `HWCRYPTO_GCM` then fails as a whole instead of reporting a completed prefix, and the callers fail their operation instead of redoing it in software: OpenSSL and Go do (`hwcrypto.h` states the rule).
-- **A batch of short GCM messages.** `HWCRYPTO_GCM_BATCH` seals up to 16 whole messages of up to 4 KiB with one key in one call, as many as fit the 64 KiB buffer with 16 bytes more for each (16 of up to 4080 bytes, 15 of 4 KiB; a larger batch is refused): the DTLS records of a burst of a WebRTC data channel (the RustDesk bridge), 1.2 KiB each, which one by one never reach the size from which the engine pays. A message is one descriptor of a chain: counter mode from J0 over a zero block and the text behind it, in the driver's own buffers; the zero block comes back as E(J0) for the tag. The tags are GHASH on the CPU, and the batch is two starts, the first quarter of the records and then the rest, so that the CPU computes the first tags while the engine has the rest. Measured on the SG2002 with the application idle, 16 records of 1205 bytes, the kernel's GHASH still with two tables: 437 us for the batch from a Go program against 660 us for 16 `Seal` calls of Go's AES-GCM (which takes the engine for the counter mode of each record); in the kernel 44 to 70 us go to copying the records in, 65 to 73 us to the engine with its cache maintenance and about 190 us to the tags and copying out, before the overlap. Through the RustDesk bridge of the server it takes the cost of a megabyte from 214 to 175 ms of CPU over Wi-Fi and from 283 to 231 ms by wire. The engine only has the driver's buffers here: when it does not answer it is given up until the reboot and the call fails with nothing written to the caller.
-- **The buffers of the small sets.** The two sets that hold one 4 KiB request (atomic callers, SRTP) have input and output in one 16 KiB block, on different quarters of it. 16 KiB is one way of the L1 data cache, so where a buffer falls in it is which cache sets it uses, and input, output and the caller's buffer are all hot during a request. As two allocations the output came out in a different quarter on every other load of the module; when that was the quarter of the caller's buffer, a 2 KiB `gcm(aes)` request from an atomic caller took 46.7 / 35.4 us to encrypt / decrypt instead of 39.8 / 30.5 (4 KiB: 79.6 / 57.8 instead of 70.5 / 52.1). A caller's buffer may be anywhere, so one of the two can still share its sets; the block keeps them off each other and the same from load to load.
+Kernel users such as IPsec and OpenVPN data channel offload reach the engine through them. For GCM the engine runs AES-CTR while the CPU computes GHASH of the previous or next piece, so a request takes about the time of its GHASH plus the part the engine runs alone.
 
-Measured on the SG2002 with the application stopped, the copies -> the caller's memory. The kernel's `ctr(aes)`: 1 MiB in 4 KiB elements 150 -> 276 MB/s, 64 KiB 155 -> 263, 4 KiB 132 -> 206, 1504 bytes 86 -> 117. `HWCRYPTO_RUN`, 64 KiB: AES-CTR 207 -> 245 MB/s, ECB 207 -> 246, CBC decryption 131 -> 145. `gcm(aes)` with AES-256, encrypt / decrypt in us: 1400 bytes 37 / 30 -> 36 / 30, 4 KiB 79 / 60 -> 72 / 63, 8 KiB 138 / 118 -> 114 / 105, 16 KiB 249 / 226 -> 206 / 193, 64 KiB 1027 / 995 -> 732 / 773. Below 1 KiB (4 KiB for an atomic caller) `gcm(aes)` keeps the copies: they are faster there. `HWCRYPTO_GCM` beside a 20 Mbit/s video stream, AES-256, in place: 16 KiB 237 / 219 -> 219 / 188 us, 64 KiB 1037 / 970 -> 719 / 759; a buffer that does not qualify goes through the same code on a kernel copy from 8 KiB: 16 KiB 227 / 209 -> 211 / 190, 64 KiB 1014 / 996 -> 833 / 823.
+**Callers that cannot sleep.** AES requests (ECB, CBC, CTR, GCM, CCM, CMAC) from softirq, such as OpenVPN's kernel data channel, run on the engine at once with their own set of DMA memory; the SHA hashes from such callers go through a workqueue. AES requests too short for the engine go to the kernel's AES code for the C906 (0.6 µs per block with a 128-bit key; the engine costs about 4.5 µs before its first byte). They go to software up to:
 
-What the engine allows was measured first, with single starts: a chain of 2 to 64 cipher descriptors takes no longer than one descriptor of the same total (64 KiB: 216 us as one, 200 us as sixteen of 4 KiB, 208 us as sixty-four of 1 KiB); the pieces may be anywhere in memory and in place; input at byte offsets 1 to 8 and output at 1, 2, 4, 8 and 24 worked in these single starts (the hang on an output address that is not a multiple of 8, below, was found before the driver set the engine's burst to 2; the driver does not rely on either and gives the engine whole cache lines); a descriptor does not continue the counter or the chaining of the one before it. A chain of two hash descriptors, whether each carries its state or the second continues from the registers, leaves the engine giving wrong results until a reboot: hashes stay one descriptor per start.
+| Mode | 128-bit key | 192-bit key | 256-bit key |
+|---|---:|---:|---:|
+| ECB | 112 bytes | 96 bytes | 96 bytes |
+| CTR | 144 bytes | 128 bytes | 112 bytes |
+| GCM text | 96 bytes | 80 bytes | 64 bytes |
 
-**GCM for user space.** `HWCRYPTO_GCM` gives a process the overlap the kernel's `gcm(aes)` has: AES-CTR on the engine and, while it runs, GHASH on the CPU; from 8 KiB as described above, below that in 4 KiB chunks on a kernel copy (this chunk's input when decrypting, the previous chunk's output when encrypting). The caller passes the key, the hash key H, the GHASH accumulator and the counter block, and keeps the associated data, partial blocks, lengths and the tag. OpenSSL uses it for AES-GCM updates from 4 KiB (16 KiB records: 46 to 64 MB/s). The tables of the last two hash keys are kept (a TLS connection has one per direction), so a connection builds them once.
+The kernel has no software `cbc(aes)`, so CBC requests use the engine at any length.
 
-Measured on the SG2002, one `gcm(aes)` request of 1400 bytes with AES-256: 32 us to encrypt and 26 us to decrypt on the engine (GHASH on the CPU meanwhile), 112 us in software, 25 us for ChaCha20-Poly1305. OpenVPN data channel offload over UDP with AES-256-GCM, the device as the server on a 100 Mbit/s link, Mbit/s received / sent: 42 / 39 with the queue, 82 / 67 now (with the table GHASH of `lib/crypto`), 83 / 69 with ChaCha20-Poly1305 (the application and video running). The server's SRTP requests (1188 bytes, 1250 per second) while such a tunnel carries 30 Mbit/s each way: 99th percentile 216 us with the queue and 167 us now, 99.9th 4.9 ms and 1.0 ms. With the tunnel saturated the 99th percentile is 1.2 ms and 0.5 ms, and the 99.9th 5.4 ms and 10.7 ms, the tunnel then carrying 1.7 times the traffic.
+**Request size.** The driver cuts a request from a caller that may sleep into pieces of 64 KiB (block ciphers, CCM, CMAC, hashes); GCM takes pieces of 16 KiB on the caller's memory and 4 KiB through the driver's buffers; atomic callers use 4 KiB pieces.
 
-**SRTP packets: cipher and hash in one start.** `HWCRYPTO_CTR_SHA1` takes a batch of messages and, for each, runs AES-128-CTR over a range of it and then SHA-1 over the whole of it, as one chain of two descriptors. The server uses it for the packets of a video frame under AES128_CM_HMAC_SHA1: the engine encrypts the payload and hashes header, ciphertext, rollover counter and the inner hash's padding from the HMAC key's inner state; the server does the payload's last partial AES block and the outer hash block (all of a frame's at once, four in a vector step). Packets it does not take (no whole AES block, no room for the padding) and everything else (audio, RTCP, retransmissions) keep the AES request per packet and the multi-buffer SHA-1 on the CPU, as does a server running with a module from before this request (it answers ENOTTY once).
+### Zero-copy requests
 
-What the engine does, measured on an SG2002 with the application stopped, 1216 bytes: AES-128-CTR 4.4 us, SHA-1 4.6 us (the multi-buffer SHA-1 on the CPU needs about 17 us for the HMAC of such a packet), the chain of both 8.6 us. Descriptors chain through their "next" words (low control bits 0x9 on all but the last, 0xf on the last; the status comes once, at the end); the engine runs them one after the other, so sixteen chained AES requests take 61.7 us against 68.2 us started singly. Three things it does not survive (it never answers and must be reset by a reboot), found the hard way: a cipher and a hash selected in one descriptor; a hash descriptor that continues the state in the parameter registers instead of carrying its own; and a cipher writing to an address that is not a multiple of 8. A hash may read from any word address, so the driver keeps a message shifted in its buffer to put the encrypted range at a multiple of 16. A hash result is only in the parameter registers, never written back to the descriptor, which is why every message is a start of its own.
+For AES in ECB, CTR and CBC decryption, the engine works directly on the caller's memory instead of the driver copying the data in and out: the driver maps the caller's pages (pinning them for a process) and gives the engine one chain of descriptors. This applies to:
 
-While the engine works on a message the driver moves its neighbours: the previous message's result out to the caller and the next message in, each in a set of DMA memory of its own, with copies that do not sleep (the engine lock is held); one that would have to wait for a page is repeated after the engine has finished. Without this the CPU only waited for the engine: in a profile of the stream below, 690 samples of 40 000 in the wait loop, 124 with it.
+| Path | From |
+|---|---|
+| `ecb(aes)`, `cbc(aes)` (decryption), `ctr(aes)` | 192 bytes |
+| `gcm(aes)` | 1 KiB (4 KiB for a caller that cannot sleep) |
+| `HWCRYPTO_GCM` | 8 KiB |
+| `HWCRYPTO_RUN` with AES | 16 KiB |
 
-Streaming 2560x1440 H.265 at 60 fps over WebRTC (21 Mbit/s, 2100 packets a second), the busy share of the core over 15 s windows went from 39.5-40.5% to 35.0-36.3% (36.4-38.6% before the copies overlapped the engine), and the instructions executed from 1540 to 1190 million per window.
+A request qualifies when every range starts on a 16-byte boundary and is a whole number of blocks (the last may end inside one). For a process, input and output must also have the same offset within their pages and be either the same buffer or not overlap. Everything else, including CBC encryption and the hashes, goes through the driver's buffers. Because the CPU is not cache-coherent with DMA, the engine writes only whole 64-byte cache lines of the caller's memory; a head or tail that shares a line with other data is copied through the driver's buffer.
 
-**Everything the engine does.** The vendor publishes two headers (the FSBL's `cryptodma.h` and the Linux driver of the Milk-V Duo SDK); the SDK of the newer CV184x names more bits. Every code was run on an SG2002 and compared with OpenSSL, with a single descriptor and the application stopped (a code the engine does not know makes it stop answering until a reboot; this took more than twenty):
+### Failure behaviour
 
-| Selection | What it is | 4 KiB | Rate |
-| --- | --- | ---: | ---: |
-| class bit 8 | copy ("bypass") | 2.8 us | 1.5 to 1.7 GB/s |
-| class bit 9, key field `d[1]` bits 5/4/3 | AES-128/192/256; ECB, CBC (`d[1]` bit 1), CTR (bit 2) | 13.2 us (128, ECB), 16.9 us (256, CTR) | 240 to 330 MB/s |
-| class bit 10 | DES; with `d[1]` bit 3, 3DES | 20 us, 59 us | 200, 70 MB/s |
-| class bit 11 | SM4; ECB, CBC, CTR | 237 us | 17 MB/s |
-| class bit 12, `d[1]` bit 1 clear | SHA-1 | 13.9 us | 295 MB/s |
-| class bit 12, `d[1]` bit 1 set | SHA-256 | 11.6 us | 350 to 370 MB/s |
-| class bit 13 | Base64; `d[1]` bit 0 encodes | encode 18.7 us, decode 103 us (3 KiB, through `HWCRYPTO_RUN`) | encode up to 200, decode 31 MB/s (48 KiB) |
+- **Through the driver's buffers,** the output is written only after the engine has finished, so a failed request leaves the caller's data unchanged. An engine that stops answering is given up until the next reboot (the module stays loaded; `HWCRYPTO_INFO` reports `poisoned`), and later requests go to the kernel's software implementation where one exists; the others, and every ioctl, fail with `EIO`.
+- **On the caller's memory,** an engine that does not finish a chain within 20 ms (a 64 KiB chain takes 0.7 ms) may still be writing to memory the caller has already reused, and the engine has no abort. The driver then stops the system with `panic`; the device restarts after 10 s (`kernel.panic`). A timeout or error status in the chain path used by the large `HWCRYPTO_GCM` on a kernel copy also panics.
+- **Partly written buffers.** When the engine has been given up by another request, an in-place request on the caller's memory returns `EIO` with part of its buffer written. `HWCRYPTO_GCM` then fails as a whole; callers must fail the operation, not redo it in software. OpenSSL and Go do; `hwcrypto.h` states the rule.
 
-- **Hashes.** `d[1]` bit 0 says that the caller gives the chaining state (bit 19: in the descriptor); with it clear the engine starts from the standard initial value. The result is in the registers at 0x1c0.
-- **One descriptor may be long.** 8 KiB, 64 KiB and 1 MiB run at the same rate as 4 KiB (AES-128-CTR 1 MiB in 3.15 ms, SHA-256 in 2.86 ms, a copy in 0.62 ms). The driver cuts a request of a caller that may sleep into pieces of 64 KiB (block ciphers, CCM, CMAC, the hashes, `HWCRYPTO_RUN`); GCM takes 16 KiB on the caller's memory and 4 KiB through the copies, callers in atomic context 4 KiB. Through the kernel providers, 1 MiB with pieces of 4 KiB and of 64 KiB: AES-CTR 11.3 and 7.7 ms (92 and 135 MB/s), AES-CBC 10.4 and 6.8 ms, CCM 15.6 and 11.2 ms (67 and 93 MB/s); the engine alone needs 3.2 ms.
-- **Key and IV slots.** Class bits 16 to 18 take the key from the registers at 0x100 (written and read back; slot 0 verified), bits 20 to 22 the IV from the registers at 0x180, bit 19 and bit 23 from the descriptor. With none of the key bits the key is all zeros.
-- **The IV comes back.** With bit 24 the engine leaves the next IV in slot 0: the last ciphertext block after CBC, the counter advanced by the number of blocks after CTR. A CTR descriptor that takes its IV from slot 0 continues the stream (verified).
-- **Not in this engine:** SM3 (class bit 14 in the CV184x; here it never answers, with that SDK's descriptor too, and the result registers at 0x1e0 read zero), MD5, SHA-224, SHA-384/512, a CRC, and any AES mode beyond ECB, CBC and CTR: the other bits of `d[1]` change nothing (bit 3 with SM4, OFB in the CV184x, is plain ECB here). The OTP key (bit 27 in the CV184x) gives the result of the zero key.
-- **What it does not survive,** besides the three cases above: a hash selection with `d[1]` bit 2 or 3 set (values 4 to 8), an AES key field of zero, a class bit it does not know alone (14, 15, 17, 18), and the copy together with a hash. Unknown class bits beside a known class are ignored.
+### The device: `/dev/nanokvm-hwcrypto`
 
-There is no `/dev/crypto`: the cryptodev module was removed in 4.0.0, since nothing in NanoKVM OS used it and Alpine's OpenSSL has no devcrypto engine. Each request through it cost an `ioctl`, so it was faster than the CPU only for large blocks. Measured on the stand through an OpenSSL devcrypto engine (Linux 7.2), AES-256-CBC took 1 KiB at 14 MB/s and 8 KiB at 47 MB/s against about 8 MB/s in software, and blocks of 16–256 bytes were 7–25 times slower than software.
+User-space programs use the misc device `/dev/nanokvm-hwcrypto` (mode 0600) with the ioctls of `platform/modules/hwcrypto/hwcrypto.h` (ABI version 1). Buffers are passed as user-space virtual addresses.
+
+| ioctl | Purpose |
+|---|---|
+| `HWCRYPTO_INFO` | ABI version, algorithms, `max_input` (64 KiB) and `max_output`, `poisoned`, per-algorithm request counters |
+| `HWCRYPTO_RUN` | one AES (ECB, CBC, CTR) or SHA-1/SHA-256 request; hashes take whole 64-byte blocks and the caller pads |
+| `HWCRYPTO_GCM` | AES-CTR on the engine with GHASH on the CPU; the caller keeps associated data, partial blocks, lengths and the tag |
+| `HWCRYPTO_GCM_BATCH` | seal up to 16 whole messages with one key in one call |
+| `HWCRYPTO_CTR_SHA1` | up to 64 messages: AES-128-CTR over a range, then SHA-1 over the message, in one engine start |
+
+**`HWCRYPTO_GCM`.** The caller passes the key, the hash key H, the GHASH accumulator and the counter block; length is a nonzero multiple of 16. Below 8 KiB the driver works in 4 KiB chunks on a kernel copy. If a chunk after the first fails, the call succeeds with the completed prefix in `length` (except in the in-place case above). The driver keeps the GHASH tables of the last two hash keys, so a TLS connection (one key per direction) builds them once. OpenSSL uses it for AES-GCM updates from 4 KiB (16 KiB records: 46 to 64 MB/s).
+
+**`HWCRYPTO_GCM_BATCH`.** Encrypts the DTLS records of a burst on a WebRTC data channel (the RustDesk bridge), which are too short one by one for the engine to pay off. Each message takes its length rounded up to 16, plus 16 bytes, of a 64 KiB buffer: 16 messages of up to 4080 bytes, or 15 of 4 KiB; a larger batch is `EINVAL`. Each record is encrypted in place and its 16-byte tag written after it. The CPU computes the tags while the engine encrypts. Results are written after the engine has finished every record: a call that fails with `EFAULT` may have written some, any other failure none, and a caller that gets an error must not send any record. A batch of 16 records of 1205 bytes takes about 437 µs, against 660 µs for 16 single AES-GCM seals.
+
+**`HWCRYPTO_CTR_SHA1`.** The server uses it for the SRTP packets of a video frame under AES128_CM_HMAC_SHA1: the engine encrypts the payload and computes the inner SHA-1 of the HMAC; the server finishes the outer hash. The crypt range is a nonzero multiple of 16 at an offset that is a multiple of 4; the hashed length is a multiple of 64, at most 4 KiB. `count` returns the number of messages completed. Packets that do not fit (no whole AES block, no room for the padding), audio, RTCP and retransmissions use one AES request per packet and SHA-1 on the CPU, as does a server running with a module that lacks this ioctl (it answers `ENOTTY`).
+
+### Performance
+
+Engine alone:
+
+| Operation | Time / rate |
+|---|---|
+| AES-128-CTR, 1216 bytes | 4.4 µs |
+| SHA-1, 1216 bytes | 4.6 µs (about 17 µs for the HMAC on the CPU) |
+| AES-128-CTR and SHA-1 chained, 1216 bytes | 8.6 µs |
+| AES, 4 KiB | 13.2 µs (128-bit ECB) to 16.9 µs (256-bit CTR); 240 to 330 MB/s |
+| SHA-1 / SHA-256, 4 KiB | 13.9 / 11.6 µs; 295 / 350 to 370 MB/s |
+| Copy, 4 KiB | 2.8 µs; 1.5 to 1.7 GB/s |
+| 1 MiB in one descriptor | AES-128-CTR 3.15 ms, SHA-256 2.86 ms |
+
+Through the kernel crypto API:
+
+| Request | Time / rate |
+|---|---|
+| `ctr(aes)`, 1 MiB in 4 KiB elements | 276 MB/s |
+| `ctr(aes)`, 1504 bytes | 117 MB/s |
+| `gcm(aes)` AES-256, 1400 bytes | 32 µs encrypt, 26 µs decrypt (112 µs in software; ChaCha20-Poly1305 25 µs) |
+| `gcm(aes)` AES-256, 16 KiB | 206 µs encrypt, 193 µs decrypt |
+| `gcm(aes)` AES-256, 64 KiB | 732 µs encrypt, 773 µs decrypt |
+
+Through the device, 64 KiB: `HWCRYPTO_RUN` AES-CTR 245 MB/s, ECB 246 MB/s, CBC decryption 145 MB/s; `HWCRYPTO_GCM` AES-256 in place about 720 to 760 µs.
+
+OpenVPN data channel offload over UDP with AES-256-GCM on a 100 Mbit/s link reaches about 82 Mbit/s received and 67 Mbit/s sent, with the application and video running. With WebRTC streaming 2560 × 1440 H.265 at 60 fps, `HWCRYPTO_CTR_SHA1` lowers the CPU load of the core by about 4 percentage points.
+
+### Engine limits
+
+A descriptor does not continue the counter or chaining of the descriptor before it, and a hash result is only in the engine's registers, so every hashed message is an engine start of its own. The engine never answers again until a reboot after any of these:
+
+- a cipher and a hash selected in one descriptor, or a copy together with a hash;
+- a hash descriptor that continues the state in the registers instead of carrying its own, or a chain of two hash descriptors;
+- a cipher writing to an address that is not a multiple of 8;
+- an unknown algorithm selection.
+
+The driver never issues these. The engine has no SM3, MD5, SHA-224, SHA-384/512, CRC or AES modes beyond ECB, CBC and CTR.

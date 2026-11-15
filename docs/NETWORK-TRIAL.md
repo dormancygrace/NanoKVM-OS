@@ -1,6 +1,6 @@
 # Network changes on trial
 
-A change that can cut the device off is applied at once, on trial. Unless it is confirmed within two minutes from an address the device can still be reached at, the device restores its previous settings. Today this covers the Ethernet settings: on/off, DHCP or static IPv4, and VLAN.
+A change that can cut the device off is applied at once, on trial. Unless it is confirmed within two minutes from an address the device can still be reached at, the device restores its previous settings. This covers the Ethernet settings: on/off, DHCP or static IPv4, and VLAN.
 
 ## How it is confirmed
 

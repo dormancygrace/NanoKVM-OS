@@ -29,7 +29,7 @@ The script listener binds the usb0 address only, serves nothing but
 - USB network and the virtual disk in the USB composition (the KVM + USB
   network preset has both).
 - An internet connection on the NanoKVM (Ethernet or Wi-Fi). Network boot turns
-  on [USB internet sharing](usb-internet-sharing.md) while it is on and turns it
+  on [USB internet sharing](USB-INTERNET-SHARING.md) while it is on and turns it
   off again afterwards if it was off before. While sharing is on, the host gets
   its default route and DNS from the NanoKVM.
 - The host must boot from the NanoKVM CD/DVD drive (boot menu or boot order).
@@ -82,9 +82,9 @@ DHCP and restores USB internet sharing to the user's setting.
 
 ## Speed
 
-Downloads from the internet run at the speed of the NanoKVM's own connection.
-Measured through a Wi-Fi uplink at 30 Mbit/s: 1.86 MB/s through the NanoKVM,
-1.96 MB/s on the NanoKVM itself. The USB link itself carried 18-19 MB/s.
+Downloads from the internet run at about the speed of the NanoKVM's own
+connection. The USB network link carries about 18 MB/s, so the uplink is
+normally the limit.
 
 ## API
 

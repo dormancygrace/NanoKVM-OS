@@ -1,10 +1,8 @@
 # Image transfer safety
 
-Image upload/download hardening is adapted from the fixes in
-[sipeed/NanoKVM#957](https://github.com/sipeed/NanoKVM/pull/957), especially
-[34846418](https://github.com/sipeed/NanoKVM/commit/34846418cc25c69f6917ed51ccd363bef71426b5)
-and [631375ae](https://github.com/sipeed/NanoKVM/commit/631375ae4f4f1974299386dc1ea931c0a77c11a9).
-Thanks to watermeko and imguoguo for the upstream work.
+Image ownership, transfer limits, restart cleanup and read-only ISO mounts from
+the browser, HTTP(S) and SMB. Upload/download hardening is based on the design
+of [sipeed/NanoKVM#957](https://github.com/sipeed/NanoKVM/pull/957).
 
 ## Image ownership
 
@@ -16,7 +14,7 @@ network-boot media transitions. Long downloads do not hold that lock; the final
 destination is checked again when the completed file is published.
 
 The separate FAT32 user disk retains its own exclusive mount/transfer lock.
-This change does not export the raw data partition or add live browsing of a
+NanoKVM does not export the raw data partition or add live browsing of a
 filesystem owned by the connected computer. Root shell scripts that directly
 modify configfs must still coordinate with the application.
 
@@ -74,11 +72,11 @@ response without closing the session. A single 15-second NBD read budget covers
 both draining the old response and receiving the replacement; expiry closes the
 session, staying below the kernel's 20-second NBD timeout. Browser disconnect and access revocation
 still close the socket, interrupt pending reads and tear down the NBD device.
-These reader changes do not alter Ethernet coalescing or NAPI settings.
 
-Ethernet startup can optionally apply the [SG2002 receive batching policy](ethernet-rx-batching.md).
+Ethernet startup can optionally apply the [SG2002 receive batching policy](ETHERNET-RX-BATCHING.md).
 It is disabled by default and affects the whole physical interface when enabled;
-its throughput/latency tradeoff is separate from browser buffering and seeking.
+its throughput/latency trade-off is separate from browser buffering and seeking.
+
 ## HTTP(S)-mounted ISO reads
 
 In **Images → From URL**, enter a direct HTTP or HTTPS URL to an immutable ISO
@@ -147,6 +145,11 @@ untrusted/self-signed server is rejected. Certificate verification cannot be
 disabled here. HTTP Basic credentials sent over plain HTTP are not encrypted;
 use HTTPS when authentication is required.
 
+HTTPS first offers TLS 1.2 with only the ChaCha20-Poly1305 suites, which cost
+the C906 noticeably less CPU per MiB than AES-GCM; a TLS 1.3 server would pick
+its own cipher. A server that cannot do TLS 1.2 with ChaCha20 gets Go's default
+TLS settings after the first failed handshake.
+
 ## SMB-mounted ISO reads
 
 In **Images → From URL**, enter `smb://server/share/path/image.iso`, a username,
@@ -177,16 +180,16 @@ the same shared engine in chunks of at most 4 KiB. The `nanokvm-cmac-aes`
 driver accelerates AES-CMAC signing, including subkey derivation and CBC-MAC.
 All three honor the existing hardware-AES setting and software fallback.
 Each CIFS signature calculation owns its transform and key; failed verification
-rejects both read data and compound metadata responses. SMB2.1 HMAC signing
-is unchanged. For CMAC messages shorter than 320 bytes, CIFS selects the
-synchronous CPU provider before key setup, avoiding DMA overhead entirely.
-Messages of 320 bytes or more use the highest-priority provider, normally
-`nanokvm-cmac-aes`; software remains available when hardware AES is disabled.
-The threshold counts all header vectors and payload bytes in the signature.
-For SMB 3.1.1 encryption the client offers AES-128-CCM alone (kernel patch
-0082, module parameter `ccm_only`): a server chooses from the offer by its own
-preference, which is GCM, and the engine runs all of CCM while GCM leaves
-GHASH to the CPU. A server with CCM disabled takes none of the offered
+rejects both read data and compound metadata responses. SMB2.1 uses the
+standard kernel HMAC signing. CMAC messages shorter than 320 bytes (all header
+vectors and payload) are signed by the synchronous CPU provider; longer ones use
+the highest-priority provider, normally `nanokvm-cmac-aes`, with software
+available when hardware AES is disabled.
+
+For SMB 3.1.1 encryption the client offers AES-128-CCM alone (module parameter
+`ccm_only`), because a server would otherwise pick GCM by its own preference,
+and the engine runs all of CCM while GCM leaves GHASH to the CPU. A server with
+CCM disabled takes none of the offered
 ciphers, and a share that requires encryption then refuses the mount with the
 status of a wrong password; the kernel records the refused offer in
 `ccm_refused`, and only then does the reader mount once more with the upstream
@@ -206,45 +209,10 @@ for forwarding; closing it also interrupts kernel read/close requests.
 A new reader waits for the previous one to be reaped, so repeated connection
 attempts cannot accumulate stuck processes. Errors detach the medium.
 
-On the SG2002 100 Mbit/s stand, matched 64 MiB source reads measured approximately
-10.8 MiB/s unsigned, 6.2 MiB/s with software AES-128-CMAC, 5.2 MiB/s with software
-AES-128-GCM and 7.4 MiB/s with the existing GCM accelerator. The previous partial
-CCM path (hardware CTR, software CBC-MAC) measured 5.4 MiB/s. With hardware
-CBC-MAC, repeated direct CIFS reads reached 8.58–8.67 MiB/s for CCM against
-7.43–7.57 MiB/s for GCM. The complete server reader, including its cancellable
-relay and IPC, measured 7.97–8.03 MiB/s with CCM against 6.81–7.04 MiB/s with GCM
-(about 15% faster). Hardware AES-CMAC reached 9.27–9.60 MiB/s directly through
-CIFS and 8.65–8.72 MiB/s through the complete reader, versus about 5.8 MiB/s
-for software signing (about 50% faster). Full-image SHA-256 matched in every
-server-reader run.
+## Expected throughput
 
-With a Samba server on the device itself (one core for client and server, so
-the rates are low; share with encryption required, 64 MiB image, hash matched
-in every run): the upstream offer negotiated AES-128-GCM and read 2.9 to
-3.0 MiB/s, the CCM offer negotiated AES-128-CCM and read 3.3 to 3.7 MiB/s; a
-server limited to AES-128-GCM refused the mount, set `ccm_refused`, and
-mounted with `ccm_only=n`. Through the reader process, with the payload read
-straight into the shared window instead of passing the socket pair: 3.6
-against 3.3 MiB/s. The background fetch of the next block, against a local
-HTTP server throttled to 10 MiB/s and a consumer taking 40 ms per MiB like the
-USB side: a sequential read 6.8 to 7.1 against 5.3 MiB/s, a stream with a seek
-every 5 MiB 6.1 against 7.3 s for 300 reads, random reads unchanged.
-HTTPS: the source first offers TLS 1.2 with the ChaCha20-Poly1305 suites
-alone, because a TLS 1.3 server chooses the cipher by its own order and its
-suites cannot be configured in Go: with ChaCha20 listed first,
-releases.ubuntu.com, cdimage.ubuntu.com, cdimage.debian.org,
-download.fedoraproject.org and mirror.yandex.ru took AES-GCM, only
-dl-cdn.alpinelinux.org and GitHub took ChaCha20. Reading the first 96 MiB of an
-Ubuntu ISO from releases.ubuntu.com on the device, bytes compared with a plain
-download: TLS 1.3 with AES-256-GCM cost 116 to 128 ms of CPU per MiB, TLS 1.2
-with ChaCha20 80 to 82 ms; the internet link limited both to about 2 MiB/s. A
-server that cannot do TLS 1.2
-with ChaCha20 gets Go's defaults after its first failed handshake.
-End to end, the image mounted from an HTTP server on a PC in the LAN (100
-Mbit/s Ethernet, a plain download runs at 11.2 MiB/s) and a 192 MiB file read
-from the USB drive on that PC: 10.1 and 10.2 MiB/s against 8.1 and 7.8 MiB/s
-without the background fetch.
-These are source benchmarks, not USB-throughput
-guarantees; server latency, video load and access pattern affect actual speed.
-Unsigned mode was used only for comparison; this interface always requires
-signing or authenticated encryption.
+Over 100 Mbit/s Ethernet, sequential reads from an HTTP server in the LAN reach
+about 10 MiB/s. With hardware AES enabled, SMB reads reach about 8.5 MiB/s with signing and about 8 MiB/s
+with CCM encryption; a share that forces GCM is slower, about 7 MiB/s. Server
+latency, video load and the access pattern lower actual USB throughput; random
+reads gain nothing from the background fetch.

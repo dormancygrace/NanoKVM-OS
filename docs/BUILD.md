@@ -33,7 +33,6 @@ A release-equivalent server needs the NanoKVM Go runtime (`firmware/cpu/sysmon-r
 
 See [DEPENDENCY-UPDATES.md](DEPENDENCY-UPDATES.md) for automatic dependency PRs, native upstream monitoring and the boundaries of each.
 
-
 ## NanoKVM CPU build policy
 
 `platform/cpu-profile.json` defines the CPU policy for our own C/C++ components.
@@ -46,7 +45,7 @@ compiler and `GORISCV64` baseline.
 
 Userspace enables the C906 T-Head extensions and XTheadVector. This permits
 supported instructions; it does not promise automatic vectorization or a frame
-rate increase. Kernel/modules retain their qualified integer ISA and `lp64`,
+rate increase. Kernel/modules use the integer ISA and `lp64`,
 without compiler-generated floating-point or vector operations. U-Boot uses a
 separate integer-only C906 profile with `CONFIG_CC_OPTIMIZE_FOR_SPEED=y`. Kbuild's
 architecture-specific optimized routines retain their own context handling.
@@ -62,7 +61,7 @@ The policy also covers the standalone EDID, board-probe and devmem tools. A
 builder records its compiler and supplied flags in `cpu-profile*.json`; conflicting
 optimization, ISA, tuning or ABI options are rejected. This validates the options
 supplied by the builder, not every option subsequently added by an upstream
-Makefile. A complete build and device qualification remain necessary.
+Makefile.
 
 To inspect the effective compiler commands after a kernel or module build, run
 `scripts/audit-kbuild-profile.py OUTPUT/kernel/build` (or `OUTPUT/modules`).

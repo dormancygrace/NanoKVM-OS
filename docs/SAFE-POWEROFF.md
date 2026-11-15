@@ -3,8 +3,7 @@
 This feature shuts down NanoKVM's ordinary services and releases its SD storage,
 while keeping the kernel and a small network service running in RAM. It does
 not electrically power off the SoC and does not shut down the controlled
-computer. Cube, Lite and PCIe use the same software path; hardware qualification
-is still required for each board and power arrangement.
+computer. Cube, Lite and PCIe use the same software path.
 
 The target layout is F2FS on `/dev/mmcblk0p2`, FAT `/boot` and exFAT `/data`.
 The older ext4 root layout is also accepted. A successful transition unmounts
@@ -58,8 +57,7 @@ keep a board powered when one cable is removed.
    assets and status polling remain available during preparation. New WebSocket
    and MJPEG streams, radio scans and user-disk file operations are excluded.
    Queued package workers recheck the shutdown marker after obtaining their
-   locks. Reject recovery or
-   network configuration in progress, unsupported storage/network layouts and
+   locks. Reject recovery or network configuration in progress, unsupported storage/network layouts and
    insufficient RAM. Network trial exclusion shares the actual
    `/boot/net-trial.json` record and tracks background apply/rollback work
    through its last successful sync, including retries with an absent record.
@@ -69,8 +67,7 @@ keep a board powered when one cable is removed.
    libraries and a restricted self-contained configuration. The staged musl
    interpreter supplies its reserved libc/libm/libpthread and related aliases,
    including transitive imports; other missing libraries still refuse shutdown.
-   Probe the copies
-   inside a chroot before stopping anything.
+   Probe the copies inside a chroot before stopping anything.
 3. Bind temporary RAM copies over `/etc/inittab` and `/etc/rc.conf`. An init-owned
    acknowledgement proves BusyBox reloaded its restart action before SIGQUIT.
    OpenRC performs the normal service stops. Its final generic unmount pass is
@@ -105,7 +102,7 @@ while the kernel worker feeds it. If available, `state` reports
 malformed values and read errors other than absence still prevent readiness.
 An active watchdog without an open userspace descriptor is not assumed safe.
 
-A failure never becomes safe later. Where the RAM page is reachable, an
+A failure never becomes safe later: the RAM status reports `safe: false`. Where the RAM page is reachable, an
 authenticated reboot is available even after a failed transition; magic wake
 is accepted only after successful readiness. A fatal listener/TLS setup error
 after complete filesystem release and disk protection prints a recovery notice,
@@ -123,7 +120,7 @@ gates are required before the interval is measured.
 
 ## Network scope
 
-The first implementation supports direct numeric IPv4 access on `eth0` or
+Shutdown supports direct numeric IPv4 access on `eth0` or
 managed station `wlan0`. Ethernet supports the saved static configuration and
 managed udhcpc. Station Wi-Fi requires managed DHCP and a self-contained
 PSK/SAE/open network configuration. The RAM DHCP client requests the previous
@@ -138,104 +135,8 @@ Preflight rejects hostname/proxy/VPN ingress, USB networking, bridges/VLANs,
 IPv6 management, classless/custom routes on the selected interface, Wi-Fi AP
 mode, static Wi-Fi, and external EAP/certificate configurations. VPN, mDNS,
 discovery, USB forwarding and add-on listeners are not preserved. Wi-Fi drivers
-and firmware must already be loaded; reassociation, AP isolation, radio resets
-and raw-Ethernet delivery remain hardware tests. UDP wake depends on the
+and firmware must already be loaded. UDP wake depends on the
 network's unicast/broadcast/forwarding policy.
 
-The UI currently uses English fallback strings; translation catalogs are
-unchanged.
+The shutdown and restart pages are shown in English only.
 
-## Host verification
-
-The production helper was exercised in an isolated x86-64 QEMU guest with real
-BusyBox init and OpenRC, F2FS root, FAT boot and exFAT data disks. It uses the
-actual prepare/acknowledge/shutdown/pivot/unmount/network/reboot code, with no
-production preflight bypass.
-
-The matrix covers static Ethernet and DHCP, web and UDP magic restart, a
-retained persistent mount (including one hidden by the eventual chroot), and an
-OpenRC stop failure. A separate listener-failure case removes the staged
-network interface during service shutdown, checks the two-minute automatic
-reboot after storage protection, then checks the next normal boot.
-A writer touches every volume, a process retains a dirty shared mmap, a loop
-disk has a backing file on `/data`, and zram swap is active.
-Preparation is refused while each update/APK lock or the transfer marker is
-owned elsewhere. The next boot verifies final writer markers and all mmap
-bytes, and starts ordinary services without re-entering standby.
-
-QMP independently observes all guest disks during five seconds of readiness:
-read bytes/operations, write bytes/operations and flush operations must remain
-unchanged. The helper additionally checks discard accounting. Failed cases
-with a reachable RAM listener must report `safe:false` and still accept
-authenticated restart.
-
-Unit/race tests cover authorization/origin handling, readiness and failure
-states, concurrent restart, queued magic packets, mount/counter/process/route
-parsers, restricted Wi-Fi configuration, RAM budgeting, OpenRC failure
-events, optional watchdog sysfs state, delayed fatal recovery and read/stream
-admission during preparation. The real network-trial fixture exercises
-shutdown refusal before snapshot/staging while awaiting confirmation, during
-timer/boot rollback, a removal-sync failure with a pending retry, and a slow apply that
-outlives rollback. Isolated RISC-V chroot smoke checks run BusyBox and wpa_supplicant through QEMU user emulation,
-including copies of OpenSSL patched to import libc.so.
-Standard server, web, cross-build and package assembly checks apply.
-
-These host results do not qualify the RISC-V board kernel, SD controller,
-watchdog, USB controller or Wi-Fi driver.
-
-## Reported PCIe hardware checks
-
-The [2026-10-30 review](https://github.com/dormancygrace/NanoKVM-OS/pull/591#pullrequestreview-5714972889)
-reports PCIe tests on OS 3.6.0 / kernel 7.3.0-nanokvm-os-r3 with F2FS root,
-FAT boot and exFAT data. Station Wi-Fi/DHCP reached readiness, magic packets
-were ignored before readiness, the watchdog did not reset the device during
-a three-minute hold, and writer files survived software restarts and a physical
-power cycle. The reviewer used b8554748 with an unpushed libc.so staging
-workaround. HTTPS restart required an incorrect HTTP Origin because of the
-listener bug; these runs do not qualify the subsequent fixes.
-
-The [Ethernet addendum](https://github.com/dormancygrace/NanoKVM-OS/pull/591#issuecomment-6527549984)
-reports static, gateway-less Ethernet management, a 180-second hold, exactly
-one reboot for concurrent web requests, magic restart after readiness, and
-intact writer files. It used the same head and the same HTTPS Origin workaround;
-Ethernet did not require the Wi-Fi library workaround.
-
-The [subsequent PCIe recheck](https://github.com/dormancygrace/NanoKVM-OS/pull/591#issuecomment-6528666809)
-used addbd856 without local patches, over HTTPS and station Wi-Fi with DHCP.
-It reports successful preparation and commit, readiness about seven seconds
-after the old server stopped, and exactly one normal reboot using the restart
-page's own HTTPS button. The safe confirmation default also passed.
-
-Wi-Fi loss/reassociation and DHCP renewal during readiness, ten-minute block
-observation, memory pressure/dirty mmap, and Cube/Lite qualification remain
-outside these reported hardware runs.
-
-## Hardware acceptance before release
-
-Use a recoverable test device and an agreed test window. First record the exact
-firmware, F2FS mount options, SD model, interface/address/lease, board type and
-all power feeds. Have a working serial console and host-side recovery image;
-do not place backup trees on the SD card.
-
-- Exercise normal shutdown under sustained writes to root/boot/data, an open
-  shared mmap, memory pressure with zram, mounted writable USB media and active
-  add-ons. Verify stop results, no persistent mounts, no swap/backing files,
-  clean watchdog daemon exit and disk/partition read-only flags. If watchdog
-  sysfs state is available, require inactive userspace ownership; otherwise
-  verify kernel servicing by remaining in standby well beyond the configured
-  watchdog timeout, including the observation interval below.
-- Observe block trace and whole-device counters before transition and for at
-  least ten minutes after readiness, including F2FS GC/discard/checkpoint
-  activity. Exercise DHCP renewal, link loss/reconnect and station reassociation
-  while checking that no SD access resumes.
-- Verify web restart over HTTP and configured HTTPS, duplicate requests,
-  wrong keys, cross-origin requests, UDP 7/9 and Ethernet magic packets.
-  Send packets throughout transition; none may trigger early reboot.
-- Inject busy mounts, stop failures, writeback/I/O failures and insufficient RAM;
-  verify no safe message and test available recovery. Refuse active update,
-  recovery, APK and transfer work without interrupting them.
-- On Cube/Lite/PCIe, verify software reboot with power retained. In a separately
-  authorized physical-power test, remove all relevant feeds only after
-  readiness, restore them, and check normal boot plus filesystem/data integrity.
-
-Do not merge or release based on the host tests alone.

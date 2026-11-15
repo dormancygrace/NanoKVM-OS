@@ -66,7 +66,7 @@ See the [latest OS release](https://github.com/dormancygrace/NanoKVM-OS/releases
 | **3440 × 1440** | **Up to 40 Hz** (H.265) |
 | **2560 × 1080** | **Up to 60 Hz** |
 
-These are the highest advertised monitor timings on an LT6911UXC receiver, not guaranteed delivered video rates. LT6911C and LT6911D receivers offer 720p and 1080p at 60 Hz; their additional 1920 × 1200 profiles (up to 50 Hz) and 2560 × 1080 profile (30 Hz) still need hardware validation. Available modes also depend on video memory, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices. See [video modes and receiver limits](docs/VIDEO.md).
+These are the highest advertised monitor timings on an LT6911UXC receiver, not guaranteed delivered video rates. LT6911C receivers offer 720p and 1080p at 60 Hz, and experimentally 1920 × 1200 (up to 50 Hz) and 2560 × 1080 (30 Hz). Available modes also depend on video memory, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices. See [video modes and receiver limits](docs/VIDEO.md).
 
 - **H.264 up to 2560 × 1600 and H.265 up to 4K, over Direct or WebRTC**, plus **MJPEG**. New browsers start with the device’s selected transport; existing browser preferences are retained, and viewers of different transports watch at the same time. RustDesk accepts WebRTC whenever its client offers it, whatever the device transport. Viewers share the device’s codec, picture settings and hardware budget.
 - **Hardware video encoding**, a bitrate ceiling from 1 to 20 Mbit/s (20 by default), measured bitrate, and Direct playback options for responsiveness or a smoother picture. NormalP keyframes are requested as needed, with a periodic safety interval. Bitrate is an encoder ceiling; actual traffic depends on the image and operating conditions.
@@ -97,16 +97,16 @@ Configure the USB gadget through presets (KVM, with USB network, with the serial
 | Function | What it provides |
 | --- | --- |
 | **Keyboard and pointers** | Browser control, with normal and HID compatibility profiles |
-| **Virtual media** | SD-backed images or direct read-only ISO mounting from your computer, HTTP(S) or SMB2/3 without copying the ISO to the card; CD/DVD images up to 31.625 GiB. [Source requirements and lifetime](docs/storage-transfer-safety.md#https-mounted-iso-reads) |
-| **Network boot** | Boot the managed computer from the [netboot.xyz](docs/netboot.md) menus over USB network, with the official iPXE images (UEFI Secure Boot signed one included) |
+| **Virtual media** | SD-backed images or direct read-only ISO mounting from your computer, HTTP(S) or SMB2/3 without copying the ISO to the card; CD/DVD images up to 31.625 GiB. [Source requirements and lifetime](docs/STORAGE-TRANSFER-SAFETY.md#https-mounted-iso-reads) |
+| **Network boot** | Boot the managed computer from the [netboot.xyz](docs/NETBOOT.md) menus over USB network, with the official iPXE images (UEFI Secure Boot signed one included) |
 | **User disk** | A writable FAT32 USB drive backed by an image on the SD card, for BIOS update files, profiles and logs; selectable sizes from 64 MiB to 4 GiB; browse folders, upload/download files, upload whole folders (also by drag and drop) and manage contents while detached from the computer |
 | **USB network** | Local access to NanoKVM through the USB NCM adapter |
 | **Internet over USB NCM** | Share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer |
 | **USB Serial / CDC ACM** | Reach a configured host serial console through the browser terminal |
 
-**Internet over USB** has its own switch in **Settings → USB**, off by default. It provides IPv4 DHCP, DNS and NAT, with software flow offload for eligible TCP/UDP connections. Turning sharing off keeps local USB access. Existing VPN routing and firewall policies are respected; conflicting routes can leave sharing waiting for a usable uplink. See [USB Internet sharing](docs/usb-internet-sharing.md).
+**Internet over USB** has its own switch in **Settings → USB**, off by default. It provides IPv4 DHCP, DNS and NAT, with software flow offload for eligible TCP/UDP connections. Turning sharing off keeps local USB access. Existing VPN routing and firewall policies are respected; conflicting routes can leave sharing waiting for a usable uplink. See [USB Internet sharing](docs/USB-INTERNET-SHARING.md).
 
-For a **headless Linux login**, enable USB Serial and set the login up on the managed host with the console helper from the USB settings page: a script that reads the host first, refuses when it cannot work safely, keeps backups and can undo; it also comes on a read-only helper disk for hosts without a network. This works after the host USB stack loads; it does not provide pre-USB BIOS/UEFI output. See [USB composition and serial setup](docs/usb-composition.md#host-serial-console).
+For a **headless Linux login**, enable USB Serial and set the login up on the managed host with the console helper from the USB settings page: a script that reads the host first, refuses when it cannot work safely, keeps backups and can undo; it also comes on a read-only helper disk for hosts without a network. This works after the host USB stack loads; it does not provide pre-USB BIOS/UEFI output. See [USB composition and serial setup](docs/USB-COMPOSITION.md#host-serial-console).
 
 ATX power/reset controls are available on supported boards. **Wake-on-LAN** includes a saved list of named MAC addresses for frequently used machines.
 
@@ -119,7 +119,7 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 - **Bluetooth controller switch** on supported AIC8800 boards, off by default. Enable it under Network without coupling the Bluetooth module to Wi-Fi; this is a controller switch, not a peripheral-pairing interface.
 - A single **VPN overview** for **WireGuard, OpenVPN 2, Tailscale and NetBird**, with installation state, version and connection/profile controls. OpenVPN, Tailscale and NetBird are optional APK installations.
 - **WireGuard `.conf` profiles** with an explicit Route Allowed IPs option; **OpenVPN routed TUN `.ovpn` profiles**, including referenced certificate/key files in the same upload.
-- **HTTPS from first boot** with a unique device certificate and HTTP redirect. Newly generated certificates use ECDSA P-256; existing certificates are preserved. A **custom certificate** (your own CA or a public one) can be uploaded in Settings → Network and takes effect for new connections without a restart; a custom pair that cannot be loaded never blocks start-up (the generated one stands in). **Let's Encrypt / ZeroSSL / Buypass / Google** certificates through **acme.sh**, installed from its latest release on demand: HTTP-01 on port 80 or DNS-01 with every DNS provider acme.sh ships, renewed from the server and served without a restart. SSH can be enabled from settings; administrators can [import public SSH keys](docs/ssh-keys.md) from a file or pasted text.
+- **HTTPS from first boot** with a unique device certificate and HTTP redirect. Newly generated certificates use ECDSA P-256; existing certificates are preserved. A **custom certificate** (your own CA or a public one) can be uploaded in Settings → Network and takes effect for new connections without a restart; a custom pair that cannot be loaded never blocks start-up (the generated one stands in). **Let's Encrypt / ZeroSSL / Buypass / Google** certificates through **acme.sh**, installed from its latest release on demand: HTTP-01 on port 80 or DNS-01 with every DNS provider acme.sh ships, renewed from the server and served without a restart. SSH can be enabled from settings; administrators can [import public SSH keys](docs/SSH-KEYS.md) from a file or pasted text.
 
 ### 🧩 Software and add-ons
 
@@ -139,7 +139,7 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 
 ### ⚙️ System controls and everyday tools
 
-- **[Settings backup, migration and reset](docs/settings-recovery.md)**: encrypted exports, a preview before restore, safe migration exclusions, and factory reset with independent **Keep users** and **Keep apps** options. Keep apps retains APK-installed software while managed app settings reset.
+- **[Settings backup, migration and reset](docs/SETTINGS-RECOVERY.md)**: encrypted exports, a preview before restore, safe migration exclusions, and factory reset with independent **Keep users** and **Keep apps** options. Keep apps retains APK-installed software while managed app settings reset.
 
 
 | Area | Controls and information |
@@ -303,7 +303,7 @@ Lite, Cube and PCIe are part of the [supported SG2002 family](#compatibility). D
 
 Built on the work of [Sipeed](https://github.com/sipeed/NanoKVM), [SOPHGO](https://github.com/sophgo), [Milk-V](https://github.com/milkv-duo), Alpine, Linux, Buildroot, Go and [Pion](https://github.com/pion), with thanks to the contributors and hardware testers.
 
-Special thanks to **[iPXE](https://github.com/ipxe/ipxe)** for the network bootloader and official boot images, including UEFI Secure Boot support, and to **[netboot.xyz](https://github.com/netbootxyz/netboot.xyz)** for the network boot menus, operating system installers and recovery tools that make our [Network boot feature](docs/netboot.md) possible.
+Special thanks to **[iPXE](https://github.com/ipxe/ipxe)** for the network bootloader and official boot images, including UEFI Secure Boot support, and to **[netboot.xyz](https://github.com/netbootxyz/netboot.xyz)** for the network boot menus, operating system installers and recovery tools that make our [Network boot feature](docs/NETBOOT.md) possible.
 
 NanoKVM application changes retain the upstream [GPL-3.0 license](LICENSE). Other components retain their own licenses and notices. See [third-party notices](docs/THIRD-PARTY.md), [distribution status](docs/DISTRIBUTION.md) and the [corresponding-source build](platform/README.md#corresponding-source). Release downloads include the corresponding-source archive; RustDesk has its own source release.
 

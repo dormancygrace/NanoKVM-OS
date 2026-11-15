@@ -1,0 +1,25 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] cv181x: clock the small C906 at 700 MHz
+
+The FSBL clocks the second C906 (C906L) from DISPPLL / 2, 594 MHz, below
+its nominal 700 MHz. Take TPLL / 2 instead: TPLL is 1400 MHz with
+TPU_PERF_MODE, which this build sets, and also clocks the TPU at
+TPLL / 2. Measured on the core (mcycle against Linux's clock): 594 MHz
+before, 699 MHz with this. The core stays in reset until Linux starts it.
+---
+diff --git a/plat/cv181x/platform.c b/plat/cv181x/platform.c
+index 87c1819..af26b79 100644
+--- a/plat/cv181x/platform.c
++++ b/plat/cv181x/platform.c
+@@ -335,8 +335,9 @@ void sys_pll_nd(int vc_overdrive)
+ 	// set div, src_mux of clk_c906_0: [20:16]div_factor=1, [9:8]clk_src = 3 (mpll), 1000/1 = 1000MHz
+ 	mmio_write_32(0x03002130, 0x00010309);
+ 
+-	// set div, src_mux of clk_c906_1: [20:16]div_factor=2, [9:8]clk_src = 2 (disppll), 1188/2 = 594MHz
+-	mmio_write_32(0x03002138, 0x00020209);
++	// set div, src_mux of clk_c906_1: [20:16]div_factor=2, [9:8]clk_src = 0 (tpll), 1400/2 = 700MHz:
++	// the small core's nominal clock; tpll is 1400 MHz for the TPU (TPU_PERF_MODE) below
++	mmio_write_32(0x03002138, 0x00020009);
+ #else
+ 	// set mpll = 800MHz
+ 	mmio_write_32(0x03002908, 0x00408101);

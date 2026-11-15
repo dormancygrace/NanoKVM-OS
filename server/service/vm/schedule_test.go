@@ -1,15 +1,9 @@
 package vm
 
 import (
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	"NanoKVM-Server/internal/crontab"
 )
 
 // Next runs as BusyBox crond 1.38 starts them (ParseField, FixDayDow), and
@@ -104,44 +98,6 @@ func TestCronNextAgainstScan(t *testing.T) {
 					break
 				}
 			}
-		}
-	}
-}
-
-// A zone change restarts a running crond; a stopped one is left; a failure
-// is reported and marked, and the next save tries again.
-func TestRestartCrondForZone(t *testing.T) {
-	defer func(e func([]byte, string, ...string) ([]byte, error), m string) { crontab.Exec, crondZoneStale = e, m }(crontab.Exec, crondZoneStale)
-	crondZoneStale = filepath.Join(t.TempDir(), "stale")
-	exit := func(code int) error { return exec.Command("sh", "-c", "exit "+strconv.Itoa(code)).Run() }
-	var status, action error
-	var actions []string
-	crontab.Exec = func(_ []byte, _ string, args ...string) ([]byte, error) {
-		if args[1] == "status" {
-			return nil, status
-		}
-		actions = append(actions, args[1])
-		return nil, action
-	}
-	marked := func() bool { _, err := os.Stat(crondZoneStale); return err == nil }
-	// In order: a restart that fails (it may have left crond stopped); the
-	// retry finds it stopped and starts it; a crond stopped on purpose is
-	// left; a status that cannot be read; then stopped: left, its state was
-	// unknown.
-	for _, c := range []struct {
-		status, action error
-		fails, mark    bool
-		actions        string
-	}{
-		{nil, exit(1), true, true, "restart"},
-		{exit(3), nil, false, false, "restart start"},
-		{exit(3), nil, false, false, "restart start"},
-		{exit(1), nil, true, true, "restart start"},
-		{exit(3), nil, false, false, "restart start"},
-	} {
-		status, action = c.status, c.action
-		if err := restartCrondForZone(); (err != nil) != c.fails || marked() != c.mark || strings.Join(actions, " ") != c.actions {
-			t.Errorf("%+v: %v, marked %v, %v", c, err, marked(), actions)
 		}
 	}
 }

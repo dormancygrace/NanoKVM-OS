@@ -100,7 +100,10 @@ func restartCrondForZone() error {
 		action, err = "start", nil
 	}
 	if err != nil {
-		mark("unknown")
+		// An unreadable status does not cancel an earlier failed restart.
+		if strings.TrimSpace(string(pending)) != "running" {
+			mark("unknown")
+		}
 		return fmt.Errorf("cannot ask whether cron runs: %w", err)
 	}
 	if output, err := crontab.Exec(nil, "rc-service", "crond", action); err != nil {

@@ -139,4 +139,3 @@ and firmware must already be loaded. UDP wake depends on the
 network's unicast/broadcast/forwarding policy.
 
 The shutdown and restart pages are shown in English only.
-

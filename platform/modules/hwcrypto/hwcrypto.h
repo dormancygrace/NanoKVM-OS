@@ -9,12 +9,12 @@
  * takes up to max_input of HWCRYPTO_INFO (64 KiB). */
 #define HWCRYPTO_MAX 4096
 #define HWCRYPTO_OUT_MAX 8192
-/* 2 to 4 were DES, 3DES and SM4, which the driver no longer offers; the
- * numbers of the others and the size of the counters stay. */
+/* 2 to 4 were DES, 3DES and SM4, 7 was Base64, which the driver no longer
+ * offers; the numbers of the others and the size of the counters stay. */
 enum hwcrypto_algorithm {
  HWCRYPTO_ALG_AES = 1,
- HWCRYPTO_ALG_SHA1 = 5, HWCRYPTO_ALG_SHA256, HWCRYPTO_ALG_BASE64,
- HWCRYPTO_ALG_COUNT
+ HWCRYPTO_ALG_SHA1 = 5, HWCRYPTO_ALG_SHA256,
+ HWCRYPTO_ALG_COUNT = 8
 };
 enum hwcrypto_mode { HWCRYPTO_MODE_ECB, HWCRYPTO_MODE_CBC, HWCRYPTO_MODE_CTR };
 /* SHA requests transform complete 64-byte blocks. state contains/returns the

@@ -175,13 +175,17 @@ def run_checked(root, out, name, command, env):
         # -yy resolves returned file descriptors, including relative openat
         # calls made after chdir or through a directory fd in a child process.
         subprocess.run(['strace', '--seccomp-bpf', '-f', '-qq', '-yy', '-s', '0',
-                        '-e', 'trace=open,openat,openat2', '-o', str(trace),
+                        '-e', 'trace=open,openat,openat2', '-e', 'status=successful',
+                        '-o', str(trace),
                         *command], cwd=root, env=env, check=True)
         with trace.open() as log:
             for line in log:
                 match = re.search(r' = [0-9]+<(/.*)>$', line.rstrip())
                 if not match:
                     continue
+                flags = re.search(r'"(?:[^"\\]|\\.)*", (?:\{flags=)?(O_[A-Z0-9_|]+)', line)
+                if flags and 'O_WRONLY' in flags[1].split('|'):
+                    continue  # Python's atomic .pyc temporary files are outputs.
                 value = codecs.escape_decode(match[1].encode())[0]
                 path = Path(os.fsdecode(value).removesuffix(' (deleted)'))
                 if path.is_relative_to(out) or not path.is_relative_to(root) or path.is_dir():

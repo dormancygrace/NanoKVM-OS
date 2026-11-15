@@ -9,7 +9,8 @@ optimization level. These defaults follow measurements on the C906.
 | Media libraries, MMF/capture, JSON/miniz and kvm_system | GCC 16.2, -O2, thead-c906, lp64d | Compiler vectorization off |
 | Go server/updater C/CGO objects | GCC -O2 source profile | Go compiler/runtime selection stays separate |
 | Source-owned network tools and private musl | GCC -O2 source profile | Compiler vectorization off; stale -Os objects rebuilt |
-| Opus, tinyalsa and usb-audio-capture | GCC -O2 audio profile, float Opus | Compiler vectorization off |
+| tinyalsa and usb-audio-capture | GCC -O2 audio profile | Compiler vectorization off |
+| Program of the small core (nanokvm_c906l: Opus encoder) | GCC -O2 smallcore profile (userspace ISA without xtheadvector), float Opus, static PIE | Compiler vectorization off |
 | zlib-ng (nanokvm-zlib, libz.so.1; static in NanoKVM-Server) | GCC -O2, thead-c906, lp64d, -mno-strict-align, without xtheadvector | Compiler vectorization off; RVV and Zbc code off |
 | OpenSSL 3.5.9 LTS (nanokvm-openssl) | GCC -O3, thead-c906, lp64d, without xtheadvector | Compiler vectorization and LTO off; scalar inline memory operations; upstream crypto code |
 | TPU runtime (cviruntime, cvikernel; static in nanokvm-ocr and nanokvm-screen) | GCC -O2, thead-c906, lp64d, with xtheadvector | Upstream flags otherwise; the C++ library linked statically |
@@ -58,7 +59,8 @@ emit legacy RVV 0.7.1.
 - Kernel: neither GCC nor Clang, with or without LTO, is faster across the
   board. Clang Full LTO slowed system calls and loopback networking and sped
   up others, so the kernel stays on GCC -O3.
-- Opus: scalar float -O2 uses the least CPU; the vector variants used more.
+- Opus: scalar float -O2 used the least CPU; the vector variants used more. It
+  runs on the small core, which has no vector unit.
 - RustDesk XSalsa20-Poly1305: most of the gain over generic -O2 comes from
   T-Head targeting, not from LTO.
 - Other native components use scalar -O2 as the baseline; not every library

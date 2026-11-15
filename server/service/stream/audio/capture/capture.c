@@ -1,13 +1,16 @@
 // USB host speaker capture -> 20 ms length-prefixed Opus packets on stdout.
+// The encoder runs on the SoC's small core (/dev/nanokvm-opus, nanokvm_c906l).
 #include <tinyalsa/asoundlib.h>
-#include <opus.h>
+#include "nanokvm_opus.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <math.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/prctl.h>
 #include <unistd.h>
 
@@ -45,14 +48,14 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-    int error;
-    OpusEncoder *encoder = opus_encoder_create(48000, 2, OPUS_APPLICATION_AUDIO, &error);
     int status = 1;
-    if (!encoder || error != OPUS_OK) goto done;
-    if (opus_encoder_ctl(encoder, OPUS_SET_BITRATE(192000)) != OPUS_OK ||
-        opus_encoder_ctl(encoder, OPUS_SET_COMPLEXITY(3)) != OPUS_OK ||
-        opus_encoder_ctl(encoder, OPUS_SET_VBR_CONSTRAINT(1)) != OPUS_OK) goto done;
-    opus_int16 buffer[960 * 2];
+    int encoder = open("/dev/nanokvm-opus", O_RDWR | O_CLOEXEC);
+    struct nanokvm_opus_setup setup = { .bitrate = 192000, .complexity = 3, .vbr_constraint = 1 };
+    if (encoder < 0 || ioctl(encoder, NANOKVM_OPUS_SETUP, &setup) < 0) {
+        fprintf(stderr, "USB audio: Opus encoder: %s\n", strerror(errno));
+        goto done;
+    }
+    short buffer[960 * 2];
     unsigned char packet[1275];
     for (;;) {
         size_t filled = 0;
@@ -63,8 +66,8 @@ int main(int argc, char **argv) {
             }
             for (unsigned int i = 0; i < 960; i++) {
                 double phase = (count * 960 + i) / 48000.0;
-                buffer[i*2] = (opus_int16)(6000*sin(2*3.141592653589793*440*phase));
-                buffer[i*2+1] = (opus_int16)(6000*sin(2*3.141592653589793*880*phase));
+                buffer[i*2] = (short)(6000*sin(2*3.141592653589793*440*phase));
+                buffer[i*2+1] = (short)(6000*sin(2*3.141592653589793*880*phase));
             }
             filled = 960;
         }
@@ -82,18 +85,21 @@ int main(int argc, char **argv) {
         }
         struct timespec before, after;
         if (benchmark) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &before);
-        int bytes = opus_encode(encoder, buffer, 960, packet, sizeof(packet));
+        struct nanokvm_opus_encode frame = {
+            .pcm = (unsigned long)buffer, .packet = (unsigned long)packet, .packet_size = sizeof(packet),
+        };
+        int bytes = ioctl(encoder, NANOKVM_OPUS_ENCODE, &frame);
         if (benchmark) {
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &after);
             encode_ns += (after.tv_sec-before.tv_sec)*1000000000LL + after.tv_nsec-before.tv_nsec;
             count++;
         }
-        if (bytes <= 0) goto done;
+        if (bytes <= 0) { fprintf(stderr, "USB audio: Opus encoder: %s\n", strerror(errno)); goto done; }
         unsigned char header[2] = {(unsigned char)(bytes >> 8), (unsigned char)bytes};
         if (write_all(header, sizeof(header)) || write_all(packet, (size_t)bytes)) goto done;
     }
 done:
-    if (encoder) opus_encoder_destroy(encoder);
+    if (encoder >= 0) close(encoder);
     if (pcm) pcm_close(pcm);
     return status;
 }

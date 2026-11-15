@@ -16,9 +16,11 @@ start() {
     # every module it can and fails if any is missing. Each run reads the
     # module indexes again (about 50 ms on the C906).
     # Options of cvi_vc_driver in /etc/modprobe.d/nanokvm-media.conf: udev may
-    # load it first.
+    # load it first. nanokvm_c906l starts the small core, the Opus encoder of
+    # usb-audio-capture (/dev/nanokvm-opus); udev here loads no module by its
+    # device-tree alias.
     modprobe -a cv181x_sys cv181x_base cvi_mipi_rx cv181x_vi \
-        cv181x_vpss cv181x_vcodec cv181x_jpeg cvi_vc_driver || return 1
+        cv181x_vpss cv181x_vcodec cv181x_jpeg cvi_vc_driver nanokvm_c906l || return 1
     # The server's executable is 24 MB, and the server read it from the SD
     # card page by page as it started: about 2 s of its 3.6 s from start to
     # listening, at 22 MB/s while other services read the card too. Read it

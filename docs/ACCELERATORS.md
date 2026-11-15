@@ -9,6 +9,7 @@ The SG2002 has engines beside the CPU:
 | [DWA, RGN](#dwa-and-rgn) | dewarp and rotation; overlays | not used |
 | [AXI monitors](#ddr-bandwidth) | DDR traffic per port | on demand (`/proc/ddr_bandwidth`) |
 | [TRNG](#random-numbers) | random numbers | U-Boot, to seed Linux |
+| [Small core](#small-core) | Opus audio encoding | USB speaker audio |
 | [CryptoDMA](#cryptodma) | AES, SHA-1, SHA-256 | kernel crypto API, WebRTC SRTP and DTLS, OpenSSL, Go |
 
 Performance figures on this page are for a 1920 × 1080 input at 90 Hz.
@@ -227,3 +228,16 @@ A descriptor does not continue the counter or chaining of the descriptor before 
 - an unknown algorithm selection.
 
 The driver never issues these. The engine has no SM3, MD5, SHA-224, SHA-384/512, CRC or AES modes beyond ECB, CBC and CTR.
+
+## Small core
+
+The SG2002's second C906 (C906L) encodes the audio of the USB speaker. It runs at 700 MHz (594 MHz without FSBL patch 0014), has an FPU but no vector unit, a 16 KiB 4-way data cache and an 8 KiB 2-way instruction cache.
+
+The module `nanokvm_c906l` (`platform/modules/c906l/`) binds the device-tree node `nanokvm,sg2002-c906l` and starts the core with its own program: libopus 1.6.1 (float, plain C) and a job loop, built by `scripts/build-c906l-firmware.py` from the `smallcore` CPU profile. The program is a static PIE that relocates itself, so the driver can place it anywhere in its 2 MiB of memory.
+
+`/dev/nanokvm-opus` (`platform/modules/c906l/nanokvm_opus.h`) gives each open file one encoder, two at a time. `NANOKVM_OPUS_SETUP` sets bitrate, complexity and VBR constraint; `NANOKVM_OPUS_ENCODE` takes a 20 ms frame of 16-bit stereo PCM and returns the packet. `usb-audio-capture` encodes through it.
+
+- **Cost.** A 20 ms frame (192 kbit/s, complexity 3, stereo 48 kHz) takes the small core 2.0 ms, 10 % of its time; the big core no longer encodes audio. The packets are byte-identical to libopus on the big core.
+- **Failure.** If a job is not answered within 50 ms, the driver holds the small core in reset, later frames fail, and the helper exits with the error.
+- **Hardware.** The node names the boot-address registers in SEC_SYS, the mailbox and its interrupt (101), the efuse clocks and the reset line (bit 6 of 0x03003024). Any access to SEC_SYS hangs the bus while the efuse clocks are gated, so the driver enables them around it. Mailbox channel 0 raises the small core, channel 1 the big one.
+- **Updates.** The helper comes with the application package, the module and device tree with the kernel packages; audio works after the reboot that activates the new kernel.

@@ -20,12 +20,12 @@ Intentional exceptions have separate monitoring:
 |---|---|
 | Major `@types/node` bumps | The watcher reports latest; types stay aligned with the selected Node 26 runtime until a deliberate migration. |
 | `pion/dtls/v3`, `pion/ice/v4`, `pion/srtp/v3` | The watcher checks upstream tags. Local replacements contain patches; changing `require` alone would not update their implementation. |
-| `github.com/rs/cors/wrapper/gin` | The watcher checks the Go module proxy's actual nested-module release. Dependabot previously tried a parent tag that contains no such package. |
+| `github.com/rs/cors/wrapper/gin` | The watcher checks the Go module proxy's actual nested-module release; the parent module's tags do not contain this package. |
 | `github.com/mervick/aes-bridge-go` | The watcher checks the Go proxy for the actual module. Upstream tagged `v2.0.0` without the required `/v2` module path, so the valid latest pseudo-version is pinned instead. This dependency is used only by compatibility/auth tests; normal server builds do not import it. |
 
 The last two are intentionally handled as manual update candidates, not silently treated as current. Dependabot does not generate updates for ignored module paths, including security updates; these exceptions therefore still need maintainer security review.
 
-The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk now has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
+The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
 
 ## Independent upstream checks
 
@@ -46,13 +46,13 @@ miniz `2948eeba` includes fixes after 3.1.2. An older release is reported as
 history produces a review notification without rewriting pins. Branch-tip
 commits and prereleases do not qualify as release updates.
 
-**tinyalsa cadence:** monitor commits on the upstream default branch quarterly, at 05:41 UTC on January 1, April 1, July 1 and October 1. Both reports and draft PR discovery skip tinyalsa in daily runs; the quarterly run checks only tinyalsa. Manual dispatch and CLI runs default to all sources; use --cadence daily or --cadence quarterly to select a group. The existing tinyalsa PR remains available for review. Upstream still publishes releases, but the latest is [v2.0.0 (February 8, 2021)](https://github.com/tinyalsa/tinyalsa/releases/tag/v2.0.0), so commit tracking is retained.
+**tinyalsa cadence:** monitor commits on the upstream default branch quarterly, at 05:41 UTC on January 1, April 1, July 1 and October 1. Both reports and draft PR discovery skip tinyalsa in daily runs; the quarterly run checks only tinyalsa. Manual dispatch and CLI runs default to all sources; use --cadence daily or --cadence quarterly to select a group. Commits are tracked because upstream releases are infrequent.
 
-**PicoClaw monitoring is disabled:** neither the report nor the PR publisher queries its release channel. On-demand installation and updates through the application's latest-download URL remain unchanged.
+**PicoClaw monitoring is disabled:** neither the report nor the PR publisher queries its release channel. On-demand installation and updates use the application's latest-download URL.
 
-**Linux release policy:** the kernel.org feed is filtered to point releases `X.Y.Z` with `Z >= 1`. Initial series releases (both `X.Y` and `X.Y.0`) and release candidates are skipped. For example, `7.3` / `7.3.0` do not replace `7.2.11` as an update candidate, but `7.3.1` does. A series' first release can still be pinned by hand (the current pin is `7.3`, which builds as `7.3.0`); the publisher then proposes `7.3.1` with the release name and kernel version moved together. This filter applies only to Linux; other components retain their own release policies. Kernel candidates also produce draft PRs through the separate kernel publisher described below, rather than native Dependabot.
+**Linux release policy:** the kernel.org feed is filtered to point releases `X.Y.Z` with `Z >= 1`. Initial series releases (both `X.Y` and `X.Y.0`) and release candidates are skipped. For example, `7.3` / `7.3.0` do not replace `7.2.11` as an update candidate, but `7.3.1` does. A series' first release can still be pinned by hand (a pin of `7.3` builds as `7.3.0`); the publisher then proposes `7.3.1` with the release name and kernel version moved together. This filter applies only to Linux; other components retain their own release policies. Kernel candidates also produce draft PRs through the separate kernel publisher described below, rather than native Dependabot.
 
-Errors fail the workflow and remain explicit in the report. Issue publication and its CLI have been removed; the report job has no write permissions. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
+Errors fail the workflow and remain explicit in the report. The report job has no write permissions. GitHub tag listing is paginated; exceeding its bounded scan is an error rather than an incomplete claim of the latest version. Pinned-ahead results never trigger a downgrade.
 
 ## Automatic kernel PRs
 
@@ -60,7 +60,7 @@ The independent kernel job runs on main with the same daily schedule, even if an
 
 A version has a dedicated branch and at most one PR. Later runs leave open or closed PRs and maintainer edits alone; closing a proposal rejects that version. A newer version can create a new proposal. A retry after branch creation can finish opening the missing PR without rewriting the branch.
 
-These are source-update proposals: kernel patches, olddefconfig changes, drivers and device behavior still require review, a build and a device test. The Release build workflow comments on such a PR with the outputs it changes; they must be qualified before merging. No kernel build, signature verification, automatic merge or deployment is claimed.
+These are source-update proposals: kernel patches, olddefconfig changes, drivers and device behavior still require review, a build and a device test. The Release build workflow comments on such a PR with the outputs it changes; they must be tested on a device before merging. No kernel build, signature verification, automatic merge or deployment is claimed.
 
 The publisher jobs have contents/pull-requests write permissions; the report job remains read-only. Repository Actions settings must allow GitHub Actions to create pull requests; default token permissions remain read-only. It uses GITHUB_TOKEN without a personal token. GitHub can require a maintainer to select **Approve workflows to run** on these PRs before CI starts ([GitHub behavior](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow)).
 
@@ -72,7 +72,7 @@ The dependency publisher runs daily at 05:23 UTC on main, independently of the r
 
 | Sources | Draft PR behavior |
 |---|---|
-| U-Boot, OpenSBI, Buildroot, zlib-ng | Update source pins; local patches/configuration and output hashes still require qualification. |
+| U-Boot, OpenSBI, Buildroot, zlib-ng | Update source pins; local patches/configuration and output hashes still require validation. |
 | AIC8800, Sophgo osdrv/cvi_mpi/sensors, Sipeed SDK | Update the commit and the exact selected Git tree/blob IDs. **AIC8800 tracks radxa-pkg/aic8800.** Commits with unchanged selected paths do not create a PR. |
 | json-c, miniz, inih, Opus, tinyalsa, wireless-regdb, BusyBox devmem | Update source commits or archive URLs and SHA-256, plus companion metadata and archive/extraction paths where applicable. |
 | Node.js, pnpm, Alpine minirootfs | Update archive pins; Node stays in the selected major and minirootfs in the selected Alpine branch. |
@@ -87,7 +87,7 @@ Pin-update PRs hash downloaded archive bytes over HTTPS without extracting or ex
 
 Every proposal includes a small .github/upstream-candidates/<component>.json record and is a draft. **Review-only PRs do not change an active dependency.** Their record preserves the candidate, links and integration work; merging it acknowledges the notification, not completion of an upgrade. Active pins must be updated and validated separately before calling the dependency upgraded.
 
-Each component/candidate has a deterministic branch, `deps/upstream-<component>-<digest>` (Linux: `deps/upstream-linux-<version>`). The bots recognise a candidate by the branch name after its prefix, so proposals opened under an earlier prefix still count. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes qualified output hashes.
+Each component/candidate has a deterministic branch, `deps/upstream-<component>-<digest>` (Linux: `deps/upstream-linux-<version>`). The bots recognise a candidate by the branch name after its prefix. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes recorded output hashes.
 
 QEMU and stock Alpine APK updates remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 
@@ -95,7 +95,7 @@ Run python3 scripts/propose-upstream-updates.py for a read-only preview (includi
 
 ## Which BusyBox and QEMU?
 
-The installed operating system uses **stock Alpine BusyBox** and OpenSSL, updated through signed APK repositories. The optional C906 rebuild scripts are retained for research and are not the production baseline.
+The installed operating system uses **stock Alpine BusyBox** and the source-built **nanokvm-openssl** package, updated through signed APK repositories. OpenSSL follows its pin in `platform/sources.lock`; see [component build profiles](COMPONENT-BUILD-PROFILES.md).
 
 There are two separate build inputs: Buildroot's BusyBox for the early-boot initramfs, and the standalone BusyBox source used to build only `devmem` for the vendor media library. They do not replace Alpine's BusyBox.
 
@@ -112,7 +112,7 @@ There are two separate build inputs: Buildroot's BusyBox for the early-boot init
 
 The same contracts run in CI. Adding a new input without its monitor fails CI. New Python/Ruby/PHP/Maven manifest families also fail visibly until coverage is implemented.
 
-This is comprehensive coverage of the declared inputs above, **not a claim to discover every upstream vulnerability or unversioned binary**. Transitive native recipes are maintained through Buildroot; the watcher does not independently audit every C library's upstream/CVEs. Vendor blobs follow their SDK source pins; local patches require review. Historical experiments that are not active manifests/build inputs are not production dependencies. Additions must be reflected in the coverage contracts.
+This is comprehensive coverage of the declared inputs above, **not a claim to discover every upstream vulnerability or unversioned binary**. Transitive native recipes are maintained through Buildroot; the watcher does not independently audit every C library's upstream/CVEs. Vendor blobs follow their SDK source pins; local patches require review. Files that are not active manifests or build inputs are not tracked. Additions must be reflected in the coverage contracts.
 
 ## Validation and integration
 

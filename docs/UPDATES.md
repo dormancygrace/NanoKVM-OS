@@ -18,14 +18,13 @@ reboot
 ```
 
 `apk update` refreshes repository indexes; `apk upgrade` installs the available
-updates. This release has eighteen core packages; optional add-ons and Alpine dependency
+updates. There are eighteen core packages; optional add-ons and Alpine dependency
 updates are additional.
 
 Reboot when requested to activate updated kernel or bootloader files.
 Completed component transactions refresh affected services through
 **OpenRC**; an application update briefly disconnects video/control, and no
-separate apply command is required. Since v3.3.0, `nanokvm-bootloader`
-also updates the bootloader on the SD card. It verifies the written file and
+separate apply command is required. `nanokvm-bootloader` also updates the bootloader on the SD card. It verifies the written file and
 keeps `/boot/fip.prev` for recovery; see [bootloader updates](BOOT.md#updating-fipbin).
 
 ## Update notices and component versions
@@ -42,7 +41,7 @@ the new versions. **Check for updates daily** on the same page turns the check
 off; it is stored as `/etc/kvm/update-check.disabled`.
 
 APK keeps its repository indexes in RAM (a tmpfs on `/var/cache/apk`), so
-refreshing them no longer writes to the SD card. After a boot, apk downloads
+refreshing them does not write to the SD card. After a boot, apk downloads
 them again on first use; **Software → Packages** offers the refresh.
 
 ## Packages previously installed from local files
@@ -76,13 +75,12 @@ upgrading it moves the official NanoKVM repository from the earlier URLs on
 https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb
 ```
 
-From v3.4.0, new core packages and both indexes are signed only with ECDSA P-256.
-Devices on 3.3.x already trust this key and update normally. Devices that trust
+Core packages and both indexes are signed with ECDSA P-256. Devices that trust
 only the old RSA key must first install a transition release (2.5 through 3.3.x)
-or install the published EC key and current repository URL manually. A device
-on a release before 3.3 should use 3.3.0; see
+or install the published EC key and current repository URL manually; a device
+on a release before 3.3 uses 3.3.0, see
 [Component versions and support](#component-versions-and-support). The old
-RSA public key remains installed for historical packages and rollback.
+RSA public key stays installed for older packages and rollback.
 Custom repositories and C906 overlay entries are left unchanged.
 
 The OS indexes contain core packages only. RustDesk, IPMI and model packages
@@ -93,10 +91,10 @@ independently of OS releases; RustDesk is not installed in the full SD image.
 
 - **Experimental C906 overlay:** follow the [stock Alpine migration instructions](../firmware/alpine/README.md#existing-c906-installations).
   Updating NanoKVM packages alone does not replace the overlay.
-- **Coming from a2 with OpenVPN 3:** the supported optional client is now
+- **Coming from a2 with OpenVPN 3:** the supported optional client is
   OpenVPN 2. Install it from VPN settings before reconnecting; existing profile
   files are retained.
-- **Stock firmware or pre-v2 betas:** use the [full SD image](INSTALL.md). The [stock migration installer](stock-install.md) is an experimental development path pending device qualification.
+- **Stock firmware or pre-v2 betas:** use the [stock migration installer](STOCK-INSTALL.md) or the [full SD image](INSTALL.md).
   Legacy `.nkos` packages do not migrate the system to Alpine.
 - **Original v2.0-a1 image:** it predates the ready-to-use native update path
   documented here; use the full image for a fresh installation.
@@ -111,26 +109,22 @@ PicoClaw and acme.sh use their upstream release downloads.
 New full SD images use the OS release version. A package-only hotfix does not
 require a new image; the latest-image link continues to offer the newest
 published image. Component updates preserve the original installation metadata
-shown in About, including historical image numbers. Reflashing is not required
+shown in About, including the original image number. Reflashing is not required
 for routine updates.
 
 ## Component versions and support
 
-Starting with v3.3.0, each package keeps its version until its content changes.
+Each package keeps its version until its content changes.
 `nanokvm-release` identifies the overall release and requires its selected
 component versions. Different installed component versions are therefore normal.
 
-The v3.3.0 transition is also published on the previous `nkos.pesin.pro`
-repository so existing devices can obtain the automatic switch to Pages.
-That repository stays at 3.3.0; subsequent releases are served on Pages.
-
-Releases before 3.3 receive no further fixes, and direct updates from them are
-not supported. Releases after 4.0 no longer contain the one-time repository
-migrations for them: the removal of Alpine `edge/community` (`@edgecommunity`)
-and the decision to switch Alpine `community` off when nothing needs it. A
-device on a release before 3.3 must first update to 3.3.0 from the
-`nkos.pesin.pro` repository and boot it once with network access, so that
-3.3.0 finishes those migrations; it can then update to the current release.
+The previous `nkos.pesin.pro` repository stays at 3.3.0, which switches a
+device to Pages. Releases before 3.3 receive no fixes, and direct updates from
+them are not supported. Such a device must first update to 3.3.0 from
+`nkos.pesin.pro` and boot it once with network access, so that 3.3.0 finishes
+its one-time repository migrations (removing Alpine `edge/community`
+(`@edgecommunity`), and switching Alpine `community` off when nothing needs
+it); it can then update to the current release.
 A device that skips this step keeps the edge and community repository lines,
 and every apk run parses their indexes. Community can still be switched off on
 the Software page.
@@ -181,11 +175,10 @@ is uploaded. An interrupted draft upload can therefore be retried with the
 matching new assembly. Once the candidate exists, retries only verify and
 publish the original downloads; they never mix newly signed files into that pair.
 
-### First migration from release assets
+### Bootstrapping Pages from release assets
 
-After merging the publication change, run **APK repository** on `main` with
-`bootstrap=true`. This imports the retained OS and add-on versions and their
-complete package sets from the existing Releases.
+Running **APK repository** on `main` with `bootstrap=true` imports the retained
+OS and add-on versions and their complete package sets from existing Releases.
 It does not delete or change those releases. Subsequent deployments use Pages
 as their source and fail if the catalog is missing; bootstrap is never an
 implicit fallback.

@@ -62,16 +62,16 @@
 		 * Measured video use was 39.8 MiB at portrait
 		 * 1080p100, 53.9 MiB at 1440p60 with MJPEG, and 102.7 MiB at
 		 * 2160p30. Current QHD adds a 7.03 MiB VI block and can reclaim
-		 * 15.82 MiB of idle VPSS output buffers. Mixed-reader operation
-		 * is qualified on this shared region (docs/VIDEO.md). Spare capacity
-		 * lets an allocation use another range when
-		 * a page is busy (a pool sized to the peak failed on cold
+		 * 15.82 MiB of idle VPSS output buffers. Video, MJPEG and
+		 * frame-detection readers together fit this shared region
+		 * (docs/VIDEO.md). Spare capacity lets an allocation use another
+		 * range when a page is busy (a pool sized to the peak failed on cold
 		 * boots). Outside the region Linux keeps about 90 MiB for
 		 * unmovable kernel memory. */
 		/* Kernel crash log (pstore/ramoops): an oops panics and reboots,
 		 * and the dump and the last console output are kept here across
-		 * that reboot for /var/log/nanokvm-crash. The stock small-core
-		 * range at 0x8d000000 is unused (platform/opensbi/README.md): it
+		 * that reboot for /var/log/nanokvm-crash. The small core does not use
+		 * this range (platform/opensbi/README.md): it
 		 * lies above where U-Boot puts the DT and the initramfs (fdt_high
 		 * and initrd_high 0x8cffffff) and below its relocated copy at the
 		 * top of RAM. A power loss clears it. */
@@ -259,6 +259,22 @@
 			       "zifencei", "zihpm", "zfh", "zfhmin", "xtheadvector";
 };
 &{/soc} {
+	/*
+	 * The second C906 (C906L), which nanokvm_c906l starts as a coprocessor
+	 * (the Opus encoder of /dev/nanokvm-opus): SEC_SYS holds its boot
+	 * address, and any access to SEC_SYS hangs the bus while the efuse
+	 * clocks are gated; reset bit 6 of 0x03003024; the mailbox raises
+	 * interrupt 101 for this core.
+	 */
+	c906l: coprocessor@20b0000 {
+		compatible = "nanokvm,sg2002-c906l";
+		reg = <0x020b0000 0x1000>, <0x01900000 0x1000>;
+		reg-names = "sec-sys", "mailbox";
+		interrupts = <101 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk CLK_EFUSE>, <&clk CLK_APB_EFUSE>;
+		clock-names = "efuse", "apb-efuse";
+		resets = <&rst 294>;
+	};
 	soc_temp: temperature-sensor@30e0000 {
 		compatible = "sophgo,sg2002-tempsen";
 		reg = <0x030e0000 0x1000>;

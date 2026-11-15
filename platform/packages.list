@@ -171,7 +171,6 @@ app   file  /kvmapp/system/init.d/S95nanokvm              0755  kvmapp/system/in
 app   file  /kvmapp/system/init.d/S96picoclaw             0755  kvmapp/system/init.d/S96picoclaw
 app   file  /kvmapp/system/init.d/nanokvm-server-supervisor 0755 kvmapp/system/init.d/nanokvm-server-supervisor
 app   file  /kvmapp/system/share/usb-audio/SOURCE         0644  @tools/usb-audio/SOURCE
-app   file  /kvmapp/system/share/usb-audio/opus-COPYING   0644  @tools/usb-audio/opus-COPYING
 app   file  /kvmapp/system/share/usb-audio/tinyalsa-LICENSE 0644 @tools/usb-audio/tinyalsa-LICENSE
 app   file  /kvmapp/system/share/serial-console/nanokvm-serial-console.sh  0755 @tools/serial-console/nanokvm-serial-console.sh
 app   file  /kvmapp/system/share/serial-console/nanokvm-serial-console.img 0644 @tools/serial-console/nanokvm-serial-console.img

@@ -6,9 +6,9 @@ instead.
 
 ## Migrating stock firmware
 
-An experimental [stock migration package and GitHub SSH installer](stock-install.md)
-are available for development and host testing. Stock-device qualification is
-still pending; released installation instructions below use the full SD image.
+The [stock migration package and GitHub SSH installer](STOCK-INSTALL.md)
+replace stock firmware on the same card. A clean
+installation uses the full SD image below.
 
 ## Fresh SD card
 
@@ -33,7 +33,7 @@ still pending; released installation instructions below use the full SD image.
 
 ## Card layout
 
-New images use 4 MiB partition alignment. The partition sizes are unchanged:
+Images use 4 MiB partition alignment:
 
 | Partition | Start | Size | File system | Contents |
 | --- | --- | --- | --- | --- |
@@ -45,15 +45,12 @@ Fresh installation requires at least **96 MiB** remaining for `/data`; it
 allocates all remaining space, not a fixed 96 MiB partition. With this layout,
 the card must expose at least **977,272,832 bytes (932 MiB)**. A card exposing
 exactly 1,000,000,000 bytes leaves about **118 MiB** for `/data` before filesystem
-overhead (about **121 MiB** with the older layout). This smaller minimum applies
-only when creating `/data` from a fresh image. Existing data partitions are
-neither resized nor reformatted by package updates.
+overhead. This minimum applies only when creating `/data` from a fresh image.
 
-Package updates do **not** move or resize existing partitions. Older image
-layouts remain supported by first boot and by newly built recovery bundles.
-Recovery bundles made before this layout change do not support the aligned
-layout: use a current bundle. Keep the existing card layout when updating an
-installed device; there is no need to reflash just for alignment.
+Package updates do **not** move, resize or reformat existing partitions.
+Cards with the unaligned layout of older images stay supported by first boot
+and by current recovery bundles (older bundles do not know the aligned layout);
+there is no need to reflash for alignment.
 
 ### SD write policy
 
@@ -63,17 +60,13 @@ fstab entries. This avoids access-time writes for both files and directories;
 `nodiratime` is redundant. A failed remount is logged and boot continues.
 The read-only placeholder used when data storage is unavailable is untouched.
 
-F2FS discard/TRIM and write barriers retain their existing settings. There is
-no new periodic `fstrim` job. Discard is already enabled on the development
-card; switching every card to periodic TRIM requires latency measurements,
-not just its advertised support. Alignment to 4 MiB is also a general choice,
-not a claim to know every card controller's internal erase-block geometry.
+This policy does not change F2FS discard/TRIM or write barriers, and there is
+no periodic `fstrim` job. The 4 MiB alignment is a general choice, not matched to
+any card controller's erase-block geometry.
 
-The existing policy disables background F2FS garbage collection to reduce
-idle writes; foreground collection still runs when space is needed. APK
+Background F2FS garbage collection is disabled to reduce idle writes; foreground collection still runs when space is needed. APK
 indexes and temporary files stay in RAM. These settings do not remove the
 need for clean shutdowns or free space for updates.
-
 
 After a power loss, partitions 1 and 3 are checked (`fsck.fat`,
 `fsck.exfat`); Linux would otherwise keep reporting them as not properly
@@ -88,8 +81,8 @@ tens of thousands of small files take tens of seconds.
 
 New SD images use their NanoKVM OS release version. **About** shows the current
 OS version; **Diagnostics** shows the image used for the initial installation,
-which stays unchanged after package updates. Historical images keep their original image number and
-bundled application version; they do not need to be reflashed.
+which stays unchanged after package updates. Devices installed from older
+images keep that original image number and do not need to be reflashed.
 
 Board detection and the supported models are described in
 [board profiles](../firmware/boards/README.md).

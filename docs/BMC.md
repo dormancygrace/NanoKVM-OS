@@ -7,7 +7,7 @@ Data centre tools can switch the host on and off through the NanoKVM's ATX conne
 
 Both are off by default. They are set up in Services > Redfish and IPMI, each on its own switch, with one BMC account for both.
 
-From version 0.2.0 the IPMI add-on also adds an "IPMI status" section to that page, drawn from its manifest (see [ADDONS.md](ADDONS.md)): open sessions, clients locked out for too many logins, and the last power command. It reads them while IPMI is switched on; otherwise the section says the add-on's service is not running.
+The IPMI add-on also adds an "IPMI status" section to that page, drawn from its manifest (see [ADDONS.md](ADDONS.md)): open sessions, clients locked out for too many logins, and the last power command. It reads them while IPMI is switched on; otherwise the section says the add-on's service is not running.
 
 ## What it serves
 
@@ -63,7 +63,7 @@ The NanoKVM has one virtual drive, the one of the web page's Images menu. Redfis
 - **`InsertMedia` answers when the computer has the medium**, or with the reason the image did not connect (not found, no byte ranges, wrong password), within 45 s.
 - **One medium at a time.** With a medium in the drive, whoever put it there, `InsertMedia` answers 409: eject first. `EjectMedia` takes out a local image (forced, like a drive's button) and ends a remote one, also one a browser serves. The image of network boot stays; turn network boot off on its page.
 - **What is shown** in the resource is the address without its query and never the credentials.
-- **Checked with** Ansible's `community.general.redfish_command` (`VirtualMediaInsert`, `VirtualMediaEject`) and `redfish_info`, the `sushy` library, and the DMTF Redfish-Service-Validator. OpenStack Ironic's and Metal3's `redfish-virtual-media` boot also sets the boot device through Redfish, which is not served: they do not work.
+- **Works with** Ansible's `community.general.redfish_command` (`VirtualMediaInsert`, `VirtualMediaEject`) and `redfish_info`, the `sushy` library, and the DMTF Redfish-Service-Validator. OpenStack Ironic's and Metal3's `redfish-virtual-media` boot does not work: it also sets the boot device through Redfish, which is not served.
 
 ```
 curl -k -u 'admin:<password>' -H 'Content-Type: application/json' -d '{"Image":"https://server/install.iso"}' \

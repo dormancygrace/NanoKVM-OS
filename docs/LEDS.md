@@ -8,20 +8,19 @@ there is no historical event replay. Idle connections receive a comment every
 terminate the stream. With ATX already off the endpoint returns HTTP 204 and
 does not open GPIO lines.
 
-The existing shared GPIO monitor still reads active-low Power and HDD inputs.
+One shared GPIO monitor reads the active-low Power and HDD inputs.
 It waits for GPIO edges and services a busy line at most once every 20 ms.
 A blink that ends before the GPIO level is read still counts as activity. HDD
 activity in the event stream remains visible for 60 ms after its last observed
 edge, and remains on while the physical input is active. Snapshot readers
-(`GET /api/vm/gpio`, live status, BMC and MCP) keep their existing 350 ms
-activity window through `Current()`, using the same physical activity timestamps
-without another GPIO reader or timer. Boards without edge support retain the
-20 ms sampling fallback. Slow web clients read the latest snapshot rather than
+(`GET /api/vm/gpio`, live status, BMC and MCP) use a 350 ms activity window
+over the same activity timestamps. Boards without edge support sample every
+20 ms. Slow web clients read the latest snapshot rather than
 queueing events or delaying GPIO monitoring.
 
 The browser shares one event connection across LED consumers while the tab is
 visible. It closes the connection when hidden or unmounted, reconnects after an
-error, and uses the existing shared live-status poll while events are unavailable.
+error, and uses the shared live-status poll while events are unavailable.
 A received on/off pair remains visible for about 40 ms, including when both
 messages arrive in one network read. The HDD icon has no decorative pulse or
 color transition. Disconnection and hidden tabs clear transient HDD activity but retain the last
@@ -31,5 +30,4 @@ last unsubscribe also clears stored state.
 
 This is a responsive activity indicator, not a waveform recorder: bursts within
 the hold interval merge, and network delay and display refresh still limit how
-closely the screen can follow an individual electrical pulse. Power polarity,
-pin configuration and the power/reset controls are unchanged.
+closely the screen can follow an individual electrical pulse.

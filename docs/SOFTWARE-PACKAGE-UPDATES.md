@@ -12,7 +12,7 @@ The root-only `nkos-update refresh-indexes` helper checks the setting, takes the
 
 ## Add-ons
 
-RustDesk remains a separate optional `nanokvm-rustdesk` APK. It is absent from the standard image and the core release archive. Software > Add-ons can refresh repository indexes with **Check for updates**, display the available package revision, and install the update on request. The package repository must publish the newer APK and its signed index; changing the application version alone does not update an installed add-on.
+RustDesk is a separate optional `nanokvm-rustdesk` APK. It is absent from the standard image and the core release archive. Software > Add-ons can refresh repository indexes with **Check for updates**, display the available package revision, and install the update on request. The package repository must publish the newer APK and its signed index; changing the application version alone does not update an installed add-on.
 
 Before the repository index is signed, every add-on is checked: it may declare only its own files, dependencies and lifecycle scripts. An add-on that has install-if, provides, replaces, triggers or a conflicting dependency is refused. So an add-on can neither install itself on devices that did not choose it nor take the place of a core package.
 
@@ -30,5 +30,3 @@ The server reads the installed version before and after the transaction and
 checks that APK considers the new version newer. An unchanged version,
 unreadable result or failed transaction is an error, retained on the Add-ons
 card until the next action instead of cleared by status polling.
-
-Regression coverage includes the service's error/no-op paths.

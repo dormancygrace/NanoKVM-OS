@@ -68,9 +68,3 @@ script name relative to `/etc/kvm/scripts`):
 The Scripts window shows this state under the switch. To stop a script that
 is still running, end it from **Terminal**, for example with `pkill -f
 my-agent`.
-
-### Earlier versions
-
-Older versions had a `/api/vm/autostart` API that stored scripts in
-`/etc/kvm/autostart`, but nothing ran them. The API is gone; mark a script in
-the Scripts window instead.

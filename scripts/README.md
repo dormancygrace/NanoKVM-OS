@@ -57,5 +57,5 @@ come from `firmware/alpine/release.env`, not a separate Makefile variable.
 GitHub release; its default is a compatibility check and `--yes` starts a
 detached installation. `build-stock-installer.py` assembles the matching Sipeed
 offline package from completed platform outputs. See
-[stock installation](../docs/stock-install.md) for requirements, state
-transitions, tests and the outstanding physical qualification.
+[stock installation](../docs/STOCK-INSTALL.md) for requirements, state
+transitions, recovery and the build.

@@ -368,6 +368,10 @@ modules() {
     osdrv_source
     unpack_git aic8800 src/SDIO/driver_fw/driver/aic8800 "$src/wifi"
     cp -r "$here/modules/hwcrypto" "$src/aes"
+    cp -r "$here/modules/c906l" "$src/c906l"
+    # The small core's program (the Opus encoder), embedded in nanokvm_c906l.
+    python3 "$repo/scripts/build-c906l-firmware.py" --cross "$cross" --opus-archive "$dl/opus-1.6.1.tar.gz" \
+        --jobs "$jobs" --output "$src/c906l/c906l.bin"
     cp -r "$here/modules/cv181x-aximon" "$src/aximon"
     unpack_git sipeed-sdk osdrv/extdrv/wireless/rtl8733bs "$m/rtl8733bs"
     apply_patches "$src/wifi" "$here/modules/aic8800"
@@ -387,6 +391,7 @@ modules() {
         symbols+=("$module/Module.symvers")
     done
     build "$src/wifi" CONFIG_PLATFORM_UBUNTU=n CONFIG_SDIO_BT=y CONFIG_AIC8800_BTLPM_SUPPORT=n CONFIG_USE_FW_REQUEST=y
+    build "$src/c906l" "C906L_FW=$src/c906l/c906l.bin"
     build "$src/aes"
     build "$src/aximon"
     # Vendor diagnostics use __DATE__ and __TIME__.
@@ -407,7 +412,7 @@ modules() {
         [ ! -e "$target" ] || { echo "Duplicate module name: $target" >&2; exit 1; }
         cp "$module" "$target"
         "${cross}strip" --strip-debug "$target"
-    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/aximon" "$m/rtl8733bs" -name '*.ko' -print0)
+    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/c906l" "$src/aes" "$src/aximon" "$m/rtl8733bs" -name '*.ko' -print0)
     # Name every module in sorted order; a directory scan would make the
     # order of the modules.* indexes depend on the file system.
     local mods=$img/lib/modules/$release list
@@ -847,8 +852,7 @@ tools() {
 
     unpack_git tinyalsa . "$t/tinyalsa"
     "$py" "$repo/scripts/build-usb-audio.py" --output "$t/usb-audio" --buildroot-output "$bo" \
-        --kernel-source "$ksrc" --kernel-output "$kbuild" --tinyalsa "$t/tinyalsa" \
-        --opus-archive "$dl/opus-1.6.1.tar.gz" --jobs "$jobs"
+        --kernel-source "$ksrc" --kernel-output "$kbuild" --tinyalsa "$t/tinyalsa" --jobs "$jobs"
     cp "$t/usb-audio/usb-audio-capture" "$img/tools/"
     cp "$t/usb-audio/share/usb-audio/"* "$img/tools/usb-audio/"
 

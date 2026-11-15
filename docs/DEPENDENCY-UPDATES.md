@@ -95,7 +95,7 @@ Run python3 scripts/propose-upstream-updates.py for a read-only preview (includi
 
 ## Which BusyBox and QEMU?
 
-The installed operating system uses **stock Alpine BusyBox** and OpenSSL, updated through signed APK repositories. The optional C906 rebuild scripts are not the production baseline.
+The installed operating system uses **stock Alpine BusyBox** and the source-built **nanokvm-openssl** package, updated through signed APK repositories. OpenSSL follows its pin in `platform/sources.lock`; see [component build profiles](COMPONENT-BUILD-PROFILES.md).
 
 There are two separate build inputs: Buildroot's BusyBox for the early-boot initramfs, and the standalone BusyBox source used to build only `devmem` for the vendor media library. They do not replace Alpine's BusyBox.
 

@@ -13,7 +13,7 @@
 ## Video and accelerators
 
 - [Video and HDMI](VIDEO.md): transports, codecs, monitor profiles, MJPEG, limits, API
-- [Accelerators](ACCELERATORS.md): IVE, TPU, DWA/RGN, random numbers, CryptoDMA
+- [Accelerators](ACCELERATORS.md): IVE, TPU, DWA/RGN, random numbers, CryptoDMA, small-core audio
 
 ## USB and virtual media
 

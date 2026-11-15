@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include "nanokvm_hwcrypto.h"
+#include "nanokvm_c906l.h"
 #include "hwcrypto.h"
 
 #define BASE 0x02060000

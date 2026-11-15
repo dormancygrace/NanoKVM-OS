@@ -25,8 +25,17 @@
 #include <crypto/utils.h>
 
 struct sg2_gcm_ctx { u8 key[32]; u32 keylen; struct ghash_key ghash; struct crypto_aead *fallback; };
+/* A request whose ciphertext the small core hashes (nanokvm_c906l). */
+struct sg2_gcm_off {
+ struct c906l_owner o;
+ struct aead_request *req;
+ struct ghash_ctx g;		/* after the associated data: for the big core if the small one fails */
+ u8 ej0[16];
+ bool encrypt;
+};
 /* fallback_req is last: the fallback's own request context follows it. */
-struct sg2_gcm_req { struct work_struct work; struct aead_request *req; bool encrypt; struct aead_request fallback_req; };
+struct sg2_gcm_req { struct work_struct work; struct aead_request *req; bool encrypt; struct sg2_gcm_off off;
+ struct aead_request fallback_req; };
 
 /* The software gcm(aes): for short requests and after the poison latch
  * (crypto_linux_api.inc). */
@@ -264,6 +273,49 @@ out:
  return err;
 }
 
+/*
+ * One-chunk requests through the copies (packets: ovpn and IPsec encrypt and
+ * decrypt them from softirq, where this path takes them below SG2_GCM_CUT)
+ * leave the GHASH of their ciphertext to the small core and complete from its
+ * result. Below SG2_GCM_OFF the big core's own GHASH (5 us at 512 bytes) costs
+ * no more than the hand-over: the copy to the staging buffer, the job, the
+ * interrupt and the completion.
+ */
+#define SG2_GCM_OFF 1024
+
+static void sg2_gcm_off_done(struct c906l_owner *co, const u64 *acc, s64 value)
+{
+ struct sg2_gcm_off *o = container_of(co, struct sg2_gcm_off, o);
+ struct aead_request *req = o->req;
+ unsigned int authsize = crypto_aead_authsize(crypto_aead_reqtfm(req)), assoclen = req->assoclen;
+ unsigned int cryptlen = req->cryptlen - (o->encrypt ? 0 : authsize);
+ u8 tag[16], expected[16];
+ int err = 0;
+
+ if (acc) {
+  put_unaligned_be64(acc[1], tag);
+  put_unaligned_be64(acc[0], tag + 8);
+ } else {
+  __be64 lengths[2] = { cpu_to_be64(8 * (u64)assoclen), cpu_to_be64(8 * (u64)cryptlen) };
+  ghash_update(&o->g, o->o.stage, cryptlen);
+  sg2_ghash_pad(&o->g, cryptlen);
+  ghash_update(&o->g, (const u8 *)lengths, sizeof(lengths));
+  ghash_final(&o->g, tag);
+ }
+ crypto_xor(tag, o->ej0, 16);
+ if (o->encrypt) {
+  scatterwalk_map_and_copy(tag, req->dst, assoclen + cryptlen, authsize, 1);
+ } else {
+  scatterwalk_map_and_copy(expected, req->src, assoclen + cryptlen, authsize, 0);
+  if (crypto_memneq(tag, expected, authsize)) err = -EBADMSG;
+ }
+ memzero_explicit(&o->g, sizeof(o->g)); memzero_explicit(o->ej0, sizeof(o->ej0));
+ memzero_explicit(tag, sizeof(tag)); memzero_explicit(expected, sizeof(expected));
+ sg2_complete(aead_request_complete, req, err);
+}
+/* A reserved slot of a request that failed before its job. */
+static void sg2_gcm_off_drop(struct c906l_owner *co, const u64 *acc, s64 value) {}
+
 static int sg2_gcm_process(struct aead_request *req, bool encrypt)
 {
  struct crypto_aead *tfm = crypto_aead_reqtfm(req);
@@ -276,6 +328,7 @@ static int sg2_gcm_process(struct aead_request *req, bool encrypt)
  __be64 lengths[2] = { cpu_to_be64(8 * (u64)assoclen), cpu_to_be64(8 * (u64)cryptlen) };
  u8 ej0[16], tag[16], expected[16];
  struct ghash_ctx g;
+ struct sg2_gcm_off *o = NULL;
  bool first = true;
  int err = 0, in_nents, out_nents;
 
@@ -285,6 +338,11 @@ static int sg2_gcm_process(struct aead_request *req, bool encrypt)
  in_nents = sg_nents_for_len(req->src, assoclen + req->cryptlen);
  out_nents = sg_nents_for_len(req->dst, assoclen + cryptlen + (encrypt ? authsize : 0));
  if (in_nents < 0 || out_nents < 0) return -EINVAL;
+ if (cryptlen >= SG2_GCM_OFF && 16 + cryptlen <= HWCRYPTO_MAX) {
+  o = &((struct sg2_gcm_req *)aead_request_ctx(req))->off;
+  o->o.done = sg2_gcm_off_done;
+  if (!c906l_reserve(&o->o)) o = NULL;
+ }
  memcpy(r.key, ctx->key, ctx->keylen);
  memcpy(r.iv, req->iv, GCM_AES_IV_SIZE);
  put_unaligned_be32(1, r.iv + GCM_AES_IV_SIZE);		/* J0 */
@@ -310,13 +368,17 @@ static int sg2_gcm_process(struct aead_request *req, bool encrypt)
    sg2_ghash_sg(&g, req->src, 0, assoclen);
    sg2_ghash_pad(&g, assoclen);
   }
-  if (encrypt)
+  if (o)
+   ;	/* the small core hashes the ciphertext */
+  else if (encrypt)
    sg2_ghash_sg(&g, req->dst, assoclen + prev_pos, prev_len);
   else
    sg2_ghash_sg(&g, req->src, assoclen + pos, n);
   err = crypto_finish_locked(&r, &s);
   if (err) goto unlock;	/* engine state uncertain: leave its buffers alone */
   if (first) memcpy(ej0, cur->out, 16);
+  /* The ciphertext, in the cache from the copies: the engine's output, or the copy of its input. */
+  if (o) memcpy(o->o.stage, (encrypt ? cur->out : cur->in) + lead, n);
   if (n && sg_pcopy_from_buffer(req->dst, out_nents, cur->out + lead, n, assoclen + pos) != n)
    err = -EINVAL;
   sg2_inc_counter(r.iv, 16, DIV_ROUND_UP(r.length, 16));
@@ -329,6 +391,13 @@ unlock:
   sg2_resched();
  } while (pos < cryptlen);
 
+ if (o) {
+  o->req = req; o->encrypt = encrypt; o->g = g;
+  memcpy(o->ej0, ej0, 16);
+  c906l_submit_ghash(&o->o, ctx->ghash.h_raw, (const u64 *)&g.acc, (const u8 *)lengths, cryptlen);
+  memzero_explicit(&r, sizeof(r)); memzero_explicit(&g, sizeof(g)); memzero_explicit(ej0, sizeof(ej0));
+  return -EINPROGRESS;
+ }
  if (encrypt)
   sg2_ghash_sg(&g, req->dst, assoclen + prev_pos, prev_len);
  sg2_ghash_pad(&g, cryptlen);
@@ -342,6 +411,11 @@ unlock:
   if (crypto_memneq(tag, expected, authsize)) err = -EBADMSG;
  }
 out:
+ if (o && err) {
+  static const u64 zero[2];
+  o->o.done = sg2_gcm_off_drop;
+  c906l_submit_ghash(&o->o, (const u8 *)zero, zero, (const u8 *)zero, 0);
+ }
  memzero_explicit(&r, sizeof(r)); memzero_explicit(&g, sizeof(g));
  memzero_explicit(ej0, sizeof(ej0)); memzero_explicit(tag, sizeof(tag));
  memzero_explicit(expected, sizeof(expected));
@@ -356,7 +430,8 @@ static void sg2_gcm_work(struct work_struct *work)
  int err = sg2_use_fallback(ctx->fallback) ? sg2_gcm_fallback(req, r->encrypt) :
   sg2_gcm_process(req, r->encrypt);
  sg2_async_leave();
- sg2_complete(aead_request_complete, req, err);
+ if (err != -EINPROGRESS)	/* else the small core's result completes it */
+  sg2_complete(aead_request_complete, req, err);
 }
 
 static int sg2_gcm_submit(struct aead_request *req, bool encrypt)

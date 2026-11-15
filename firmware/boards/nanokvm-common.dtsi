@@ -259,6 +259,21 @@
 			       "zifencei", "zihpm", "zfh", "zfhmin", "xtheadvector";
 };
 &{/soc} {
+	/*
+	 * The second C906 (C906L), which nanokvm_c906l starts as a coprocessor
+	 * (GHASH for nanokvm_hwcrypto): SEC_SYS holds its boot address, and any access to SEC_SYS
+	 * hangs the bus while the efuse clocks are gated; reset bit 6 of
+	 * 0x03003024; the mailbox raises interrupt 101 for this core.
+	 */
+	c906l: coprocessor@20b0000 {
+		compatible = "nanokvm,sg2002-c906l";
+		reg = <0x020b0000 0x1000>, <0x01900000 0x1000>;
+		reg-names = "sec-sys", "mailbox";
+		interrupts = <101 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk CLK_EFUSE>, <&clk CLK_APB_EFUSE>;
+		clock-names = "efuse", "apb-efuse";
+		resets = <&rst 294>;
+	};
 	soc_temp: temperature-sensor@30e0000 {
 		compatible = "sophgo,sg2002-tempsen";
 		reg = <0x030e0000 0x1000>;

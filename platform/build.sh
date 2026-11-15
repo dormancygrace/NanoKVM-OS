@@ -368,6 +368,9 @@ modules() {
     osdrv_source
     unpack_git aic8800 src/SDIO/driver_fw/driver/aic8800 "$src/wifi"
     cp -r "$here/modules/hwcrypto" "$src/aes"
+    cp -r "$here/modules/c906l" "$src/c906l"
+    # The small core's program, embedded in nanokvm_c906l.
+    python3 "$repo/scripts/build-c906l-firmware.py" --cross "$cross" --output "$src/c906l/c906l.bin"
     cp -r "$here/modules/cv181x-aximon" "$src/aximon"
     unpack_git sipeed-sdk osdrv/extdrv/wireless/rtl8733bs "$m/rtl8733bs"
     apply_patches "$src/wifi" "$here/modules/aic8800"
@@ -387,7 +390,8 @@ modules() {
         symbols+=("$module/Module.symvers")
     done
     build "$src/wifi" CONFIG_PLATFORM_UBUNTU=n CONFIG_SDIO_BT=y CONFIG_AIC8800_BTLPM_SUPPORT=n CONFIG_USE_FW_REQUEST=y
-    build "$src/aes"
+    build "$src/c906l" "C906L_FW=$src/c906l/c906l.bin"
+    build "$src/aes" "C906L_DIR=$src/c906l" "KBUILD_EXTRA_SYMBOLS=$src/c906l/Module.symvers"
     build "$src/aximon"
     # Vendor diagnostics use __DATE__ and __TIME__.
     KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder SOURCE_DATE_EPOCH=$rtl8733bs_epoch \
@@ -407,7 +411,7 @@ modules() {
         [ ! -e "$target" ] || { echo "Duplicate module name: $target" >&2; exit 1; }
         cp "$module" "$target"
         "${cross}strip" --strip-debug "$target"
-    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/aes" "$src/aximon" "$m/rtl8733bs" -name '*.ko' -print0)
+    done < <(find "$src/osdrv/interdrv" "$src/wifi" "$src/c906l" "$src/aes" "$src/aximon" "$m/rtl8733bs" -name '*.ko' -print0)
     # Name every module in sorted order; a directory scan would make the
     # order of the modules.* indexes depend on the file system.
     local mods=$img/lib/modules/$release list

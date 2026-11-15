@@ -45,6 +45,8 @@ COMPONENTS = {
     'system': (['support/kvm_system', 'support/additional/kvm', 'scripts/build-system.py'],
                [], [], ['images/system']),
     'tools': (['support/nanokvm_update_edid', 'firmware/boards', 'firmware/probes/edid120',
+               'firmware/mpi/nanokvm_i2c.h', 'firmware/mpi/nanokvm_receiver_lock.h',
+               'firmware/mpi/nanokvm_receiver_timing.h',
                'firmware/services/nanokvm-serial-console.sh', 'firmware/crypto/openssl-c906',
                'firmware/cpu/go-crypto-c906', 'platform/lolcat',
                'firmware/alpine/packages/nanokvm-zlib/zlib-1.3.2.symbols',

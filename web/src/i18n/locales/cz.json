@@ -2041,6 +2041,7 @@
       "expressionHelp": "Minuta, hodina, den v měsíci, měsíc, den v týdnu (0 = neděle), jak je čte cron; například 30 2 * * 1-5.",
       "nextRuns": "Příští spuštění",
       "neverRuns": "Nikdy se nespustí",
+      "noDays": "Vyberte alespoň jeden den",
       "previewFailed": "Plán nelze ověřit",
       "saveFailed": "Úlohu nelze uložit",
       "descMinutes": "Každých {{n}} minut",

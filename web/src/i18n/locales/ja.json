@@ -2439,6 +2439,7 @@
       "expressionHelp": "分、時、日、月、曜日（0 = 日曜日）を cron の書式で指定します。例: 30 2 * * 1-5",
       "nextRuns": "次回の実行",
       "neverRuns": "実行されません",
+      "noDays": "少なくとも 1 日を選択してください",
       "previewFailed": "スケジュールを確認できません",
       "saveFailed": "タスクを保存できません",
       "descMinutes": "{{n}} 分ごと",

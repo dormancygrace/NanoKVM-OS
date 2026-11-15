@@ -206,7 +206,7 @@ func (s *Service) GetScheduledTasks(c *gin.Context) {
 		return
 	}
 	tasks, other := parseTasks(data)
-	now := time.Now()
+	now := time.Now().In(deviceLocation())
 	list := make([]taskStatus, 0, len(tasks))
 	for _, t := range tasks {
 		st := taskStatus{ScheduledTask: t}
@@ -306,7 +306,7 @@ func (s *Service) PreviewSchedule(c *gin.Context) {
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
-	rsp.OkRspWithData(c, gin.H{"next": unixTimes(schedule.next(time.Now(), 5))})
+	rsp.OkRspWithData(c, gin.H{"next": unixTimes(schedule.next(time.Now().In(deviceLocation()), 5))})
 }
 
 // RunScheduledTask runs a task now, as cron would, in a session of its own.

@@ -20,7 +20,8 @@ export function toCron(when: When): string {
     case 'daily':
       return `${when.minute} ${when.hour} * * *`;
     case 'weekly':
-      return `${when.minute} ${when.hour} * * ${[...when.days].sort().join(',') || '*'}`;
+      // No day is no schedule (the editor refuses it), never every day.
+      return `${when.minute} ${when.hour} * * ${[...when.days].sort().join(',')}`;
     case 'monthly':
       return `${when.minute} ${when.hour} ${when.day} * *`;
     case 'custom':

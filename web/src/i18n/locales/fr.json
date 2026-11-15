@@ -2439,6 +2439,7 @@
       "expressionHelp": "Minute, heure, jour du mois, mois, jour de la semaine (0 = dimanche), comme cron les lit ; par exemple 30 2 * * 1-5.",
       "nextRuns": "Prochaines exécutions",
       "neverRuns": "Ne s'exécute jamais",
+      "noDays": "Choisissez au moins un jour",
       "previewFailed": "Impossible de vérifier l'horaire",
       "saveFailed": "Impossible d'enregistrer la tâche",
       "descMinutes": "Toutes les {{n}} minutes",

@@ -2439,6 +2439,7 @@
       "expressionHelp": "Minuto, hora, día del mes, mes, día de la semana (0 = domingo), tal como los lee cron; por ejemplo 30 2 * * 1-5.",
       "nextRuns": "Próximas ejecuciones",
       "neverRuns": "Nunca se ejecuta",
+      "noDays": "Elija al menos un día",
       "previewFailed": "No se puede comprobar el horario",
       "saveFailed": "No se puede guardar la tarea",
       "descMinutes": "Cada {{n}} minutos",

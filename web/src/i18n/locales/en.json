@@ -2439,6 +2439,7 @@
       "expressionHelp": "Minute, hour, day of month, month, weekday (0 = Sunday), as cron reads them; for example 30 2 * * 1-5.",
       "nextRuns": "Next runs",
       "neverRuns": "Never runs",
+      "noDays": "Choose at least one day",
       "previewFailed": "Cannot check the schedule",
       "saveFailed": "Cannot save the task",
       "descMinutes": "Every {{n}} minutes",

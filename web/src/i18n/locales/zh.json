@@ -2439,6 +2439,7 @@
       "expressionHelp": "分、时、日、月、星期（0 = 星期日），按 cron 的格式；例如 30 2 * * 1-5。",
       "nextRuns": "接下来的运行",
       "neverRuns": "永不运行",
+      "noDays": "请至少选择一天",
       "previewFailed": "无法检查计划",
       "saveFailed": "无法保存任务",
       "descMinutes": "每 {{n}} 分钟",

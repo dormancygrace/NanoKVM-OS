@@ -34,9 +34,12 @@ export const TaskEditor = ({ task, onClose }: EditorProps) => {
   const [when, setWhen] = useState<When>(task ? fromCron(task.schedule) : defaults.daily);
   const [scripts, setScripts] = useState<string[]>([]);
   const [next, setNext] = useState<number[]>([]);
+  // problem: the schedule as the device reads it; saveError: the last save.
   const [problem, setProblem] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
   const schedule = toCron(when);
+  const noDays = when.mode === 'weekly' && when.days.length === 0;
 
   useEffect(() => {
     void getScripts()
@@ -44,7 +47,11 @@ export const TaskEditor = ({ task, onClose }: EditorProps) => {
       .catch(() => setScripts([]));
   }, []);
 
+  // Any change makes a new attempt possible.
+  useEffect(() => setSaveError(''), [name, kind, target, schedule]);
+
   useEffect(() => {
+    if (noDays) return;
     let current = true;
     const timer = setTimeout(() => {
       api
@@ -60,10 +67,10 @@ export const TaskEditor = ({ task, onClose }: EditorProps) => {
       current = false;
       clearTimeout(timer);
     };
-  }, [schedule, t]);
+  }, [schedule, noDays, t]);
 
   const preferences = useDeviceTime();
-  const ready = name.trim() !== '' && target.trim() !== '' && !problem;
+  const ready = name.trim() !== '' && target.trim() !== '' && !problem && !noDays;
 
   async function save() {
     setSaving(true);
@@ -77,12 +84,12 @@ export const TaskEditor = ({ task, onClose }: EditorProps) => {
         target
       });
       if (rsp.code !== 0) {
-        setProblem(rsp.msg);
+        setSaveError(rsp.msg);
         return;
       }
       onClose(true);
     } catch {
-      setProblem(t('settings.schedule.saveFailed'));
+      setSaveError(t('settings.schedule.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -217,9 +224,9 @@ export const TaskEditor = ({ task, onClose }: EditorProps) => {
             {t('settings.schedule.nextRuns')}{' '}
             <span className="text-fg-muted text-xs">({preferences.timezone})</span>
           </div>
-          {problem ? (
+          {noDays || problem ? (
             <div role="alert" className="text-danger text-xs">
-              {problem}
+              {noDays ? t('settings.schedule.noDays') : problem}
             </div>
           ) : (
             <ul className="text-fg-muted m-0 list-none p-0 font-mono text-xs">
@@ -230,6 +237,11 @@ export const TaskEditor = ({ task, onClose }: EditorProps) => {
             </ul>
           )}
         </div>
+        {saveError && (
+          <div role="alert" className="text-danger text-xs">
+            {saveError}
+          </div>
+        )}
       </div>
     </Modal>
   );

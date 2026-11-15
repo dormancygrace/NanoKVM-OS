@@ -2439,6 +2439,7 @@
       "expressionHelp": "Minute, Stunde, Tag des Monats, Monat, Wochentag (0 = Sonntag), wie Cron sie liest; zum Beispiel 30 2 * * 1-5.",
       "nextRuns": "Nächste Ausführungen",
       "neverRuns": "Wird nie ausgeführt",
+      "noDays": "Wählen Sie mindestens einen Tag",
       "previewFailed": "Zeitplan kann nicht geprüft werden",
       "saveFailed": "Aufgabe kann nicht gespeichert werden",
       "descMinutes": "Alle {{n}} Minuten",

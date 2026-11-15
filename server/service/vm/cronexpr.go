@@ -171,15 +171,21 @@ func (s cronSchedule) matches(t time.Time) bool {
 // at most five years ahead (a schedule such as "Feb 31" never runs). It walks
 // elapsed time, as crond checks each minute's local time: an hour that cannot
 // match (by its month, day or hour) is passed to its local end in one step,
-// a matching one minute by minute. No instant is jumped over, so a DST gap
-// is crossed and an hour repeated in autumn is seen twice, as crond sees it.
+// a matching one minute by minute. A step stops at the next change of the
+// zone's offset, which need not fall on the hour (Pacific/Chatham changes
+// at :45). No instant is jumped over: a DST gap is crossed and an hour
+// repeated in autumn is seen twice, as crond sees them.
 func (s cronSchedule) next(from time.Time, count int) []time.Time {
 	var runs []time.Time
 	t := from.Truncate(time.Minute).Add(time.Minute)
 	limit := from.AddDate(5, 0, 0)
 	for len(runs) < count && t.Before(limit) {
 		if !s.month[t.Month()-1] || (!s.dom[t.Day()] && !s.dow[t.Weekday()]) || !s.hour[t.Hour()] {
-			t = t.Add(time.Duration(60-t.Minute()) * time.Minute)
+			step := t.Add(time.Duration(60-t.Minute()) * time.Minute)
+			if _, change := t.ZoneBounds(); !change.IsZero() && change.After(t) && change.Before(step) {
+				step = change
+			}
+			t = step
 			continue
 		}
 		if s.minute[t.Minute()] {

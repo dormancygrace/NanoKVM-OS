@@ -2,8 +2,12 @@ package vm
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -50,24 +54,49 @@ func (s *Service) SetDateTime(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "Cannot apply date and time settings; previous configuration was restored where possible")
 		return
 	}
-	if previous.Timezone != cfg.Timezone {
-		restartCrondForZone()
+	// A restart that failed before is tried again by the next save, even of
+	// the same zone.
+	if _, stale := os.Stat(crondZoneStale); previous.Timezone != cfg.Timezone || stale == nil {
+		if err := restartCrondForZone(); err != nil {
+			log.Warnf("restart crond for the new time zone: %v", err)
+			rsp.ErrRsp(c, -3, "The time zone is saved, but cron could not be restarted: scheduled tasks may still run at the previous zone's times. Save again to retry.")
+			return
+		}
 	}
 	s.GetDateTime(c)
 }
 
+// crondZoneStale marks a crond that may still run at the previous zone (in
+// /run: a boot starts crond with the zone of then).
+var crondZoneStale = "/run/nanokvm/crond-zone-stale"
+
 // restartCrondForZone makes a running crond take a new time zone: musl reads
 // /etc/localtime once per process (it caches by path, not contents), so the
 // jobs of Scheduled tasks would keep running at the old zone's times. Jobs
-// already running go on: crond's restart ends only crond. A failure is
-// logged; the zone itself has been saved.
-var restartCrondForZone = func() {
-	if _, err := crontab.Exec(nil, "rc-service", "crond", "status"); err != nil {
-		return // not running: it reads the new zone when it starts
+// already running go on: crond's restart ends only crond. OpenRC's status
+// is 0 for a started service and 3 for a stopped one, which reads the zone
+// when it starts; anything else is a failure, and so is a failed restart:
+// both leave the mark for the next save.
+func restartCrondForZone() error {
+	_, err := crontab.Exec(nil, "rc-service", "crond", "status")
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 3 {
+		_ = os.Remove(crondZoneStale)
+		return nil
 	}
-	if output, err := crontab.Exec(nil, "rc-service", "crond", "restart"); err != nil {
-		log.Warnf("restart crond for the new time zone: %v: %s", err, output)
+	if err == nil {
+		var output []byte
+		if output, err = crontab.Exec(nil, "rc-service", "crond", "restart"); err != nil {
+			err = fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
+		}
 	}
+	if err != nil {
+		_ = os.MkdirAll(filepath.Dir(crondZoneStale), 0o755)
+		_ = os.WriteFile(crondZoneStale, nil, 0o644)
+		return err
+	}
+	_ = os.Remove(crondZoneStale)
+	return nil
 }
 
 // The clock a browser may set: later than this OS can be built, earlier than

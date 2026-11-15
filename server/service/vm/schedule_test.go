@@ -1,9 +1,15 @@
 package vm
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"NanoKVM-Server/internal/crontab"
 )
 
 // Next runs as BusyBox crond 1.38 starts them (ParseField, FixDayDow), and
@@ -54,6 +60,78 @@ func TestCronNext(t *testing.T) {
 		runs := s.next(time.Date(2026, 10, 25, 0, 0, 0, 0, berlin), 2)
 		if len(runs) != 2 || runs[0].UTC().Format("15:04") != "00:30" || runs[1].UTC().Format("15:04") != "01:30" {
 			t.Errorf("repeated hour: %v", runs)
+		}
+	}
+	// Changes at :45 (Pacific/Chatham): a skipped hour stops at the change.
+	if chatham, err := time.LoadLocation("Pacific/Chatham"); err == nil {
+		for expr, c := range map[string]struct {
+			from time.Time
+			want string
+		}{
+			"50 3 * * *": {time.Date(2027, 9, 26, 0, 0, 0, 0, chatham), "09-26 03:50 +1345"},
+			// From 03:00 +13:45, before the 03:45 change back to 02:45 +12:45.
+			"50 2 * * *": {time.Date(2027, 4, 4, 0, 0, 0, 0, chatham).Add(3 * time.Hour), "04-04 02:50 +1245"},
+		} {
+			s, _ := parseCron(expr)
+			if runs := s.next(c.from, 1); len(runs) != 1 || runs[0].Format("01-02 15:04 -0700") != c.want {
+				t.Errorf("%s in Chatham: %v", expr, runs)
+			}
+		}
+	}
+}
+
+// next agrees with a scan of every minute of a year, in zones whose offset
+// changes on the hour, at :30 and at :45.
+func TestCronNextAgainstScan(t *testing.T) {
+	for _, zone := range []string{"Pacific/Chatham", "Australia/Lord_Howe", "Europe/Berlin", "America/New_York"} {
+		loc, err := time.LoadLocation(zone)
+		if err != nil {
+			t.Skip("no time zone data")
+		}
+		for _, expr := range []string{"50 3 * * *", "30 2 * * *", "*/7 1-3 * * *", "45 2 * 4,9,10 *"} {
+			s, _ := parseCron(expr)
+			from := time.Date(2027, 1, 1, 0, 0, 0, 0, loc)
+			got := s.next(from, 40)
+			var want []time.Time
+			for m := from.Add(time.Minute); len(want) < len(got) && m.Before(from.AddDate(1, 0, 0)); m = m.Add(time.Minute) {
+				if s.matches(m) {
+					want = append(want, m)
+				}
+			}
+			for i := range got {
+				if i >= len(want) || !got[i].Equal(want[i]) {
+					t.Errorf("%s %s: run %d is %v, a minute scan gives %v", zone, expr, i, got[i], want)
+					break
+				}
+			}
+		}
+	}
+}
+
+// A zone change restarts a running crond; a stopped one is left; a failure
+// is reported and marked, and the next save tries again.
+func TestRestartCrondForZone(t *testing.T) {
+	defer func(e func([]byte, string, ...string) ([]byte, error), m string) { crontab.Exec, crondZoneStale = e, m }(crontab.Exec, crondZoneStale)
+	crondZoneStale = filepath.Join(t.TempDir(), "stale")
+	exit := func(code int) error { return exec.Command("sh", "-c", "exit "+strconv.Itoa(code)).Run() }
+	var status, restart error
+	restarts := 0
+	crontab.Exec = func(_ []byte, _ string, args ...string) ([]byte, error) {
+		if args[1] == "status" {
+			return nil, status
+		}
+		restarts++
+		return nil, restart
+	}
+	marked := func() bool { _, err := os.Stat(crondZoneStale); return err == nil }
+	for _, c := range []struct {
+		status, restart error
+		fails, mark     bool
+		restarts        int
+	}{{nil, exit(1), true, true, 1}, {nil, nil, false, false, 2}, {exit(3), nil, false, false, 2}, {exit(1), nil, true, true, 2}} {
+		status, restart = c.status, c.restart
+		if err := restartCrondForZone(); (err != nil) != c.fails || marked() != c.mark || restarts != c.restarts {
+			t.Errorf("%+v: %v, marked %v, %d restarts", c, err, marked(), restarts)
 		}
 	}
 }

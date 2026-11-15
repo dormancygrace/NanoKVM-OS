@@ -76,6 +76,7 @@ static struct {
 	bool submitted[C906L_SLOTS];
 	u32 out_len[C906L_SLOTS];	/* output bytes the slot's job may write */
 	unsigned long since[C906L_SLOTS];
+	int irq;
 	struct work_struct bh;
 	struct timer_list timer;
 } c906l = { .lock = __SPIN_LOCK_UNLOCKED(c906l.lock) };
@@ -158,6 +159,17 @@ static void c906l_submit(struct c906l_owner *o, struct c906l_job *job, u32 stage
 }
 
 
+/* The mailbox interrupt on again, unless the small core is given up. */
+static void c906l_unmask(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&c906l.lock, flags);
+	if (c906l.up)
+		writeb(C906L_TO_BIG, c906l.mbox + C906L_MBOX_EN(1));
+	spin_unlock_irqrestore(&c906l.lock, flags);
+}
+
 /*
  * Hand back what is done, in order; with the small core given up, everything
  * submitted. Only this work item advances c906l.done, and only after the
@@ -191,7 +203,7 @@ static void c906l_complete(struct work_struct *w)
 				 * result written meanwhile raises it again or is seen here. */
 				if (unmasked)
 					return;
-				writeb(C906L_TO_BIG, c906l.mbox + C906L_MBOX_EN(1));
+				c906l_unmask();
 				unmasked = true;
 				continue;
 			}
@@ -213,7 +225,7 @@ static void c906l_complete(struct work_struct *w)
 		spin_unlock_irqrestore(&c906l.lock, flags);
 	}
 	if (!unmasked)
-		writeb(C906L_TO_BIG, c906l.mbox + C906L_MBOX_EN(1));
+		c906l_unmask();
 }
 
 static void c906l_give_up(const char *why)
@@ -226,6 +238,7 @@ static void c906l_give_up(const char *why)
 		return;
 	}
 	WRITE_ONCE(c906l.up, false);
+	writeb(0, c906l.mbox + C906L_MBOX_EN(1));
 	spin_unlock_irqrestore(&c906l.lock, flags);
 	reset_control_assert(c906l.rst);
 	given_up = 1;
@@ -434,6 +447,28 @@ static void c906l_unmap(void)
 		dma_unmap_single(c906l.dev, c906l.out_dma, C906L_SLOTS * C906L_OUT, DMA_BIDIRECTIONAL);
 }
 
+/*
+ * The small core held in reset and the mailbox interrupt gone: masked under
+ * the lock (the bottom half unmasks only while up), freed (which waits for a
+ * running handler), the bottom half drained and the mailbox cleared. No job
+ * is submitted any more.
+ */
+static void c906l_stop(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&c906l.lock, flags);
+	WRITE_ONCE(c906l.up, false);
+	writeb(0, c906l.mbox + C906L_MBOX_EN(1));
+	spin_unlock_irqrestore(&c906l.lock, flags);
+	reset_control_assert(c906l.rst);
+	free_irq(c906l.irq, &c906l);
+	timer_delete_sync(&c906l.timer);
+	flush_work(&c906l.bh);
+	writeb(C906L_TO_SMALL | C906L_TO_BIG, c906l.mbox + C906L_MBOX_CLR(1));
+	writeb(C906L_TO_SMALL | C906L_TO_BIG, c906l.mbox + C906L_MBOX_CLR(2));
+}
+
 static int c906l_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -480,13 +515,14 @@ static int c906l_probe(struct platform_device *pdev)
 	writeb(C906L_TO_SMALL | C906L_TO_BIG, c906l.mbox + C906L_MBOX_CLR(1));
 	writeb(C906L_TO_SMALL, c906l.mbox + C906L_MBOX_EN(2));
 	writeb(C906L_TO_BIG, c906l.mbox + C906L_MBOX_EN(1));
-	err = devm_request_irq(dev, irq, c906l_irq, 0, "nanokvm-c906l", NULL);
+	err = request_irq(irq, c906l_irq, 0, "nanokvm-c906l", &c906l);
 	if (err)
 		goto unmap;
+	c906l.irq = irq;
 	reset_control_assert(c906l.rst);
 	err = clk_bulk_prepare_enable(2, c906l.clks);
 	if (err)
-		goto unmap;
+		goto stop;
 	writel(readl(c906l.sec + 4) | BIT(13), c906l.sec + 4);
 	writel(lower_32_bits(c906l.mem_dma), c906l.sec + 0x20);
 	writel(upper_32_bits(c906l.mem_dma), c906l.sec + 0x24);
@@ -498,20 +534,17 @@ static int c906l_probe(struct platform_device *pdev)
 	for (i = 0; i < 100 && READ_ONCE(st->magic) != C906L_MAGIC; i++)
 		msleep(1);
 	if (READ_ONCE(st->magic) != C906L_MAGIC) {
-		reset_control_assert(c906l.rst);
 		err = -ETIMEDOUT;
-		goto unmap;
+		goto stop;
 	}
 	WRITE_ONCE(c906l.up, true);
 	err = misc_register(&opus_misc);
-	if (err) {
-		c906l_give_up("no /dev/nanokvm-opus");
-		timer_delete_sync(&c906l.timer);
-		flush_work(&c906l.bh);
-		goto unmap;
-	}
+	if (err)
+		goto stop;
 	dev_info(dev, "small core up after %d ms, program %zu bytes at %pad\n", i, len, &c906l.mem_dma);
 	return 0;
+stop:
+	c906l_stop();
 unmap:
 	c906l_unmap();
 fail:
@@ -522,11 +555,9 @@ fail:
 
 static void c906l_remove(struct platform_device *pdev)
 {
-	misc_deregister(&opus_misc);	/* the module is held while a file is open */
-	c906l_give_up("driver removed");
-	timer_delete_sync(&c906l.timer);
-	flush_work(&c906l.bh);
-	reset_control_assert(c906l.rst);
+	/* Removal only with the module unloaded (no bind/unbind in sysfs), so no file is open. */
+	misc_deregister(&opus_misc);
+	c906l_stop();
 	c906l_unmap();
 	memset(&c906l, 0, offsetof(typeof(c906l), lock));
 }
@@ -540,7 +571,8 @@ MODULE_DEVICE_TABLE(of, c906l_of);
 static struct platform_driver c906l_driver = {
 	.probe = c906l_probe,
 	.remove = c906l_remove,
-	.driver = { .name = "nanokvm-c906l", .of_match_table = c906l_of },
+	/* No bind/unbind in sysfs: the buffers of a running ioctl must outlive it. */
+	.driver = { .name = "nanokvm-c906l", .of_match_table = c906l_of, .suppress_bind_attrs = true },
 };
 module_platform_driver(c906l_driver);
 MODULE_LICENSE("GPL");

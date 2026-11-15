@@ -4,8 +4,10 @@ import { FileTextIcon, PencilIcon, PlayIcon, PlusIcon, Trash2Icon } from 'lucide
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/schedule.ts';
+import { formatDeviceMinute } from '@/lib/date-time.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
+import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
 import { Fold, Panel, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { TaskEditor } from './editor.tsx';
@@ -18,7 +20,7 @@ export const ScheduledTasks = () => {
   const [tasks, setTasks] = useState<api.TaskStatus[]>([]);
   const [other, setOther] = useState<string[]>([]);
   const [crond, setCrond] = useState(true);
-  const [timezone, setTimezone] = useState('UTC');
+  const preferences = useDeviceTime();
   const [loaded, setLoaded] = useState(false);
   const [editing, setEditing] = useState<api.ScheduledTask | 'new'>();
   const [output, setOutput] = useState<{ name: string; log: string }>();
@@ -35,7 +37,6 @@ export const ScheduledTasks = () => {
     setTasks(rsp.data.tasks ?? []);
     setOther(rsp.data.other ?? []);
     setCrond(rsp.data.crond);
-    setTimezone(rsp.data.timezone || 'UTC');
     setLoaded(true);
   }, []);
 
@@ -76,15 +77,7 @@ export const ScheduledTasks = () => {
     }
   }
 
-  const when = new Intl.DateTimeFormat(i18n.language, {
-    timeZone: timezone,
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-  const at = (seconds: number) => when.format(new Date(seconds * 1000));
+  const at = (seconds: number) => formatDeviceMinute(seconds * 1000, preferences, i18n.language);
 
   function lastRun(task: api.TaskStatus) {
     if (task.state === 'running' && task.started)
@@ -107,7 +100,7 @@ export const ScheduledTasks = () => {
     <div className="space-y-6">
       <SettingsSection>
         <p className="text-fg-muted mt-0 text-sm">
-          {t('settings.schedule.description', { zone: timezone })}
+          {t('settings.schedule.description', { zone: preferences.timezone })}
         </p>
         {loaded && !crond && (
           <Alert type="warning" showIcon message={t('settings.schedule.crondStopped')} />
@@ -136,7 +129,7 @@ export const ScheduledTasks = () => {
                         {task.name}
                       </div>
                       <div className="text-fg-muted text-xs">
-                        {describe(task.schedule, t, i18n.language)}
+                        {describe(task.schedule, t, i18n.language, preferences)}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
@@ -228,7 +221,6 @@ export const ScheduledTasks = () => {
       {editing && (
         <TaskEditor
           task={editing === 'new' ? undefined : editing}
-          timezone={timezone}
           onClose={(saved) => {
             setEditing(undefined);
             if (saved) void refresh().catch(() => undefined);

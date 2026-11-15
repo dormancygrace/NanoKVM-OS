@@ -1,5 +1,7 @@
 import type { TFunction } from 'i18next';
 
+import { formatClock, type TimePreferences } from '@/lib/date-time.ts';
+
 // The schedule forms of the editor and the cron expressions they make.
 export type When =
   | { mode: 'minutes'; every: number }
@@ -55,7 +57,13 @@ export function weekdayName(day: number, locale: string, width: 'short' | 'long'
 }
 
 // The schedule in words.
-export function describe(expression: string, t: TFunction, locale: string): string {
+export function describe(
+  expression: string,
+  t: TFunction,
+  locale: string,
+  preferences: TimePreferences
+): string {
+  const clock = (hour: number, minute: number) => formatClock(hour, minute, preferences, locale);
   const when = fromCron(expression);
   switch (when.mode) {
     case 'minutes':
@@ -63,19 +71,19 @@ export function describe(expression: string, t: TFunction, locale: string): stri
     case 'hourly':
       return t('settings.schedule.descHourly', { m: pad(when.minute) });
     case 'daily':
-      return t('settings.schedule.descDaily', { time: `${pad(when.hour)}:${pad(when.minute)}` });
+      return t('settings.schedule.descDaily', { time: clock(when.hour, when.minute) });
     case 'weekly':
       return t('settings.schedule.descWeekly', {
         days: [...when.days]
           .sort()
           .map((d) => weekdayName(d, locale))
           .join(', '),
-        time: `${pad(when.hour)}:${pad(when.minute)}`
+        time: clock(when.hour, when.minute)
       });
     case 'monthly':
       return t('settings.schedule.descMonthly', {
         day: when.day,
-        time: `${pad(when.hour)}:${pad(when.minute)}`
+        time: clock(when.hour, when.minute)
       });
     case 'custom':
       return t('settings.schedule.descCustom', { expression: when.expression });

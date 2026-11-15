@@ -4,16 +4,16 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/schedule.ts';
 import { getScripts } from '@/api/script.ts';
+import { formatDeviceMinute } from '@/lib/date-time.ts';
+import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
 
 import { fromCron, toCron, weekdayName, type When } from './when.ts';
 
 type EditorProps = {
   task?: api.ScheduledTask;
-  timezone: string;
   onClose: (saved: boolean) => void;
 };
 
-const pad = (v: number) => String(v).padStart(2, '0');
 const defaults: Record<When['mode'], When> = {
   minutes: { mode: 'minutes', every: 15 },
   hourly: { mode: 'hourly', minute: 0 },
@@ -25,7 +25,7 @@ const defaults: Record<When['mode'], When> = {
 
 // Add or change a task: a name, what runs, and when, with the next runs the
 // device computes for the schedule.
-export const TaskEditor = ({ task, timezone, onClose }: EditorProps) => {
+export const TaskEditor = ({ task, onClose }: EditorProps) => {
   const { t, i18n } = useTranslation();
   const [name, setName] = useState(task?.name ?? '');
   const [kind, setKind] = useState<api.ScheduledTask['kind']>(task?.kind ?? 'script');
@@ -61,20 +61,7 @@ export const TaskEditor = ({ task, timezone, onClose }: EditorProps) => {
     };
   }, [schedule, t]);
 
-  const format = new Intl.DateTimeFormat(i18n.language, {
-    timeZone: timezone,
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-  const time = 'hour' in when ? `${pad(when.hour)}:${pad(when.minute)}` : '';
-  const setTime = (value: string) => {
-    const [h, m] = value.split(':').map(Number);
-    if ('hour' in when && !Number.isNaN(h) && !Number.isNaN(m))
-      setWhen({ ...when, hour: h, minute: m });
-  };
+  const preferences = useDeviceTime();
   const ready = name.trim() !== '' && target.trim() !== '' && !problem;
 
   async function save() {
@@ -204,13 +191,33 @@ export const TaskEditor = ({ task, timezone, onClose }: EditorProps) => {
             />
           )}
           {'hour' in when && (
-            <Input
-              type="time"
-              className="w-36"
-              value={time}
-              aria-label={t('settings.schedule.time')}
-              onChange={(e) => setTime(e.target.value)}
-            />
+            <div className="flex items-center gap-2" aria-label={t('settings.schedule.time')}>
+              <Select
+                className="w-28"
+                value={when.hour}
+                aria-label={t('settings.schedule.time')}
+                onChange={(hour: number) => setWhen({ ...when, hour })}
+                options={Array.from({ length: 24 }, (_, hour) => ({
+                  value: hour,
+                  label: new Intl.DateTimeFormat(i18n.language, {
+                    timeZone: 'UTC',
+                    hourCycle: preferences.format === '12' ? 'h12' : 'h23',
+                    hour: '2-digit'
+                  }).format(Date.UTC(2026, 0, 1, hour))
+                }))}
+              />
+              <span>:</span>
+              <Select
+                className="w-20"
+                value={when.minute}
+                aria-label={t('settings.schedule.minuteOfHour')}
+                onChange={(minute: number) => setWhen({ ...when, minute })}
+                options={Array.from({ length: 60 }, (_, minute) => ({
+                  value: minute,
+                  label: String(minute).padStart(2, '0')
+                }))}
+              />
+            </div>
           )}
           {when.mode === 'custom' && (
             <>
@@ -227,7 +234,7 @@ export const TaskEditor = ({ task, timezone, onClose }: EditorProps) => {
         <div className="space-y-1">
           <div className="text-sm">
             {t('settings.schedule.nextRuns')}{' '}
-            <span className="text-fg-muted text-xs">({timezone})</span>
+            <span className="text-fg-muted text-xs">({preferences.timezone})</span>
           </div>
           {problem ? (
             <div role="alert" className="text-danger text-xs">
@@ -236,7 +243,7 @@ export const TaskEditor = ({ task, timezone, onClose }: EditorProps) => {
           ) : (
             <ul className="text-fg-muted m-0 list-none p-0 font-mono text-xs">
               {next.map((at) => (
-                <li key={at}>{format.format(new Date(at * 1000))}</li>
+                <li key={at}>{formatDeviceMinute(at * 1000, preferences, i18n.language)}</li>
               ))}
               {next.length === 0 && <li>{t('settings.schedule.neverRuns')}</li>}
             </ul>

@@ -24,7 +24,6 @@ export function getTasks() {
     tasks: TaskStatus[];
     other: string[];
     crond: boolean;
-    timezone: string;
   }>('/api/vm/schedule');
 }
 

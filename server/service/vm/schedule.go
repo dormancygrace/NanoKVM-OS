@@ -19,7 +19,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"NanoKVM-Server/internal/crontab"
-	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/proto"
 )
 
@@ -225,8 +224,7 @@ func (s *Service) GetScheduledTasks(c *gin.Context) {
 		}
 	}
 	_, daemonErr := crontab.Exec(nil, "rc-service", "crond", "status")
-	rsp.OkRspWithData(c, gin.H{"tasks": list, "other": jobs, "crond": daemonErr == nil,
-		"timezone": osupdate.IndexScheduleTimezone()})
+	rsp.OkRspWithData(c, gin.H{"tasks": list, "other": jobs, "crond": daemonErr == nil})
 }
 
 func (s *Service) SaveScheduledTask(c *gin.Context) {

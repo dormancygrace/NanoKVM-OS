@@ -4,14 +4,13 @@
  * are queued. */
 #include <crypto/internal/skcipher.h>
 #include <crypto/internal/hash.h>
-#include <crypto/internal/des.h>
 #include <linux/workqueue.h>
 #include <linux/scatterlist.h>
 #include <linux/unaligned.h>
 
 static struct workqueue_struct *crypto_api_wq;
 
-/* DES, 3DES, SM4 and hash requests from atomic context, and any request with
+/* Hash requests from atomic context, and any request with
  * interrupts off, wait on one ordered workqueue. Bound them: a flood must not
  * queue without end. A caller that allows a backlog waits for its completion
  * and is not refused; the others get -ENOSPC and drop the request.
@@ -37,7 +36,7 @@ static void sg2_async_leave(void) { atomic_dec(&sg2_async_queued); }
 
 /* After the poison latch (sg2_poison()) the engine is never used again.
  * Requests then go to the synchronous software implementation of the same
- * algorithm, where one is built (not DES, 3DES or SM4), which also serves the
+ * algorithm, where one is built, which also serves the
  * AES requests too short for the engine: new and queued
  * requests work again; only the request that met the failure fails. The
  * algorithms here are marked NEED_FALLBACK, so that a fallback never finds
@@ -151,11 +150,9 @@ static int sg2_cipher_submit(struct skcipher_request *req, bool encrypt)
  if (!ctx->keylen || (ctx->alg->mode != HWCRYPTO_MODE_CTR && req->cryptlen % ctx->alg->block)) return -EINVAL;
  if (!req->cryptlen) return 0;
  if (sg2_use_fallback(ctx->fallback)) return sg2_cipher_fallback(req, encrypt);
- if (ctx->fallback && ctx->alg->hardware == HWCRYPTO_ALG_AES &&
-     req->cryptlen <= sg2_aes_soft_max(ctx->alg->mode, ctx->keylen))
+ if (ctx->fallback && req->cryptlen <= sg2_aes_soft_max(ctx->alg->mode, ctx->keylen))
   return sg2_cipher_fallback(req, encrypt);
- if (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) return sg2_cipher_process(req, encrypt);
- if (ctx->alg->hardware == HWCRYPTO_ALG_AES && sg2_inline()) return sg2_cipher_process(req, encrypt);
+ if ((req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) || sg2_inline()) return sg2_cipher_process(req, encrypt);
  err = sg2_async_enter(req->base.flags);
  if (err) return err;
  r->req = req; r->encrypt = encrypt; INIT_WORK(&r->work, sg2_cipher_work);
@@ -164,33 +161,12 @@ static int sg2_cipher_submit(struct skcipher_request *req, bool encrypt)
 }
 static int sg2_cipher_encrypt(struct skcipher_request *req) { return sg2_cipher_submit(req, true); }
 static int sg2_cipher_decrypt(struct skcipher_request *req) { return sg2_cipher_submit(req, false); }
-/* The 4 weak + 12 semi-weak DES keys, compared without parity bits.
- * Avoid depending on the disabled software DES implementation solely for
- * validating hardware keys. The list is defined by the DES key schedule.
- */
-static int sg2_verify_des_key(struct crypto_skcipher *tfm, const u8 *key)
-{
- static const u64 weak[] = {
-  0x0101010101010101ULL, 0xfefefefefefefefeULL, 0x1f1f1f1f0e0e0e0eULL, 0xe0e0e0e0f1f1f1f1ULL,
-  0x01fe01fe01fe01feULL, 0xfe01fe01fe01fe01ULL, 0x1fe01fe00ef10ef1ULL, 0xe01fe01ff10ef10eULL,
-  0x01e001e001f101f1ULL, 0xe001e001f101f101ULL, 0x1ffe1ffe0efe0efeULL, 0xfe1ffe1ffe0efe0eULL,
-  0x011f011f010e010eULL, 0x1f011f010e010e01ULL, 0xe0fee0fef1fef1feULL, 0xfee0fee0fef1fef1ULL };
- u64 value = get_unaligned_be64(key) & 0xfefefefefefefefeULL;
- unsigned int i, match = 0;
- if (!(crypto_skcipher_get_flags(tfm) & CRYPTO_TFM_REQ_FORBID_WEAK_KEYS)) return 0;
- for (i = 0; i < ARRAY_SIZE(weak); i++) match |= value == (weak[i] & 0xfefefefefefefefeULL);
- return match ? -EINVAL : 0;
-}
 static int sg2_cipher_setkey(struct crypto_skcipher *tfm, const u8 *key, unsigned int len)
 {
  struct sg2_cipher_ctx *ctx = crypto_skcipher_ctx(tfm);
- bool valid = ctx->alg->hardware == HWCRYPTO_ALG_AES ? (len == 16 || len == 24 || len == 32) :
-  ctx->alg->hardware == HWCRYPTO_ALG_DES ? len == 8 : ctx->alg->hardware == HWCRYPTO_ALG_TDES ? len == 24 : len == 16;
  int err;
  memzero_explicit(ctx->key, sizeof(ctx->key)); ctx->keylen = 0;
- if (!valid) return -EINVAL;
- if (ctx->alg->hardware == HWCRYPTO_ALG_DES && sg2_verify_des_key(tfm, key)) return -EINVAL;
- if (ctx->alg->hardware == HWCRYPTO_ALG_TDES && verify_skcipher_des3_key(tfm, key)) return -EINVAL;
+ if (len != 16 && len != 24 && len != 32) return -EINVAL;
  if (ctx->fallback) {
   crypto_skcipher_clear_flags(ctx->fallback, CRYPTO_TFM_REQ_MASK);
   crypto_skcipher_set_flags(ctx->fallback, crypto_skcipher_get_flags(tfm) & CRYPTO_TFM_REQ_MASK);
@@ -229,9 +205,6 @@ static void sg2_cipher_exit(struct crypto_skcipher *tfm)
  SG2_CIPHER("ctr", name, id, 2, bs, min_key, max_key)
 static struct sg2_cipher_alg sg2_ciphers[] = {
  SG2_MODES("aes", HWCRYPTO_ALG_AES, 16, 16, 32),
- SG2_MODES("des", HWCRYPTO_ALG_DES, 8, 8, 8),
- SG2_MODES("des3_ede", HWCRYPTO_ALG_TDES, 8, 24, 24),
- SG2_MODES("sm4", HWCRYPTO_ALG_SM4, 16, 16, 16),
 };
 
 #define SG2_HASH_MAGIC 0x53473248

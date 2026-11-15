@@ -19,7 +19,6 @@ static bool crypto_b64_char(u8 c)
 
 static int crypto_validate(struct hwcrypto_request *r)
 {
- u32 block = 16;
  if (r->version != HWCRYPTO_ABI || r->algorithm < 1 ||
      r->algorithm >= HWCRYPTO_ALG_COUNT || r->encrypt > 1 ||
      memchr_inv(r->reserved, 0, sizeof(r->reserved))) return -EINVAL;
@@ -37,21 +36,10 @@ static int crypto_validate(struct hwcrypto_request *r)
   if (r->output_length < needed) return -EMSGSIZE;
   return 0;
  }
- if (r->mode > HWCRYPTO_MODE_CTR || r->output_length < r->length) return -EINVAL;
- switch (r->algorithm) {
- case HWCRYPTO_ALG_AES:
-  if (r->key_length != 16 && r->key_length != 24 && r->key_length != 32) return -EINVAL;
-  break;
- case HWCRYPTO_ALG_DES:
-  block = 8; if (r->key_length != 8) return -EINVAL; break;
- case HWCRYPTO_ALG_TDES:
-  block = 8; if (r->key_length != 16 && r->key_length != 24) return -EINVAL; break;
- case HWCRYPTO_ALG_SM4:
-  if (r->key_length != 16) return -EINVAL;
-  break;
- default: return -EINVAL;
- }
- if (r->mode != HWCRYPTO_MODE_CTR && r->length % block) return -EINVAL;
+ if (r->algorithm != HWCRYPTO_ALG_AES || r->mode > HWCRYPTO_MODE_CTR ||
+     r->output_length < r->length) return -EINVAL;
+ if (r->key_length != 16 && r->key_length != 24 && r->key_length != 32) return -EINVAL;
+ if (r->mode != HWCRYPTO_MODE_CTR && r->length % 16) return -EINVAL;
  return 0;
 }
 
@@ -59,9 +47,8 @@ static int crypto_prepare_descriptor(struct hwcrypto_request *r,
  u32 *input_size, u32 *output_size, u32 *result_size)
 {
  bool hash = crypto_is_hash(r->algorithm);
- u32 block = (r->algorithm == HWCRYPTO_ALG_DES || r->algorithm == HWCRYPTO_ALG_TDES) ? 8 : 16;
  u32 i, pad = 0;
- *input_size = (hash || r->algorithm == HWCRYPTO_ALG_BASE64) ? r->length : ALIGN(r->length, block);
+ *input_size = (hash || r->algorithm == HWCRYPTO_ALG_BASE64) ? r->length : ALIGN(r->length, 16);
  *output_size = 0;
  *result_size = hash ? 0 : r->length;
  memset(cur->in + r->length, 0, *input_size - r->length);
@@ -96,22 +83,13 @@ static int crypto_prepare_descriptor(struct hwcrypto_request *r,
  cur->d[6] = lower_32_bits(cur->out_dma); cur->d[7] = upper_32_bits(cur->out_dma);
  *output_size = *input_size;
  memcpy(&cur->d[10], r->key, r->key_length);
- switch (r->algorithm) {
- case HWCRYPTO_ALG_AES:
-  cur->d[0] |= BIT(9);
-  cur->d[1] = r->key_length == 16 ? BIT(5) : r->key_length == 24 ? BIT(4) : BIT(3);
-  break;
- case HWCRYPTO_ALG_SM4: cur->d[0] |= BIT(11); cur->d[1] = BIT(5); break;
- case HWCRYPTO_ALG_DES: cur->d[0] |= BIT(10); break;
- case HWCRYPTO_ALG_TDES:
-  cur->d[0] |= BIT(10); cur->d[1] = BIT(3);
-  if (r->key_length == 16) memcpy((u8 *)&cur->d[10] + 16, r->key, 8);
-  break;
- }
+ /* AES, the only cipher offered */
+ cur->d[0] |= BIT(9);
+ cur->d[1] = r->key_length == 16 ? BIT(5) : r->key_length == 24 ? BIT(4) : BIT(3);
  if (r->mode != HWCRYPTO_MODE_ECB) {
   cur->d[0] |= BIT(23);
   cur->d[1] |= r->mode == HWCRYPTO_MODE_CBC ? BIT(1) : BIT(2);
-  memcpy(&cur->d[18], r->iv, block);
+  memcpy(&cur->d[18], r->iv, 16);
  }
  // CTR uses the encryption primitive in both directions.
  if (r->encrypt || r->mode == HWCRYPTO_MODE_CTR) cur->d[1] |= BIT(0);
@@ -221,7 +199,8 @@ static long crypto_ioctl(unsigned int cmd, unsigned long arg)
  int err;
  if (cmd == HWCRYPTO_INFO) {
   struct hwcrypto_info info = { .version = HWCRYPTO_ABI,
-   .algorithms = GENMASK(HWCRYPTO_ALG_COUNT-1, 1),
+   .algorithms = BIT(HWCRYPTO_ALG_AES) | BIT(HWCRYPTO_ALG_SHA1) |
+    BIT(HWCRYPTO_ALG_SHA256) | BIT(HWCRYPTO_ALG_BASE64),
    .max_input = SG2_LARGE, .max_output = SG2_LARGE };
   err = mutex_lock_interruptible(&lock); if (err) return err;
   info.poisoned = poisoned;

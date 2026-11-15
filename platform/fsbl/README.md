@@ -44,6 +44,7 @@ same commit. The SDK archive in `sources.lock` does not contain `build/`.
 | `0011-ddr-from-sophgo-fsbl-2026.11.06.patch` | The DDR setup of sophgo/fsbl 2026.11.06: more SIP DDR parts, shorter write-DQ leveling (see "DDR") |
 | `0012-ddr3-1866-periodic-zq-calibration.patch` | DDR3-1866: ZQ short calibration every 128 ms |
 | `0013-pll-before-ddr.patch` | The PLLs are set up before the parameter loads and DDR init |
+| `0014-small-c906-700mhz.patch` | The small C906 (C906L) at its nominal 700 MHz (TPLL / 2) instead of 594 MHz (DISPPLL / 2) |
 
 ## Size and console
 

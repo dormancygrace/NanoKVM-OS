@@ -11,11 +11,6 @@ static bool crypto_is_hash(u32 alg)
 {
  return alg == HWCRYPTO_ALG_SHA1 || alg == HWCRYPTO_ALG_SHA256;
 }
-static bool crypto_b64_char(u8 c)
-{
- return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-  (c >= '0' && c <= '9') || c == '+' || c == '/';
-}
 
 static int crypto_validate(struct hwcrypto_request *r)
 {
@@ -30,12 +25,6 @@ static int crypto_validate(struct hwcrypto_request *r)
   return 0;
  }
  if (!r->output) return -EINVAL;
- if (r->algorithm == HWCRYPTO_ALG_BASE64) {
-  u32 needed = r->encrypt ? DIV_ROUND_UP(r->length, 3) * 4 : r->length / 4 * 3;
-  if (r->key_length || r->mode || (!r->encrypt && r->length % 4)) return -EINVAL;
-  if (r->output_length < needed) return -EMSGSIZE;
-  return 0;
- }
  if (r->algorithm != HWCRYPTO_ALG_AES || r->mode > HWCRYPTO_MODE_CTR ||
      r->output_length < r->length) return -EINVAL;
  if (r->key_length != 16 && r->key_length != 24 && r->key_length != 32) return -EINVAL;
@@ -47,8 +36,7 @@ static int crypto_prepare_descriptor(struct hwcrypto_request *r,
  u32 *input_size, u32 *output_size, u32 *result_size)
 {
  bool hash = crypto_is_hash(r->algorithm);
- u32 i, pad = 0;
- *input_size = (hash || r->algorithm == HWCRYPTO_ALG_BASE64) ? r->length : ALIGN(r->length, 16);
+ *input_size = hash ? r->length : ALIGN(r->length, 16);
  *output_size = 0;
  *result_size = hash ? 0 : r->length;
  memset(cur->in + r->length, 0, *input_size - r->length);
@@ -60,20 +48,6 @@ static int crypto_prepare_descriptor(struct hwcrypto_request *r,
   cur->d[0] |= BIT(19) | BIT(12);
   cur->d[1] = r->algorithm == HWCRYPTO_ALG_SHA256 ? 3 : 1;
   memcpy(&cur->d[10], r->state, r->algorithm == HWCRYPTO_ALG_SHA256 ? 32 : 20);
-  return 0;
- }
- if (r->algorithm == HWCRYPTO_ALG_BASE64) {
-  if (!r->encrypt) {
-   if (cur->in[r->length-1] == '=') pad++;
-   if (r->length >= 2 && cur->in[r->length-2] == '=') pad++;
-   for (i = 0; i < r->length-pad; i++) if (!crypto_b64_char(cur->in[i])) return -EINVAL;
-  }
-  *output_size = r->encrypt ? DIV_ROUND_UP(r->length, 3) * 4 : r->length / 4 * 3;
-  *result_size = *output_size - pad;
-  cur->d[0] |= BIT(13); cur->d[1] = r->encrypt;
-  cur->d[6] = lower_32_bits(cur->out_dma); cur->d[7] = upper_32_bits(cur->out_dma);
-  cur->d[10] = *output_size;
-  memset(cur->out, 0, *output_size);
   return 0;
  }
  cur->d[0] |= BIT(19);
@@ -186,9 +160,7 @@ static void crypto_clean_locked(const struct hwcrypto_request *r)
  /* Never touch the set whose DMA ownership is uncertain. */
  if (cur == lost) return;
  memzero_explicit(cur->in, n);
- if (r->algorithm == HWCRYPTO_ALG_BASE64)
-  memzero_explicit(cur->out, min(r->encrypt ? DIV_ROUND_UP(r->length, 3)*4 : r->length/4*3, SG2_SCRUB));
- else if (!crypto_is_hash(r->algorithm))
+ if (!crypto_is_hash(r->algorithm))
   memzero_explicit(cur->out, n);
  memzero_explicit(cur->d, DESC_BYTES);
 }
@@ -199,8 +171,7 @@ static long crypto_ioctl(unsigned int cmd, unsigned long arg)
  int err;
  if (cmd == HWCRYPTO_INFO) {
   struct hwcrypto_info info = { .version = HWCRYPTO_ABI,
-   .algorithms = BIT(HWCRYPTO_ALG_AES) | BIT(HWCRYPTO_ALG_SHA1) |
-    BIT(HWCRYPTO_ALG_SHA256) | BIT(HWCRYPTO_ALG_BASE64),
+   .algorithms = BIT(HWCRYPTO_ALG_AES) | BIT(HWCRYPTO_ALG_SHA1) | BIT(HWCRYPTO_ALG_SHA256),
    .max_input = SG2_LARGE, .max_output = SG2_LARGE };
   err = mutex_lock_interruptible(&lock); if (err) return err;
   info.poisoned = poisoned;

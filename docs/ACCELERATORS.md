@@ -122,7 +122,7 @@ Checked on the NanoKVM PCIe stand: three boots, `crng init done` at 0.000000 eac
 
 ## CryptoDMA
 
-Unlike the engines above, the CryptoDMA engine (AES, SM4, DES, SHA) is in use: its driver, `nanokvm_hwcrypto`, loads at boot unless `/etc/kvm/disable_hardware_aes` exists. The driver offers AES and the SHA hashes; SM4, DES and 3DES had no user and are not offered. Kernel users of these algorithms, such as IPsec or OpenVPN data channel offload with AES-GCM, reach it through the kernel Crypto API; the server's SRTP uses the driver's own device.
+Unlike the engines above, the CryptoDMA engine (AES, SM4, DES, SHA) is in use: its driver, `nanokvm_hwcrypto`, loads at boot unless `/etc/kvm/disable_hardware_aes` exists. The driver offers AES and the SHA hashes; SM4, DES, 3DES and Base64 had no user and are not offered. Base64 on the engine also lost to a table-driven C version on the C906 (80 to 90 MB/s): an encoding below 1 KiB and a decoding at any size took longer, 5.7 against 0.5 us for 48 bytes. Kernel users of these algorithms, such as IPsec or OpenVPN data channel offload with AES-GCM, reach it through the kernel Crypto API; the server's SRTP uses the driver's own device.
 
 **Callers that cannot sleep.** A caller in softirq, such as OpenVPN's kernel data channel encrypting a packet, runs its AES request (ECB, CBC, CTR, GCM, CCM, CMAC) on the engine at once, with its own set of DMA memory; the engine registers are owned under a spinlock with bottom halves off, for one transaction at a time. Until 4.1.0 such requests went through an ordered workqueue, which cost more than the encryption of a packet. The SHA hashes from such callers still use the queue. AES requests too short for the engine go to the software implementation, the kernel's AES block code for the C906 (0.6 us per block with a 128-bit key; the engine costs about 4.5 us before the first byte). The limits were measured per mode and key length (128 / 192 / 256 bits): ECB up to 112 / 96 / 96 bytes, CTR up to 144 / 128 / 112 bytes, GCM text up to 96 / 80 / 64 bytes. The kernel has no software `cbc(aes)`, so CBC requests use the engine at any length.
 
@@ -165,7 +165,7 @@ Streaming 2560x1440 H.265 at 60 fps over WebRTC (21 Mbit/s, 2100 packets a secon
 | class bit 11 | SM4; ECB, CBC, CTR | 237 us | 17 MB/s |
 | class bit 12, `d[1]` bit 1 clear | SHA-1 | 13.9 us | 295 MB/s |
 | class bit 12, `d[1]` bit 1 set | SHA-256 | 11.6 us | 350 to 370 MB/s |
-| class bit 13 | Base64 | | |
+| class bit 13 | Base64; `d[1]` bit 0 encodes | encode 18.7 us, decode 103 us (3 KiB, through `HWCRYPTO_RUN`) | encode up to 200, decode 31 MB/s (48 KiB) |
 
 - **Hashes.** `d[1]` bit 0 says that the caller gives the chaining state (bit 19: in the descriptor); with it clear the engine starts from the standard initial value. The result is in the registers at 0x1c0.
 - **One descriptor may be long.** 8 KiB, 64 KiB and 1 MiB run at the same rate as 4 KiB (AES-128-CTR 1 MiB in 3.15 ms, SHA-256 in 2.86 ms, a copy in 0.62 ms). The driver cuts a request of a caller that may sleep into pieces of 64 KiB (block ciphers, CCM, CMAC, the hashes, `HWCRYPTO_RUN`); GCM takes 16 KiB on the caller's memory and 4 KiB through the copies, callers in atomic context 4 KiB. Through the kernel providers, 1 MiB with pieces of 4 KiB and of 64 KiB: AES-CTR 11.3 and 7.7 ms (92 and 135 MB/s), AES-CBC 10.4 and 6.8 ms, CCM 15.6 and 11.2 ms (67 and 93 MB/s); the engine alone needs 3.2 ms.

@@ -1,0 +1,53 @@
+name: Component output cache
+description: Reuse verified component outputs; only main writes shared snapshots.
+inputs:
+  out:
+    required: true
+    description: Fixed absolute platform output directory
+  mode:
+    required: true
+    description: restore before compilation, save after successful compilation
+runs:
+  using: composite
+  steps:
+    - name: Component inputs
+      id: inputs
+      shell: bash
+      env:
+        OUT: ${{ inputs.out }}
+        MODE: ${{ inputs.mode }}
+      run: |
+        case "$MODE" in restore|save) ;; *) echo 'Use restore or save' >&2; exit 1 ;; esac
+        key=$(python3 scripts/build-components.py --out "$OUT" --key)
+        [ ${#key} = 64 ]
+        echo "key=components-v3-$ImageOS-${NANOKVM_KERNEL_PROFILE:-release}-$key" >> "$GITHUB_OUTPUT"
+        echo "prefix=components-v3-$ImageOS-${NANOKVM_KERNEL_PROFILE:-release}-" >> "$GITHUB_OUTPUT"
+
+    # Cache final outputs and small immutable ABI exports. Working source
+    # trees/objects are recreated only when a consumer needs rebuilding.
+    - name: Restore component outputs
+      if: inputs.mode == 'restore'
+      uses: actions/cache/restore@v6
+      with:
+        key: ${{ steps.inputs.outputs.key }}
+        restore-keys: ${{ steps.inputs.outputs.prefix }}
+        path: |
+          ${{ inputs.out }}/images
+          ${{ inputs.out }}/component-support
+          ${{ inputs.out }}/uboot/src/Licenses
+          ${{ inputs.out }}/opensbi/src/COPYING.BSD
+          ${{ inputs.out }}/tools/compress
+          ${{ inputs.out }}/component-state.json
+
+    - name: Save verified component outputs
+      if: inputs.mode == 'save' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      uses: actions/cache/save@v6
+      with:
+        key: ${{ steps.inputs.outputs.key }}
+        path: |
+          ${{ inputs.out }}/images
+          ${{ inputs.out }}/component-support
+          ${{ inputs.out }}/uboot/src/Licenses
+          ${{ inputs.out }}/opensbi/src/COPYING.BSD
+          ${{ inputs.out }}/tools/compress
+          ${{ inputs.out }}/component-state.json

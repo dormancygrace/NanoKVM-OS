@@ -361,3 +361,36 @@ OS builds do not download or pin add-ons, and add-on publication does not change
 declare capability dependencies; a version requiring a newer runtime cannot be
 installed on an incompatible OS. PicoClaw and acme.sh continue to use their
 existing upstream and Alpine update mechanisms.
+
+## Reusing compiled components in CI
+
+Release builds and output-hash checks keep a shared snapshot of completed
+components. Each component is reused only when its source files, upstream pins,
+CPU/toolchain configuration, dependencies and recorded output hashes still
+match. A web edit rebuilds the web component; a server edit rebuilds the server.
+Kernel changes also invalidate the modules, native libraries and other consumers
+of kernel headers. Shared build-script changes invalidate all components.
+
+The first build without a snapshot compiles everything. Subsequent builds restore
+finished outputs and small immutable kernel ABI exports. Pinned kernel sources
+and working headers are recreated only when a consumer must be rebuilt; Linux
+is not recompiled for that preparation. Only
+main writes shared snapshots; pull requests can read them. Keys, signed assets,
+root file systems and Go/Node SDKs are outside this cache. The compiler cache
+continues to speed components that do require rebuilding.
+
+Packages, their release metadata and signatures, corresponding source, and the
+root-file-system/image installation checks still run for every release.
+The ordinary platform/build.sh step commands remain available for a full build.
+Before cache lookup, input coverage is checked against Bash-parsed step/helper
+bodies and their upstream references. Undeclared repository paths or pins fail
+the build. Every rebuilt component and preparation step also runs under
+`strace` (required on local build hosts, installed by CI): actual repository
+reads by child scripts and compilers must be covered before a cache stamp is
+accepted. Python bytecode reads are checked against their source files.
+Compiler flags and the normalized kernel/patch options participate in the
+fingerprint; cache settings and release metadata do not.
+Unknown restored image files are pruned and newly undeclared outputs are rejected.
+
+Component logs list BUILD and REUSE decisions; --verify checks that every
+selected component can be reused without compiling it.

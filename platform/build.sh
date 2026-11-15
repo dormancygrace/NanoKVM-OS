@@ -108,7 +108,11 @@ export GIT_CEILING_DIRECTORIES=$out
 
 # The Release workflow sets the versions of a release; local builds read
 # firmware/alpine/release.env.
-version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")}
+version=
+case " ${steps[*]} " in
+    *" payloads "* | *" packages "* | *" rootfs "* | *" image "* | *" stock-installer "* | *" source "*)
+        version=${NANOKVM_VERSION:-$(sed -n 's/^NANOKVM_VERSION=//p' "$repo/firmware/alpine/release.env")} ;;
+esac
 # Official Alpine packages.
 profile=stock
 release=7.3.4-nanokvm-os-r10
@@ -275,7 +279,14 @@ toolchain() {
     echo "$id" > "$bo/.platform-toolchain"
 }
 
-kernel() {
+kernel_make() {
+    KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
+        KBUILD_BUILD_TIMESTAMP=$kernel_timestamp make -C "$ksrc" O="$kbuild" ARCH=riscv \
+        CROSS_COMPILE="$cross" CC="${cross}gcc" LOCALVERSION= "KCFLAGS=$isa" \
+        PAHOLE=nkos-no-pahole RUSTC=nkos-no-rustc BINDGEN=nkos-no-bindgen "$@"
+}
+
+kernel_source() {
     rm -rf "$out/kernel"
     mkdir -p "$out/kernel" "$kbuild"
     tar -xf "$dl/linux-7.3.4.tar.xz" -C "$out/kernel"
@@ -295,10 +306,7 @@ kernel() {
     # Kconfig takes the last assignment of an option.
     [ "$kernel_profile" = release ] || cat "$here/kernel/config-debug.fragment" >> "$kbuild/.config"
     # Host pahole, rustc and bindgen would be recorded in .config; ignore them.
-    local make=(make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" CC="${cross}gcc" LOCALVERSION= "KCFLAGS=$isa"
-                PAHOLE=nkos-no-pahole RUSTC=nkos-no-rustc BINDGEN=nkos-no-bindgen)
-    KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
-        KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" olddefconfig
+    kernel_make olddefconfig
     if [ "$kernel_profile" = release ]; then
         diff -u "$out/kernel/expected.config" "$kbuild/.config"
     else
@@ -308,23 +316,60 @@ kernel() {
         done
     fi
     grep -qx "CONFIG_LTO_NONE=y" "$kbuild/.config"
-    KBUILD_BUILD_USER=nanokvm KBUILD_BUILD_HOST=builder KBUILD_BUILD_VERSION=1 \
-        KBUILD_BUILD_TIMESTAMP=$kernel_timestamp "${make[@]}" -j"$jobs" Image modules
+}
+
+kernel() {
+    kernel_source
+    kernel_make -j"$jobs" Image modules
     [ "$(cat "$kbuild/include/config/kernel.release")" = "$release" ]
     mkdir -p "$img"
     cp "$kbuild/arch/riscv/boot/Image" "$img/Image"
+    kernel_exports
+}
+
+kernel_exports() {
+    local state=$out/component-support/kernel strip=()
+    rm -rf "$state"
+    mkdir -p "$state"
+    cp "$kbuild/.config" "$kbuild/Module.symvers" "$kbuild/System.map" "$state/"
+    cp "$kbuild/usr/gen_init_cpio" "$kbuild/include/generated/utsversion.h" "$state/"
+    [ "$kernel_profile" = release ] || strip=(INSTALL_MOD_STRIP=1)
+    kernel_make INSTALL_MOD_PATH="$state/modules" DEPMOD=true "${strip[@]}" modules_install
+    rm -f "$state/modules/lib/modules/$release/build" "$state/modules/lib/modules/$release/source"
+}
+
+# Recreate working headers/tools from pinned sources, without rebuilding Linux.
+# Only immutable ABI exports are restored from the component cache.
+kernel_state() {
+    local state=$out/component-support/kernel name
+    for name in .config Module.symvers System.map gen_init_cpio utsversion.h; do
+        [ -s "$state/$name" ] || { echo "Missing cached kernel export: $name" >&2; return 1; }
+    done
+    kernel_source
+    kernel_make -j"$jobs" modules_prepare
+    cmp "$state/.config" "$kbuild/.config"
+    cp "$state/Module.symvers" "$state/System.map" "$kbuild/"
+    mkdir -p "$kbuild/usr"
+    cp "$state/gen_init_cpio" "$kbuild/usr/"
+    cp "$state/utsversion.h" "$kbuild/include/generated/"
+}
+
+osdrv_source() {
+    local dest=$out/modules/sources/osdrv
+    rm -rf "$dest"
+    unpack_git osdrv . "$dest"
+    apply_patches "$dest" "$here/modules/osdrv"
 }
 
 modules() {
     local m=$out/modules src name module symbols=() maps target
     rm -rf "$m" "${img:?}/lib"
     src=$m/sources
-    unpack_git osdrv . "$src/osdrv"
+    osdrv_source
     unpack_git aic8800 src/SDIO/driver_fw/driver/aic8800 "$src/wifi"
     cp -r "$here/modules/hwcrypto" "$src/aes"
     cp -r "$here/modules/cv181x-aximon" "$src/aximon"
     unpack_git sipeed-sdk osdrv/extdrv/wireless/rtl8733bs "$m/rtl8733bs"
-    apply_patches "$src/osdrv" "$here/modules/osdrv"
     apply_patches "$src/wifi" "$here/modules/aic8800"
     apply_patches "$m/rtl8733bs" "$here/modules/rtl8733bs"
 
@@ -352,12 +397,10 @@ modules() {
         'USER_EXTRA_CFLAGS=-DCONFIG_LITTLE_ENDIAN -DCONFIG_IOCTL_CFG80211 -DRTW_USE_CFG80211_STA_EVENT' \
         -j"$jobs" modules
 
-    # Staged like the package: in-tree modules as built, extra modules stripped.
-    # The debug kernel builds DWARF for vmlinux; its installed modules drop it.
-    local strip=()
-    [ "$kernel_profile" = release ] || strip=(INSTALL_MOD_STRIP=1)
-    make -C "$ksrc" O="$kbuild" ARCH=riscv CROSS_COMPILE="$cross" INSTALL_MOD_PATH="$img" DEPMOD=true "${strip[@]}" modules_install
-    rm -f "$img/lib/modules/$release/build" "$img/lib/modules/$release/source"
+    # Immutable in-tree modules accompany the cached kernel ABI exports.
+    # Out-of-tree modules can be rebuilt from modules_prepare + Module.symvers.
+    mkdir -p "$img/lib"
+    cp -a "$out/component-support/kernel/modules/lib/." "$img/lib/"
     mkdir -p "$img/lib/modules/$release/extra"
     while IFS= read -r -d '' module; do
         target=$img/lib/modules/$release/extra/${module##*/}
@@ -561,11 +604,11 @@ boot() {
 # SOPHGO media libraries (cvi_mpi with native/cvi_mpi/*.patch), the MMF
 # wrapper and capture library: the six-file HDMI-light runtime bundle.
 native() {
-    local n=$out/native lib
+    local n=$out/native lib dependency
     rm -rf "$n" "${img:?}/native" "$img/native-licenses"
     mkdir -p "$n/src" "$img/native"
     unpack_git cvi-mpi . "$n/src/cvi_mpi"
-    for lib in sensors json-c miniz inih; do unpack_git "$lib" . "$n/src/$lib"; done
+    for dependency in sensors json-c miniz inih; do unpack_git "$dependency" . "$n/src/$dependency"; done
     apply_patches "$n/src/json-c" "$here/native/json-c"
     apply_patches "$n/src/cvi_mpi" "$here/native/cvi_mpi"
     apply_patches "$n/src/sensors" "$repo/firmware/sensor/patches"
@@ -1382,19 +1425,33 @@ check_output_kernel_profile() {
     printf '%s\n' "$kernel_profile" > "$stamp.tmp"
     mv "$stamp.tmp" "$stamp"
 }
+# The component planner reads Bash's own parsed function bodies when checking
+# that its declared inputs cover every repository path used by a build step.
+if [ "${#steps[@]}" = 1 ] && [ "${steps[0]}" = component-functions ]; then
+    declare -f
+    exit 0
+fi
+
 case " ${steps[*]} " in
-    *" kernel "* | *" modules "* | *" initramfs "* | *" boot "* | *" payloads "* | *" packages "* | *" rootfs "* | *" image "* | *" stock-installer "*)
+    *" kernel "* | *" kernel-state "* | *" modules "* | *" initramfs "* | *" boot "* | *" payloads "* | *" packages "* | *" rootfs "* | *" image "* | *" stock-installer "*)
         check_output_kernel_profile ;;
 esac
 
 # Buildroot requires invalidation when the SDK configuration changes. A
 # namespace isolates entries even when local builds share a cache directory.
-export CCACHE_NAMESPACE="nkos-$(toolchain_id)"
+for step in "${steps[@]}"; do
+    case $step in
+        toolchain|kernel|kernel-state|modules|uboot|opensbi|fip|boot|native|tpu|system|server|tools)
+            export CCACHE_NAMESPACE="nkos-$(toolchain_id)"; break ;;
+    esac
+done
 
 for step in "${steps[@]}"; do
     case $step in
         fetch|toolchain|kernel|modules|uboot|opensbi|fip|initramfs|boot|native|tpu|system|server|web|tools|firmware|hashes|payloads)
             log "$step"; "$step" ;;
+        kernel-state) log kernel-state; kernel_state ;;
+        osdrv-source) log osdrv-source; osdrv_source ;;
         packages|rootfs|image|clean)
             if [ "${NANOKVM_USERNS:-0}" = 1 ]; then log "$step"; "$step"; else in_userns "$step"; fi ;;
         stock-installer) log stock-installer; stock_installer ;;

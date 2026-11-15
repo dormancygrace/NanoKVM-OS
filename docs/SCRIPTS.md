@@ -21,6 +21,8 @@ device and runs them as root: on demand, or once at every startup.
 Scripts run as root with the full rights of the device. Run only scripts you
 have read.
 
+To run a script on a schedule, see [Scheduled tasks](SCHEDULE.md).
+
 ## Run at startup
 
 Open a script and turn on **Run at startup**. The script then runs once after

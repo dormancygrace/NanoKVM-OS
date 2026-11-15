@@ -77,7 +77,15 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/script/run", service.RunScript)                // run script
 	admin.DELETE("/vm/script", service.DeleteScript)               // delete script
 	admin.POST("/vm/script/autostart", service.SetScriptAutostart) // run a script at startup
-	admin.POST("/vm/script/python", service.InstallPython)         // install Python 3 for .py scripts
+
+	// Scheduled tasks (Services > Scheduled tasks), in root's crontab.
+	admin.GET("/vm/schedule", service.GetScheduledTasks)
+	admin.POST("/vm/schedule", service.SaveScheduledTask)
+	admin.DELETE("/vm/schedule", service.DeleteScheduledTask)
+	admin.POST("/vm/schedule/preview", service.PreviewSchedule)
+	admin.POST("/vm/schedule/run", service.RunScheduledTask)
+	admin.GET("/vm/schedule/log", service.GetScheduledTaskLog)
+	admin.POST("/vm/script/python", service.InstallPython) // install Python 3 for .py scripts
 
 	admin.GET("/vm/device/virtual", service.GetVirtualDevice)     // get virtual device
 	admin.POST("/vm/device/virtual", service.UpdateVirtualDevice) // update virtual device

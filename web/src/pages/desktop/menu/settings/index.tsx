@@ -153,6 +153,9 @@ const RustDeskControls = lazyPage(() =>
 const BmcSettingsPage = lazyPage(() =>
   import('./system/bmc').then((module) => ({ default: module.BmcSettingsPage }))
 );
+const ScheduledTasks = lazyPage(() =>
+  import('./schedule').then((module) => ({ default: module.ScheduledTasks }))
+);
 const Software = lazyPage(() =>
   import('./software').then((module) => ({ default: module.Software }))
 );
@@ -306,6 +309,7 @@ export const Settings = ({
           <HostSensorsPage />
         ) : undefined,
         'services-notifications': <Notifications />,
+        'services-schedule': <ScheduledTasks />,
         system: null,
         'system-general': <System />,
         'system-users': <Account />,

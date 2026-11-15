@@ -34,6 +34,40 @@ export function formatDeviceTime(
   return `${formatDeviceDate(value, preferences.timezone, dateFormat)} ${new Intl.DateTimeFormat(locale, timeOptions).format(value)}`;
 }
 
+// A time to the minute, such as a planned run: weekday, date and time
+// without seconds, in the device's time zone, 12/24-hour format and date order.
+export function formatDeviceMinute(value: number, preferences: TimePreferences, locale?: string) {
+  const timeZone = preferences.timezone;
+  const time = new Intl.DateTimeFormat(locale, {
+    timeZone,
+    hourCycle: preferences.format === '12' ? 'h12' : 'h23',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(value);
+  const weekday = new Intl.DateTimeFormat(locale, { timeZone, weekday: 'short' }).format(value);
+  const dateFormat = preferences.dateFormat ?? 'auto';
+  const date =
+    dateFormat === 'auto'
+      ? new Intl.DateTimeFormat(locale, { timeZone, month: 'short', day: 'numeric' }).format(value)
+      : formatDeviceDate(value, timeZone, dateFormat);
+  return `${weekday}, ${date} ${time}`;
+}
+
+// A clock time of day (no date, no time zone) in the 12/24-hour format.
+export function formatClock(
+  hour: number,
+  minute: number,
+  preferences: TimePreferences,
+  locale?: string
+) {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: 'UTC',
+    hourCycle: preferences.format === '12' ? 'h12' : 'h23',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(Date.UTC(2026, 0, 1, hour, minute));
+}
+
 // A fixed order needs fixed digits: the parts come from a numeric format.
 function formatDeviceDate(
   value: number,

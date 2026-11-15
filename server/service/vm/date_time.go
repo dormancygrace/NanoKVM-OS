@@ -77,23 +77,35 @@ var crondZoneStale = "/run/nanokvm/crond-zone-stale"
 // is 0 for a started service and 3 for a stopped one, which reads the zone
 // when it starts; anything else is a failure, and so is a failed restart:
 // both leave the mark for the next save.
+//
+// The mark says what the failed attempt knew: "running" when crond ran and
+// its restart failed (it may have stopped it and not started it again), so
+// a crond found stopped later is started; "unknown" when its state could not
+// be read, so a stopped one is left as it is. The mark goes only once crond
+// is known to run with the new zone, or to be stopped on purpose.
 func restartCrondForZone() error {
+	pending, _ := os.ReadFile(crondZoneStale)
+	mark := func(state string) {
+		_ = os.MkdirAll(filepath.Dir(crondZoneStale), 0o755)
+		_ = os.WriteFile(crondZoneStale, []byte(state+"\n"), 0o644)
+	}
+	action := "restart"
 	_, err := crontab.Exec(nil, "rc-service", "crond", "status")
 	var exit *exec.ExitError
 	if errors.As(err, &exit) && exit.ExitCode() == 3 {
-		_ = os.Remove(crondZoneStale)
-		return nil
-	}
-	if err == nil {
-		var output []byte
-		if output, err = crontab.Exec(nil, "rc-service", "crond", "restart"); err != nil {
-			err = fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
+		if strings.TrimSpace(string(pending)) != "running" {
+			_ = os.Remove(crondZoneStale)
+			return nil
 		}
+		action, err = "start", nil
 	}
 	if err != nil {
-		_ = os.MkdirAll(filepath.Dir(crondZoneStale), 0o755)
-		_ = os.WriteFile(crondZoneStale, nil, 0o644)
-		return err
+		mark("unknown")
+		return fmt.Errorf("cannot ask whether cron runs: %w", err)
+	}
+	if output, err := crontab.Exec(nil, "rc-service", "crond", action); err != nil {
+		mark("running")
+		return fmt.Errorf("cron %s: %w: %s", action, err, strings.TrimSpace(string(output)))
 	}
 	_ = os.Remove(crondZoneStale)
 	return nil

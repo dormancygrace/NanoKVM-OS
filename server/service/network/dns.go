@@ -27,7 +27,6 @@ const (
 	bootResolvFile    = "/boot/resolv.conf"
 	bootResolvBackup  = "/boot/resolv.conf.manual.bak"
 	dhcpResolvFile    = "/etc/resolv.conf.dhcp"
-	tmpResolvFile     = "/tmp/resolv.conf"
 	udhcpcDNSHookName = "99-nanokvm-dns"
 
 	maxDNSServers = 6
@@ -281,11 +280,6 @@ func readDHCPResolvConfig(allowEffectiveFallback bool) (resolvConfig, error) {
 		return config, nil
 	}
 
-	tmpConfig, tmpErr := parseResolvConfig(tmpResolvFile)
-	if tmpErr == nil && len(tmpConfig.Servers) > 0 {
-		return tmpConfig, nil
-	}
-
 	if allowEffectiveFallback {
 		effective, effectiveErr := parseResolvConfig(etcResolvFile)
 		if effectiveErr == nil && len(effective.Servers) > 0 {
@@ -295,9 +289,6 @@ func readDHCPResolvConfig(allowEffectiveFallback bool) (resolvConfig, error) {
 
 	if err != nil && !os.IsNotExist(err) {
 		return resolvConfig{}, err
-	}
-	if tmpErr != nil && !os.IsNotExist(tmpErr) {
-		return resolvConfig{}, tmpErr
 	}
 
 	return resolvConfig{}, nil

@@ -125,6 +125,13 @@ func ValidatePassword(password string) error {
 	if length < 8 || length > 72 {
 		return errors.New("password must be between 8 and 72 bytes")
 	}
+	// Root's password is set from it through passwd, one line each: a line
+	// break would set another password.
+	for _, r := range password {
+		if r < 0x20 || r == 0x7f {
+			return errors.New("password must not contain control characters")
+		}
+	}
 	return nil
 }
 

@@ -51,7 +51,7 @@ func snapshotNetwork(c *Config) error {
 		return errors.New("use the device's direct IPv4 address; proxy/VPN and hostname handoff is unsupported")
 	}
 	if c.WiFi {
-		if _, e := os.Stat("/tmp/wifiap"); !errors.Is(e, os.ErrNotExist) {
+		if _, e := os.Stat("/run/nanokvm-wifiap"); !errors.Is(e, os.ErrNotExist) {
 			return errors.New("Wi-Fi access-point standby is unsupported; join a Wi-Fi network or use Ethernet")
 		}
 	}

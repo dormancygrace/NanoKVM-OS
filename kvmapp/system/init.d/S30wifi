@@ -6,7 +6,7 @@
 : "${NANOKVM_WIFI_ETC_DIR:=/etc/kvm}"
 : "${NANOKVM_WIFI_KVM_DIR:=/kvmapp/kvm}"
 : "${NANOKVM_WIFI_RUN_DIR:=/run/nanokvm-wifi}"
-: "${NANOKVM_WIFI_AP_FLAG:=/tmp/wifiap}"
+: "${NANOKVM_WIFI_AP_FLAG:=/run/nanokvm-wifiap}"
 : "${NANOKVM_WIFI_UID_FILE:=/sys/class/cvi-base/base_uid}"
 : "${NANOKVM_WPA_PASSPHRASE:=wpa_passphrase}"
 : "${NANOKVM_WPA_SUPPLICANT:=wpa_supplicant}"
@@ -60,7 +60,7 @@ FALLBACK_BGSCAN=simple:30:-70:120
 HOSTAPD_CONFIG=$NANOKVM_WIFI_RUN_DIR/hostapd.conf
 # The access point the administrator turns on instead of joining a network
 # (the server writes one file per setting). Unlike the setup access point of
-# the button, it leaves /tmp/wifiap alone: that flag opens the setup page.
+# the button, it leaves /run/nanokvm-wifiap alone: that flag opens the setup page.
 AP_PREFIX=$NANOKVM_WIFI_ETC_DIR/wifi.ap
 USER_AP_FLAG=$NANOKVM_WIFI_RUN_DIR/ap-user
 # The band the access point runs on, for the server: 2.4 while a 5 GHz one
@@ -810,7 +810,7 @@ wifi_event() {
 }
 
 # ap_start [user]: the setup access point of the button (ap.ssid and ap.pass
-# from kvm_system, /tmp/wifiap), or with "user" the administrator's, from
+# from kvm_system, /run/nanokvm-wifiap), or with "user" the administrator's, from
 # the wifi.ap.* settings.
 ap_start() {
     mode=${1:-setup}

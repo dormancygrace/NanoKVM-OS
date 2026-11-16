@@ -1,6 +1,22 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+// The address of a link the chat may follow: an absolute http(s) URL of
+// another host. Text on the host's screen can steer the model, so a link
+// into this device's own interface (a page, an API route) is shown as text.
+function externalHref(href: string | undefined) {
+  if (!href) return undefined;
+  try {
+    const url = new URL(href, window.location.href);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+    if (url.host === window.location.host || url.hostname === window.location.hostname)
+      return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
+
 type MarkdownContentProps = {
   content?: string;
   className?: string;
@@ -25,16 +41,21 @@ export const MarkdownContent = ({ content, className }: MarkdownContentProps) =>
               {children}
             </p>
           ),
-          a: ({ children, href }) => (
-            <a
-              className="text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
-              href={href}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ children, href }) => {
+            const target = externalHref(href);
+            return target ? (
+              <a
+                className="text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+                href={target}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                {children}
+              </a>
+            ) : (
+              <span className="text-sky-300">{children}</span>
+            );
+          },
           ul: ({ children }) => <ul className="my-2 list-disc pl-5">{children}</ul>,
           ol: ({ children }) => <ol className="my-2 list-decimal pl-5">{children}</ol>,
           li: ({ children }) => <li className="my-1 leading-6 wrap-break-word">{children}</li>,

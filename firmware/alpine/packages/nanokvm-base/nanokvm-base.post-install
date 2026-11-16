@@ -90,7 +90,7 @@ fi
 if ! grep -qE '^[^#]+[[:space:]]+/data[[:space:]]' /etc/fstab 2>/dev/null; then
     printf '%s\n' '/dev/mmcblk0p3 /data exfat noauto,rw,nosuid,nodev,noexec 0 0' >> /etc/fstab
 fi
-tmpfs_entry='tmpfs /tmp tmpfs rw,nosuid,nodev,mode=1777,size=64M 0 0'
+tmpfs_entry='tmpfs /tmp tmpfs rw,nosuid,nodev,noexec,mode=1777,size=64M 0 0'
 if ! grep -qE '^[^#]+[[:space:]]+/tmp[[:space:]]' /etc/fstab 2>/dev/null; then
     printf '%s\n' "$tmpfs_entry" >> /etc/fstab
 fi

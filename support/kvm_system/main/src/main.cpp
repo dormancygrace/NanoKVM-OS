@@ -77,7 +77,7 @@ void* thread_key_handle(void *)
 				// printf ("[kvmk]按键抬起\n");
 				press_cycle = kvms::ticks_ms() - press_time;
 				if(press_cycle >= KEY_LONGLONG_PRESS){
-					kvm_reset_password();
+					kvm_factory_reset();
 				} else if (press_cycle >= KEY_LONG_PRESS && press_cycle < KEY_LONGLONG_PRESS){
 					// long
 					// printf ("[kvmk]按键长按\n");

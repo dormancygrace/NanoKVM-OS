@@ -25,7 +25,7 @@ import (
 // point): Wi-Fi becomes a network of its own instead of joining one, until
 // it is turned off. One file per setting in /etc/kvm, read by S30wifi
 // (ap_start user). The setup access point of the device's button
-// (kvm_system, /tmp/wifiap, /kvmapp/kvm/ap.*) is separate: only it opens the
+// (kvm_system, /run/nanokvm-wifiap, /kvmapp/kvm/ap.*) is separate: only it opens the
 // unauthenticated setup page.
 var (
 	wifiAPPrefix  = "/etc/kvm/wifi.ap"

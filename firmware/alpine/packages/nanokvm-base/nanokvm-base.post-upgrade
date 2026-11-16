@@ -108,9 +108,14 @@ if [ "$syslog_changed" = yes ]; then
 fi
 unset syslog_conf syslog_marker syslog_changed
 
-tmpfs_entry='tmpfs /tmp tmpfs rw,nosuid,nodev,mode=1777,size=64M 0 0'
+tmpfs_entry='tmpfs /tmp tmpfs rw,nosuid,nodev,noexec,mode=1777,size=64M 0 0'
 if ! grep -qE '^[^#]+[[:space:]]+/tmp[[:space:]]' /etc/fstab 2>/dev/null; then
     printf '%s\n' "$tmpfs_entry" >> /etc/fstab
+elif grep -qE '^tmpfs[[:space:]]+/tmp[[:space:]]+tmpfs[[:space:]]+rw,nosuid,nodev,mode=1777,size=64M[[:space:]]' /etc/fstab; then
+    # Nothing runs programs from /tmp: the line this package wrote before gets
+    # noexec, now and from the next boot. A line of another origin stays.
+    sed -i -E 's#^tmpfs([[:space:]]+)/tmp([[:space:]]+)tmpfs([[:space:]]+)rw,nosuid,nodev,mode=1777,size=64M([[:space:]])#tmpfs\1/tmp\2tmpfs\3rw,nosuid,nodev,noexec,mode=1777,size=64M\4#' /etc/fstab
+    if [ -e /run/openrc/softlevel ]; then mount -o remount,noexec /tmp 2>/dev/null || true; fi
 fi
 unset tmpfs_entry
 

@@ -12,6 +12,11 @@ key="nkos.dhcpv6.$interface"
 MODE=/etc/kvm/network/dns.mode
 BOOT=/boot/resolv.conf
 
+# A lease's values reach ip and resolv.conf only as address literals and
+# domain names: anything else could add lines to resolv.conf.
+address_literal() { case "$1" in "" | *[!0-9A-Fa-f:.]*) return 1 ;; esac; }
+domain_name() { case "$1" in "" | -* | *[!A-Za-z0-9.-]*) return 1 ;; esac; }
+
 drop() {
     if [ -f "$record" ]; then
         ip -6 addr del "$(cat "$record")" dev "$interface" 2>/dev/null || true
@@ -25,8 +30,14 @@ name_servers() {
     mode=$(cat "$MODE" 2>/dev/null || true)
     if [ -n "${dns:-}" ] && { [ "$mode" = dhcp ] || { [ -z "$mode" ] && [ ! -f "$BOOT" ]; }; }; then
         {
-            if [ -n "${search:-}" ]; then echo "search $search"; fi
-            for server in $dns; do echo "nameserver $server"; done
+            domains=
+            for domain in ${search:-}; do
+                domain_name "$domain" && domains="$domains $domain"
+            done
+            if [ -n "$domains" ]; then echo "search$domains"; fi
+            for server in $dns; do
+                address_literal "$server" && echo "nameserver $server"
+            done
         } | resolvconf -a "$key"
     else
         resolvconf -d "$key" -f
@@ -35,7 +46,7 @@ name_servers() {
 
 case "${1:-}" in
     bound|renew)
-        [ -n "${ipv6:-}" ] || exit 0
+        address_literal "${ipv6:-}" || exit 0
         address="$ipv6/128"
         if [ -f "$record" ] && [ "$(cat "$record")" != "$address" ]; then
             ip -6 addr del "$(cat "$record")" dev "$interface" 2>/dev/null || true

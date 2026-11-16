@@ -10,6 +10,6 @@ uint8_t wifi_connected(void);
 void kvm_start_wifi_config_process(void);
 void kvm_wifi_web_config_process();
 void kvm_wifi_config_process();
-uint8_t kvm_reset_password(void);
+uint8_t kvm_factory_reset(void);
 
 #endif // SYSTEM_CTRL_H_

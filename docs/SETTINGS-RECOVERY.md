@@ -62,6 +62,14 @@ if APK cannot resolve it, the operation reports failure instead of forcing it.
 Network settings reset regardless of these choices. Reconnect using Ethernet and
 DHCP; configure Wi-Fi/VPN again. USB composition returns to the current defaults.
 
+### Without the web interface: the BOOT button
+
+Holding the device's BOOT button for 9 seconds resets the settings as above
+without **Keep users** and with **Keep apps**, and the device restarts. Web
+access returns to `admin` / `admin`, which must be changed at the first sign-in;
+Wi-Fi, VPN and every other secret are reset with the settings, so the button
+gives nobody the device's configuration.
+
 ## Applying and recovering an interrupted operation
 
 The preview is bound to the selected options, archive and current settings. If

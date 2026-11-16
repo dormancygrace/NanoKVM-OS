@@ -1,9 +1,11 @@
 #include "system_ctrl.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/random.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 
@@ -167,29 +169,25 @@ void kvm_wifi_config_process()
 	}
 }
 
-uint8_t kvm_reset_password(void)
+/*
+ * The BOOT button held for the long press: a factory reset of the settings,
+ * as Settings > Factory reset without "Keep users" and with "Keep apps" (the
+ * server stages it and reboots). Web access returns to admin/admin, which
+ * must be changed at the first sign-in; root's password is locked, SSH keys
+ * go and SSH is off; Wi-Fi, VPN and other secrets are reset too, so the
+ * button gives nobody the device's configuration.
+ */
+uint8_t kvm_factory_reset(void)
 {
-	FILE *fp = popen("bash", "w");
-    if (fp == NULL) {
-        perror("popen");
-        return 0;
-    }
-
-    fputs("passwd root\n", fp);
-	kvms::sleep_ms(10);
-    fputs("root\n", fp);
-	kvms::sleep_ms(10);
-    fputs("root\n", fp);
-	kvms::sleep_ms(10);
-    fputs("rm /etc/kvm/pwd\n", fp);
-	kvms::sleep_ms(10);
-    fputs("sync\n", fp);
-	kvms::sleep_ms(10);
-    fputs("exit\n", fp); // 退出 bash
-
-    if (pclose(fp) == -1) {
-        perror("pclose");
-        return 1;
-    }
-    return 0;
+	const pid_t pid = fork();
+	if (pid == 0) {
+		execl("/kvmapp/server/NanoKVM-Server", "NanoKVM-Server", "factory-reset", (char *)NULL);
+		_exit(127);
+	}
+	int status = 0;
+	if (pid < 0 || waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+		fprintf(stderr, "kvm_factory_reset: the factory reset failed\n");
+		return 1;
+	}
+	return 0;
 }

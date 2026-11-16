@@ -30,15 +30,26 @@ TCP bulk transfers between a PC and the device over Ethernet, 60 MiB in
 | Device sends | 94.5 Mbit/s, 80 ms/MiB | 94.7 Mbit/s, 56 ms/MiB |
 | Device receives | 81 Mbit/s (CPU-bound), 105 ms/MiB | 94.7 Mbit/s, 31 ms/MiB |
 
-Ping from the PC while the device sends is unchanged. A packet that arrives
-during a transfer waits at most 1 ms for the next poll. While the device
-receives at the full 100 Mbit/s, pings queue behind the transfer on the
-sending side, as on any saturated link.
+Ping from the PC, 40 samples per case in the same measurements:
+
+| Case | Without | With |
+| --- | --- | --- |
+| Idle | average 0, maximum 1 ms | average 0, maximum 1 ms |
+| Device sends | average 0, maximum 4 ms | average 0, maximum 5 ms |
+| Device receives | average 0, maximum 7 ms | average 7, maximum 51 ms |
+
+The 1 ms value is the repoll timer interval, not an upper bound on packet
+latency: scheduling and queueing under load can add delay. The receive
+comparison also changed throughput from about 81 Mbit/s to line rate, so it
+does not isolate the cause or location of the extra latency. Link saturation
+may contribute, but these measurements do not establish that the delay is
+entirely on the PC. Latency-sensitive use during bulk transfers must account
+for this throughput/latency trade-off.
 
 ## Scope and turning it off
 
 The setting covers the whole physical eth0, including traffic on an Ethernet
-VLAN. Wi-Fi and USB networking do not use NAPI and are not affected.
+VLAN. Only eth0 is configured; Wi-Fi and USB interfaces are not modified.
 
 To return to an interrupt per packet until the next Ethernet start, as root:
 

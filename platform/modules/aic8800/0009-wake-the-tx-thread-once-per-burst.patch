@@ -1,0 +1,39 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: wake the TX thread once per burst of frames
+
+aicwf_frame_tx woke the SDIO TX thread for every frame. That thread runs
+SCHED_FIFO, so at the first frame of a burst (the segments of a UDP GSO
+send, a qdisc batch) it preempted the sender and sent what was queued so
+far: a burst of 16 datagrams went out in several SDIO transfers, each with
+a host claim, a flow-control register read (CMD52) and a data write
+(CMD53), each waited for. Wake it only when no more frames of the burst
+follow (netdev_xmit_more), and when flow control stops the queue, since
+the stack then sends nothing more.
+
+diff --git a/aic8800_fdrv/aicwf_sdio.c b/aic8800_fdrv/aicwf_sdio.c
+--- a/aic8800_fdrv/aicwf_sdio.c
++++ b/aic8800_fdrv/aicwf_sdio.c
+@@ -2003,7 +2003,12 @@
+ 
+     atomic_inc(&sdiodev->tx_priv->tx_pktcnt);
+     spin_unlock_bh(&sdiodev->tx_priv->txqlock);
+-    complete(&bus_if->bustx_trgg);
++    /* More frames of the same burst follow (UDP GSO segments, a qdisc
++     * batch): wake the TX thread for the last one only. The thread runs
++     * SCHED_FIFO, so waking it at the first preempted this sender and sent
++     * a burst in several SDIO transfers, each with its flow-control read. */
++    if (!netdev_xmit_more())
++        complete(&bus_if->bustx_trgg);
+ 
+ 	flowctrl:
+ #ifdef CONFIG_TX_NETIF_FLOWCTRL
+@@ -2014,6 +2019,9 @@
+ 		if (!sdiodev->flowctrl) {
+ 			sdiodev->flowctrl = 1;
+ 			aicwf_sdio_tx_netif_flowctrl(sdiodev->rwnx_hw, true);
++			/* The stack sends nothing more while the queue is stopped:
++			 * the frames held back above go now. */
++			complete(&bus_if->bustx_trgg);
+ 		}
+ 	}
+ 	spin_unlock_irqrestore(&sdiodev->tx_flow_lock, flags);

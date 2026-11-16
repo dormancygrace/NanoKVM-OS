@@ -522,34 +522,18 @@ int get_hdmi_mode(void)
 
 int get_manual_resolution(void)
 {
-    uint8_t RW_Data[35];
-    FILE *fp;
-    int file_size;
+    char RW_Data[35];
     uint16_t tmp_width, tmp_height;
     int res = 0;
 
-    // get res
-    if(access("/run/nanokvm/width", F_OK) == 0){
-        fp = fopen("/run/nanokvm/width", "r");
-        fseek(fp, 0, SEEK_END);
-        file_size = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-        fread(RW_Data, sizeof(char), file_size, fp);
-        fclose(fp);
-        RW_Data[file_size] = 0;
-        tmp_width = atoi((char*)RW_Data);
+    // get res; a missing or unreadable file keeps the default
+    if(nanokvm::read_small_file("/run/nanokvm/width", RW_Data, sizeof(RW_Data)) > 0){
+        tmp_width = atoi(RW_Data);
     } else {
         tmp_width = 1920;
     }
-    if(access("/run/nanokvm/height", F_OK) == 0){
-        fp = fopen("/run/nanokvm/height", "r");
-        fseek(fp, 0, SEEK_END);
-        file_size = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-        fread(RW_Data, sizeof(char), file_size, fp);
-        fclose(fp);
-        RW_Data[file_size] = 0;
-        tmp_height = atoi((char*)RW_Data);
+    if(nanokvm::read_small_file("/run/nanokvm/height", RW_Data, sizeof(RW_Data)) > 0){
+        tmp_height = atoi(RW_Data);
     } else {
         tmp_height = 1080;
     }
@@ -786,13 +770,9 @@ static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false,
 
 void get_hdmi_version()
 {
-	FILE *fp;
-	uint8_t RW_Data[2];
+	char RW_Data[3];
     system("/kvmapp/system/init.d/S15kvmhwd get_hdmi_version");
-	if(access("/etc/kvm/hdmi_version", F_OK) == 0){
-        fp = fopen("/etc/kvm/hdmi_version", "r");
-        fread(RW_Data, sizeof(char), 2, fp);
-        fclose(fp);
+	if(nanokvm::read_small_file("/etc/kvm/hdmi_version", RW_Data, sizeof(RW_Data)) > 0){
         if(RW_Data[0] == 'u'){
             // 6911uxc; S15kvmhwd publishes "ux"
             kvmv_cfg.hdmi_version = 1;
@@ -806,7 +786,6 @@ void get_hdmi_version()
             kvmv_cfg.hdmi_version = 0;
             debug("[hdmi]HDMI-C exist!\n");
         }
-        RW_Data[0] = 0;
     } else {
         kvmv_cfg.hdmi_version = 0;
     }
@@ -2260,12 +2239,8 @@ static void load_hdmi_board()
 {
     if(kvmv_cfg.hw_version == 0){
 
-        FILE *fp;
-	    uint8_t RW_Data[2];
-        if(access("/etc/kvm/hw", F_OK) == 0){
-            fp = fopen("/etc/kvm/hw", "r");
-            fread(RW_Data, sizeof(char), 1, fp);
-            fclose(fp);
+	    char RW_Data[2];
+        if(nanokvm::read_small_file("/etc/kvm/hw", RW_Data, sizeof(RW_Data)) >= 0){
             switch(RW_Data[0]){
                 case 'a':
                 case 'b':

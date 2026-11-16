@@ -34,9 +34,33 @@ type Line interface {
 }
 
 // Controller rejects overlapping ATX pulses rather than queuing a later press.
+// ctx can only stop a pulse that has not started yet; Stop ends a started one.
 type Controller struct{ mu sync.Mutex }
 
-var ErrBusy = errors.New("another ATX pulse is in progress")
+var (
+	ErrBusy    = errors.New("another ATX pulse is in progress")
+	ErrStopped = errors.New("the server is stopping")
+)
+
+// held lists the lines that pulses hold asserted, for Stop.
+var held struct {
+	sync.Mutex
+	stopped bool
+	lines   map[Line]struct{}
+}
+
+// Stop releases every line a pulse holds and refuses later pulses. The
+// server calls it before it exits, so that no button stays pressed.
+func Stop() error {
+	held.Lock()
+	defer held.Unlock()
+	held.stopped = true
+	var err error
+	for line := range held.lines {
+		err = errors.Join(err, line.Set(false))
+	}
+	return err
+}
 
 func (c *Controller) Pulse(ctx context.Context, duration time.Duration, request func() (Line, error)) (err error) {
 	if duration <= 0 || duration > time.Minute {
@@ -53,19 +77,31 @@ func (c *Controller) Pulse(ctx context.Context, duration time.Duration, request 
 	if err != nil {
 		return err
 	}
-	// Release the switch even if activation fails or the HTTP request is cancelled.
-	defer func() { err = errors.Join(err, line.Set(false), line.Close()) }()
-	if err = line.Set(true); err != nil {
+	held.Lock()
+	if held.stopped {
+		held.Unlock()
+		return errors.Join(ErrStopped, line.Close())
+	}
+	if held.lines == nil {
+		held.lines = make(map[Line]struct{})
+	}
+	held.lines[line] = struct{}{}
+	err = line.Set(true)
+	held.Unlock()
+	// Release the switch even if activation fails.
+	defer func() {
+		held.Lock()
+		delete(held.lines, line)
+		err = errors.Join(err, line.Set(false), line.Close())
+		held.Unlock()
+	}()
+	if err != nil {
 		return err
 	}
-	timer := time.NewTimer(duration)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
+	// A started press runs its full length whatever happens to ctx: a long
+	// press cut short does not force the host off, it only presses briefly.
+	time.Sleep(duration)
+	return nil
 }
 
 func Path(label string, offset uint32) string { return fmt.Sprintf("gpio-v2:%s:%d", label, offset) }

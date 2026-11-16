@@ -3,6 +3,9 @@ package hid
 import (
 	"context"
 	"errors"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -92,6 +95,7 @@ func LangueSwitch(base map[rune]Char, lang string) map[rune]Char {
 		m['\u20AC'] = Char{0x40, 8}  // €
 		m['\u00B2'] = Char{0x40, 31} // ²
 		m['\u00B3'] = Char{0x40, 32} // ³
+		m['='] = Char{2, 39}         // Shift + 0
 
 	case "fr":
 		// French AZERTY layout
@@ -168,6 +172,10 @@ func LangueSwitch(base map[rune]Char, lang string) map[rune]Char {
 		m['@'] = Char{0x40, 39}     // AltGr+0
 		m['\u20AC'] = Char{0x40, 8} // € AltGr+E
 
+		// ISO key between left Shift and W (HID 100)
+		m['<'] = Char{0, 100}
+		m['>'] = Char{2, 100}
+
 	case "es":
 		applySpanishLayout(m)
 	}
@@ -188,7 +196,10 @@ func (s *Service) Paste(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "content too long")
 		return
 	}
-	contentRunes := []rune(req.Content)
+	// Clipboard text may carry CR LF or CR line ends; each is one Enter.
+	content := strings.ReplaceAll(req.Content, "\r\n", "\n")
+	content = strings.ReplaceAll(content, "\r", "\n")
+	contentRunes := []rune(content)
 	if len(contentRunes) > maxPasteContentRunes {
 		rsp.ErrRsp(c, -2, "content too long")
 		return
@@ -200,13 +211,18 @@ func (s *Service) Paste(c *gin.Context) {
 		followMap = spanishDeadKeyContinuationMap
 	}
 
+	// A paste with a character the layout cannot type is refused whole:
+	// typing the rest would put wrong text, such as a password, on the host.
+	if missing := untypeableRunes(contentRunes, charMapLocal); len(missing) > 0 {
+		rsp.ErrRsp(c, -2, "the keyboard layout cannot type "+formatRunes(missing))
+		return
+	}
+
 	typeableKeys := 0
 	for _, char := range contentRunes {
-		if _, ok := charMapLocal[char]; ok {
+		typeableKeys++
+		if _, ok := followMap[char]; ok {
 			typeableKeys++
-			if _, ok := followMap[char]; ok {
-				typeableKeys++
-			}
 		}
 	}
 	if time.Duration(typeableKeys)*defaultPasteDelay > maxPasteDuration {
@@ -253,12 +269,7 @@ func (s *Service) Paste(c *gin.Context) {
 		if err := context.Cause(c.Request.Context()); err != nil {
 			break
 		}
-		key, ok := charMapLocal[char]
-		if !ok {
-			log.Debugf("unknown key '%c' (rune: %d)", char, char)
-			continue
-		}
-
+		key := charMapLocal[char]
 		keyDown := []byte{byte(key.Modifiers), 0x00, byte(key.Code), 0x00, 0x00, 0x00, 0x00, 0x00}
 		if err = writeKeyboardReport(keyDown); err != nil {
 			break
@@ -299,7 +310,37 @@ func (s *Service) Paste(c *gin.Context) {
 	}
 
 	rsp.OkRsp(c)
-	log.Debugf("hid paste success, total %d characters processed", len(contentRunes))
+	log.Debugf("hid paste success, total %d characters typed", len(contentRunes))
+}
+
+const maxReportedRunes = 5
+
+// untypeableRunes returns the distinct runes of text that m has no key for,
+// in order of first appearance, at most maxReportedRunes+1 of them.
+func untypeableRunes(text []rune, m map[rune]Char) []rune {
+	var missing []rune
+	for _, r := range text {
+		if _, ok := m[r]; ok || slices.Contains(missing, r) {
+			continue
+		}
+		missing = append(missing, r)
+		if len(missing) > maxReportedRunes {
+			break
+		}
+	}
+	return missing
+}
+
+func formatRunes(runes []rune) string {
+	quoted := make([]string, 0, maxReportedRunes)
+	for i, r := range runes {
+		if i == maxReportedRunes {
+			quoted = append(quoted, "...")
+			break
+		}
+		quoted = append(quoted, strconv.QuoteRune(r))
+	}
+	return strings.Join(quoted, ", ")
 }
 
 func sleepPasteContext(ctx context.Context, delay time.Duration) error {

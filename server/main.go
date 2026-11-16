@@ -14,6 +14,7 @@ import (
 
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/config"
+	"NanoKVM-Server/internal/gpioio"
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/internal/startpriority"
 	"NanoKVM-Server/journal"
@@ -287,6 +288,10 @@ func markListening() {
 }
 
 func dispose() {
+	// Let go of a button a press still holds before the process ends.
+	if err := gpioio.Stop(); err != nil {
+		log.Printf("cannot release the ATX buttons: %v", err)
+	}
 	common.GetKvmVision().Close()
 	_ = logs.FlushArchives()
 }

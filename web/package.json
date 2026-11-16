@@ -25,9 +25,9 @@
     "antd": "6.7.0",
     "axios": "1.21.1",
     "clsx": "2.1.1",
-    "i18next": "27.1.0",
+    "i18next": "27.1.1",
     "jotai": "3.0.2",
-    "lucide-react": "1.71.0",
+    "lucide-react": "1.72.0",
     "mediabunny": "1.65.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -54,14 +54,14 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.7",
     "globals": "17.14.0",
-    "msw": "3.0.4",
-    "prettier": "3.9.10",
+    "msw": "3.0.5",
+    "prettier": "3.10.1",
     "prettier-plugin-tailwindcss": "0.8.1",
     "tailwindcss": "4.3.5",
     "tsx": "4.23.15",
     "typescript": "npm:@typescript/typescript6@6.0.2",
     "typescript-eslint": "8.72.2",
-    "vite": "8.3.7"
+    "vite": "8.3.8"
   },
   "msw": {
     "workerDirectory": [

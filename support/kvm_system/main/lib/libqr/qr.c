@@ -1683,7 +1683,7 @@ qrFillFunctionPattern(QRCode *qr)
 	}
 	qr->symbol = (qr_byte_t **)malloc(sizeof(qr_byte_t *) * (size_t)dim);
 	if (qr->symbol == NULL) {
-		free(qr->_symbol);
+		qrFree(qr->_symbol); /* NULL again, or qrDestroy frees it twice */
 		return FALSE;
 	}
 	for (i = 0; i < dim; i++) {

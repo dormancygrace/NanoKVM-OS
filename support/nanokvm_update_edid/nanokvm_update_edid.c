@@ -446,11 +446,18 @@ int lt6911d_edid_write(uint8_t *edid_data, uint16_t edid_size)
 {
     uint8_t i;
     uint8_t wr_count = edid_size / LT6911D_WR_SIZE + 1;
-    uint8_t version_str[LT6911D_WR_SIZE] = {0};
+    // The version data is in the sector the write erases: it is read once,
+    // before the first erase, so that writing the old EDID back after a
+    // failed write also restores it.
+    static uint8_t version_str[LT6911D_WR_SIZE];
+    static int version_read;
 
-    if (lt6911d_str_read(version_str) != 0) {
-        fprintf(stderr, "Failed to read LT6911D version data\n");
-        return -1;
+    if (!version_read) {
+        if (lt6911d_str_read(version_str) != 0) {
+            fprintf(stderr, "Failed to read LT6911D version data\n");
+            return -1;
+        }
+        version_read = 1;
     }
 
     fprintf(stdout, "Writing EDID....\n");
@@ -648,11 +655,84 @@ static int lt6911d_finish_pending_replug(void)
     return lt6911d_set_hpd(1);
 }
 
+static int lt6911_edid_read(chip_version_t chip_version, uint8_t *edid_data)
+{
+    if (chip_version == CHIP_LT6911UXC)
+        return lt6911uxc_edid_read(edid_data, EDID_BUFFER_SIZE);
+    if (chip_version == CHIP_LT6911C)
+        return lt6911c_edid_read(edid_data, EDID_BUFFER_SIZE);
+    if (chip_version == CHIP_LT6911D)
+        return lt6911d_edid_read(edid_data, EDID_BUFFER_SIZE);
+    fprintf(stderr, "Unknown chip version\n");
+    return -1;
+}
+
+static int lt6911_edid_write(chip_version_t chip_version, uint8_t *edid_data)
+{
+    if (chip_version == CHIP_LT6911UXC)
+        return lt6911uxc_edid_write(edid_data, EDID_BUFFER_SIZE);
+    if (chip_version == CHIP_LT6911C)
+        return lt6911c_edid_write(edid_data, EDID_BUFFER_SIZE);
+    if (chip_version == CHIP_LT6911D)
+        return lt6911d_edid_write(edid_data, EDID_BUFFER_SIZE);
+    fprintf(stderr, "Unknown chip version\n");
+    return -1;
+}
+
+// Content that may be written back after a failed write: a blank (erased)
+// flash, or an EDID with a valid header and base block checksum. Anything
+// else suggests a bad read, which must not be taken as the receiver's state.
+static int edid_restorable(const uint8_t *edid_data)
+{
+    static const uint8_t header[8] = {0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00};
+    int blank = 1;
+    for (int i = 0; i < EDID_BUFFER_SIZE; i++) {
+        if (edid_data[i] != 0xFF) {
+            blank = 0;
+            break;
+        }
+    }
+    if (blank) return 1;
+    if (memcmp(edid_data, header, sizeof(header)) != 0) return 0;
+    uint8_t sum = 0;
+    for (int i = 0; i < 128; i++) sum += edid_data[i];
+    return sum == 0;
+}
+
+// Writes the EDID that was installed before a failed write and verifies it.
+static int lt6911_edid_restore(chip_version_t chip_version, uint8_t *old_edid, int restorable)
+{
+    uint8_t edid_read_data[EDID_BUFFER_SIZE] = {0};
+    if (!restorable) {
+        fprintf(stderr, "EDID NOT RESTORED: no valid previous EDID; "
+                        "write an EDID again before relying on HDMI input\n");
+        return -1;
+    }
+    fprintf(stderr, "Writing the previous EDID back...\n");
+    sleep(1);
+    int ret = lt6911_edid_write(chip_version, old_edid);
+    if (ret == 0) {
+        sleep(1);
+        ret = lt6911_edid_read(chip_version, edid_read_data);
+    }
+    if (ret != 0 || memcmp(old_edid, edid_read_data, EDID_BUFFER_SIZE) != 0) {
+        fprintf(stderr, "EDID RESTORE FAILED: the receiver's EDID is in an unknown state; "
+                        "write an EDID again before relying on HDMI input\n");
+        return -1;
+    }
+    fprintf(stderr, "Previous EDID restored and verified; the EDID is unchanged\n");
+    return 0;
+}
+
 int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t edid_size, int replug)
 {
     if (chip_version == CHIP_UNKNOWN)
     {
         fprintf(stderr, "Unknown chip version\n");
+        return -1;
+    }
+    if (edid_size != EDID_BUFFER_SIZE) {
+        fprintf(stderr, "EDID data length is not %d bytes\n", EDID_BUFFER_SIZE);
         return -1;
     }
 
@@ -672,14 +752,7 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
     // Avoid wearing the receiver's flash when the requested profile is already
     // installed. A failed read is not permission to overwrite unknown state.
     uint8_t current_edid[EDID_BUFFER_SIZE] = {0};
-    int read_ret = -1;
-    if (chip_version == CHIP_LT6911UXC)
-        read_ret = lt6911uxc_edid_read(current_edid, EDID_BUFFER_SIZE);
-    else if (chip_version == CHIP_LT6911C)
-        read_ret = lt6911c_edid_read(current_edid, EDID_BUFFER_SIZE);
-    else if (chip_version == CHIP_LT6911D)
-        read_ret = lt6911d_edid_read(current_edid, EDID_BUFFER_SIZE);
-    if (read_ret != 0) {
+    if (lt6911_edid_read(chip_version, current_edid) != 0) {
         fprintf(stderr, "Cannot read existing EDID; refusing to program\n");
         return finish_receiver(chip_version, -1);
     }
@@ -693,29 +766,22 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
         return finish_receiver(chip_version, 0);
     }
 
+    // The current content is kept to be written back if the write fails,
+    // unless it is neither blank nor a valid EDID: then it may be a bad read,
+    // and the new EDID is written without a way back.
+    int restorable = edid_restorable(current_edid);
+    if (!restorable)
+        fprintf(stderr, "Existing EDID is neither blank nor valid; it cannot be restored if the write fails\n");
+
     if (replug && chip_version == CHIP_LT6911D && lt6911d_mark_replug_pending() != 0) {
         perror("Cannot record the pending HDMI reconnect; refusing to program");
         return finish_receiver(chip_version, -1);
     }
 
     // edid write
-    if (chip_version == CHIP_LT6911UXC) {
-        if (lt6911uxc_edid_write(edid_data, edid_size) != 0) {
-            fprintf(stderr, "Failed to write EDID data to LT6911UXC\n");
-            return finish_receiver(chip_version, -1);
-        }
-    } else if (chip_version == CHIP_LT6911C) {
-        if (lt6911c_edid_write(edid_data, edid_size) != 0) {
-            fprintf(stderr, "Failed to write EDID data to LT6911C\n");
-            return finish_receiver(chip_version, -1);
-        }
-    } else if (chip_version == CHIP_LT6911D) {
-        if (lt6911d_edid_write(edid_data, edid_size) != 0) {
-            fprintf(stderr, "Failed to write EDID data to LT6911D\n");
-            return finish_receiver(chip_version, -1);
-        }
-    } else {
-        fprintf(stderr, "Unknown chip version\n");
+    if (lt6911_edid_write(chip_version, edid_data) != 0) {
+        fprintf(stderr, "Failed to write EDID data\n");
+        lt6911_edid_restore(chip_version, current_edid, restorable);
         return finish_receiver(chip_version, -1);
     }
     // sleep 1s
@@ -723,23 +789,9 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
 
     // read edid data back
     uint8_t edid_read_data[EDID_BUFFER_SIZE] = {0};
-    if (chip_version == CHIP_LT6911UXC) {
-        if (lt6911uxc_edid_read(edid_read_data, EDID_BUFFER_SIZE) != 0) {
-            fprintf(stderr, "Failed to read EDID data from LT6911UXC\n");
-            return finish_receiver(chip_version, -1);
-        }
-    } else if (chip_version == CHIP_LT6911C) {
-        if (lt6911c_edid_read(edid_read_data, EDID_BUFFER_SIZE) != 0) {
-            fprintf(stderr, "Failed to read EDID data from LT6911C\n");
-            return finish_receiver(chip_version, -1);
-        }
-    } else if (chip_version == CHIP_LT6911D) {
-        if (lt6911d_edid_read(edid_read_data, EDID_BUFFER_SIZE) != 0) {
-            fprintf(stderr, "Failed to read EDID data from LT6911D\n");
-            return finish_receiver(chip_version, -1);
-        }
-    } else {
-        fprintf(stderr, "Unknown chip version\n");
+    if (lt6911_edid_read(chip_version, edid_read_data) != 0) {
+        fprintf(stderr, "Failed to read EDID data back\n");
+        lt6911_edid_restore(chip_version, current_edid, restorable);
         return finish_receiver(chip_version, -1);
     }
 
@@ -761,6 +813,7 @@ int lt6911_edid_config(chip_version_t chip_version, uint8_t *edid_data, uint16_t
                 fprintf(stderr, "\n");
             }
         }
+        lt6911_edid_restore(chip_version, current_edid, restorable);
         return finish_receiver(chip_version, -1);
     } else {
         fprintf(stdout, "EDID data verified successfully\n");

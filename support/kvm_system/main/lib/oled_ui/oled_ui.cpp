@@ -241,7 +241,11 @@ int qrencode(char *string)
 		printf("error\n");
 		return -1;
 	}
-	qrAddData(p, (const qr_byte_t*)string, strlen(string));
+	if (!qrAddData(p, (const qr_byte_t*)string, strlen(string))) {
+		printf("add data error\n");
+		qrDestroy(p);
+		return -1;
+	}
 	if (!qrFinalize(p)) {
 		printf("finalize error\n");
 		qrDestroy(p);

@@ -134,14 +134,28 @@ int mmf_vpss_set_rate(int src_fps, int dst_fps);
 // 0 no video encoder, 1 straight from capture (VI-direct); through VPSS
 // because 2 the setting is off, 3 the stream rate is below the input rate,
 // 4 the stream size differs from the input, 5 a JPEG reader shares the
-// output, 6 the drivers lack the direct path, 7 changing (or other). The
+// output, 6 the drivers lack the direct path, 7 changing (or other), 8 a
+// watermark is set (mmf_watermark_set). The
 // first that applies is given: a scaled stream reports 4 even when its rate
 // is lower as well.
 enum {
 	MMF_VIDEO_PATH_NONE, MMF_VIDEO_PATH_DIRECT, MMF_VIDEO_PATH_SETTING, MMF_VIDEO_PATH_RATE,
 	MMF_VIDEO_PATH_SIZE, MMF_VIDEO_PATH_SHARED, MMF_VIDEO_PATH_UNSUPPORTED, MMF_VIDEO_PATH_OTHER,
+	MMF_VIDEO_PATH_WATERMARK,
 };
 int mmf_video_path(void);
+/* A watermark drawn by the VPSS into every output: count blocks (at most
+ * MMF_WATERMARK_BLOCKS), their ARGB8888 pixels one after another in argb and
+ * four ints each in geometry: width and height for a picture ref_width wide
+ * (scaled to each output), and the place as a fraction in thousandths of the
+ * free room inside margin reference pixels (0 left or top, 1000 right or
+ * bottom). count 0 removes it. Returns the regions shown, or a negative errno
+ * (-EIO: a block could not be put on an enabled output; it is tried again).
+ * Needs cv181x_rgn; the caller serializes it with the capture lifecycle. */
+#define MMF_WATERMARK_BLOCKS 8
+int mmf_watermark_set(const uint32_t *argb, const int *geometry, int count, int ref_width, int margin);
+/* Watermark blocks missing on enabled outputs after the last attempt. */
+int mmf_watermark_missing(void);
 // One picture of the screen scaled to width x height (even, 16..1920) as
 // 8-bit B, G and R planes (width*height each), the TPU models' input layout,
 // from VPSS channel 2. 0, -2 without a running capture, -3 when no picture

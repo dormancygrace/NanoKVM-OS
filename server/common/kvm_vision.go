@@ -20,6 +20,15 @@ package common
         int (*fn)(unsigned char) = (int (*)(unsigned char))dlsym(RTLD_DEFAULT, "kvmv_set_first_capture_yuv420");
         return fn ? fn(want) : -1;
     }
+    static int set_watermark(const unsigned int *argb, const int *geometry, int count, int ref_width, int margin) {
+        int (*fn)(const unsigned int *, const int *, int, int, int) =
+            (int (*)(const unsigned int *, const int *, int, int, int))dlsym(RTLD_DEFAULT, "kvmv_set_watermark");
+        return fn ? fn(argb, geometry, count, ref_width, margin) : -38;
+    }
+    static int watermark_missing(void) {
+        int (*fn)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "kvmv_watermark_missing");
+        return fn ? fn() : 0;
+    }
     static int capture_reclaim_pending(void) {
         int (*fn)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "kvmv_capture_reclaim_pending");
         // An older library cannot report completion: retain conservative retries.
@@ -102,6 +111,9 @@ func GetKvmVision() *KvmVision {
 			log.Error("failed to select saved MJPEG chroma")
 		}
 		C.set_frame_detact(C.uint8_t(FrameDetectFrames(FrameDetectEnabled())))
+		if err := applyWatermark(kvmVision); err != nil {
+			log.Errorf("watermark not applied: %v", err)
+		}
 		log.Debugf("kvm vision initialized")
 	})
 
@@ -331,6 +343,33 @@ func (k *KvmVision) HasHDMISignal() bool {
 	}
 
 	return C.kvmv_hdmi_signal_active() != 0
+}
+
+// SetWatermark gives the native library the watermark blocks (mmf_watermark_set:
+// pixels one block after another, four ints of geometry each; no blocks
+// removes it): the regions shown, or a negative errno.
+func (k *KvmVision) SetWatermark(argb []uint32, geometry []int32, margin int) int {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+	if k.closed {
+		return -1
+	}
+	if len(argb) == 0 || len(geometry) < 4 {
+		return int(C.set_watermark(nil, nil, 0, 0, 0))
+	}
+	return int(C.set_watermark((*C.uint)(unsafe.Pointer(&argb[0])), (*C.int)(unsafe.Pointer(&geometry[0])),
+		C.int(len(geometry)/4), C.int(WatermarkRefWidth), C.int(margin)))
+}
+
+// WatermarkMissing is the number of watermark blocks missing on enabled
+// outputs after the native library's last attempt.
+func (k *KvmVision) WatermarkMissing() int {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+	if k.closed {
+		return 0
+	}
+	return int(C.watermark_missing())
 }
 
 func (k *KvmVision) SetFrameDetect(frame uint8) {

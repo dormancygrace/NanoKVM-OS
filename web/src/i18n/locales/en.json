@@ -292,7 +292,8 @@
       "size": "the stream size differs from the input",
       "shared": "MJPEG reads the same picture",
       "unsupported": "the capture drivers lack the direct path",
-      "other": "switching or another reason"
+      "other": "switching or another reason",
+      "watermark": "a watermark is on"
     },
     "viDirectH264Hint": "H.264 at the input size and rate reads the captured picture itself: the capture switches to 4:2:0 color sampling (at 1080p about 6 ms lower latency and less memory traffic), and MJPEG also uses 4:2:0 meanwhile. The capture restarts briefly when this mode changes. Turn off to encode through the video processor as before.",
     "mjpegChromaFallback_resolution": "MJPEG is limited to 1920 pixels in width to preserve 4:2:2 while H.264/H.265 uses a wider output. The selected resolution resumes when that video stream ends.",
@@ -385,6 +386,68 @@
       },
       "change": "The monitor gets the new identity; the computer detects it again.",
       "changeNanokvm": "The monitor identifies itself as NanoKVM again; the computer detects it again."
+    },
+    "watermark": {
+      "title": "Watermark",
+      "description": "Blocks of text and pictures that the device draws into every stream, screenshot and recording.",
+      "blocks": "Blocks",
+      "blockName": "Block {{number}}",
+      "addBlock": "Add a block",
+      "deleteBlock": "Delete this block",
+      "noBlocks": "No blocks yet: add one.",
+      "needsBlock": "Add a block to turn the watermark on.",
+      "emptyBlocks": "Enter text or choose a logo for block {{blocks}}.",
+      "area": "Size of all blocks",
+      "areaOver": "The blocks together are too large: make the text smaller or remove a block.",
+      "designTooLong": "The blocks hold too much text to save.",
+      "overlap": "Blocks overlap: {{blocks}}. Overlapping blocks may not all be shown.",
+      "statusOn": "On",
+      "statusOff": "Off",
+      "enabled": "Show a watermark",
+      "note": "While it is on, video goes through the video processor (VPSS) instead of straight from capture, which adds a few milliseconds of latency. The watermark is in every stream, screenshot and recording, the same for every viewer.",
+      "text": "Text",
+      "textPlaceholder": "For example, the computer's name",
+      "textHint": "Up to {{lines}} lines of {{length}} characters.",
+      "fontSize": "Font size",
+      "fontSizeHint": "In pixels of a 1920-pixel-wide picture; the watermark keeps the same share of every stream.",
+      "bold": "Bold",
+      "color": "Text color",
+      "background": "Background",
+      "background_none": "None",
+      "background_dark": "Dark",
+      "background_light": "Light",
+      "opacity": "Opacity",
+      "logo": "Logo",
+      "logoChoose": "Choose a picture…",
+      "logoReplace": "Replace…",
+      "logoRemove": "Remove",
+      "logoHint": "Optional: a PNG, JPEG, SVG or WebP picture, shown left of the text at its height. It stays in this browser; only the finished watermark is saved.",
+      "logoSaved": "The saved watermark contains a logo. To change the picture, choose the logo again.",
+      "logoDropped": "The saved logo is not available here: the changed watermark is saved without it unless you choose it again.",
+      "logoError": "This file cannot be used as a logo.",
+      "anchor": {
+        "topLeft": "Top left",
+        "top": "Top center",
+        "topRight": "Top right",
+        "left": "Middle left",
+        "center": "Center",
+        "right": "Middle right",
+        "bottomLeft": "Bottom left",
+        "bottom": "Bottom center",
+        "bottomRight": "Bottom right"
+      },
+      "margin": "Margin",
+      "marginHint": "Distance from the edges in pixels of a {{width}}-pixel-wide picture.",
+      "preview": "Preview",
+      "previewHint": "The current {{width}} × {{height}} picture. Drag the blocks; they snap to the edges and the centre.",
+      "scaled": "This block is larger than {{width}} × {{height}} and is scaled down to fit.",
+      "applied": "Watermark saved",
+      "failed": "Could not save the watermark.",
+      "loadFailed": "Could not load the watermark settings.",
+      "missing": "The device could not show {{count}} block(s) on a running stream, for example for lack of video memory or because too many blocks overlap. It tries again; smaller or fewer blocks help.",
+      "places": "Places",
+      "placesHint": "Tap a place to edit its block, or to add a block there. Drag blocks in the preview to move them.",
+      "refreshStill": "New picture"
     }
   },
   "capture": {
@@ -2305,7 +2368,9 @@
       }
     },
     "security": {
-      "title": "Security"
+      "title": "Security",
+      "watermark": "A watermark on every stream:",
+      "watermarkLink": "Video → Watermark"
     },
     "extensions": {
       "title": "Extensions"

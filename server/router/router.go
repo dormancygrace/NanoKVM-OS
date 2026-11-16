@@ -26,6 +26,7 @@ var ownBodyLimitRoutes = []string{
 	"/api/extensions/openvpn/import",
 	"/api/extensions/wireguard/import",
 	"/api/vm/script/upload",
+	"/api/vm/video/watermark", // up to WatermarkMaxRequest
 	"/api/os/update/upload",
 	picoclawBasePath + picoclawActionsPath,
 	picoclawBasePath + picoclawMCPPath,

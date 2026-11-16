@@ -181,7 +181,8 @@ const VIDEO_PATH_REASONS: Record<number, string> = {
   4: 'size',
   5: 'shared',
   6: 'unsupported',
-  7: 'other'
+  7: 'other',
+  8: 'watermark'
 };
 export function videoPath(path: number | undefined): string | undefined {
   if (!path) return undefined;

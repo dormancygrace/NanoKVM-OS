@@ -125,6 +125,43 @@ export function applyVideoSettings(settings: VideoSettingsBody, confirmPowerCycl
   return http.post<VideoCapabilities>('/api/vm/video', { ...settings, confirmPowerCycle });
 }
 
+// The watermark drawn into every stream: blocks, each a PNG placed at x, y
+// in thousandths of the free room inside the margin (0 left or top, 500
+// centre, 1000 right or bottom). design is the editor's own record.
+export type WatermarkState = {
+  enabled: boolean;
+  margin: number;
+  design: string;
+  // image: the block's PNG, base64; empty if missing.
+  blocks: { x: number; y: number; image: string }[];
+  // Blocks are drawn for a refWidth-wide frame, each at most maxWidth x
+  // maxHeight, together at most maxArea pixels.
+  refWidth: number;
+  maxWidth: number;
+  maxHeight: number;
+  maxArea: number;
+  maxBlocks: number;
+  // PNG bytes of one block.
+  maxBytes: number;
+  // Blocks the device could not put on a running output (it tries again).
+  missing: number;
+};
+
+export function getWatermark() {
+  return http.get<WatermarkState>('/api/vm/video/watermark');
+}
+
+// A block's image (base64 PNG) replaces its picture; without it the block
+// keeps the saved picture of the same index.
+export function setWatermark(settings: {
+  enabled: boolean;
+  margin: number;
+  design: string;
+  blocks: { x: number; y: number; image?: string }[];
+}) {
+  return http.post<WatermarkState>('/api/vm/video/watermark', settings);
+}
+
 // get the device-level absolute mouse input region
 export function getInputRegion() {
   return http.get<ControlRegionConfig>('/api/vm/input-region');
@@ -488,7 +525,7 @@ export type ScreenStatus = {
   mjpegMeasuredFps?: number;
   measuredKbps: number;
   // Where the H.264/H.265 encoder takes its frames (kvm_mmf.hpp): 0 no video
-  // encoder, 1 straight from capture, 2-7 through VPSS and why (older
+  // encoder, 1 straight from capture, 2-8 through VPSS and why (older
   // servers: absent).
   videoPath?: number;
   // Device-wide MJPEG frame detection, saved by the server.

@@ -42,6 +42,10 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "totp-reset" {
 		os.Exit(totpReset(os.Args[2:]))
 	}
+	// The BOOT button held for 9 seconds (kvm_system): reset the settings.
+	if len(os.Args) > 1 && os.Args[1] == "factory-reset" {
+		os.Exit(factoryReset(os.Args[2:]))
+	}
 	// Ahead of the other boot services until the first viewer is served.
 	startpriority.Raise()
 	ctx, stopMemory := context.WithCancel(context.Background())

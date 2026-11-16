@@ -170,49 +170,24 @@ void kvm_wifi_config_process()
 }
 
 /*
- * The BOOT button held for the long press: back to the first sign-in. The web
- * accounts go (/etc/kvm/pwd: admin/admin again, which must be changed at the
- * first sign-in; the new administrator password then becomes root's), and
- * root's password becomes a random one nobody knows until then. Never a
- * known password; SSH keys keep working (a locked root would refuse them too).
+ * The BOOT button held for the long press: a factory reset of the settings,
+ * as Settings > Factory reset without "Keep users" and with "Keep apps" (the
+ * server stages it and reboots). Web access returns to admin/admin, which
+ * must be changed at the first sign-in; root's password is locked, SSH keys
+ * go and SSH is off; Wi-Fi, VPN and other secrets are reset too, so the
+ * button gives nobody the device's configuration.
  */
-uint8_t kvm_reset_password(void)
+uint8_t kvm_factory_reset(void)
 {
-	uint8_t failed = 0;
-	if (unlink("/etc/kvm/pwd") != 0 && errno != ENOENT) {
-		perror("unlink /etc/kvm/pwd");
-		failed = 1;
-	}
-	unsigned char random[24];
-	char line[5 + 2 * sizeof(random) + 2] = "root:";
-	if (getrandom(random, sizeof(random), 0) != (ssize_t)sizeof(random)) {
-		perror("getrandom");
-		return 1;
-	}
-	for (size_t i = 0; i < sizeof(random); ++i)
-		snprintf(line + 5 + 2 * i, 3, "%02x", random[i]);
-	strcat(line, "\n");
-	int pipe_fds[2];
-	if (pipe2(pipe_fds, O_CLOEXEC) != 0) {
-		perror("pipe2");
-		return 1;
-	}
 	const pid_t pid = fork();
 	if (pid == 0) {
-		dup2(pipe_fds[0], STDIN_FILENO);
-		execlp("chpasswd", "chpasswd", (char *)NULL);
+		execl("/kvmapp/server/NanoKVM-Server", "NanoKVM-Server", "factory-reset", (char *)NULL);
 		_exit(127);
 	}
-	close(pipe_fds[0]);
-	if (pid > 0 && write(pipe_fds[1], line, strlen(line)) != (ssize_t)strlen(line))
-		failed = 1;
-	close(pipe_fds[1]);
-	memset(line, 0, sizeof(line));
 	int status = 0;
 	if (pid < 0 || waitpid(pid, &status, 0) != pid || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-		fprintf(stderr, "kvm_reset_password: replacing root's password failed\n");
-		failed = 1;
+		fprintf(stderr, "kvm_factory_reset: the factory reset failed\n");
+		return 1;
 	}
-	sync();
-	return failed;
+	return 0;
 }

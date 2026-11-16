@@ -62,13 +62,13 @@ if APK cannot resolve it, the operation reports failure instead of forcing it.
 Network settings reset regardless of these choices. Reconnect using Ethernet and
 DHCP; configure Wi-Fi/VPN again. USB composition returns to the current defaults.
 
-### Forgotten password: the BOOT button
+### Without the web interface: the BOOT button
 
-Holding the device's BOOT button for 9 seconds removes the web accounts: web
-access returns to `admin` / `admin` and requires a password change at the first
-sign-in. Until then root's password is a random one nobody knows (SSH keys keep
-working); the new administrator password also becomes root's. Other settings
-stay as they are.
+Holding the device's BOOT button for 9 seconds resets the settings as above
+without **Keep users** and with **Keep apps**, and the device restarts. Web
+access returns to `admin` / `admin`, which must be changed at the first sign-in;
+Wi-Fi, VPN and every other secret are reset with the settings, so the button
+gives nobody the device's configuration.
 
 ## Applying and recovering an interrupted operation
 

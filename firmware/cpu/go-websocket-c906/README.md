@@ -18,6 +18,15 @@ thread. linux/riscv64 builds therefore always use the C906 code; there is no
 runtime detection or environment switch. No vector state is live across calls
 or Go safe points. Linux preserves it across signals and task switches.
 
+## Large messages
+
+`WriteMessage` on a server connection copied the whole message into its write
+buffer (256 KiB on the video sockets) before writing it. The staged `conn.go`
+copies only the first `16 KiB - 14` bytes, so the buffered prefix including
+the WebSocket header fits within 16 KiB, and writes the rest from the caller's slice. A whole MJPEG
+picture or a video frame is no longer copied once more per viewer. Messages
+up to that size are written as before.
+
 ## Build integration
 
 scripts/build-server-existing-libs.py calls prepare.py. It obtains the exact

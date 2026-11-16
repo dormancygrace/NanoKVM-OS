@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"os"
+	"runtime"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -31,6 +32,8 @@ type jpegWorker struct {
 	ready    *os.File
 	readyRaw syscall.RawConn
 	doorbell uintptr
+	// lastTotal is the size of the last message, for the next one's buffer.
+	lastTotal int
 }
 
 // Guarded by KvmVision.mutex, which every JPEG read holds.
@@ -85,7 +88,7 @@ func closeJpegWorkerLocked() {
 // Every caller holds KvmVision's write lock, so requests never overlap; a
 // request found in flight (a caller without that lock) is waited for, never
 // overwritten, and never run beside a direct native read.
-func (w *jpegWorker) read(request C.int32_t, width, height, quality uint16, key bool, maxTiles uint16) (state *videoPackStorage, result int) {
+func (w *jpegWorker) read(request C.int32_t, width, height, quality uint16, key bool, maxTiles uint16, headroom int) (state *videoPackStorage, result int) {
 	s := w.shared
 	if atomic.LoadInt32((*int32)(unsafe.Pointer(&s.request))) != C.NK_JPEG_IDLE {
 		log.Error("native JPEG worker request already in flight; waiting for it")
@@ -95,6 +98,18 @@ func (w *jpegWorker) read(request C.int32_t, width, height, quality uint16, key 
 	}
 	s.width, s.height, s.quality, s.max_tiles = C.uint16_t(width), C.uint16_t(height), C.uint16_t(quality), C.uint16_t(maxTiles)
 	s.key = C.uint8_t(boolToInt(key))
+	// The native thread writes the message straight into Go memory when it
+	// fits a buffer an eighth over the last one; the buffer stays pinned while
+	// that thread may write it. Otherwise the message is copied as before.
+	var out []byte
+	var pinner runtime.Pinner
+	s.out, s.out_capacity = nil, 0
+	if guess := w.lastTotal + w.lastTotal/8; guess > 0 {
+		out = make([]byte, headroom+guess)
+		pinner.Pin(&out[0])
+		s.out, s.out_capacity = (*C.uint8_t)(unsafe.Pointer(&out[headroom])), C.uint32_t(guess)
+	}
+	defer pinner.Unpin()
 	// The atomic store publishes the plain parameter stores above: it is a
 	// release on riscv64, paired with the worker's __ATOMIC_ACQUIRE load.
 	pending := (*int32)(unsafe.Pointer(&s.request))
@@ -114,9 +129,28 @@ func (w *jpegWorker) read(request C.int32_t, width, height, quality uint16, key 
 			break
 		}
 	}
-	state = &videoPackStorage{}
-	if s.size > 0 {
-		state.appendPack(unsafe.Slice((*byte)(unsafe.Pointer(s.data)), int(s.size)), 0, int(s.total))
+	s.out = nil
+	size, total := int(s.size), int(s.total)
+	if size > 0 {
+		w.lastTotal = total
+	} else {
+		// Unchanged frames and no-image results must not allocate a full
+		// picture on every poll. The next image refreshes the estimate
+		// through the worker-owned buffer.
+		w.lastTotal = 0
+	}
+	// A message under half the buffer is copied out, so a small tile
+	// message does not hold the memory of a whole picture.
+	if s.out_used != 0 && size > 0 && size == total && 2*total >= len(out)-headroom {
+		return &videoPackStorage{storage: out[:headroom+total], headroom: headroom, total: total, next: total}, int(s.result)
+	}
+	state = &videoPackStorage{headroom: headroom}
+	if size > 0 {
+		src := unsafe.Slice((*byte)(unsafe.Pointer(s.data)), size)
+		if s.out_used != 0 {
+			src = out[headroom : headroom+size]
+		}
+		state.appendPack(src, 0, total)
 	}
 	return state, int(s.result)
 }
@@ -141,9 +175,9 @@ func (w *jpegWorker) wait(signal *[8]byte) error {
 }
 
 func (w *jpegWorker) readPicture(width, height, quality uint16) (*videoPackStorage, int) {
-	return w.read(C.NK_JPEG_PICTURE, width, height, quality, false, 0)
+	return w.read(C.NK_JPEG_PICTURE, width, height, quality, false, 0, 0)
 }
 
 func (w *jpegWorker) readTiles(width, height, quality uint16, key bool, maxTiles uint16) (*videoPackStorage, int) {
-	return w.read(C.NK_JPEG_TILES, width, height, quality, key, maxTiles)
+	return w.read(C.NK_JPEG_TILES, width, height, quality, key, maxTiles, MjpegTilesWholeHeadroom)
 }

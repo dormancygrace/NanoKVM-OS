@@ -36,7 +36,8 @@ static int collect(uintptr_t context, const uint8_t *data, uint32_t size, uint32
         return -1;
     }
     if (s->total == 0) {
-        if (s->capacity < total) {
+        s->out_used = s->out != NULL && total <= s->out_capacity;
+        if (!s->out_used && s->capacity < total) {
             uint8_t *grown = realloc(s->data, total);
             if (grown == NULL) { s->failed = 1; return -1; }
             s->data = grown;
@@ -44,7 +45,7 @@ static int collect(uintptr_t context, const uint8_t *data, uint32_t size, uint32
         }
         s->total = total;
     }
-    memcpy(s->data + offset, data, size);
+    memcpy((s->out_used ? s->out : s->data) + offset, data, size);
     s->size += size;
     return 0;
 }
@@ -64,7 +65,7 @@ static void *jpeg_main(void *arg) {
         int32_t request = __atomic_load_n(&s->request, __ATOMIC_ACQUIRE);
         if (request == NK_JPEG_IDLE) continue;
         s->size = s->total = 0;
-        s->failed = 0;
+        s->failed = s->out_used = 0;
         int result;
         if (request == NK_JPEG_TILES)
             result = kvmv_read_mjpeg_tiles_sink(s->width, s->height, s->quality, s->key, s->max_tiles, collect, (uintptr_t)w);

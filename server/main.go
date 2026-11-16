@@ -291,11 +291,20 @@ func dispose() {
 	_ = logs.FlushArchives()
 }
 
-// journalStart records the start of the server, with the OS version.
+// journalStart records the start of the server, with the OS version and,
+// on the first start of a boot, why the chip came on.
 func journalStart() {
 	version := "?"
 	if raw, err := os.ReadFile("/kvmapp/version"); err == nil {
 		version = strings.TrimSpace(string(raw))
 	}
-	journal.Record(context.Background(), "system", "system.started", map[string]string{"version": version})
+	message, severity := "system.started", "info"
+	if reason := bootReason(); reason != "" {
+		message = "system.started." + reason
+		if reason == "watchdog" || reason == "overheat" {
+			severity = "warning"
+		}
+	}
+	journal.Default.Add(journal.Entry{Kind: "system", Severity: severity, Message: message,
+		Vars: map[string]string{"version": version, "actor": "NanoKVM"}})
 }

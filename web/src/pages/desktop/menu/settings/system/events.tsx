@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Alert, Spin } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Input, Select, Spin } from 'antd';
 import { useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
@@ -20,6 +20,9 @@ type Entry = {
 
 const tones = { info: 'neutral', warning: 'warning', critical: 'danger' } as const;
 
+// The groups of events, in the filter's order (the journal's kinds).
+const KINDS = ['power', 'hdmi', 'screen', 'security', 'action', 'settings', 'system', 'journal'];
+
 // System > Event log: what happened to the host and who did what to it, as
 // the server's journal keeps it (server/journal), newest first.
 export const Events = () => {
@@ -28,6 +31,8 @@ export const Events = () => {
   const [entries, setEntries] = useState<Entry[]>();
   const [kept, setKept] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [query, setQuery] = useState('');
+  const [kind, setKind] = useState<string>('all');
 
   useEffect(() => {
     let disposed = false;
@@ -57,15 +62,53 @@ export const Events = () => {
     };
   }, [i18n.language]);
 
+  // The entries of the chosen group whose words contain the query.
+  const shown = useMemo(() => {
+    const words = query.trim().toLowerCase();
+    return entries?.filter(
+      (entry) =>
+        (kind === 'all' || entry.kind === kind) &&
+        (!words || `${entry.title}\n${entry.body}`.toLowerCase().includes(words))
+    );
+  }, [entries, kind, query]);
+  const kinds = [...KINDS, ...new Set((entries ?? []).map((e) => e.kind))].filter(
+    (k, i, all) => all.indexOf(k) === i
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <p className="text-fg-muted m-0 text-sm">{t('description', { count: kept || 500 })}</p>
       {failed && <Alert type="error" title={t('failed')} showIcon />}
       {!entries && !failed && <Spin />}
-      {entries?.length === 0 && <p className="text-fg-muted m-0 text-sm">{t('empty')}</p>}
       {entries && entries.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Input.Search
+            className="min-w-48 flex-1"
+            allowClear
+            aria-label={t('search')}
+            placeholder={t('search')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <Select
+            className="min-w-40"
+            aria-label={t('group')}
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: 'all', label: t('groups.all') },
+              ...kinds.map((k) => ({ value: k, label: t(`groups.${k}`, { defaultValue: k }) }))
+            ]}
+          />
+        </div>
+      )}
+      {entries?.length === 0 && <p className="text-fg-muted m-0 text-sm">{t('empty')}</p>}
+      {entries && entries.length > 0 && shown?.length === 0 && (
+        <p className="text-fg-muted m-0 text-sm">{t('noMatch')}</p>
+      )}
+      {shown && shown.length > 0 && (
         <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {entries.map((entry) => (
+          {shown.map((entry) => (
             <li key={entry.seq} className="border-border flex flex-col gap-1 border-b pb-2">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge tone={tones[entry.severity] ?? 'neutral'}>{entry.title}</StatusBadge>

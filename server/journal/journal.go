@@ -199,9 +199,15 @@ func Actor(ctx context.Context) string {
 
 // Action records something done to the host.
 func Action(ctx context.Context, message string, vars map[string]string) {
+	Record(ctx, "action", message, vars)
+}
+
+// Record records an event of kind with the actor of ctx: an action on the
+// host, a changed setting, something done to NanoKVM itself.
+func Record(ctx context.Context, kind, message string, vars map[string]string) {
 	if vars == nil {
 		vars = map[string]string{}
 	}
 	vars["actor"] = Actor(ctx)
-	Default.Add(Entry{Kind: "action", Severity: "info", Message: message, Vars: vars})
+	Default.Add(Entry{Kind: kind, Severity: "info", Message: message, Vars: vars})
 }

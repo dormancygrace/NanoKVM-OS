@@ -17,6 +17,13 @@ import { client } from '@/lib/websocket.ts';
 
 const imageUpdatedEvent = 'nanokvm:image-updated';
 
+// Binary units, one decimal from GiB up: ISO sizes are read against GiB.
+function imageSize(bytes: number) {
+  if (bytes >= 1 << 30) return `${(bytes / (1 << 30)).toFixed(1)} GiB`;
+  if (bytes >= 1 << 20) return `${Math.round(bytes / (1 << 20))} MiB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KiB`;
+}
+
 type ImagesProps = {
   isOpen: boolean;
   disabled?: boolean;
@@ -30,6 +37,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
 
   const [isLoading, setIsLoading] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const [sizes, setSizes] = useState<Record<string, number>>({});
   const [mountingImage, setMountingImage] = useState('');
   const [mountedImage, setMountedImage] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,6 +83,7 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
         } else {
           setImages([]);
         }
+        setSizes(rsp.data?.sizes ?? {});
       })
       .catch((err) => showRequestError(err))
       .finally(() => {
@@ -224,6 +233,11 @@ export const Images = ({ isOpen, cdrom, setIsMounted, disabled }: ImagesProps) =
             </div>
 
             <div className="flex-1 truncate">{image.replace(/^.*[\\/]/, '')}</div>
+            {sizes[image] !== undefined && (
+              <div className="shrink-0 pl-2 text-xs text-neutral-500 tabular-nums">
+                {imageSize(sizes[image])}
+              </div>
+            )}
 
             <div className="flex h-[24px] w-[24px] items-center justify-center rounded">
               {mountedImage === image ? (

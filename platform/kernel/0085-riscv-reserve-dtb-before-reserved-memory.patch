@@ -1,0 +1,47 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: mm: reserve the device tree before the reserved-memory scan
+
+setup_bootmem() scanned the device tree's reserved memory before it
+reserved the device tree blob. A reserved-memory node with only a size,
+such as a shared-dma-pool for CMA, is placed by memblock at that scan, and
+nothing kept it off the blob: with the blob just below the initrd and the
+pool's alignment rounding its end down, the pool covers the blob whenever
+the initrd starts a few KiB above an alignment boundary. CMA then hands the
+blob's pages out while the kernel still reads the tree from them.
+
+Reserve the blob first, as other architectures do.
+---
+--- a/arch/riscv/mm/init.c	2026-11-16 11:33:03.028514300 +0200
++++ b/arch/riscv/mm/init.c	2026-11-16 11:33:03.035796133 +0200
+@@ -291,20 +291,23 @@
+ 	reserve_initrd_mem();
+ 
+ 	/*
+-	 * No allocation should be done before reserving the memory as defined
+-	 * in the device tree, otherwise the allocation could end up in a
+-	 * reserved region.
+-	 */
+-	early_init_fdt_scan_reserved_mem();
+-
+-	/*
+ 	 * If DTB is built in, no need to reserve its memblock.
+ 	 * Otherwise, do reserve it but avoid using
+ 	 * early_init_fdt_reserve_self() since __pa() does
+-	 * not work for DTB pointers that are fixmap addresses
++	 * not work for DTB pointers that are fixmap addresses.
++	 * Reserve it before the reserved-memory scan: a region of the device
++	 * tree with only a size (a CMA pool) is placed there, and must not be
++	 * placed over the device tree itself.
+ 	 */
+ 	if (!IS_ENABLED(CONFIG_BUILTIN_DTB))
+ 		memblock_reserve(dtb_early_pa, fdt_totalsize(dtb_early_va));
++
++	/*
++	 * No allocation should be done before reserving the memory as defined
++	 * in the device tree, otherwise the allocation could end up in a
++	 * reserved region.
++	 */
++	early_init_fdt_scan_reserved_mem();
+ }
+ 
+ #ifdef CONFIG_RELOCATABLE

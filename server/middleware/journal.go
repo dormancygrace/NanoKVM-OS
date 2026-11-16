@@ -18,26 +18,28 @@ import (
 var journalSkipped = []string{
 	"/api/auth/login", "/api/auth/login/totp", "/api/auth/logout",
 	"/api/hid/paste", "/api/hid/sequence", "/api/hid/reset",
-	"/api/vm/gpio", "/api/vm/atx", "/api/atx*",
+	"/api/vm/gpio", "/api/atx*", "/api/network/wol",
 	"/api/storage/image/mount", "/api/storage/remote/*",
 	"/api/storage/user-disk/files/*", "/api/storage/image/delete",
 	"/api/download/*",
-	"/api/stream/*",
-	"/api/network/wifi/verify", "/api/network/ethernet/gateway-check",
+	"/api/stream/state", "/api/stream/mjpeg/detect/stop",
+	"/api/network/wifi/verify",
 	"/api/vm/serial-console/test", "/api/vm/schedule/preview", "/api/vm/schedule/run",
 	"/api/vm/script/run", "/api/vm/video/retry", "/api/vm/tls/reload",
 	"/api/vm/oled/preview",
 	"*/preview", "*/check", "*/test", "*/oauth/*", "*/verify",
 	"/api/os/update/notice/check",
-	"/api/picoclaw/*",
+	"/api/system/recovery/export",
+	"/api/picoclaw/actions", "/api/picoclaw/mcp", "/api/picoclaw/load-image",
+	"/api/picoclaw/sessions/*", "/api/picoclaw/runtime/session",
 }
 
 // Requests that do something to NanoKVM itself rather than change a setting.
+// Shutdown is recorded at its commit point in standbyRouter, registered before
+// this middleware; prepare/cancel are not shutdowns.
 var journalSystemActions = map[string]string{
-	"/api/vm/system/reboot":   "reboot",
-	"/api/vm/system/shutdown": "shutdown",
-	"/api/standby/start":      "standby",
-	"/api/vm/hdmi/reset":      "HDMI reset",
+	"/api/vm/system/reboot": "reboot",
+	"/api/vm/hdmi/reset":    "HDMI reset",
 }
 
 func journalSkips(route string) bool {
@@ -127,7 +129,10 @@ func JournalChanges() gin.HandlerFunc {
 		c.Next()
 		c.Writer = writer.ResponseWriter
 		route := c.FullPath()
-		if route == "" || !strings.HasPrefix(route, "/api/") || journalSkips(route) || c.Writer.Status() != http.StatusOK {
+		// Only the action slot selects a preview/check operation. Other route
+		// parameters (for example a user named "test") stay literal here.
+		operation := strings.ReplaceAll(route, ":action", c.Param("action"))
+		if route == "" || !strings.HasPrefix(route, "/api/") || journalSkips(operation) || c.Writer.Status() != http.StatusOK {
 			return
 		}
 		principal, ok := CurrentPrincipal(c)

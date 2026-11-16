@@ -108,8 +108,8 @@ with embedded credentials are rejected; use the separate fields. URL queries
 and credentials remain in process memory and are omitted from media status,
 source error messages and request-error console diagnostics. HTTP itself does
 not encrypt credentials or image data. LAN servers are supported; the device
-itself (loopback) and link-local addresses are not, for the URL and every
-redirect, checked after name resolution. Only an authenticated administrator
+itself (loopback and its own interface addresses) and link-local addresses
+are not, for the URL and every redirect, checked after name resolution. Only an authenticated administrator
 can create or disconnect a mount.
 
 The HTTP session belongs to the device and survives closing the page, signing

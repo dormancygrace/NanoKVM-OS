@@ -192,10 +192,11 @@ func SaveWatermark(settings WatermarkSettings, pictures [][]byte) error {
 	if err != nil {
 		return err
 	}
+	raw = append(raw, '\n')
 	if len(raw) > watermarkMaxFile {
 		return fmt.Errorf("the watermark must be at most %d KiB", watermarkMaxFile>>10)
 	}
-	return writeFileSynced(WatermarkFile, append(raw, '\n'))
+	return writeFileSynced(WatermarkFile, raw)
 }
 
 // writeFileSynced replaces path with data: a synced temporary file renamed

@@ -53,6 +53,7 @@ func Init(r *gin.Engine) {
 		c.Next()
 	})
 	r.Use(middleware.LimitRequestBody(ownBodyLimitRoutes...))
+	r.Use(middleware.JournalChanges())
 	web(r)
 	server(r)
 	log.Debugf("router init done")

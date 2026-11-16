@@ -9,12 +9,14 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/config"
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/internal/startpriority"
+	"NanoKVM-Server/journal"
 	"NanoKVM-Server/logger"
 	"NanoKVM-Server/logs"
 	"NanoKVM-Server/middleware"
@@ -50,6 +52,7 @@ func main() {
 	go acme.RunRenewal(ctx)
 	go osupdate.RunNoticeSchedule(ctx)
 	go vm.ReconcileMdnsAfterBoot(ctx)
+	journalStart()
 	defer func() { stopMemory(); dispose() }()
 
 	run()
@@ -282,4 +285,13 @@ func markListening() {
 func dispose() {
 	common.GetKvmVision().Close()
 	_ = logs.FlushArchives()
+}
+
+// journalStart records the start of the server, with the OS version.
+func journalStart() {
+	version := "?"
+	if raw, err := os.ReadFile("/kvmapp/version"); err == nil {
+		version = strings.TrimSpace(string(raw))
+	}
+	journal.Record(context.Background(), "system", "system.started", map[string]string{"version": version})
 }

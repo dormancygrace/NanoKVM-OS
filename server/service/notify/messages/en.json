@@ -28,5 +28,8 @@
   "watchdog.reset": { "title": "Host reset by the watchdog", "body": "The host's sensors agent sent nothing for {minutes} min and the host did not answer on the USB network: the reset button was pressed." },
   "watchdog.cycle": { "title": "Host power-cycled by the watchdog", "body": "The host's sensors agent sent nothing for {minutes} min and the host did not answer on the USB network: it was switched off and on." },
   "watchdog.failed": { "title": "Watchdog action failed", "body": "The host stopped responding ({minutes} min of silence), but the action failed: {error}" },
-  "watchdog.unknown": { "title": "Watchdog could not ask the host", "body": "The host's sensors agent has sent nothing for {minutes} min, and the NanoKVM could not ask the host whether it lives: {error}. Nothing was pressed." }
+  "watchdog.unknown": { "title": "Watchdog could not ask the host", "body": "The host's sensors agent has sent nothing for {minutes} min, and the NanoKVM could not ask the host whether it lives: {error}. Nothing was pressed." },
+  "settings.changed": { "title": "Settings changed", "body": "{actor} changed {setting}." },
+  "system.action": { "title": "NanoKVM action", "body": "{actor}: {action}." },
+  "system.started": { "title": "NanoKVM started", "body": "NanoKVM OS {version} started." }
 }

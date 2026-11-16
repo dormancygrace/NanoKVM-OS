@@ -38,7 +38,7 @@ var (
 func (s *Service) GetImages(c *gin.Context) {
 	var rsp proto.Response
 
-	images, err := listImages()
+	images, sizes, err := listImages()
 	if err != nil {
 		rsp.ErrRsp(c, -2, "get images failed")
 		return
@@ -46,14 +46,16 @@ func (s *Service) GetImages(c *gin.Context) {
 
 	rsp.OkRspWithData(c, &proto.GetImagesRsp{
 		Files: images,
+		Sizes: sizes,
 	})
 	log.Debugf("get images success, total %d", len(images))
 }
 
 // listImages offers exactly the files that imageFile lets MountImage and
 // DeleteImage use, so the page never lists an entry it cannot act on.
-func listImages() ([]string, error) {
+func listImages() ([]string, map[string]int64, error) {
 	var images []string
+	sizes := map[string]int64{}
 	err := filepath.Walk(imageDirectory, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -65,11 +67,12 @@ func listImages() ([]string, error) {
 		if !info.IsDir() {
 			if _, err := imageFile(path); err == nil {
 				images = append(images, path)
+				sizes[path] = info.Size()
 			}
 		}
 		return nil
 	})
-	return images, err
+	return images, sizes, err
 }
 
 func (s *Service) MountImage(c *gin.Context) {
@@ -119,7 +122,10 @@ func recordMedium(actor, image string) {
 }
 
 // Images lists the images in /data that MountImageFile accepts.
-func (s *Service) Images() ([]string, error) { return listImages() }
+func (s *Service) Images() ([]string, error) {
+	images, _, err := listImages()
+	return images, err
+}
 
 // MountImageFile puts an image of /data on the virtual disk, or ejects the
 // medium when name is empty: the checks and the effect of the web page's

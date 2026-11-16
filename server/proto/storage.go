@@ -2,6 +2,8 @@ package proto
 
 type GetImagesRsp struct {
 	Files []string `json:"files"`
+	// Sizes holds each file's size in bytes, by path.
+	Sizes map[string]int64 `json:"sizes"`
 }
 
 type MountImageReq struct {

@@ -82,6 +82,17 @@ type Conn struct {
 	sendmmsg      sendmmsgFunc
 	gso           bool // UDP_SEGMENT works on this socket
 	gsoStats      *gsoDiagnostics
+	// The arguments of each sendmmsg, built under mu: as locals their
+	// addresses, handed to the kernel, moved them to the heap on every send.
+	scratch sendScratch
+}
+
+type sendScratch struct {
+	messages [maxBatchPackets]mmsghdr
+	iovs     [maxBatchPackets]unix.Iovec
+	addr4    [maxBatchPackets]unix.RawSockaddrInet4
+	addr6    [maxBatchPackets]unix.RawSockaddrInet6
+	control  [24]byte // CMSG_SPACE(sizeof(uint16)) on supported 64-bit Linux.
 }
 
 // Wrap returns a frame-aware wrapper when c is an IPv4/IPv6 UDP socket with
@@ -431,11 +442,10 @@ func (c *Conn) flushLocked() error {
 	count := c.count
 	sent, err, handled := c.sendGSOLocked(count)
 	if !handled {
-		var messages [maxBatchPackets]mmsghdr
-		var iovs [maxBatchPackets]unix.Iovec
-		var addr4 [maxBatchPackets]unix.RawSockaddrInet4
-		var addr6 [maxBatchPackets]unix.RawSockaddrInet6
+		s := &c.scratch
+		messages, iovs, addr4, addr6 := &s.messages, &s.iovs, &s.addr4, &s.addr6
 		for i := 0; i < c.count; i++ {
+			messages[i] = mmsghdr{}
 			slot := &c.slots[i]
 			iovs[i] = unix.Iovec{
 				Base: &slot.data[0],
@@ -460,7 +470,7 @@ func (c *Conn) flushLocked() error {
 			}
 		}
 
-		sent, err = c.sendMessagesLocked(&messages, count)
+		sent, err = c.sendMessagesLocked(messages, count)
 	}
 	if errors.Is(err, syscall.ENOSYS) && sent == 0 {
 		_, fallbackErr := c.fallbackLocked(0, count)

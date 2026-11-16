@@ -126,3 +126,16 @@ export function resetUserPassword(username: string, password: string) {
     { sensitive: true }
   );
 }
+
+// The confirmation that routes acting as root ask for (lib/recheck.ts).
+export function getRecheck() {
+  return http.get<{ fresh: boolean; totp: boolean }>('/api/auth/recheck');
+}
+
+export function recheck(password: string, otp: string) {
+  return http.post<null>(
+    '/api/auth/recheck',
+    { password, otp, passwordEncoding: 'plain' },
+    { sensitive: true }
+  );
+}

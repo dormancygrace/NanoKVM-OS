@@ -72,20 +72,20 @@ func vmRouter(r *gin.Engine) {
 	api.GET("/vm/input-region", service.GetInputRegion)
 	api.POST("/vm/input-region", service.SetInputRegion)
 
-	admin.GET("/vm/terminal", service.Terminal) // web terminal
+	admin.GET("/vm/terminal", middleware.RequireRecentAuth(), service.Terminal) // web terminal
 
-	admin.GET("/vm/script", service.GetScripts)                    // get script
-	admin.POST("/vm/script/upload", service.UploadScript)          // upload script
-	admin.POST("/vm/script/run", service.RunScript)                // run script
-	admin.DELETE("/vm/script", service.DeleteScript)               // delete script
-	admin.POST("/vm/script/autostart", service.SetScriptAutostart) // run a script at startup
+	admin.GET("/vm/script", service.GetScripts)                                                    // get script
+	admin.POST("/vm/script/upload", middleware.RequireRecentAuth(), service.UploadScript)          // upload script
+	admin.POST("/vm/script/run", middleware.RequireRecentAuth(), service.RunScript)                // run script
+	admin.DELETE("/vm/script", service.DeleteScript)                                               // delete script
+	admin.POST("/vm/script/autostart", middleware.RequireRecentAuth(), service.SetScriptAutostart) // run a script at startup
 
 	// Scheduled tasks (Services > Scheduled tasks), in root's crontab.
 	admin.GET("/vm/schedule", service.GetScheduledTasks)
-	admin.POST("/vm/schedule", service.SaveScheduledTask)
+	admin.POST("/vm/schedule", middleware.RequireRecentAuth(), service.SaveScheduledTask)
 	admin.DELETE("/vm/schedule", service.DeleteScheduledTask)
 	admin.POST("/vm/schedule/preview", service.PreviewSchedule)
-	admin.POST("/vm/schedule/run", service.RunScheduledTask)
+	admin.POST("/vm/schedule/run", middleware.RequireRecentAuth(), service.RunScheduledTask)
 	admin.GET("/vm/schedule/log", service.GetScheduledTaskLog)
 	admin.POST("/vm/script/python", service.InstallPython) // install Python 3 for .py scripts
 
@@ -139,10 +139,10 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/hdmi/disable", service.DisableHdmi)                        // disable hdmi
 	admin.POST("/vm/hdmi/timeout", service.SetHdmiIdleTimeout)
 
-	admin.POST("/vm/ssh/keys/import", service.ImportSSHKeys) // append root public keys
-	admin.GET("/vm/ssh", service.GetSSHState)                // get SSH state
-	admin.POST("/vm/ssh/enable", service.EnableSSH)          // enable SSH
-	admin.POST("/vm/ssh/disable", service.DisableSSH)        // disable SSH
+	admin.POST("/vm/ssh/keys/import", service.ImportSSHKeys)                        // append root public keys
+	admin.GET("/vm/ssh", service.GetSSHState)                                       // get SSH state
+	admin.POST("/vm/ssh/enable", middleware.RequireRecentAuth(), service.EnableSSH) // enable SSH
+	admin.POST("/vm/ssh/disable", service.DisableSSH)                               // disable SSH
 
 	admin.GET("/vm/mouse-jiggler", service.GetMouseJiggler)   // get mouse jiggler
 	admin.POST("/vm/mouse-jiggler/", service.SetMouseJiggler) // set mouse jiggler
@@ -161,11 +161,11 @@ func vmRouter(r *gin.Engine) {
 	admin.POST("/vm/bluetooth/enable", service.EnableBluetooth)   // load Bluetooth now and at boot
 	admin.POST("/vm/bluetooth/disable", service.DisableBluetooth) // unload Bluetooth, not at boot
 
-	admin.POST("/vm/tls", service.SetTls)                                  // enable/disable TLS
-	admin.GET("/vm/tls", service.GetTls)                                   // HTTPS and certificate status
-	admin.POST("/vm/tls/certificate", service.UploadTlsCertificate)        // install a custom certificate
-	admin.POST("/vm/tls/certificate/delete", service.DeleteTlsCertificate) // back to the generated certificate
-	admin.POST("/vm/tls/reload", service.ReloadTls)                        // serve the pair on disk
+	admin.POST("/vm/tls", service.SetTls)                                                                  // enable/disable TLS
+	admin.GET("/vm/tls", service.GetTls)                                                                   // HTTPS and certificate status
+	admin.POST("/vm/tls/certificate", middleware.RequireRecentAuth(), service.UploadTlsCertificate)        // install a custom certificate
+	admin.POST("/vm/tls/certificate/delete", middleware.RequireRecentAuth(), service.DeleteTlsCertificate) // back to the generated certificate
+	admin.POST("/vm/tls/reload", service.ReloadTls)                                                        // serve the pair on disk
 
 	admin.POST("/vm/system/reboot", service.Reboot) // reboot system
 }

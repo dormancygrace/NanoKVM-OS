@@ -31,5 +31,9 @@
   "watchdog.unknown": { "title": "Watchdog could not ask the host", "body": "The host's sensors agent has sent nothing for {minutes} min, and the NanoKVM could not ask the host whether it lives: {error}. Nothing was pressed." },
   "settings.changed": { "title": "Settings changed", "body": "{actor} changed {setting}." },
   "system.action": { "title": "NanoKVM action", "body": "{actor}: {action}." },
-  "system.started": { "title": "NanoKVM started", "body": "NanoKVM OS {version} started." }
+  "system.started": { "title": "NanoKVM started", "body": "NanoKVM OS {version} started." },
+  "system.started.power": { "title": "NanoKVM started", "body": "NanoKVM OS {version} started after the power was switched on." },
+  "system.started.restart": { "title": "NanoKVM restarted", "body": "NanoKVM OS {version} started after a restart." },
+  "system.started.watchdog": { "title": "NanoKVM restarted by its watchdog", "body": "NanoKVM OS {version} started after the hardware watchdog reset the device: the system had stopped responding." },
+  "system.started.overheat": { "title": "NanoKVM restarted after overheating", "body": "NanoKVM OS {version} started after the chip switched itself off because it was too hot." }
 }

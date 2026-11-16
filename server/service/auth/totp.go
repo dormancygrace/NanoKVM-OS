@@ -334,16 +334,23 @@ func (s *Service) TOTPEnable(c *gin.Context) {
 // counted like a login. It answers and returns "" on failure.
 func (s *Service) checkPasswordAndCode(c *gin.Context, rsp *proto.Response) string {
 	var req proto.TOTPCheckReq
+	if err := proto.ParseFormRequest(c, &req); err != nil {
+		rsp.ErrRsp(c, -1, "invalid parameters")
+		return ""
+	}
+	return s.checkCredentials(c, rsp, req.Password, req.PasswordEncoding, req.OTP, true)
+}
+
+// checkCredentials proves the signed-in user's password and, when
+// requireSecondFactor is set or the account has one, the second factor,
+// counted like a login. It answers and returns "" on failure.
+func (s *Service) checkCredentials(c *gin.Context, rsp *proto.Response, encodedPassword, encoding, otp string, requireSecondFactor bool) string {
 	principal, ok := middleware.CurrentPrincipal(c)
 	if !ok {
 		rsp.ErrRsp(c, -1, "invalid session")
 		return ""
 	}
-	if err := proto.ParseFormRequest(c, &req); err != nil {
-		rsp.ErrRsp(c, -1, "invalid parameters")
-		return ""
-	}
-	password, err := utils.DecodeCredentialPassword(req.Password, req.PasswordEncoding)
+	password, err := utils.DecodeCredentialPassword(encodedPassword, encoding)
 	if err != nil || password == "" {
 		rsp.ErrRsp(c, -1, "invalid parameters")
 		return ""
@@ -371,7 +378,10 @@ func (s *Service) checkPasswordAndCode(c *gin.Context, rsp *proto.Response) stri
 		}
 		return ""
 	}
-	_, recovery, left, err := authn.DefaultStore.VerifySecondFactor(principal.Username, account.TokenVersion, req.OTP, now())
+	if !requireSecondFactor && account.TOTP == nil {
+		return principal.Username
+	}
+	_, recovery, left, err := authn.DefaultStore.VerifySecondFactor(principal.Username, account.TokenVersion, otp, now())
 	if errors.Is(err, authn.ErrAccountChanged) {
 		rsp.ErrRsp(c, -3, "current password is incorrect")
 		return ""
@@ -386,6 +396,40 @@ func (s *Service) checkPasswordAndCode(c *gin.Context, rsp *proto.Response) stri
 	}
 	logRecovery(principal.Username, recovery, left)
 	return principal.Username
+}
+
+// Recheck proves the session's password, and second factor when the account
+// has one, for the routes that act as root (middleware.RequireRecentAuth):
+// they work for middleware.RecentAuthWindow afterwards.
+func (s *Service) Recheck(c *gin.Context) {
+	var rsp proto.Response
+	var req proto.RecheckReq
+	if err := proto.ParseFormRequest(c, &req); err != nil {
+		rsp.ErrRsp(c, -1, "invalid parameters")
+		return
+	}
+	if s.checkCredentials(c, &rsp, req.Password, req.PasswordEncoding, req.OTP, false) == "" {
+		return
+	}
+	middleware.MarkRecentAuth(c)
+	rsp.OkRsp(c)
+}
+
+// RecheckState says whether the session's last proof is recent, and whether a
+// proof needs a second factor.
+func (s *Service) RecheckState(c *gin.Context) {
+	var rsp proto.Response
+	principal, ok := middleware.CurrentPrincipal(c)
+	if !ok {
+		rsp.ErrRsp(c, -1, "invalid session")
+		return
+	}
+	account, err := authn.DefaultStore.Get(principal.Username)
+	if err != nil {
+		rsp.ErrRsp(c, -4, "authentication unavailable")
+		return
+	}
+	rsp.OkRspWithData(c, proto.RecheckRsp{Fresh: middleware.RecentAuth(c), TOTP: account.TOTP != nil})
 }
 
 // TOTPDisable turns the user's own second factor off.

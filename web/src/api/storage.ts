@@ -3,7 +3,7 @@ import { getBaseUrl } from '@/lib/service.ts';
 
 // get image list
 export function getImages() {
-  return http.get<{ files: string[] }>('/api/storage/image');
+  return http.get<{ files: string[]; sizes?: Record<string, number> }>('/api/storage/image');
 }
 
 // get mounted image

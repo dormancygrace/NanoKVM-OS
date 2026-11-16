@@ -1,0 +1,75 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] rtc: cv1800: expose the on and off reason registers as nvmem
+
+RTC_ST_ON_REASON and RTC_ST_OFF_REASON (RTC base + 0x10F8 and 0x10FC)
+say why the chip last came on and went off: a power-on, a warm reset
+request (the restart handler of cv1800-rtcsys), a watchdog reset or an
+overheat. Register them as a read-only, root-only nvmem device
+("cv1800-rtc-reason", two 32-bit words), so userspace can read them
+without /dev/mem.
+
+diff --git a/drivers/rtc/rtc-cv1800.c b/drivers/rtc/rtc-cv1800.c
+--- a/drivers/rtc/rtc-cv1800.c
++++ b/drivers/rtc/rtc-cv1800.c
+@@ -12,6 +12,7 @@
+ #include <linux/math64.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/module.h>
++#include <linux/nvmem-provider.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/regmap.h>
+@@ -29,6 +30,9 @@
+ #define SET_SEC_CNTR_VAL       0x1010
+ #define SET_SEC_CNTR_TRIG      0x1014
+ #define SEC_CNTR_VAL           0x1018
++/* Why the chip last came on and went off; kept while VDDBKUP is powered */
++#define ST_ON_REASON           0x10F8
++#define ST_REASON_SIZE         8
+ 
+ /*
+  * When in VDDBKUP domain, this MACRO register
+@@ -241,6 +245,15 @@
+ 	.alarm_irq_enable = cv1800_rtc_alarm_irq_enable,
+ };
+ 
++static int cv1800_rtc_reason_read(void *priv, unsigned int offset, void *val,
++				  size_t bytes)
++{
++	struct cv1800_rtc_priv *info = priv;
++
++	return regmap_bulk_read(info->rtc_map, ST_ON_REASON + offset, val,
++				bytes / 4);
++}
++
+ static int cv1800_rtc_probe(struct platform_device *pdev)
+ {
+ 	struct cv1800_rtc_priv *rtc;
+@@ -283,6 +296,27 @@
+ 	rtc->rtc_dev->ops = &cv1800_rtc_ops;
+ 	rtc->rtc_dev->range_max = U32_MAX;
+ 
++	{
++		struct nvmem_config reason = {
++			.dev = &pdev->dev,
++			.owner = THIS_MODULE,
++			.name = "cv1800-rtc-reason",
++			.id = NVMEM_DEVID_NONE,
++			.read_only = true,
++			.root_only = true,
++			.word_size = 4,
++			.stride = 4,
++			.size = ST_REASON_SIZE,
++			.reg_read = cv1800_rtc_reason_read,
++			.priv = rtc,
++		};
++		struct nvmem_device *nvmem = devm_nvmem_register(&pdev->dev, &reason);
++
++		if (IS_ERR(nvmem))
++			return dev_err_probe(&pdev->dev, PTR_ERR(nvmem),
++					     "cannot register reason nvmem\n");
++	}
++
+ 	ret = devm_request_irq(&pdev->dev, rtc->irq, cv1800_rtc_irq_handler,
+ 			       IRQF_TRIGGER_HIGH, "rtc alarm", rtc);
+ 	if (ret)

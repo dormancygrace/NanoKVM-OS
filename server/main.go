@@ -221,13 +221,18 @@ func run() {
 			server := utils.NewHTTPServer(utils.ListenAddr(conf.Host, httpsPortStr), r, true)
 			// The pair comes from ServerCertificate, so an uploaded or renewed
 			// certificate applies to new connections without a restart.
-			server.TLSConfig = &tls.Config{GetCertificate: utils.ServerCertificate.GetCertificate}
+			// "h2" in NextProtos makes Serve set up HTTP/2 (see TLSListener).
+			server.TLSConfig = &tls.Config{
+				GetCertificate: utils.ServerCertificate.GetCertificate,
+				NextProtos:     []string{"h2", "http/1.1"},
+			}
 			listener, err := net.Listen("tcp", server.Addr)
 			if err != nil {
 				panic("start https server failed")
 			}
 			markListening()
-			if err := server.ServeTLS(utils.RawListener(listener), "", ""); err != nil {
+			limited := utils.LimitConnections(utils.RawListener(listener))
+			if err := server.Serve(utils.TLSListener(limited, server.TLSConfig)); err != nil {
 				panic("start https server failed")
 			}
 		}()
@@ -272,7 +277,7 @@ func run() {
 			panic("start http server failed")
 		}
 		markListening()
-		if err := server.Serve(listener); err != nil {
+		if err := server.Serve(utils.LimitConnections(listener)); err != nil {
 			panic("start http server failed")
 		}
 	}
@@ -291,11 +296,20 @@ func dispose() {
 	_ = logs.FlushArchives()
 }
 
-// journalStart records the start of the server, with the OS version.
+// journalStart records the start of the server, with the OS version and,
+// on the first start of a boot, why the chip came on.
 func journalStart() {
 	version := "?"
 	if raw, err := os.ReadFile("/kvmapp/version"); err == nil {
 		version = strings.TrimSpace(string(raw))
 	}
-	journal.Record(context.Background(), "system", "system.started", map[string]string{"version": version})
+	message, severity := "system.started", "info"
+	if reason := bootReason(); reason != "" {
+		message = "system.started." + reason
+		if reason == "watchdog" || reason == "overheat" {
+			severity = "warning"
+		}
+	}
+	journal.Default.Add(journal.Entry{Kind: "system", Severity: severity, Message: message,
+		Vars: map[string]string{"version": version, "actor": "NanoKVM"}})
 }

@@ -4,14 +4,49 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"net"
 
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+// The test servers listen on loopback, which image URLs may not reach on the
+// device; TestLocalAddressRefused covers that check.
+func TestMain(m *testing.M) {
+	imageDialer.Control = nil
+	os.Exit(m.Run())
+}
+
+func TestLocalAddressRefused(t *testing.T) {
+	interfaceAddrs = func() ([]net.Addr, error) {
+		return []net.Addr{&net.IPNet{IP: net.ParseIP("192.168.1.20"), Mask: net.CIDRMask(24, 32)}}, nil
+	}
+	defer func() { interfaceAddrs = net.InterfaceAddrs }()
+	for _, address := range []string{"127.0.0.1:80", "[::1]:443", "0.0.0.0:80", "169.254.1.1:80", "[fe80::1]:80", "224.0.0.1:80", "192.168.1.20:443"} {
+		if refuseLocalAddress("tcp", address, nil) == nil {
+			t.Errorf("%s allowed", address)
+		}
+	}
+	for _, address := range []string{"192.168.1.10:80", "10.0.0.2:8080", "[2001:db8::1]:443", "93.184.216.34:443"} {
+		if err := refuseLocalAddress("tcp", address, nil); err != nil {
+			t.Errorf("%s refused: %v", address, err)
+		}
+	}
+	// Wired into the HTTP source: the check runs on every dial, redirects
+	// included, and its error reaches the user as is.
+	imageDialer.Control = refuseLocalAddress
+	defer func() { imageDialer.Control = nil }()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { rangeResponse(w, r, httpImage()) }))
+	defer server.Close()
+	if _, err := OpenHTTP(context.Background(), HTTPOptions{URL: server.URL + "/a.iso"}); err == nil || !strings.Contains(err.Error(), "this device") {
+		t.Errorf("loopback image opened: %v", err)
+	}
+}
 
 func httpImage() []byte {
 	b := make([]byte, 3*MaxRead+2048)

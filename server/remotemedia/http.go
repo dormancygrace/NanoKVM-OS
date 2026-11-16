@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -62,6 +63,7 @@ type HTTPSource struct {
 func (s *HTTPSource) setTransport(chacha bool) {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.Proxy = nil // A device-side mount uses the explicitly selected server.
+	t.DialContext = imageDialer.DialContext
 	t.DisableCompression = true
 	t.MaxConnsPerHost = 1
 	t.MaxIdleConnsPerHost = 1
@@ -78,6 +80,40 @@ func (s *HTTPSource) setTransport(chacha bool) {
 		s.transport.CloseIdleConnections()
 	}
 	s.transport, s.client.Transport, s.chacha = t, t, chacha
+}
+
+// imageDialer refuses the device itself (loopback and the addresses of its
+// interfaces) and link-local addresses, for the first URL and every redirect
+// alike: the address is checked after DNS, so neither a name nor a redirect
+// can point the device at its own services. Other LAN and Internet servers
+// stay reachable.
+var imageDialer = &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: refuseLocalAddress}
+
+var errLocalImageAddress = errors.New("Image URLs cannot point to this device or a link-local address")
+
+// interfaceAddrs is net.InterfaceAddrs; a variable so that tests can name the
+// device's addresses.
+var interfaceAddrs = net.InterfaceAddrs
+
+func refuseLocalAddress(_, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsMulticast() {
+		return errLocalImageAddress
+	}
+	own, err := interfaceAddrs()
+	if err != nil {
+		return err
+	}
+	for _, a := range own {
+		if n, ok := a.(*net.IPNet); ok && n.IP.Equal(ip) {
+			return errLocalImageAddress
+		}
+	}
+	return nil
 }
 
 func ValidateHTTPOptions(o HTTPOptions) error {
@@ -276,6 +312,9 @@ func (s *HTTPSource) fetchOnce(ctx context.Context, targetURL *url.URL, offset u
 			return s.ctx.Err()
 		}
 		// net/url errors contain the complete URL, possibly including secrets.
+		if errors.Is(err, errLocalImageAddress) {
+			return errLocalImageAddress
+		}
 		var networkError net.Error
 		var connectionError *net.OpError
 		retry := errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||

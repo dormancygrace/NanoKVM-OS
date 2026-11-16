@@ -12,6 +12,7 @@ Settings > System > Event log shows what happened to the host and who did what t
 | Login from a new address, logins blocked, attempts limited | the web login, Redfish and IPMI |
 | Button pressed | a press of the power or reset button, with its length and who asked: a web user, Redfish, IPMI, MCP |
 | Image mounted, image ejected | the virtual drive's medium changed through the web page (with the user) or through MCP ("API") |
+| NanoKVM started | every start of the server, with the OS version. The first start after a boot also says why the device came on, from the RTC's power-on reason: the power was switched on, a restart (a reboot, or a kernel panic), the hardware watchdog (the system had stopped responding; a warning) or overheating (a warning) |
 
 The first four groups are the events of Settings > Notifications. They are recorded whether or not a notification channel takes them, after the same holding back of repeats: a login event an outsider can cause at will is recorded once per its window, as it is sent once.
 

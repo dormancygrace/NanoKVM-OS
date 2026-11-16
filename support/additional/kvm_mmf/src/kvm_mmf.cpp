@@ -281,11 +281,17 @@ static std::mutex wm_lock;
 static std::atomic<bool> wm_on;
 static std::vector<wm_block> wm_blocks;
 static int wm_ref_w, wm_margin;
+// Per output: its size when the blocks went on, which are on, and how many
+// times the missing ones were tried for this size (a failed block is tried
+// again on the next syncs, up to wm_attempts).
 static struct {
 	uint32_t chn_w, chn_h;
 	bool attached[MMF_WATERMARK_BLOCKS];
-	bool tried;
+	int attempts;
 } wm_out[MMF_VI_MAX_CHN];
+static const int wm_attempts = 3;
+// Blocks missing on enabled outputs after the last sync.
+static std::atomic<int> wm_missing;
 
 static RGN_HANDLE _wm_handle(int ch, int block)
 {
@@ -333,7 +339,7 @@ static void _wm_detach_locked(int ch)
 		CVI_RGN_Destroy(_wm_handle(ch, i));
 		wm_out[ch].attached[i] = false;
 	}
-	wm_out[ch].tried = false;
+	wm_out[ch].attempts = 0;
 }
 
 // One block on an output of cw x ch_h, scaled and placed for that size.
@@ -385,32 +391,48 @@ static int _wm_attach_block_locked(int ch, int i, uint32_t cw, uint32_t ch_h)
 }
 
 // Every output as the watermark and the outputs' state say: the blocks on
-// each enabled output at its current size, nowhere else. A block that failed
-// is not tried again until the output or the watermark changes.
+// each enabled output at its current size, nowhere else. Called with the
+// capture lifecycle serialized (vi_mutex in libkvm). The regions shown, or
+// -EIO when a block is missing on an enabled output; a missing block is
+// tried again on the next syncs (once a second), wm_attempts times.
 static int _wm_sync(void)
 {
 	std::lock_guard<std::mutex> guard(wm_lock);
-	int shown = 0;
+	int shown = 0, missing = 0;
 	for (int ch = 0; ch < MMF_VI_MAX_CHN; ++ch) {
 		VPSS_CHN_ATTR_S attr;
 		const bool want = wm_on && priv.vpss_chn_enabled[ch] && CVI_VPSS_GetChnAttr(0, ch, &attr) == CVI_SUCCESS;
-		if (wm_out[ch].tried && (!want || wm_out[ch].chn_w != attr.u32Width || wm_out[ch].chn_h != attr.u32Height))
+		if (wm_out[ch].attempts && (!want || wm_out[ch].chn_w != attr.u32Width || wm_out[ch].chn_h != attr.u32Height))
 			_wm_detach_locked(ch);
-		if (want && !wm_out[ch].tried) {
-			wm_out[ch].tried = true;
+		if (!want) continue;
+		int absent = 0;
+		for (int i = 0; i < (int)wm_blocks.size(); ++i) absent += !wm_out[ch].attached[i];
+		if (absent && wm_out[ch].attempts < wm_attempts) {
+			++wm_out[ch].attempts;
 			wm_out[ch].chn_w = attr.u32Width;
 			wm_out[ch].chn_h = attr.u32Height;
 			for (int i = 0; i < (int)wm_blocks.size(); ++i) {
+				if (wm_out[ch].attached[i]) continue;
 				const int result = _wm_attach_block_locked(ch, i, attr.u32Width, attr.u32Height);
 				if (result != CVI_SUCCESS) {
-					fprintf(stderr, "[kvm_mmf] watermark block %d on output %d failed: %#x\n", i, ch, result);
+					fprintf(stderr, "[kvm_mmf] watermark block %d on output %d failed (try %d): %#x\n",
+						i, ch, wm_out[ch].attempts, result);
 					fflush(stderr);
 				}
 			}
 		}
-		for (int i = 0; i < MMF_WATERMARK_BLOCKS; ++i) shown += wm_out[ch].attached[i];
+		for (int i = 0; i < (int)wm_blocks.size(); ++i) {
+			shown += wm_out[ch].attached[i];
+			missing += !wm_out[ch].attached[i];
+		}
 	}
-	return shown;
+	wm_missing = missing;
+	return missing ? -EIO : shown;
+}
+
+int mmf_watermark_missing(void)
+{
+	return wm_missing;
 }
 
 static void _wm_detach(int ch)

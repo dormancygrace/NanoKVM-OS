@@ -2,6 +2,7 @@ package vm
 
 import (
 	"encoding/base64"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -27,6 +28,9 @@ type WatermarkRsp struct {
 	MaxHeight int                 `json:"maxHeight"`
 	MaxArea   int                 `json:"maxArea"`
 	MaxBlocks int                 `json:"maxBlocks"`
+	MaxBytes  int                 `json:"maxBytes"`
+	// Blocks the device could not put on an enabled output (it tries again).
+	Missing int `json:"missing"`
 }
 
 // WatermarkBlockReq is a block: its place and, optionally, a new PNG (base64);
@@ -59,6 +63,8 @@ func watermarkResponse() WatermarkRsp {
 		MaxHeight: common.WatermarkMaxHeight,
 		MaxArea:   common.WatermarkMaxArea,
 		MaxBlocks: common.WatermarkMaxBlocks,
+		MaxBytes:  common.WatermarkMaxBytes,
+		Missing:   common.GetKvmVision().WatermarkMissing(),
 	}
 }
 
@@ -70,6 +76,7 @@ func (s *Service) GetWatermark(c *gin.Context) {
 func (s *Service) SetWatermark(c *gin.Context) {
 	var req WatermarkReq
 	var rsp proto.Response
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, common.WatermarkMaxRequest)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return

@@ -141,6 +141,10 @@ export type WatermarkState = {
   maxHeight: number;
   maxArea: number;
   maxBlocks: number;
+  // PNG bytes of one block.
+  maxBytes: number;
+  // Blocks the device could not put on a running output (it tries again).
+  missing: number;
 };
 
 export function getWatermark() {

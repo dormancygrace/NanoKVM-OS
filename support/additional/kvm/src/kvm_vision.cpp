@@ -1460,9 +1460,19 @@ int kvmv_set_first_capture_yuv420(uint8_t want)
     return 0;
 }
 
+// Under vi_mutex like every other change of the VPSS outputs: a region is
+// never attached between an output's detach and its stop or reconfiguration.
 int kvmv_set_watermark(const uint32_t *argb, const int *geometry, int count, int ref_width, int margin)
 {
-    return mmf_watermark_set(argb, geometry, count, ref_width, margin);
+    pthread_mutex_lock(&vi_mutex);
+    const int result = mmf_watermark_set(argb, geometry, count, ref_width, margin);
+    pthread_mutex_unlock(&vi_mutex);
+    return result;
+}
+
+int kvmv_watermark_missing(void)
+{
+    return mmf_watermark_missing();
 }
 
 static void apply_capture_rate(void)

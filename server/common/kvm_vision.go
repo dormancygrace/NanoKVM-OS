@@ -25,6 +25,10 @@ package common
             (int (*)(const unsigned int *, const int *, int, int, int))dlsym(RTLD_DEFAULT, "kvmv_set_watermark");
         return fn ? fn(argb, geometry, count, ref_width, margin) : -38;
     }
+    static int watermark_missing(void) {
+        int (*fn)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "kvmv_watermark_missing");
+        return fn ? fn() : 0;
+    }
     static int capture_reclaim_pending(void) {
         int (*fn)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "kvmv_capture_reclaim_pending");
         // An older library cannot report completion: retain conservative retries.
@@ -355,6 +359,17 @@ func (k *KvmVision) SetWatermark(argb []uint32, geometry []int32, margin int) in
 	}
 	return int(C.set_watermark((*C.uint)(unsafe.Pointer(&argb[0])), (*C.int)(unsafe.Pointer(&geometry[0])),
 		C.int(len(geometry)/4), C.int(WatermarkRefWidth), C.int(margin)))
+}
+
+// WatermarkMissing is the number of watermark blocks missing on enabled
+// outputs after the native library's last attempt.
+func (k *KvmVision) WatermarkMissing() int {
+	k.mutex.RLock()
+	defer k.mutex.RUnlock()
+	if k.closed {
+		return 0
+	}
+	return int(C.watermark_missing())
 }
 
 func (k *KvmVision) SetFrameDetect(frame uint8) {

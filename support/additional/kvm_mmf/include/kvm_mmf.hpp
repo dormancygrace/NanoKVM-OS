@@ -149,10 +149,13 @@ int mmf_video_path(void);
  * four ints each in geometry: width and height for a picture ref_width wide
  * (scaled to each output), and the place as a fraction in thousandths of the
  * free room inside margin reference pixels (0 left or top, 1000 right or
- * bottom). count 0 removes it. Returns the regions shown, or a negative errno.
- * Needs cv181x_rgn. */
+ * bottom). count 0 removes it. Returns the regions shown, or a negative errno
+ * (-EIO: a block could not be put on an enabled output; it is tried again).
+ * Needs cv181x_rgn; the caller serializes it with the capture lifecycle. */
 #define MMF_WATERMARK_BLOCKS 8
 int mmf_watermark_set(const uint32_t *argb, const int *geometry, int count, int ref_width, int margin);
+/* Watermark blocks missing on enabled outputs after the last attempt. */
+int mmf_watermark_missing(void);
 // One picture of the screen scaled to width x height (even, 16..1920) as
 // 8-bit B, G and R planes (width*height each), the TPU models' input layout,
 // from VPSS channel 2. 0, -2 without a running capture, -3 when no picture

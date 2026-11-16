@@ -397,7 +397,6 @@
       "noBlocks": "No blocks yet: add one.",
       "needsBlock": "Add a block to turn the watermark on.",
       "emptyBlocks": "Enter text or choose a logo for block {{blocks}}.",
-      "positionHint": "Or drag the block in the preview.",
       "area": "Size of all blocks",
       "areaOver": "The blocks together are too large: make the text smaller or remove a block.",
       "designTooLong": "The blocks hold too much text to save.",
@@ -426,7 +425,6 @@
       "logoSaved": "The saved watermark contains a logo. To change the picture, choose the logo again.",
       "logoDropped": "The saved logo is not available here: the changed watermark is saved without it unless you choose it again.",
       "logoError": "This file cannot be used as a logo.",
-      "position": "Position",
       "anchor": {
         "topLeft": "Top left",
         "top": "Top center",
@@ -445,7 +443,11 @@
       "scaled": "This block is larger than {{width}} × {{height}} and is scaled down to fit.",
       "applied": "Watermark saved",
       "failed": "Could not save the watermark.",
-      "loadFailed": "Could not load the watermark settings."
+      "loadFailed": "Could not load the watermark settings.",
+      "missing": "The device could not show {{count}} block(s) on a running stream, for example for lack of video memory or because too many blocks overlap. It tries again; smaller or fewer blocks help.",
+      "places": "Places",
+      "placesHint": "Tap a place to edit its block, or to add a block there. Drag blocks in the preview to move them.",
+      "refreshStill": "New picture"
     }
   },
   "capture": {

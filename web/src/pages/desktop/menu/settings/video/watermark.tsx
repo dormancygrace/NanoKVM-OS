@@ -13,10 +13,12 @@ import {
   Switch
 } from 'antd';
 import clsx from 'clsx';
+import { useAtomValue } from 'jotai';
 import { PlusIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getScreen, getWatermark, setWatermark, type WatermarkState } from '@/api/vm';
+import { screenshotSourceAtom } from '@/jotai/screen.ts';
 import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
 
 import {
@@ -119,6 +121,9 @@ export const WatermarkPage = () => {
   const [selected, setSelected] = useState(0);
   // The size of the current stream (else the input): the preview's shape.
   const [picture, setPicture] = useState(DEFAULT_PICTURE);
+  // The stream playing behind the settings, and a still of it (object URL).
+  const source = useAtomValue(screenshotSourceAtom);
+  const [still, setStill] = useState<string>();
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -167,6 +172,27 @@ export const WatermarkPage = () => {
       })
       .catch(() => undefined);
   }, []);
+
+  // A still of the stream behind the settings, as the preview's background:
+  // taken when the page opens with the watermark on, when it is turned on and
+  // on request. It shows the watermark the device draws now.
+  const grab = useCallback(async () => {
+    if (!source) return;
+    try {
+      const blob = await source.capture();
+      setStill((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return URL.createObjectURL(blob);
+      });
+    } catch {
+      // No video in the page: the plain background stays.
+    }
+  }, [source]);
+  const enabled = draft?.enabled === true;
+  useEffect(() => {
+    if (enabled) void grab();
+  }, [enabled, grab]);
+  useEffect(() => () => setStill((old) => (old && URL.revokeObjectURL(old), undefined)), []);
 
   if (!saved || !draft) {
     return loadFailed ? (
@@ -235,13 +261,17 @@ export const WatermarkPage = () => {
   );
   const designBytes = new TextEncoder().encode(designJson(designs)).length;
   const emptyBlocks = blocks.filter((b) => !b.picture).map((b) => b.index + 1);
-  const dirty =
-    draft.enabled !== saved.enabled ||
-    draft.margin !== saved.margin ||
-    draft.blocks.length !== saved.blocks.length ||
-    blocks.some((b) => b.changed || b.moved || b.placeChanged);
-  const issue =
-    emptyBlocks.length > 0
+  // Off, the editor is hidden: turning it off keeps the saved blocks as they
+  // are, and edits made before are not saved.
+  const dirty = !draft.enabled
+    ? saved.enabled
+    : !saved.enabled ||
+      draft.margin !== saved.margin ||
+      draft.blocks.length !== saved.blocks.length ||
+      blocks.some((b) => b.changed || b.moved || b.placeChanged);
+  const issue = !draft.enabled
+    ? undefined
+    : emptyBlocks.length > 0
       ? tr('emptyBlocks', { blocks: emptyBlocks.join(', ') })
       : draft.enabled && draft.blocks.length === 0
         ? tr('needsBlock')
@@ -277,12 +307,12 @@ export const WatermarkPage = () => {
     updateBlock(block.id, (b) => ({ ...b, design: { ...b.design, [key]: value } }));
   }
 
-  function addBlock() {
+  function addBlock(at?: { x: number; y: number }) {
     if (!draft || !saved || draft.blocks.length >= saved.maxBlocks) return;
     const used = new Set(draft.blocks.map((b) => `${b.x},${b.y}`));
-    const place = placeOf(
-      NEW_BLOCK_PLACES.find((i) => !used.has(`${placeOf(i).x},${placeOf(i).y}`)) ?? 4
-    );
+    const place =
+      at ??
+      placeOf(NEW_BLOCK_PLACES.find((i) => !used.has(`${placeOf(i).x},${placeOf(i).y}`)) ?? 4);
     const added: Block = {
       id: ++blockIds,
       ...place,
@@ -350,22 +380,30 @@ export const WatermarkPage = () => {
   async function apply() {
     if (!saved || !draft || busy || !dirty || issue) return;
     setBusy(true);
-    const logos = draft.blocks.map((b) => b.logo);
+    const logos = draft.enabled ? draft.blocks.map((b) => b.logo) : savedLogos;
     try {
-      const body = {
-        enabled: draft.enabled,
-        margin: draft.margin,
-        design: designJson(designs),
-        blocks: await Promise.all(
-          blocks.map(async (b) => {
-            const place = { x: b.block.x, y: b.block.y };
-            // A new picture; or the saved one again, at its new index.
-            if (b.rendered) return { ...place, image: await canvasPngBase64(b.rendered.canvas) };
-            if (b.moved) return { ...place, image: b.savedImage };
-            return place;
-          })
-        )
-      };
+      const body = !draft.enabled
+        ? {
+            enabled: false,
+            margin: saved.margin,
+            design: saved.design,
+            blocks: saved.blocks.map((b) => ({ x: b.x, y: b.y }))
+          }
+        : {
+            enabled: draft.enabled,
+            margin: draft.margin,
+            design: designJson(designs),
+            blocks: await Promise.all(
+              blocks.map(async (b) => {
+                const place = { x: b.block.x, y: b.block.y };
+                // A new picture; or the saved one again, at its new index.
+                if (b.rendered)
+                  return { ...place, image: await canvasPngBase64(b.rendered.canvas) };
+                if (b.moved) return { ...place, image: b.savedImage };
+                return place;
+              })
+            )
+          };
       const rsp = await setWatermark(body);
       if (rsp.code === 0) {
         accept(rsp.data, logos);
@@ -410,6 +448,9 @@ export const WatermarkPage = () => {
             {tr(saved.enabled ? 'statusOn' : 'statusOff')}
           </StatusBadge>
         </div>
+        {saved.enabled && saved.missing > 0 && (
+          <Alert type="warning" showIcon title={tr('missing', { count: saved.missing })} />
+        )}
         {row(
           tr('enabled'),
           <Switch
@@ -421,284 +462,316 @@ export const WatermarkPage = () => {
           />,
           tr('note')
         )}
-        {row(
-          tr('margin'),
-          <InputNumber
-            aria-label={tr('margin')}
-            min={MARGIN.min}
-            max={MARGIN.max}
-            precision={0}
-            suffix="px"
-            value={draft.margin}
-            disabled={busy}
-            onChange={(margin) => margin !== null && setDraft({ ...draft, margin })}
-          />,
-          tr('marginHint', { width: saved.refWidth })
-        )}
+        {draft.enabled &&
+          row(
+            tr('margin'),
+            <InputNumber
+              aria-label={tr('margin')}
+              min={MARGIN.min}
+              max={MARGIN.max}
+              precision={0}
+              suffix="px"
+              value={draft.margin}
+              disabled={busy}
+              onChange={(margin) => margin !== null && setDraft({ ...draft, margin })}
+            />,
+            tr('marginHint', { width: saved.refWidth })
+          )}
       </Panel>
 
-      <section className="space-y-2">
-        <div
-          ref={frame}
-          className="relative mx-auto w-full touch-none overflow-hidden rounded bg-neutral-700 select-none"
-          style={{ aspectRatio: `${ratio}`, maxWidth: `calc(70vh * ${ratio})` }}
-          role="group"
-          aria-label={tr('preview')}
-        >
-          {blocks.map((b, index) => {
-            const rect = rects[index];
-            const style = {
-              left: percent(rect.x, frameWidth),
-              top: percent(rect.y, frameHeight),
-              width: percent(rect.width, frameWidth),
-              height: percent(rect.height, frameHeight)
-            };
-            const handlers = {
-              onPointerDown: (e: React.PointerEvent) => startDrag(e, index),
-              onPointerMove: (e: React.PointerEvent) => moveDrag(e, index),
-              onPointerUp: () => (drag.current = null),
-              onPointerCancel: () => (drag.current = null)
-            };
-            const ring = index === selected ? 'outline-2 outline-offset-2 outline-blue-400' : '';
-            return b.picture ? (
-              <img
-                key={b.block.id}
-                src={b.picture.url}
-                alt={blockName(index)}
-                draggable={false}
-                className={clsx('absolute max-w-none cursor-move outline', ring || 'outline-0')}
-                style={style}
-                {...handlers}
-              />
-            ) : (
-              <div
-                key={b.block.id}
-                className={clsx(
-                  'absolute flex cursor-move items-center justify-center border border-dashed border-neutral-400 text-xs text-neutral-300',
-                  ring && `outline ${ring}`
-                )}
-                style={style}
-                {...handlers}
-              >
-                {blockName(index)}
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-fg-muted m-0 text-xs">
-          {tr('previewHint', { width: picture.width, height: picture.height })}
-        </p>
-        {overlapping.length > 0 && (
-          <p className="text-warning m-0 text-xs" role="status">
-            {tr('overlap', {
-              blocks: overlapping.map(([a, b]) => `${a + 1}–${b + 1}`).join(', ')
-            })}
-          </p>
-        )}
-        <div className="flex items-center gap-3">
-          <span className="text-fg-muted shrink-0 text-xs">{tr('area')}</span>
-          <Progress
-            className="m-0 flex-1"
-            size="small"
-            percent={Math.round((area / saved.maxArea) * 100)}
-            status={area > saved.maxArea ? 'exception' : 'normal'}
-            format={() => `${area.toLocaleString()} / ${saved.maxArea.toLocaleString()}`}
-          />
-        </div>
-      </section>
-
-      <Panel className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={tr('blocks')}>
-          {blocks.map((b, index) => (
-            <Button
-              key={b.block.id}
-              type={index === selected ? 'primary' : 'default'}
-              aria-pressed={index === selected}
-              disabled={busy}
-              onClick={() => setSelected(index)}
+      {draft.enabled && (
+        <>
+          <section className="space-y-2">
+            <div
+              ref={frame}
+              className="relative mx-auto w-full touch-none overflow-hidden rounded bg-neutral-700 select-none"
+              style={{
+                aspectRatio: `${ratio}`,
+                maxWidth: `calc(70vh * ${ratio})`,
+                ...(still && {
+                  backgroundImage: `url(${still})`,
+                  backgroundSize: '100% 100%'
+                })
+              }}
+              role="group"
+              aria-label={tr('preview')}
             >
-              <span className="max-w-40 truncate">
-                {blockName(index)}
-                {b.block.design.text.trim() && ` · ${b.block.design.text.split('\n')[0]}`}
-              </span>
-            </Button>
-          ))}
-          <Button
-            icon={<PlusIcon size={14} />}
-            disabled={busy || draft.blocks.length >= saved.maxBlocks}
-            onClick={addBlock}
-          >
-            {tr('addBlock')}
-          </Button>
-        </div>
-        {!block ? (
-          <p className="text-fg-muted m-0 text-xs">{tr('noBlocks')}</p>
-        ) : (
-          <>
-            {row(
-              tr('text'),
-              <Input.TextArea
-                aria-label={tr('text')}
-                value={block.design.text}
-                placeholder={tr('textPlaceholder')}
-                autoSize={{ minRows: 1, maxRows: MAX_LINES }}
-                disabled={busy}
-                onChange={(e) => changeDesign('text', limitText(e.target.value))}
-              />,
-              tr('textHint', { lines: MAX_LINES, length: MAX_LINE_LENGTH })
+              {blocks.map((b, index) => {
+                const rect = rects[index];
+                const style = {
+                  left: percent(rect.x, frameWidth),
+                  top: percent(rect.y, frameHeight),
+                  width: percent(rect.width, frameWidth),
+                  height: percent(rect.height, frameHeight)
+                };
+                const handlers = {
+                  onPointerDown: (e: React.PointerEvent) => startDrag(e, index),
+                  onPointerMove: (e: React.PointerEvent) => moveDrag(e, index),
+                  onPointerUp: () => (drag.current = null),
+                  onPointerCancel: () => (drag.current = null)
+                };
+                const ring =
+                  index === selected ? 'outline-2 outline-offset-2 outline-blue-400' : '';
+                return b.picture ? (
+                  <img
+                    key={b.block.id}
+                    src={b.picture.url}
+                    alt={blockName(index)}
+                    draggable={false}
+                    className={clsx('absolute max-w-none cursor-move outline', ring || 'outline-0')}
+                    style={style}
+                    {...handlers}
+                  />
+                ) : (
+                  <div
+                    key={b.block.id}
+                    className={clsx(
+                      'absolute flex cursor-move items-center justify-center border border-dashed border-neutral-400 text-xs text-neutral-300',
+                      ring && `outline ${ring}`
+                    )}
+                    style={style}
+                    {...handlers}
+                  >
+                    {blockName(index)}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <p className="text-fg-muted m-0 text-xs">
+                {tr('previewHint', { width: picture.width, height: picture.height })}
+              </p>
+              {source && (
+                <Button size="small" disabled={busy} onClick={() => void grab()}>
+                  {tr('refreshStill')}
+                </Button>
+              )}
+            </div>
+            {overlapping.length > 0 && (
+              <p className="text-warning m-0 text-xs" role="status">
+                {tr('overlap', {
+                  blocks: overlapping.map(([a, b]) => `${a + 1}–${b + 1}`).join(', ')
+                })}
+              </p>
             )}
-            {row(
-              tr('fontSize'),
-              <div className="flex flex-wrap items-center gap-3">
-                <InputNumber
-                  aria-label={tr('fontSize')}
-                  min={FONT_SIZE.min}
-                  max={FONT_SIZE.max}
-                  precision={0}
-                  suffix="px"
-                  value={block.design.fontSize}
-                  disabled={busy}
-                  onChange={(value) => value !== null && changeDesign('fontSize', value)}
-                />
-                <Checkbox
-                  checked={block.design.bold}
-                  disabled={busy}
-                  onChange={(e) => changeDesign('bold', e.target.checked)}
-                >
-                  {tr('bold')}
-                </Checkbox>
-              </div>,
-              tr('fontSizeHint')
-            )}
-            {row(
-              tr('color'),
-              <ColorPicker
-                className="self-start"
-                aria-label={tr('color')}
-                value={block.design.color}
-                disabledAlpha
-                showText
-                disabled={busy}
-                onChange={(color) => changeDesign('color', color.toHexString().toUpperCase())}
+            <div className="flex items-center gap-3">
+              <span className="text-fg-muted shrink-0 text-xs">{tr('area')}</span>
+              <Progress
+                className="m-0 flex-1"
+                size="small"
+                percent={Math.round((area / saved.maxArea) * 100)}
+                status={area > saved.maxArea ? 'exception' : 'normal'}
+                format={() => `${area.toLocaleString()} / ${saved.maxArea.toLocaleString()}`}
               />
-            )}
-            {row(
-              tr('background'),
-              <Segmented<WatermarkBackground>
-                className="self-start"
-                aria-label={tr('background')}
-                value={block.design.background}
-                disabled={busy}
-                onChange={(value) => changeDesign('background', value)}
-                options={(['none', 'dark', 'light'] as const).map((value) => ({
-                  value,
-                  label: tr(`background_${value}`)
-                }))}
-              />
-            )}
-            {row(
-              tr('opacity'),
-              <div className="flex items-center gap-3">
-                <Slider
-                  className="flex-1"
-                  aria-label={tr('opacity')}
-                  min={OPACITY.min}
-                  max={OPACITY.max}
-                  value={block.design.opacity}
-                  disabled={busy}
-                  onChange={(value) => changeDesign('opacity', value)}
-                />
-                <span className="w-10 text-right text-sm tabular-nums">
-                  {block.design.opacity}%
-                </span>
-              </div>
-            )}
-            {row(
-              tr('logo'),
-              <>
-                <div className="flex flex-wrap gap-2">
-                  <Button disabled={busy} onClick={() => file.current?.click()}>
-                    {tr(block.logo ? 'logoReplace' : 'logoChoose')}
-                  </Button>
-                  {(block.logo || current.logoMissing) && (
-                    <Button
-                      disabled={busy}
-                      onClick={() =>
-                        updateBlock(block.id, (b) => ({
-                          ...b,
-                          logo: null,
-                          dropSavedLogo: current.logoMissing || b.dropSavedLogo
-                        }))
-                      }
-                    >
-                      {tr('logoRemove')}
-                    </Button>
-                  )}
-                </div>
-                <input
-                  ref={file}
-                  type="file"
-                  className="hidden"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (f) void chooseLogo(f);
-                  }}
-                />
-              </>,
-              current.logoMissing ? (
-                <span className={current.changed ? 'text-warning' : undefined}>
-                  {tr(current.changed ? 'logoDropped' : 'logoSaved')}
-                </span>
-              ) : (
-                tr('logoHint')
-              )
-            )}
-            {row(
-              tr('position'),
-              <div
-                className="grid w-fit grid-cols-3 gap-1"
-                role="group"
-                aria-label={tr('position')}
-              >
+            </div>
+          </section>
+
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="flex flex-col gap-1">
+              <div className="grid w-fit grid-cols-3 gap-1" role="group" aria-label={tr('places')}>
                 {PLACES.map((name, index) => {
                   const place = placeOf(index);
-                  const pressed = block.x === place.x && block.y === place.y;
+                  // The blocks at this place, by index.
+                  const here = blocks
+                    .filter((b) => b.block.x === place.x && b.block.y === place.y)
+                    .map((b) => b.index);
+                  const pressed = here.includes(selected);
+                  const full = draft.blocks.length >= saved.maxBlocks;
                   return (
                     <Button
                       key={name}
                       size="small"
+                      className="min-w-9 tabular-nums"
                       type={pressed ? 'primary' : 'default'}
                       aria-label={tr(`anchor.${name}`)}
                       aria-pressed={pressed}
                       title={tr(`anchor.${name}`)}
-                      disabled={busy}
-                      onClick={() => updateBlock(block.id, (b) => ({ ...b, ...place }))}
-                      icon={<span className="block size-2 rounded-full bg-current" aria-hidden />}
-                    />
+                      disabled={busy || (!here.length && full)}
+                      onClick={() =>
+                        here.length
+                          ? // The next block here, when one of them is selected.
+                            setSelected(here[(here.indexOf(selected) + 1) % here.length])
+                          : addBlock(place)
+                      }
+                    >
+                      {here.length ? (
+                        here.map((i) => i + 1).join(',')
+                      ) : (
+                        <PlusIcon size={12} className="opacity-40" aria-hidden />
+                      )}
+                    </Button>
                   );
                 })}
-              </div>,
-              tr('positionHint')
-            )}
-            {current.rendered?.scaled && (
-              <p className="text-warning m-0 text-xs" role="status">
-                {tr('scaled', { width: saved.maxWidth, height: saved.maxHeight })}
-              </p>
-            )}
-            <Button
-              danger
-              className="self-start"
-              icon={<Trash2Icon size={14} />}
-              disabled={busy}
-              onClick={deleteBlock}
+              </div>
+              <span className="text-fg-muted max-w-48 text-xs">{tr('placesHint')}</span>
+            </div>
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label={tr('blocks')}
             >
-              {tr('deleteBlock')}
-            </Button>
-          </>
-        )}
-      </Panel>
+              {blocks.map((b, index) => (
+                <Button
+                  key={b.block.id}
+                  type={index === selected ? 'primary' : 'default'}
+                  aria-pressed={index === selected}
+                  disabled={busy}
+                  onClick={() => setSelected(index)}
+                >
+                  {blockName(index)}
+                </Button>
+              ))}
+              <Button
+                icon={<PlusIcon size={14} />}
+                disabled={busy || draft.blocks.length >= saved.maxBlocks}
+                onClick={() => addBlock()}
+              >
+                {tr('addBlock')}
+              </Button>
+            </div>
+          </div>
+          {!block ? (
+            <p className="text-fg-muted m-0 text-xs">{tr('noBlocks')}</p>
+          ) : (
+            <Panel className="space-y-4">
+              {row(
+                tr('text'),
+                <Input.TextArea
+                  aria-label={tr('text')}
+                  value={block.design.text}
+                  placeholder={tr('textPlaceholder')}
+                  autoSize={{ minRows: 1, maxRows: MAX_LINES }}
+                  disabled={busy}
+                  onChange={(e) => changeDesign('text', limitText(e.target.value))}
+                />,
+                tr('textHint', { lines: MAX_LINES, length: MAX_LINE_LENGTH })
+              )}
+              {row(
+                tr('fontSize'),
+                <div className="flex flex-wrap items-center gap-3">
+                  <InputNumber
+                    aria-label={tr('fontSize')}
+                    min={FONT_SIZE.min}
+                    max={FONT_SIZE.max}
+                    precision={0}
+                    suffix="px"
+                    value={block.design.fontSize}
+                    disabled={busy}
+                    onChange={(value) => value !== null && changeDesign('fontSize', value)}
+                  />
+                  <Checkbox
+                    checked={block.design.bold}
+                    disabled={busy}
+                    onChange={(e) => changeDesign('bold', e.target.checked)}
+                  >
+                    {tr('bold')}
+                  </Checkbox>
+                </div>,
+                tr('fontSizeHint')
+              )}
+              {row(
+                tr('color'),
+                <ColorPicker
+                  className="self-start"
+                  aria-label={tr('color')}
+                  value={block.design.color}
+                  disabledAlpha
+                  showText
+                  disabled={busy}
+                  onChange={(color) => changeDesign('color', color.toHexString().toUpperCase())}
+                />
+              )}
+              {row(
+                tr('background'),
+                <Segmented<WatermarkBackground>
+                  className="self-start"
+                  aria-label={tr('background')}
+                  value={block.design.background}
+                  disabled={busy}
+                  onChange={(value) => changeDesign('background', value)}
+                  options={(['none', 'dark', 'light'] as const).map((value) => ({
+                    value,
+                    label: tr(`background_${value}`)
+                  }))}
+                />
+              )}
+              {row(
+                tr('opacity'),
+                <div className="flex items-center gap-3">
+                  <Slider
+                    className="flex-1"
+                    aria-label={tr('opacity')}
+                    min={OPACITY.min}
+                    max={OPACITY.max}
+                    value={block.design.opacity}
+                    disabled={busy}
+                    onChange={(value) => changeDesign('opacity', value)}
+                  />
+                  <span className="w-10 text-right text-sm tabular-nums">
+                    {block.design.opacity}%
+                  </span>
+                </div>
+              )}
+              {row(
+                tr('logo'),
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <Button disabled={busy} onClick={() => file.current?.click()}>
+                      {tr(block.logo ? 'logoReplace' : 'logoChoose')}
+                    </Button>
+                    {(block.logo || current.logoMissing) && (
+                      <Button
+                        disabled={busy}
+                        onClick={() =>
+                          updateBlock(block.id, (b) => ({
+                            ...b,
+                            logo: null,
+                            dropSavedLogo: current.logoMissing || b.dropSavedLogo
+                          }))
+                        }
+                      >
+                        {tr('logoRemove')}
+                      </Button>
+                    )}
+                  </div>
+                  <input
+                    ref={file}
+                    type="file"
+                    className="hidden"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (f) void chooseLogo(f);
+                    }}
+                  />
+                </>,
+                current.logoMissing ? (
+                  <span className={current.changed ? 'text-warning' : undefined}>
+                    {tr(current.changed ? 'logoDropped' : 'logoSaved')}
+                  </span>
+                ) : (
+                  tr('logoHint')
+                )
+              )}
+              {current.rendered?.scaled && (
+                <p className="text-warning m-0 text-xs" role="status">
+                  {tr('scaled', { width: saved.maxWidth, height: saved.maxHeight })}
+                </p>
+              )}
+              <Button
+                danger
+                className="self-start"
+                icon={<Trash2Icon size={14} />}
+                disabled={busy}
+                onClick={deleteBlock}
+              >
+                {tr('deleteBlock')}
+              </Button>
+            </Panel>
+          )}
+        </>
+      )}
 
       <div className="border-line sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-neutral-900 py-3">
         <Button

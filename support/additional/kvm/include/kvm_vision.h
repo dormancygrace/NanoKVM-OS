@@ -122,6 +122,8 @@ int kvmv_set_first_capture_yuv420(uint8_t want);
 /* The watermark of every stream (mmf_watermark_set); count 0 removes it.
  * Returns the regions shown, or a negative errno. */
 int kvmv_set_watermark(const uint32_t *argb, const int *geometry, int count, int ref_width, int margin);
+/* Watermark blocks missing on enabled outputs (mmf_watermark_missing). */
+int kvmv_watermark_missing(void);
 uint8_t kvmv_hdmi_signal_active(void);
 /* Parks (1) or resumes (0) the VPSS outputs while nobody reads frames. A
    read resumes them by itself. */

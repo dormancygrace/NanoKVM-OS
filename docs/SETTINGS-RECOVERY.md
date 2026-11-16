@@ -62,6 +62,14 @@ if APK cannot resolve it, the operation reports failure instead of forcing it.
 Network settings reset regardless of these choices. Reconnect using Ethernet and
 DHCP; configure Wi-Fi/VPN again. USB composition returns to the current defaults.
 
+### Forgotten password: the BOOT button
+
+Holding the device's BOOT button for 9 seconds removes the web accounts: web
+access returns to `admin` / `admin` and requires a password change at the first
+sign-in. Until then root's password is a random one nobody knows (SSH keys keep
+working); the new administrator password also becomes root's. Other settings
+stay as they are.
+
 ## Applying and recovering an interrupted operation
 
 The preview is bound to the selected options, archive and current settings. If

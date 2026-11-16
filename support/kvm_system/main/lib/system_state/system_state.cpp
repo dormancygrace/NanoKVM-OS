@@ -28,7 +28,7 @@ static bool path_exists(const char *path)
 namespace {
 
 constexpr uint64_t NETWORK_PROBE_INTERVAL_MS = 10000U;
-constexpr const char *WIFI_AP_FLAG = "/tmp/wifiap";
+constexpr const char *WIFI_AP_FLAG = "/run/nanokvm-wifiap";
 
 // S30eth records the active L3 interface after creating a VLAN. Use the same
 // interface for addresses, gateway checks and the temporary OLED notification.

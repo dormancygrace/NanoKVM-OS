@@ -50,6 +50,8 @@ base  file  /etc/sysctl.d/10-nanokvm-qdisc.conf          0644  firmware/alpine/e
 base  file  /etc/sysctl.d/20-nanokvm-tcp.conf            0644  firmware/alpine/etc/sysctl.d/20-nanokvm-tcp.conf
 base  file  /etc/sysctl.d/30-nanokvm-panic.conf          0644  firmware/alpine/etc/sysctl.d/30-nanokvm-panic.conf
 base  file  /etc/sysctl.d/40-nanokvm-multihome.conf      0644  firmware/alpine/etc/sysctl.d/40-nanokvm-multihome.conf
+base  file  /etc/sysctl.d/50-nanokvm-hardening.conf      0644  firmware/alpine/etc/sysctl.d/50-nanokvm-hardening.conf
+base  file  /etc/ssh/sshd_config.d/10-nanokvm-limits.conf 0644  firmware/alpine/etc/ssh/sshd_config.d/10-nanokvm-limits.conf
 # /etc/profile.d/nanokvm-banner.sh is added by the nanokvm-base APKBUILD.
 base  file  /etc/init.d/nanokvm-app                       0755  firmware/alpine/openrc/nanokvm-app
 base  file  /etc/init.d/nanokvm-board                     0755  firmware/alpine/openrc/nanokvm-board

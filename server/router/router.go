@@ -43,6 +43,7 @@ var allowedDuringRecovery = map[string]bool{
 }
 
 func Init(r *gin.Engine) {
+	r.Use(middleware.SecurityHeaders())
 	r.Use(standbyAdmission())
 	standbyRouter(r)
 	r.Use(func(c *gin.Context) {

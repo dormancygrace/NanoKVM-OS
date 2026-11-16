@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	WiFiApModeFile = "/tmp/wifiap"
+	WiFiApModeFile = "/run/nanokvm-wifiap"
 	WiFiSSID       = "/etc/kvm/wifi.ssid"
 	WiFiPasswd     = "/etc/kvm/wifi.pass"
 	WiFiConnect    = "/kvmapp/kvm/wifi_try_connect"

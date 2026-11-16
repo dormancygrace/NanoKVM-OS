@@ -7,6 +7,9 @@ export const isHdmiEnabledAtom = atom(false);
 export const captureReadyAtom = atom(false);
 export const captureBusyAtom = atom(false);
 export const screenshotSourceAtom = atom<ScreenshotSource | null>(null);
+// The recorder is busy (choosing a file, recording or saving): the stream it
+// records must keep running while the tab is hidden.
+export const screenRecordingAtom = atom(false);
 
 // Active video subscriptions, not browser control sockets or screenshot leases.
 export const videoSessionCountAtom = atom<number | null>(null);

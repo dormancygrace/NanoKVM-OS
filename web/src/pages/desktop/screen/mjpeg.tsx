@@ -7,7 +7,7 @@ import { getVideoCapabilities } from '@/api/vm.ts';
 import { captureMediaElement } from '@/lib/screenshot.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
-import { resolutionAtom, screenshotSourceAtom } from '@/jotai/screen.ts';
+import { resolutionAtom, screenRecordingAtom, screenshotSourceAtom } from '@/jotai/screen.ts';
 
 import { mjpegTilesSupported } from './mjpeg-mode.ts';
 import { startTileStream } from './mjpeg-tiles.ts';
@@ -16,6 +16,31 @@ import { ScreenViewport } from './viewport.tsx';
 const INITIAL_RETRY_DELAY = 1000;
 const MAX_RETRY_DELAY = 10000;
 const STREAM_HEALTH_INTERVAL = 1000;
+const HIDDEN_STOP_DELAY = 5000;
+
+// Whether the stream should stop: the tab has been hidden for 5 s and nothing
+// records it. The device then stops reading and encoding JPEGs for nobody;
+// the stream opens again as soon as the tab is shown.
+function useHiddenStop() {
+  const recording = useAtomValue(screenRecordingAtom);
+  const [stopped, setStopped] = useState(false);
+  useEffect(() => {
+    let timer: number | undefined;
+    const update = () => {
+      window.clearTimeout(timer);
+      timer = undefined;
+      if (recording || document.visibilityState === 'visible') setStopped(false);
+      else timer = window.setTimeout(() => setStopped(true), HIDDEN_STOP_DELAY);
+    };
+    update();
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, [recording]);
+  return stopped;
+}
 
 // Tiles over a WebSocket: only the parts of the picture that changed, where
 // the server says it sends them; otherwise the classic stream of whole JPEGs.
@@ -40,11 +65,18 @@ const MjpegTiles = () => {
   const mouseStyle = useAtomValue(mouseStyleAtom);
   const setScreenshotSource = useSetAtom(screenshotSourceAtom);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stopped = useHiddenStop();
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext('2d', { alpha: false });
     if (!canvas || !context) return;
+    if (stopped) {
+      // The socket is closed and nothing retries; the next connection starts
+      // with a whole picture.
+      setScreenshotSource(null);
+      return;
+    }
     void stopFrameDetect(10).catch(() => {});
     setScreenshotSource(null);
 
@@ -84,7 +116,7 @@ const MjpegTiles = () => {
         return () => window.clearTimeout(timer);
       }
     });
-  }, [resolution, setScreenshotSource]);
+  }, [resolution, setScreenshotSource, stopped]);
 
   useEffect(() => () => setScreenshotSource(null), [setScreenshotSource]);
 
@@ -108,8 +140,9 @@ const MjpegImage = () => {
   const image = useRef<HTMLImageElement>(null);
   const retryDelay = useRef(INITIAL_RETRY_DELAY);
   const retryTimer = useRef<number | undefined>(undefined);
+  const stopped = useHiddenStop();
   const streamURL = `${getBaseUrl('http')}/api/stream/mjpeg`;
-  const streamSrc = hasError ? undefined : `${streamURL}?v=${streamNonce}`;
+  const streamSrc = hasError || stopped ? undefined : `${streamURL}?v=${streamNonce}`;
 
   const reconnect = useCallback(() => {
     if (retryTimer.current !== undefined) {
@@ -158,6 +191,19 @@ const MjpegImage = () => {
   }, [resolution, setScreenshotSource]);
 
   useEffect(() => {
+    if (!stopped) return;
+    // Without a source the request ends, and nothing retries meanwhile.
+    window.clearTimeout(retryTimer.current);
+    retryTimer.current = undefined;
+    retryDelay.current = INITIAL_RETRY_DELAY;
+    setHasError(false);
+    setScreenshotSource(null);
+    // Shown again: a new URL, so the browser opens a new request.
+    return () => setStreamNonce((current) => current + 1);
+  }, [stopped, setScreenshotSource]);
+
+  useEffect(() => {
+    if (stopped) return;
     const healthTimer = window.setInterval(() => {
       if (image.current?.complete && image.current.naturalWidth === 0 && !hasError) {
         reconnect();
@@ -165,7 +211,7 @@ const MjpegImage = () => {
     }, STREAM_HEALTH_INTERVAL);
 
     return () => window.clearInterval(healthTimer);
-  }, [hasError, reconnect]);
+  }, [hasError, reconnect, stopped]);
 
   return (
     <ScreenViewport>
@@ -174,11 +220,12 @@ const MjpegImage = () => {
         id="screen"
         className={clsx('block touch-none select-none', mouseStyle)}
         style={{
-          visibility: hasError ? 'hidden' : 'visible'
+          visibility: hasError || stopped ? 'hidden' : 'visible'
         }}
         src={streamSrc}
         onLoad={markFrameReady}
         onError={() => {
+          if (stopped) return;
           setScreenshotSource(null);
           reconnect();
         }}

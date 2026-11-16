@@ -1,18 +1,24 @@
 import { isAxiosError, isCancel } from 'axios';
 
+import { recentAuthRequiredCode } from '@/lib/recheck.ts';
+
 // Matches middleware.PasswordChangeRequiredCode on the server.
 export const passwordChangeRequiredCode = -10;
 
 // Failures the shared HTTP client already handles: aborted requests, an
-// expired session (the app returns to the login page) and the forced
-// password change (the app opens the password page).
+// expired session (the app returns to the login page), the forced password
+// change (the app opens the password page) and a declined password
+// confirmation (the user cancelled it).
 export function isHandledRequestError(error: unknown) {
   if (isCancel(error)) return true;
   if (!isAxiosError(error)) return false;
   if (error.code === 'ERR_CANCELED') return true;
   const status = error.response?.status;
   return (
-    status === 401 || (status === 403 && error.response?.data?.code === passwordChangeRequiredCode)
+    status === 401 ||
+    (status === 403 &&
+      (error.response?.data?.code === passwordChangeRequiredCode ||
+        error.response?.data?.code === recentAuthRequiredCode))
   );
 }
 

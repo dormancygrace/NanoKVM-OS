@@ -24,6 +24,27 @@ Codes need the device clock. A NanoKVM that booted without network or a set cloc
 
 **Settings → System → Backup & reset** treats the second factor as part of the account: a reset with **Keep users** keeps it, a reset without it returns to `admin` / `admin` without a second factor, and restoring a backup brings back the second factor each account had when the backup was made, with that backup's recovery codes.
 
+## Confirming the password for actions that act as root
+
+A session lasts for weeks, so a left-open or stolen one must not be enough for
+what acts as root on the device. These ask the signed-in user to confirm the
+password, and the second factor when the account has one; the confirmation
+lasts five minutes for that session:
+
+- the terminal;
+- uploading, running and starting scripts at startup, saving and running
+  scheduled tasks;
+- creating, changing and deleting accounts, setting their passwords and
+  resetting their second factor;
+- turning SSH on (which sets root's password);
+- installing or removing a custom TLS certificate.
+
+The page asks for the password when one of these is refused, then repeats the
+action. API clients call `POST /api/auth/recheck` with `password`,
+`passwordEncoding` and `otp`; until then those routes answer HTTP 403 with code
+`-11`. `GET /api/auth/recheck` reports `fresh` (a confirmation is recent) and
+`totp` (a confirmation needs the second factor).
+
 ## Storage
 
 The secret, the last accepted step and SHA-256 hashes of the unused recovery codes are stored with the account in `/etc/kvm/pwd` (mode 0600), which settings backups carry and the diagnostic archive leaves out. Accounts without a second factor are stored as before. A release without two-factor authentication drops the field when it rewrites the file, so after a downgrade the second factor is off.

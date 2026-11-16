@@ -5,6 +5,9 @@ device and runs them as root: on demand, or once at every startup.
 
 ## Scripts on the device
 
+Scripts run as root: uploading, running and starting them at boot ask for the
+password again ([confirming the password](TWO-FACTOR.md#confirming-the-password-for-actions-that-act-as-root)).
+
 - **Upload** takes a `.sh` or `.py` file. Scripts are stored in
   `/etc/kvm/scripts`; uploading a file with an existing name replaces it.
 - A `.sh` script is executed directly, so it needs a `#!/bin/sh` (or

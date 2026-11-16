@@ -26,15 +26,18 @@ func authRouter(r *gin.Engine) {
 	api.POST("/auth/totp/enable", service.TOTPEnable)
 	api.POST("/auth/totp/disable", service.TOTPDisable)
 	api.POST("/auth/totp/recovery-codes", service.TOTPRecoveryCodes)
+	// The proof the routes that act as root ask for (middleware.RequireRecentAuth).
+	api.GET("/auth/recheck", service.RecheckState)
+	api.POST("/auth/recheck", service.Recheck)
 
 	admin := r.Group("/api").Use(
 		middleware.CheckToken(),
 		middleware.RequireRole(authn.RoleAdmin),
 	)
 	admin.GET("/auth/users", service.ListUsers)
-	admin.POST("/auth/users", service.CreateUser)
-	admin.PUT("/auth/users/:username", service.UpdateUser)
-	admin.DELETE("/auth/users/:username", service.DeleteUser)
-	admin.POST("/auth/users/:username/password", service.ChangeUserPassword)
-	admin.DELETE("/auth/users/:username/totp", service.ResetUserTOTP)
+	admin.POST("/auth/users", middleware.RequireRecentAuth(), service.CreateUser)
+	admin.PUT("/auth/users/:username", middleware.RequireRecentAuth(), service.UpdateUser)
+	admin.DELETE("/auth/users/:username", middleware.RequireRecentAuth(), service.DeleteUser)
+	admin.POST("/auth/users/:username/password", middleware.RequireRecentAuth(), service.ChangeUserPassword)
+	admin.DELETE("/auth/users/:username/totp", middleware.RequireRecentAuth(), service.ResetUserTOTP)
 }

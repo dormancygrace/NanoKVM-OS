@@ -207,6 +207,23 @@ func webPort(data []byte) int {
 	return ports.HTTP
 }
 
+// inputOnly is the table of a bound usb0 the helper does not set up
+// (rndis.nodhcpd, no address yet): the input filter alone, so that routing
+// configured by hand over usb0 is left alone. Empty with host access: the
+// table goes.
+func inputOnly(exists bool, in hostInput) string {
+	chain := in.chain(false)
+	if chain == "" {
+		return ""
+	}
+	var s strings.Builder
+	if exists {
+		fmt.Fprintf(&s, "delete table inet %s\n", Table)
+	}
+	fmt.Fprintf(&s, "table inet %s {\n comment %q\n%s}\n", Table, owner, chain)
+	return s.String()
+}
+
 func ruleset(subnet netip.Prefix, uplink string, flow, exists bool, in hostInput) string {
 	var s strings.Builder
 	if exists {

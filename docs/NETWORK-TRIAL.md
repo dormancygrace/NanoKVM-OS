@@ -20,7 +20,7 @@ The page that made the change looks for the device every two seconds. It asks `G
 
 - **The check is app-wide.** The trial is kept in the tab's session storage, so the check goes on with the settings closed and resumes after a reload.
 - **An answer that got lost.** If a confirmation's answer is lost, the next probe finds no trial waiting. The dialog then says so instead of reporting a revert, and the page shows the settings in effect.
-- **Reaching the device by any path counts.** The device may be reached over Wi-Fi, USB networking or a VPN at the same name: that keeps the change even if Ethernet itself is down. The point is only that the device is still reachable.
+- **Reaching the device by any path counts.** The device may be reached over Wi-Fi, USB networking (where the computer [may open the NanoKVM](USB-COMPOSITION.md#what-the-computer-reaches-over-the-usb-network)) or a VPN at the same name: that keeps the change even if Ethernet itself is down. The point is only that the device is still reachable.
 - **No known new address.** A change to DHCP, or turning Ethernet on, gives no new address in advance. Then only the page's own address, the mDNS name or the device's other addresses can find it.
 - **The token is the authorization.** It has 128 random bits, is compared in constant time and is valid once. Over plain HTTP it travels in the clear, which matters only within the two minutes.
 

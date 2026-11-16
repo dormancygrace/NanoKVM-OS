@@ -198,8 +198,10 @@ loaded with the rest of that table in one `nft -f` transaction by
 `nkos-usb-internet` whenever the USB network is set up: at boot, when a
 composition with the network is applied, when a USB network setting changes
 and at each reconciliation of the watcher. While the network function is
-bound the table stays, also with `rndis.nodhcpd`, during a subnet conflict and
-after an error. The server checks the interface a connection arrived on, not
+bound the input chain stays: where the NanoKVM gives `usb0` no address of its
+own (`rndis.nodhcpd`, a subnet conflict before the first address, an error
+before it) it is the table's only chain, and routing set up by hand over
+`usb0` is left alone. The server checks the interface a connection arrived on, not
 its destination address, which the computer can choose.
 
 **Managing the NanoKVM from that computer.** Settings > USB Gadget >

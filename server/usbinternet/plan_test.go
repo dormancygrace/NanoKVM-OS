@@ -106,6 +106,14 @@ func TestHostInputFilter(t *testing.T) {
 			}
 		}
 	}
+	// Without the helper's address only the input filter: routing set up by
+	// hand over usb0 stays as it is.
+	if only := inputOnly(false, hostInput{Web: 443}); !strings.Contains(only, "hook input") || strings.Contains(only, "forward") || strings.Contains(only, "dport 67") {
+		t.Errorf("input only:\n%s", only)
+	}
+	if only := inputOnly(true, hostInput{Open: true}); only != "" {
+		t.Errorf("host access keeps a table:\n%s", only)
+	}
 	for _, tc := range []struct {
 		yaml string
 		port int

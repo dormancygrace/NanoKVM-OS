@@ -449,8 +449,8 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 		owned, transit, check := inspectRules(latest)
 		if a.Address == "" {
 			// No gateway to retire, but a bound usb0 keeps its input filter.
-			if e == nil && check == nil && !stop && r.bound() {
-				_, _ = r.command(ruleset(netip.Prefix{}, "", false, owned, in), "nft", "-f", "-")
+			if rules := inputOnly(owned, in); e == nil && check == nil && rules != "" && !stop && r.bound() {
+				_, _ = r.command(rules, "nft", "-f", "-")
 			}
 			return
 		}
@@ -471,11 +471,15 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 		_ = r.stopDaemon()
 	}()
 
-	// keep: usb0 is bound, so it keeps the transit guard and the input filter
-	// (without DHCP, which stops here). Otherwise the table goes.
+	// keep: usb0 is bound, so it keeps the input filter alone (without DHCP,
+	// which stops here). Otherwise the table goes.
 	cleanup := func(keep bool) error {
+		rules := ""
 		if keep {
-			if _, e := r.command(ruleset(netip.Prefix{}, "", false, tableExists, in), "nft", "-f", "-"); e != nil {
+			rules = inputOnly(tableExists, in)
+		}
+		if rules != "" {
+			if _, e := r.command(rules, "nft", "-f", "-"); e != nil {
 				return e
 			}
 			tableExists = true

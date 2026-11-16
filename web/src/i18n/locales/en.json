@@ -1543,7 +1543,7 @@
         "noOffload": "Standard forwarding is active; software flow offload is unavailable or restricted by network policy.",
         "states": {
           "loading": "Loading…",
-          "disabled": "Off · Local USB access only",
+          "disabled": "Off · USB network without internet",
           "active": "Sharing via {{uplink}} · USB gateway {{address}}. Internet availability depends on the uplink.",
           "waiting-ncm": "Saved as on · Enable USB network (NCM) to start sharing.",
           "waiting-uplink": "Saved as on · Waiting for an Ethernet or Wi-Fi route. VPN routes are not bypassed.",

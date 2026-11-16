@@ -68,10 +68,10 @@ options until renewing.
   live in `inet nkos_usb_internet`, identified by an owner comment. Replacement
   is one nft transaction; foreign tables are never flushed. Off/waiting retains
   only the USB transit guard and the input filter, so globally enabled VPN
-  forwarding cannot accidentally share Internet. While the network function is
-  bound the table stays, also with `rndis.nodhcpd`, during a subnet conflict
-  and after a runtime error. Gadget stop removes the whole owned table, daemon
-  and address.
+  forwarding cannot accidentally share Internet. Without an address of the
+  helper (`rndis.nodhcpd`, a subnet conflict or an error before the first
+  address) a bound usb0 keeps the input filter alone. Gadget stop removes the
+  whole owned table, daemon and address.
 - Software offload is eligible for established return-direction IPv4 TCP/UDP
   with zero conntrack mark and only default policy routing. Foreign transit or
   ingress hooks suppress it. The exact package SYN-only `nkos_mss` ceiling is

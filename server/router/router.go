@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -10,6 +11,7 @@ import (
 	"NanoKVM-Server/service/controlmode"
 	"NanoKVM-Server/service/picoclaw"
 	"NanoKVM-Server/service/storage"
+	"NanoKVM-Server/service/vm"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -43,6 +45,12 @@ var allowedDuringRecovery = map[string]bool{
 
 func Init(r *gin.Engine) {
 	r.Use(middleware.SecurityHeaders())
+	// Before every route and static file: the managed computer reaches only
+	// the sensors agent's report and the serial console helper over usb0.
+	r.Use(middleware.USBHostGate(
+		middleware.USBRequest{Method: http.MethodPost, Path: vm.HostSensorsIngestPath},
+		middleware.USBRequest{Method: http.MethodGet, Path: vm.SerialConsoleScriptPath},
+	))
 	r.Use(standbyAdmission())
 	standbyRouter(r)
 	r.Use(func(c *gin.Context) {

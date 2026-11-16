@@ -62,11 +62,11 @@ func TestNoGatewayOrIPv6WhenLocal(t *testing.T) {
 	}
 }
 func TestPolicyOffloadAndUSBOnlyRules(t *testing.T) {
-	rules := ruleset(netip.MustParsePrefix("10.20.30.0/24"), "wlan0", true, true)
+	rules := ruleset(netip.MustParsePrefix("10.20.30.0/24"), "wlan0", true, true, hostInput{})
 	if strings.Contains(rules, "flags offload") || strings.Contains(rules, "flush ruleset") || !strings.Contains(rules, "flow add @usb_fast") {
 		t.Fatal(rules)
 	}
-	local := ruleset(netip.MustParsePrefix("10.20.30.0/24"), "", false, true)
+	local := ruleset(netip.MustParsePrefix("10.20.30.0/24"), "", false, true, hostInput{})
 	if strings.Contains(local, "masquerade") || strings.Contains(local, "flowtable") || !strings.Contains(local, "meta nfproto ipv6") {
 		t.Fatal(local)
 	}
@@ -75,6 +75,60 @@ func TestPolicyOffloadAndUSBOnlyRules(t *testing.T) {
 	}
 	if defaultPolicy([]byte(`[{"priority":0,"table":"local"},{"priority":100,"table":52}]`)) {
 		t.Fatal("VPN policy allowed offload")
+	}
+}
+
+// The managed computer opens only what the USB features need on usb0.
+func TestHostInputFilter(t *testing.T) {
+	served := hostInput{DHCP: true, Web: 443}
+	for _, tc := range []struct {
+		name, uplink string
+		in           hostInput
+		want, not    []string
+	}{
+		{"local", "", served,
+			[]string{"udp dport 67 accept", "tcp dport 443 accept", "meta nfproto ipv6 counter drop", "ct state { established, related } accept", "iifname \"usb0\" counter drop\n }\n chain forward"},
+			[]string{"th dport 53", "dport 22", "dport 80 "}},
+		{"sharing", "eth0", served, []string{"th dport 53 accept", "tcp dport 443 accept"}, nil},
+		{"netboot", "eth0", hostInput{DHCP: true, Web: 8443, Netboot: 8070}, []string{"tcp dport 8070 accept", "tcp dport 8443 accept"}, []string{"dport 443 "}},
+		{"no DHCP served", "", hostInput{Web: 443}, []string{"iifname \"usb0\" counter drop"}, []string{"dport 67"}},
+		{"host access", "", hostInput{Open: true, DHCP: true, Web: 443}, nil, []string{"hook input"}},
+	} {
+		rules := ruleset(netip.MustParsePrefix("10.20.30.0/24"), tc.uplink, false, false, tc.in)
+		for _, w := range tc.want {
+			if !strings.Contains(rules, w) {
+				t.Errorf("%s: missing %q in\n%s", tc.name, w, rules)
+			}
+		}
+		for _, n := range tc.not {
+			if strings.Contains(rules, n) {
+				t.Errorf("%s: unexpected %q in\n%s", tc.name, n, rules)
+			}
+		}
+	}
+	// Without the helper's address only the input filter: routing set up by
+	// hand over usb0 stays as it is.
+	if only := inputOnly(false, hostInput{Web: 443}); !strings.Contains(only, "hook input") || strings.Contains(only, "forward") || strings.Contains(only, "dport 67") {
+		t.Errorf("input only:\n%s", only)
+	}
+	if only := inputOnly(true, hostInput{Open: true}); only != "" {
+		t.Errorf("host access keeps a table:\n%s", only)
+	}
+	for _, tc := range []struct {
+		yaml string
+		port int
+	}{
+		{"", 443},
+		{"proto: https\nport:\n  http: 80\n  https: 8443\n", 8443},
+		{"proto: http\nport:\n  http: 8080\n  https: 443\n", 8080},
+		{"port:\n  http: 8080\n  https: 443\n", 8080},
+		{"proto: https\nport:\n  http: 0\n  https: 8443\n", 443},
+		{"proto: http\nport:\n  http: 70000\n  https: 443\n", 443},
+		{"{broken", 443},
+	} {
+		if got := webPort([]byte(tc.yaml)); got != tc.port {
+			t.Errorf("webPort(%q) = %d, want %d", tc.yaml, got, tc.port)
+		}
 	}
 }
 

@@ -93,11 +93,11 @@ Configure the USB gadget through presets (KVM, with USB network, with the serial
 | **Virtual media** | SD-backed images or direct read-only ISO mounting from your computer, HTTP(S) or SMB2/3 without copying the ISO to the card; CD/DVD images up to 31.625 GiB. [Source requirements and lifetime](docs/STORAGE-TRANSFER-SAFETY.md#https-mounted-iso-reads) |
 | **Network boot** | Boot the managed computer from the [netboot.xyz](docs/NETBOOT.md) menus over USB network, with the official iPXE images (UEFI Secure Boot signed one included) |
 | **User disk** | A writable FAT32 USB drive backed by an image on the SD card, for BIOS update files, profiles and logs; selectable sizes from 64 MiB to 4 GiB; browse folders, upload/download files, upload whole folders (also by drag and drop) and manage contents while detached from the computer |
-| **USB network** | Local access to NanoKVM through the USB NCM adapter |
+| **USB network** | A USB NCM network to the managed computer, for Internet sharing, network boot and computer sensors; the computer cannot open the NanoKVM's web interface or SSH over it unless [allowed](docs/USB-COMPOSITION.md#what-the-computer-reaches-over-the-usb-network) |
 | **Internet over USB NCM** | Share the NanoKVM Ethernet/Wi-Fi uplink with the managed computer |
 | **USB Serial / CDC ACM** | Reach a configured host serial console through the browser terminal |
 
-**Internet over USB** has its own switch in **Settings → USB**, off by default. It provides IPv4 DHCP, DNS and NAT, with software flow offload for eligible TCP/UDP connections. Turning sharing off keeps local USB access. Existing VPN routing and firewall policies are respected; conflicting routes can leave sharing waiting for a usable uplink. See [USB Internet sharing](docs/USB-INTERNET-SHARING.md).
+**Internet over USB** has its own switch in **Settings → USB**, off by default. It provides IPv4 DHCP, DNS and NAT, with software flow offload for eligible TCP/UDP connections. Turning sharing off keeps the USB network and the computer's address. Existing VPN routing and firewall policies are respected; conflicting routes can leave sharing waiting for a usable uplink. See [USB Internet sharing](docs/USB-INTERNET-SHARING.md).
 
 For a **headless Linux login**, enable USB Serial and set the login up on the managed host with the console helper from the USB settings page: a script that reads the host first, refuses when it cannot work safely, keeps backups and can undo; it also comes on a read-only helper disk for hosts without a network. This works after the host USB stack loads; it does not provide pre-USB BIOS/UEFI output. See [USB composition and serial setup](docs/USB-COMPOSITION.md#host-serial-console).
 

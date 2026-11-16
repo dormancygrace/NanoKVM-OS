@@ -63,6 +63,8 @@ export type UsbInternetStatus = {
   flowOffload: boolean;
   offloadReason?: string;
   ipv6: false;
+  // The computer may open every service over usb0 (the input filter is off).
+  hostAccess: boolean;
 };
 
 export function getUsbInternet() {
@@ -73,6 +75,14 @@ export function setUsbInternet(enabled: boolean, expectedEnabled: boolean) {
   return http.request<UsbInternetStatus>({
     method: 'put',
     url: '/api/vm/usb-internet',
+    data: { enabled, expectedEnabled }
+  });
+}
+
+export function setUsbHostAccess(enabled: boolean, expectedEnabled: boolean) {
+  return http.request<UsbInternetStatus>({
+    method: 'put',
+    url: '/api/vm/usb-host-access',
     data: { enabled, expectedEnabled }
   });
 }

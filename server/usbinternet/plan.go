@@ -9,6 +9,8 @@ import (
 	"net/netip"
 	"reflect"
 	"strings"
+
+	"NanoKVM-Server/pkg/yamlconf"
 )
 
 const Table = "nkos_usb_internet"
@@ -22,7 +24,9 @@ type Status struct {
 	FlowOffload   bool   `json:"flowOffload"`
 	OffloadReason string `json:"offloadReason,omitempty"`
 	IPv6          bool   `json:"ipv6"`
-	UpdatedAt     int64  `json:"updatedAt"`
+	// HostAccess: the computer may open every service over usb0 (HostAccess).
+	HostAccess bool  `json:"hostAccess"`
+	UpdatedAt  int64 `json:"updatedAt"`
 }
 
 type route struct {
@@ -140,12 +144,94 @@ func defaultPolicy(data []byte) bool {
 	return true
 }
 
-func ruleset(subnet netip.Prefix, uplink string, flow, exists bool) string {
+// hostInput is what the managed computer may open on the NanoKVM over usb0.
+// The computer is not trusted: a compromised one must not reach the web
+// interface, SSH or any other service of the KVM that manages it. Unless
+// Open (usb.host_access), only replies and these new connections pass:
+//   - DHCP, while the helper's dnsmasq hands out the computer's address;
+//   - DNS, while sharing advertises the NanoKVM as the computer's resolver;
+//   - the web port, for the sensors agent's reports and the serial console
+//     helper's download: the server answers nothing else on usb0
+//     (middleware.USBHostGate);
+//   - the network boot menu's port, while network boot is on.
+//
+// IPv6 is dropped, as in the forward chain: the USB network is IPv4 only.
+// The host watchdog's ARP requests and their answers never reach inet hooks.
+type hostInput struct {
+	Open    bool
+	DHCP    bool
+	Web     int
+	Netboot int
+}
+
+func (in hostInput) chain(dns bool) string {
+	if in.Open {
+		return ""
+	}
+	var s strings.Builder
+	s.WriteString(" chain input { type filter hook input priority filter; policy accept;\n")
+	s.WriteString("  iifname \"usb0\" meta nfproto ipv6 counter drop\n")
+	s.WriteString("  iifname \"usb0\" ct state { established, related } accept\n")
+	if in.DHCP {
+		s.WriteString("  iifname \"usb0\" udp dport 67 accept\n")
+	}
+	if dns {
+		s.WriteString("  iifname \"usb0\" meta l4proto { tcp, udp } th dport 53 accept\n")
+	}
+	if in.Web > 0 {
+		fmt.Fprintf(&s, "  iifname \"usb0\" tcp dport %d accept\n", in.Web)
+	}
+	if in.Netboot > 0 {
+		fmt.Fprintf(&s, "  iifname \"usb0\" tcp dport %d accept\n", in.Netboot)
+	}
+	s.WriteString("  iifname \"usb0\" counter drop\n }\n")
+	return s.String()
+}
+
+// webPort is the port the server's web interface listens on, read from
+// server.yaml with the server's rules: the HTTPS port when proto is https,
+// the HTTP port otherwise. A missing or unusable file is replaced by the
+// server's defaults (HTTPS on 443), as config.validate does.
+func webPort(data []byte) int {
+	var proto string
+	ports, err := yamlconf.ReadPorts(data)
+	if values, perr := yamlconf.Parse(data); perr == nil {
+		_ = yamlconf.Decode(values["proto"], &proto)
+	}
+	if err != nil || ports.HTTP < 1 || ports.HTTPS < 1 || ports.HTTP > 65535 || ports.HTTPS > 65535 {
+		ports, proto = yamlconf.Ports{HTTP: 80, HTTPS: 443}, "https"
+	}
+	if proto == "https" {
+		return ports.HTTPS
+	}
+	return ports.HTTP
+}
+
+// inputOnly is the table of a bound usb0 the helper does not set up
+// (rndis.nodhcpd, no address yet): the input filter alone, so that routing
+// configured by hand over usb0 is left alone. Empty with host access: the
+// table goes.
+func inputOnly(exists bool, in hostInput) string {
+	chain := in.chain(false)
+	if chain == "" {
+		return ""
+	}
+	var s strings.Builder
+	if exists {
+		fmt.Fprintf(&s, "delete table inet %s\n", Table)
+	}
+	fmt.Fprintf(&s, "table inet %s {\n comment %q\n%s}\n", Table, owner, chain)
+	return s.String()
+}
+
+func ruleset(subnet netip.Prefix, uplink string, flow, exists bool, in hostInput) string {
 	var s strings.Builder
 	if exists {
 		fmt.Fprintf(&s, "delete table inet %s\n", Table)
 	}
 	fmt.Fprintf(&s, "table inet %s {\n comment %q\n", Table, owner)
+	// dnsmasq answers DNS only while sharing (dnsConfig).
+	s.WriteString(in.chain(uplink != ""))
 	if flow {
 		fmt.Fprintf(&s, " flowtable usb_fast { hook ingress priority 0; devices = { usb0, %q }; }\n", uplink)
 	}

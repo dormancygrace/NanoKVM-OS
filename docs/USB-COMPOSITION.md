@@ -173,6 +173,48 @@ objects in keyboard/relative/absolute order even when some are not linked. Linux
 allocates HID minors when the objects are created, so absolute-only remains
 `/dev/hidg2`. Disabled input functions are skipped without device-open retries.
 
+## What the computer reaches over the USB network
+
+The computer the NanoKVM manages is not trusted: a compromised one must not
+be able to sign in to, or attack, the KVM that manages it. So over the USB
+network (`usb0`) the NanoKVM accepts from the computer only what the USB
+features need, and replies to its own connections:
+
+| What | Port | While |
+| --- | --- | --- |
+| DHCP: the computer's address | UDP 67 | the NanoKVM serves the USB network's DHCP |
+| DNS | TCP/UDP 53 | [Internet over USB](USB-INTERNET-SHARING.md) shares a connection |
+| The network boot script | TCP 8070 | [network boot](NETBOOT.md) is on |
+| The web port (HTTPS, or HTTP when the server runs without TLS) | 443 by default | always, but the server answers only the [sensors agent's report](HOST-SENSORS.md) (`POST /api/host-sensors`) and the [console helper's download](#linux-host-setup-the-console-helper) (`GET /nanokvm-serial-console.sh`) there, and `403` to everything else |
+
+Everything else that the computer opens over USB is dropped: the web
+interface, SSH and every other service, and all of IPv6. Internet sharing's
+forwarded traffic is a separate chain and is not affected. The host
+watchdog's ARP requests are not IP and pass as before.
+
+The rules are an `input` chain in the `inet nkos_usb_internet` table of
+[USB Internet sharing](USB-INTERNET-SHARING.md#system-ownership-and-behavior),
+loaded with the rest of that table in one `nft -f` transaction by
+`nkos-usb-internet` whenever the USB network is set up: at boot, when a
+composition with the network is applied, when a USB network setting changes
+and at each reconciliation of the watcher. While the network function is
+bound the input chain stays: where the NanoKVM gives `usb0` no address of its
+own (`rndis.nodhcpd`, a subnet conflict before the first address, an error
+before it) it is the table's only chain, and routing set up by hand over
+`usb0` is left alone. The server checks the interface a connection arrived on, not
+its destination address, which the computer can choose.
+
+**Managing the NanoKVM from that computer.** Settings > USB Gadget >
+Composition, under Internet over USB: **Computer can open the NanoKVM over
+USB** (off by default, the flag `usb.host_access`) gives the computer
+everything again: the input chain is not loaded and the server answers every
+request from `usb0`. Turn it on only when the computer is the one you manage
+the NanoKVM from. The admin API is `PUT /api/vm/usb-host-access` with
+`{"enabled": true, "expectedEnabled": false}`, as for Internet over USB; GET
+`/api/vm/usb-internet` reports it as `hostAccess`. With `rndis.nodhcpd` the
+NanoKVM gives `usb0` no address of its own, so a USB network configured by
+hand also needs this switch.
+
 ## Endpoint accounting
 
 The SG2002 controller has seven device endpoint numbers and six configured
@@ -350,7 +392,7 @@ When the controlling browser disconnects and exactly one viewer remains, that vi
 The USB flags are files in `/etc/kvm/usb` on the F2FS root partition:
 
 - the composition: `usb.disk0`, `usb.ncm`, `usb.acm`, `usb.audio`, `disable_hid`, `usb.disable_*`, and others;
-- the identity, the user disk marker and the USB internet settings (`usb.internet`, `rndis.*`).
+- the identity, the user disk marker and the USB network settings (`usb.internet`, `usb.host_access`, `rndis.*`).
 
 `S03usbdev`, `S03usbhid`, `S30usbnet` and the server read them there. Each write is a rename followed by a sync of the directory, so a power cut leaves either the old file or the new one. Recovery with preserved settings keeps them with the rest of `/etc/kvm`.
 

@@ -140,14 +140,17 @@ def build(build_root, output, version):
     images = build_root / 'images'
     host = build_root / 'buildroot-output/host/bin'
     rootfs = build_root / 'release/alpine-rootfs.tar.gz'
+    # These immutable exports accompany images/Image on both fresh and cached
+    # component builds; kernel/build need not exist after a cache hit.
+    kernel = build_root / 'component-support/kernel'
     required = [rootfs, images / 'Image', images / 'dtb/detect.dtb',
                 images / 'boot-fit/detect.sd', images / 'fip.bin',
-                build_root / 'kernel/build/usr/gen_init_cpio',
+                kernel / 'gen_init_cpio',
                 host / 'riscv64-buildroot-linux-musl-gcc', host / 'mkimage']
     for file in required:
         if not file.is_file():
             raise ValueError(f'missing platform output: {file}')
-    check_kernel_config((build_root / 'kernel/build/.config').read_text())
+    check_kernel_config((kernel / '.config').read_text())
     tools = {name: host_tool(host, name) for name in ('lz4', 'mkfs.fat', 'mcopy', 'fdtget', 'fdtput')}
     root_kib = archive_root_size(rootfs, version)
     output.mkdir(parents=True, exist_ok=True)
@@ -274,7 +277,7 @@ exec /kvmapp/system/init.d/S95nanokvm restart
         listing.write_text('\n'.join(lines) + '\n')
         cpio = work / 'initramfs.cpio'
         with cpio.open('wb') as stream:
-            run(build_root / 'kernel/build/usr/gen_init_cpio', '-t', '0', listing, stdout=stream)
+            run(kernel / 'gen_init_cpio', '-t', '0', listing, stdout=stream)
         run(tools['lz4'], '-q', '-f', '-l', '-12', cpio, work / 'initramfs.cpio.lz4')
         # Stock U-Boot must load the first FIT; gzip avoids relying on its LZ4
         # or Zstd configuration. Linux itself unpacks the LZ4 initramfs.

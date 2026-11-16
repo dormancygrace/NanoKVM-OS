@@ -21,35 +21,51 @@ func (s *Service) GetUSBInternet(c *gin.Context) {
 }
 
 func (s *Service) SetUSBInternet(c *gin.Context) {
+	setUSBNetworkFlag(c, "usb.internet", usbinternet.Runtime.Enabled, "USB internet")
+}
+
+// SetUSBHostAccess turns the usb0 input filter off (enabled) or on: whether
+// the managed computer may open every service of the NanoKVM over USB.
+func (s *Service) SetUSBHostAccess(c *gin.Context) {
+	setUSBNetworkFlag(c, usbinternet.HostAccessFlag, usbinternet.Runtime.HostAccess, "USB host access")
+}
+
+// applyUSBNetwork reconciles USB networking (address, DHCP/DNS, sharing and
+// the usb0 input filter) with the flags; it changes nothing while the
+// composition has no USB network.
+func applyUSBNetwork() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if err := exec.CommandContext(ctx, "sh", "/etc/init.d/S30usbnet", "start").Run(); err != nil {
+		return fmt.Errorf("apply USB network: %w", err)
+	}
+	return nil
+}
+
+// setUSBNetworkFlag saves one USB network flag ({enabled, expectedEnabled})
+// and applies it without a gadget rebind.
+func setUSBNetworkFlag(c *gin.Context, name string, current func(usbinternet.Runtime) bool, what string) {
 	var req proto.SetUSBInternetReq
 	var rsp proto.Response
 	if err := proto.ParseFormRequest(c, &req); err != nil {
-		rsp.ErrRsp(c, -1, "invalid USB internet setting")
+		rsp.ErrRsp(c, -1, "invalid "+what+" setting")
 		return
 	}
 	h := hid.GetHid()
 	h.Lock()
 	defer h.Unlock()
 	runtime := usbinternet.DefaultRuntime()
-	if runtime.Enabled() != *req.ExpectedEnabled {
-		rsp.ErrRsp(c, -5, "USB internet setting changed; refresh and try again")
+	if current(runtime) != *req.ExpectedEnabled {
+		rsp.ErrRsp(c, -5, what+" setting changed; refresh and try again")
 		return
 	}
 	if !deviceExists("/usr/sbin/nkos-usb-internet") {
-		rsp.ErrRsp(c, -4, "USB internet requires updated Alpine base package")
+		rsp.ErrRsp(c, -4, what+" requires updated Alpine base package")
 		return
 	}
-	apply := func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer cancel()
-		if err := exec.CommandContext(ctx, "sh", "/etc/init.d/S30usbnet", "start").Run(); err != nil {
-			return fmt.Errorf("apply USB network: %w", err)
-		}
-		return nil
-	}
-	if err := saveUSBInternet(runtime.Boot, *req.Enabled, apply); err != nil {
-		log.Errorf("USB internet: %v", err)
-		rsp.ErrRsp(c, -3, "failed to apply USB internet setting")
+	if err := saveUSBFlag(runtime.Boot, name, *req.Enabled, applyUSBNetwork); err != nil {
+		log.Errorf("%s: %v", what, err)
+		rsp.ErrRsp(c, -3, "failed to apply "+what+" setting")
 		return
 	}
 	rsp.OkRspWithData(c, runtime.ReadStatus())
@@ -57,8 +73,8 @@ func (s *Service) SetUSBInternet(c *gin.Context) {
 
 // An unavailable uplink/NCM is a persisted waiting state. Actual runtime
 // failures roll back the flag and reapply local access without a gadget rebind.
-func saveUSBInternet(boot string, enabled bool, apply func() error) error {
-	path := filepath.Join(boot, "usb.internet")
+func saveUSBFlag(boot, name string, enabled bool, apply func() error) error {
+	path := filepath.Join(boot, name)
 	if err := os.MkdirAll(boot, 0o755); err != nil {
 		return err
 	}

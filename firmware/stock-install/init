@@ -110,7 +110,7 @@ while IFS= read -r path; do
         ./boot/usb.disable_keyboard|./boot/usb.disable_relative|./boot/usb.disable_absolute|./boot/usb.vid|\
         ./boot/usb.pid|./boot/usb.manufacturer|./boot/usb.product|./boot/usb.storage.vendor|\
         ./boot/usb.storage.image|./boot/usb.storage.setup|./boot/usb.storage.user|./boot/usb.serialnumber|\
-        ./boot/usb.notwakeup|./boot/usb.internet|./boot/rndis.nodhcpd|./boot/rndis.ipv4_prefix|\
+        ./boot/usb.notwakeup|./boot/usb.internet|./boot/usb.host_access|./boot/rndis.nodhcpd|./boot/rndis.ipv4_prefix|\
         ./etc/ssh/ssh_host_rsa_key|./etc/ssh/ssh_host_rsa_key.pub|\
         ./etc/ssh/ssh_host_ecdsa_key|./etc/ssh/ssh_host_ecdsa_key.pub|\
         ./etc/ssh/ssh_host_ed25519_key|./etc/ssh/ssh_host_ed25519_key.pub) ;;

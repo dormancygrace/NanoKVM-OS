@@ -175,7 +175,7 @@ boot/usb.disk0.ro boot/usb.userdisk boot/usb.rndis0 boot/usb.ncm boot/usb.acm
 boot/usb.audio boot/disable_hid boot/usb.disable_keyboard boot/usb.disable_relative boot/usb.disable_absolute
 boot/usb.vid boot/usb.pid boot/usb.manufacturer boot/usb.product boot/usb.storage.vendor
 boot/usb.storage.image boot/usb.storage.setup boot/usb.storage.user boot/usb.serialnumber boot/usb.notwakeup
-boot/usb.internet boot/rndis.nodhcpd boot/rndis.ipv4_prefix'
+boot/usb.internet boot/usb.host_access boot/rndis.nodhcpd boot/rndis.ipv4_prefix'
 for path in $paths; do
     [ ! -L "/$path" ] || fail "settings symlink is unsupported: $path"
     [ -e "/$path" ] || continue

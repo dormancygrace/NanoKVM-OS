@@ -16,12 +16,26 @@ import (
 )
 
 // Boot is the directory of the USB flags (usb.internet, rndis.*): hid.USBFlagsDir,
-// which this small package does not import.
-type Runtime struct{ Boot, Run, Gadget, Net, Proc, Resolv string }
+// which this small package does not import. Server is the server's
+// server.yaml, for the web port the input filter leaves open.
+type Runtime struct{ Boot, Run, Gadget, Net, Proc, Resolv, Server string }
 
 func DefaultRuntime() Runtime {
 	flags := usbFlagsPath("/usr/share/nanokvm/usb-flags-layout", "/etc/kvm/usb/.layout-v1")
-	return Runtime{Boot: env("NANOKVM_USB_NET_BOOT", flags), Run: env("NANOKVM_USB_NET_RUN", "/run/nanokvm-usbnet"), Gadget: env("NANOKVM_USB_NET_GADGET", "/sys/kernel/config/usb_gadget/g0"), Net: env("NANOKVM_USB_NET_CLASS", "/sys/class/net"), Proc: env("NANOKVM_USB_NET_PROC", "/proc"), Resolv: env("NANOKVM_USB_NET_RESOLV", "/etc/resolv.conf")}
+	return Runtime{Boot: env("NANOKVM_USB_NET_BOOT", flags), Run: env("NANOKVM_USB_NET_RUN", "/run/nanokvm-usbnet"), Gadget: env("NANOKVM_USB_NET_GADGET", "/sys/kernel/config/usb_gadget/g0"), Net: env("NANOKVM_USB_NET_CLASS", "/sys/class/net"), Proc: env("NANOKVM_USB_NET_PROC", "/proc"), Resolv: env("NANOKVM_USB_NET_RESOLV", "/etc/resolv.conf"), Server: env("NANOKVM_SERVER_CONFIG", "/etc/kvm/server.yaml")}
+}
+
+// HostAccess: the managed computer may open every service of the NanoKVM over
+// the USB network (usb.host_access). Off by default: see hostInput.
+func (r Runtime) HostAccess() bool { return exists(filepath.Join(r.Boot, HostAccessFlag)) }
+
+// HostAccessFlag is the file in the USB flags directory that turns the usb0
+// input filter off.
+const HostAccessFlag = "usb.host_access"
+
+func (r Runtime) hostInput() hostInput {
+	data, _ := os.ReadFile(r.Server)
+	return hostInput{Open: r.HostAccess(), Web: webPort(data), Netboot: r.NetbootPort()}
 }
 
 // Base helpers can be upgraded before the application that understands the
@@ -128,6 +142,12 @@ func (r Runtime) WatchNeeded() bool {
 }
 
 func (r Runtime) ReadStatus() Status {
+	s := r.readStatus()
+	s.HostAccess = r.HostAccess()
+	return s
+}
+
+func (r Runtime) readStatus() Status {
 	enabled := r.Enabled()
 	var saved Status
 	data, err := os.ReadFile(filepath.Join(r.Run, "status.json"))
@@ -415,21 +435,32 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 	if err != nil {
 		return err
 	}
+	// The input filter of a bound usb0, with DHCP open while dnsmasq serves it.
+	in := r.hostInput()
+	served := in
+	served.DHCP = true
 	defer func() {
-		if err == nil || a.Address == "" {
+		if err == nil {
 			return
 		}
 		// On a runtime error remove the stale gateway/NAT while retaining the
 		// USB address. Check ownership again before replacing any nft table.
 		latest, e := r.command("", "nft", "-j", "list", "ruleset")
 		owned, transit, check := inspectRules(latest)
+		if a.Address == "" {
+			// No gateway to retire, but a bound usb0 keeps its input filter.
+			if rules := inputOnly(owned, in); e == nil && check == nil && rules != "" && !stop && r.bound() {
+				_, _ = r.command(rules, "nft", "-f", "-")
+			}
+			return
+		}
 		if e == nil && check == nil {
 			if p, parse := netip.ParsePrefix(a.Prefix + ".0/24"); parse == nil {
-				guard := ruleset(p, "", false, owned)
+				guard := ruleset(p, "", false, owned, served)
 				if _, e = r.command(guard, "nft", "-f", "-"); e == nil {
 					_ = r.forwarding(&a, "", transit)
 					_ = r.daemon(dnsConfig(r.Resolv, a.Prefix, false, r.NetbootPort()))
-					a.Rules = ruleset(p, "", false, false)
+					a.Rules = ruleset(p, "", false, false, served)
 					a.Uplink = ""
 					a.Routing = ""
 					_ = r.save("applied.json", a)
@@ -440,9 +471,20 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 		_ = r.stopDaemon()
 	}()
 
-	cleanup := func() error {
-		// Delete only the table with our verified owner comment. No flush ruleset.
-		if tableExists {
+	// keep: usb0 is bound, so it keeps the input filter alone (without DHCP,
+	// which stops here). Otherwise the table goes.
+	cleanup := func(keep bool) error {
+		rules := ""
+		if keep {
+			rules = inputOnly(tableExists, in)
+		}
+		if rules != "" {
+			if _, e := r.command(rules, "nft", "-f", "-"); e != nil {
+				return e
+			}
+			tableExists = true
+		} else if tableExists {
+			// Delete only the table with our verified owner comment. No flush ruleset.
 			if _, e := r.command("", "nft", "delete", "table", "inet", Table); e != nil {
 				return e
 			}
@@ -473,14 +515,15 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 		a.Rules = ""
 		return r.save("applied.json", a)
 	}
-	if stop || !r.bound() || exists(filepath.Join(r.Boot, "rndis.nodhcpd")) {
+	bound := !stop && r.bound()
+	if !bound || exists(filepath.Join(r.Boot, "rndis.nodhcpd")) {
 		if s.Enabled {
 			s.State = "waiting-ncm"
 			if exists(filepath.Join(r.Boot, "rndis.nodhcpd")) {
 				s.State = "dhcp-disabled"
 			}
 		}
-		return cleanup()
+		return cleanup(bound)
 	}
 	occupied, err := r.occupied()
 	if err != nil {
@@ -496,13 +539,13 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 		// Preserve local access; only retire sharing and its gateway advertisement.
 		if a.Address == "" {
 			err = nil
-			return cleanup()
+			return cleanup(true)
 		}
 		oldSubnet, e := netip.ParsePrefix(a.Prefix + ".0/24")
 		if e != nil {
 			return e
 		}
-		guard := ruleset(oldSubnet, "", false, tableExists)
+		guard := ruleset(oldSubnet, "", false, tableExists, served)
 		if _, e = r.command(guard, "nft", "-f", "-"); e != nil {
 			return e
 		}
@@ -582,7 +625,7 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 		// The kernel rejects a forwarded route lookup on an interface with
 		// forwarding disabled. Install its guard before probing the route.
 		if !tableExists {
-			if _, err = r.command(ruleset(subnet, "", false, false), "nft", "-f", "-"); err != nil {
+			if _, err = r.command(ruleset(subnet, "", false, false, served), "nft", "-f", "-"); err != nil {
 				return err
 			}
 			tableExists = true
@@ -608,9 +651,9 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 		}
 	}
 	// Cache only the canonical table text, not the optional delete prefix.
-	canonical := ruleset(subnet, uplink, flow, false)
+	canonical := ruleset(subnet, uplink, flow, false, served)
 	if canonical != a.Rules || routing != a.Routing || !tableExists {
-		if _, err = r.command(ruleset(subnet, uplink, flow, tableExists), "nft", "-f", "-"); err != nil {
+		if _, err = r.command(ruleset(subnet, uplink, flow, tableExists, served), "nft", "-f", "-"); err != nil {
 			if !flow {
 				return err
 			}
@@ -618,8 +661,8 @@ func (r Runtime) Apply(preferred string, stop bool) (err error) {
 			flow = false
 			a.FlowUnsupported = true
 			s.OffloadReason = "unsupported"
-			canonical = ruleset(subnet, uplink, false, false)
-			if _, err = r.command(ruleset(subnet, uplink, false, tableExists), "nft", "-f", "-"); err != nil {
+			canonical = ruleset(subnet, uplink, false, false, served)
+			if _, err = r.command(ruleset(subnet, uplink, false, tableExists, served), "nft", "-f", "-"); err != nil {
 				return err
 			}
 		}

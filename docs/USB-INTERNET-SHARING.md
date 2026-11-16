@@ -2,7 +2,9 @@
 
 The USB settings page has an independent **Internet over USB** switch
 (**Интернет через USB** in Russian). It defaults to off. NCM alone continues
-providing local access without a DHCP default gateway or DNS server. Sharing
+providing the computer's USB address, without a DHCP default gateway or DNS
+server; what the computer may open on the NanoKVM over it is described in
+[What the computer reaches over the USB network](USB-COMPOSITION.md#what-the-computer-reaches-over-the-usb-network). Sharing
 uses IPv4 only; it does not enable IPv6 forwarding, RA or DHCPv6. IPv6 transit
 through usb0 is explicitly dropped.
 
@@ -23,7 +25,8 @@ reachability. Loss of Internet beyond an otherwise live gateway is therefore
 not displayed as a separate verified connectivity state.
 
 Turning NCM/USB off pauses sharing while preserving its preference. Restoring
-NCM resumes sharing. Turning the sharing switch off retains local USB access.
+NCM resumes sharing. Turning the sharing switch off keeps the USB network
+with its address and DHCP.
 DHCP leases last 120 seconds in both modes; clients may retain previous DHCP
 options until renewing.
 
@@ -60,11 +63,15 @@ options until renewing.
   change they are restored if still owned and no foreign transit policy has
   appeared. If another transit policy now exists, forwarding is conservatively
   retained for that policy; USB transit remains blocked by the local-only guard.
-- NAT, the software flowtable and USB-only filtering live in
-  `inet nkos_usb_internet`, identified by an owner comment. Replacement is one
-  nft transaction; foreign tables are never flushed. Off/waiting retains only
-  the USB transit guard, so globally enabled VPN forwarding cannot accidentally
-  share Internet. Gadget stop removes the whole owned table, daemon and address.
+- NAT, the software flowtable, USB-only filtering and the usb0 input filter
+  ([what the computer reaches](USB-COMPOSITION.md#what-the-computer-reaches-over-the-usb-network))
+  live in `inet nkos_usb_internet`, identified by an owner comment. Replacement
+  is one nft transaction; foreign tables are never flushed. Off/waiting retains
+  only the USB transit guard and the input filter, so globally enabled VPN
+  forwarding cannot accidentally share Internet. Without an address of the
+  helper (`rndis.nodhcpd`, a subnet conflict or an error before the first
+  address) a bound usb0 keeps the input filter alone. Gadget stop removes the
+  whole owned table, daemon and address.
 - Software offload is eligible for established return-direction IPv4 TCP/UDP
   with zero conntrack mark and only default policy routing. Foreign transit or
   ingress hooks suppress it. The exact package SYN-only `nkos_mss` ceiling is
@@ -97,7 +104,8 @@ the previous preference and reapplies it; waiting states are successful saves.
 A lost response is handled by read-back in the GUI rather than mutation replay.
 
 The response includes `enabled`, `state`, `address`, `uplink`, `flowOffload`,
-`offloadReason`, `ipv6: false` and timestamp. States: disabled, active,
+`offloadReason`, `ipv6: false`, `hostAccess` (the computer may open every
+service over USB, `PUT /api/vm/usb-host-access`) and timestamp. States: disabled, active,
 waiting-ncm, waiting-uplink, dhcp-disabled, subnet-conflict, unavailable, error.
 Status older than twenty seconds is considered unavailable.
 

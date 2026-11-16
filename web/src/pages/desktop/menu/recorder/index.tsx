@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, message } from 'antd';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -14,7 +14,12 @@ import { getRecordingAudio } from '@/lib/recording-audio.ts';
 import type { RecordingResult } from '@/lib/recording-result.ts';
 import { getRecordingSource, watchRecordingSource } from '@/lib/recording-source.ts';
 import { getUsbAudioStream, watchUsbAudioStream } from '@/lib/usb-audio-stream.ts';
-import { isHdmiEnabledAtom, streamFpsAtom, videoModeAtom } from '@/jotai/screen';
+import {
+  isHdmiEnabledAtom,
+  screenRecordingAtom,
+  streamFpsAtom,
+  videoModeAtom
+} from '@/jotai/screen';
 import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
 type SavePicker = (options: {
@@ -79,6 +84,10 @@ export const Recorder = () => {
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [state]);
+  // MJPEG keeps streaming in a hidden tab while this is set (screen/mjpeg.tsx).
+  const setRecording = useSetAtom(screenRecordingAtom);
+  useEffect(() => setRecording(state !== 'idle'), [setRecording, state]);
+  useEffect(() => () => setRecording(false), [setRecording]);
   useEffect(() => {
     if (state !== 'recording') return;
     const start = Date.now();

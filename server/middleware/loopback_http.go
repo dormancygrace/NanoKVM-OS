@@ -31,6 +31,10 @@ func ListenAndServeLoopbackHTTPRedirect(
 		allowlist[path] = struct{}{}
 	}
 
+	listener, err := net.Listen("tcp", httpAddr)
+	if err != nil {
+		return err
+	}
 	return utils.NewHTTPServer(httpAddr, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if isLoopbackAllowedPath(req, allowlist) {
 			if hasValidLoopbackHTTPToken(req) {
@@ -47,7 +51,7 @@ func ListenAndServeLoopbackHTTPRedirect(
 		}
 
 		http.Redirect(w, req, "https://"+redirectHost(req.Host, httpsPort)+req.URL.RequestURI(), http.StatusTemporaryRedirect)
-	}), true).ListenAndServe()
+	}), true).Serve(utils.LimitConnections(listener))
 }
 
 func redirectHost(requestHost string, httpsPort string) string {

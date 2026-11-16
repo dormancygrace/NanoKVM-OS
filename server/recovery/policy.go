@@ -23,6 +23,8 @@ var settings = strings.Fields(`
  etc/kvm/hevc_vi_direct etc/kvm/watermark.json etc/kvm/hdmi_disable etc/kvm/hdmi_idle_timeout etc/kvm/atx etc/kvm/screen-text-off
  etc/kvm/mcp.json etc/kvm/ai-control.mode etc/kvm/autostart.list
  etc/kvm/wifi.ssid etc/kvm/wifi.pass etc/kvm/wifi.disabled etc/kvm/wifi.band_preference etc/kvm/wifi.country
+ etc/kvm/wifi.ap.enabled etc/kvm/wifi.ap.ssid etc/kvm/wifi.ap.pass etc/kvm/wifi.ap.band etc/kvm/wifi.ap.channel
+ etc/kvm/wifi.ap.hidden etc/kvm/wifi.ap.subnet etc/kvm/wifi.ap.internet etc/kvm/wifi.ap.dns
  etc/kvm/usb-before-rustdesk.json
  etc/kvm/picoclaw-runtime.json etc/kvm/pwd
  kvmapp/kvm/fps kvmapp/kvm/qlty kvmapp/kvm/res kvmapp/kvm/type

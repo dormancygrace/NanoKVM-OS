@@ -5,6 +5,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { MarkdownContent } from '../src/pages/desktop/picoclaw/markdown-content.tsx';
 
+// The page's own location: links are judged against it.
+globalThis.window = { location: new URL('https://nanokvm.local/#/desktop') };
+
 const render = (content) => renderToStaticMarkup(createElement(MarkdownContent, { content }));
 
 test('a Markdown image from the model is not fetched', () => {
@@ -19,4 +22,17 @@ test('a Markdown image from the model is not fetched', () => {
 test('links stay links', () => {
   const html = render('see [docs](https://example.com/docs)');
   assert.match(html, /<a [^>]*href="https:\/\/example\.com\/docs"/);
+});
+
+test('links into the device or not over http(s) stay text', () => {
+  for (const href of [
+    '/#/terminal',
+    'https://nanokvm.local/api/vm/terminal',
+    'javascript:alert(1)',
+    'file:///etc/passwd'
+  ]) {
+    const html = render(`see [here](${href})`);
+    assert.ok(!/<a /i.test(html), html);
+    assert.ok(html.includes('here'), html);
+  }
 });

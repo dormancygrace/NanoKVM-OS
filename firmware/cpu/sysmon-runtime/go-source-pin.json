@@ -16,11 +16,13 @@
     "crypto/internal/fips140/sha3/sha3_noasm.go": "7d612a30f8a63ae042d3ac998bacd50744700125060893ef87580ef33be77a94",
     "crypto/internal/fips140/aes/aes_noasm.go": "8647ca404ea9300cce387f7d5419367f8c801e7e0c9a8dd263eb1f069a9e8b24",
     "crypto/internal/fips140/aes/gcm/gcm_noasm.go": "cfdf828aa34498dd358b86e7711abed4a6302eb1d09b0ade74951d51bedcd8b3",
-    "crypto/internal/fips140/sha512/sha512block_riscv64.s": "dab438236eeb6d9723c8cd78d45cfff2c52201d85626002c62adc44697c968db"
+    "crypto/internal/fips140/sha512/sha512block_riscv64.s": "dab438236eeb6d9723c8cd78d45cfff2c52201d85626002c62adc44697c968db",
+    "internal/bytealg/equal_riscv64.s": "888d820d7354636c77fb1664ac31411c513131d9f525e6fbecf71128f1faeb91",
+    "internal/bytealg/compare_riscv64.s": "f5de3b259bc5360fb23f1b221ba84ffd1d7d1ae373893717ce7c3bf8da342808"
   },
   "x_crypto_v0.57.0_sum_riscv64_s_sha256": "59299b25f5a080916c28d81de3cfd78804a6744e9d908b052f6d9495f6fdc84b",
   "target": "linux/riscv64",
-  "activation": "NANOKVM_SYSMON_TIMER_SLACK_NS=250000 and NANOKVM_SYSMON_MIN_DELAY_US=500|1000|2000; unset or 0 leaves the original runtime policy. memmove, memclr, ChaCha20 and Poly1305 always use XTheadVector; the nanokvmqemu build tag keeps them scalar for QEMU",
+  "activation": "NANOKVM_SYSMON_TIMER_SLACK_NS=250000 and NANOKVM_SYSMON_MIN_DELAY_US=500|1000|2000; unset or 0 leaves the original runtime policy. memmove, memclr, memequal, ChaCha20 and Poly1305 always use XTheadVector; the nanokvmqemu build tag keeps them scalar for QEMU",
   "official_source": {
     "url": "https://go.dev/dl/go1.27.4.src.tar.gz",
     "sha256": "73cfb8571aec0c01177687db87163d46aa20e9779672772891aa17654d9a6099",

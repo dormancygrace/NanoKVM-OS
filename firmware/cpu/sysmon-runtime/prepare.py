@@ -241,6 +241,38 @@ edit('runtime/memclr_riscv64.s', '\t// X10 = ptr\n\t// X11 = n\n\n',
      '\tJMP\truntime·nanokvmMemclrVector(SB)\n'
      'nanokvm_scalar:\n'
      '#endif\n')
+# memequal (bytes.Equal, string and array comparisons): from
+# nanokvmVectorMemequalMin bytes the XTheadVector loop (gen_memequal_c906.py)
+# under the same build constant; Go's own vector loop needs RVV 1.0. Equal and
+# Compare with source alignments that differ use the 8-byte loops with
+# misaligned words, as memmove above, instead of comparing byte by byte.
+bytealg = 'internal/bytealg'
+materialize(bytealg)
+edit(f'{bytealg}/equal_riscv64.s', '\tMOV\t$32, X23\n\tBLT\tX12, X23, loop4_check\n\n',
+     '\tMOV\t$32, X23\n\tBLT\tX12, X23, loop4_check\n\n'
+     '#ifdef const_nanokvmXTheadVector\n'
+     '\t// NanoKVM: large comparisons with XTheadVector (nanokvm_memequal_riscv64.s).\n'
+     '\tMOV\t$const_nanokvmVectorMemequalMin, X9\n'
+     '\tBLTU\tX12, X9, nanokvm_scalar\n'
+     '\tJMP\truntime·nanokvmMemequalVector(SB)\n'
+     'nanokvm_scalar:\n'
+     '#endif\n\n')
+edit(f'{bytealg}/equal_riscv64.s',
+     '\t// Check alignment - if alignment differs we have to do one byte at a time.\n'
+     '\tAND\t$7, X10, X9\n\tAND\t$7, X11, X19\n\tBNE\tX9, X19, loop4_check\n',
+     '\t// NanoKVM: if alignment differs, compare misaligned 8-byte words; the\n'
+     '\t// C906 accesses them natively and fast.\n'
+     '\tAND\t$7, X10, X9\n\tAND\t$7, X11, X19\n\tBNE\tX9, X19, loop32_check\n')
+edit(f'{bytealg}/compare_riscv64.s',
+     '\t// Check alignment - if alignment differs we have to do one byte at a time.\n'
+     '\tAND\t$7, X10, X7\n\tAND\t$7, X12, X8\n\tBNE\tX7, X8, check8_unaligned\n',
+     '\t// NanoKVM: if alignment differs, compare misaligned 8-byte words; the\n'
+     '\t// C906 accesses them natively and fast.\n'
+     '\tAND\t$7, X10, X7\n\tAND\t$7, X12, X8\n\tBNE\tX7, X8, compare_scalar_aligned\n')
+shutil.copyfile(source / 'bytealg_memequal_riscv64.s', out / 'src' / bytealg / 'nanokvm_memequal_riscv64.s')
+shutil.copyfile(source / 'bytealg_xtheadvector_riscv64.go', out / 'src' / bytealg / 'nanokvm_xtheadvector_riscv64.go')
+vendor_files += [f'{bytealg}/equal_riscv64.s', f'{bytealg}/compare_riscv64.s',
+                 f'{bytealg}/nanokvm_memequal_riscv64.s', f'{bytealg}/nanokvm_xtheadvector_riscv64.go']
 for p in source.glob('nanokvm_*'):
     shutil.copyfile(p, out / 'src/runtime' / p.name)
 manifest = {'source_go': str(base), 'goroot': str(out), 'source_pin': pin,

@@ -8,12 +8,14 @@ queued so far: a burst of 16 datagrams went out in several SDIO transfers,
 each with a host claim, a flow-control register read (CMD52) and a data
 write (CMD53), each waited for.
 
-rwnx_start_xmit now wraps the transmit path: while netdev_xmit_more() says
+rwnx_ndo_start_xmit wraps the transmit path: while netdev_xmit_more() says
 more frames of the burst follow, queued frames do not wake the thread; the
 last call wakes it whatever became of its own frame (queued, dropped on an
 error, held by the TCP ACK filter), and a stopped queue wakes it too.
 Frames sent outside ndo_start_xmit (the TCP ACK timer, management frames,
-power save) keep waking it at once.
+power save and the direct TDLS sender) keep waking it at once. Only the
+netdev callback enters the batching wrapper; internal callers use the
+original rwnx_start_xmit entry point.
 
 diff --git a/aic8800_fdrv/aicwf_sdio.h b/aic8800_fdrv/aicwf_sdio.h
 --- a/aic8800_fdrv/aicwf_sdio.h
@@ -22,7 +24,7 @@ diff --git a/aic8800_fdrv/aicwf_sdio.h b/aic8800_fdrv/aicwf_sdio.h
  	struct aicwf_rx_priv *rx_priv;
  	struct aicwf_tx_priv *tx_priv;
  	u32 state;
-+	/* Set by rwnx_start_xmit while more frames of the same burst follow:
++	/* Set by rwnx_ndo_start_xmit while more frames of the same burst follow:
 +	 * queued data frames then wait for the burst's end to wake the TX
 +	 * thread (aicwf_sdio_tx_kick). */
 +	bool tx_wake_deferred;
@@ -45,7 +47,7 @@ diff --git a/aic8800_fdrv/aicwf_sdio.c b/aic8800_fdrv/aicwf_sdio.c
  }
  
 +/* Wake the TX thread for what is queued: the end of a burst whose frames
-+ * rwnx_start_xmit left waiting (tx_wake_deferred). */
++ * rwnx_ndo_start_xmit left waiting (tx_wake_deferred). */
 +void aicwf_sdio_tx_kick(struct aic_sdio_dev *sdiodev)
 +{
 +	complete(&sdiodev->bus_if->bustx_trgg);
@@ -67,15 +69,6 @@ diff --git a/aic8800_fdrv/aicwf_sdio.c b/aic8800_fdrv/aicwf_sdio.c
 diff --git a/aic8800_fdrv/rwnx_tx.c b/aic8800_fdrv/rwnx_tx.c
 --- a/aic8800_fdrv/rwnx_tx.c
 +++ b/aic8800_fdrv/rwnx_tx.c
-@@ -1404,7 +1404,7 @@
-  *  - If possible (i.e. credit available and not in PS) the pkt is pushed
-  *    to fw
-  */
--netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
-+static netdev_tx_t __rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct rwnx_vif *rwnx_vif = netdev_priv(dev);
- 	struct rwnx_hw *rwnx_hw = rwnx_vif->rwnx_hw;
 @@ -1613,6 +1613,37 @@
  	return NETDEV_TX_OK;
  }
@@ -91,7 +84,7 @@ diff --git a/aic8800_fdrv/rwnx_tx.c b/aic8800_fdrv/rwnx_tx.c
 + * which the stack sends nothing more. Frames sent outside ndo_start_xmit
 + * (the TCP ACK timer, management, power save) wake it at once as before.
 + */
-+netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
++netdev_tx_t rwnx_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 +{
 +#ifdef AICWF_SDIO_SUPPORT
 +	struct rwnx_vif *rwnx_vif = netdev_priv(dev);
@@ -101,16 +94,39 @@ diff --git a/aic8800_fdrv/rwnx_tx.c b/aic8800_fdrv/rwnx_tx.c
 +	netdev_tx_t ret;
 +
 +	sdiodev->tx_wake_deferred = more;
-+	ret = __rwnx_start_xmit(skb, dev);
++	ret = rwnx_start_xmit(skb, dev);
 +	sdiodev->tx_wake_deferred = false;
 +	if (!more || __netif_subqueue_stopped(dev, queue))
 +		aicwf_sdio_tx_kick(sdiodev);
 +	return ret;
 +#else
-+	return __rwnx_start_xmit(skb, dev);
++	return rwnx_start_xmit(skb, dev);
 +#endif
 +}
 +
  #if 0//def CONFIG_BAND_STEERING
  void rwnx_probersp_work(struct work_struct *work)
  {
+diff --git a/aic8800_fdrv/rwnx_tx.h b/aic8800_fdrv/rwnx_tx.h
+--- a/aic8800_fdrv/rwnx_tx.h
++++ b/aic8800_fdrv/rwnx_tx.h
+@@ -158,6 +158,7 @@
+ 
+ u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb);
+ netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev);
++netdev_tx_t rwnx_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+ int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
+ 						 struct cfg80211_mgmt_tx_params *params, bool offchan,
+diff --git a/aic8800_fdrv/rwnx_main.c b/aic8800_fdrv/rwnx_main.c
+--- a/aic8800_fdrv/rwnx_main.c
++++ b/aic8800_fdrv/rwnx_main.c
+@@ -1510,7 +1510,7 @@
+ #else
+ 	.ndo_siocdevprivate 	= rwnx_do_ioctl,
+ #endif
+-	.ndo_start_xmit         = rwnx_start_xmit,
++	.ndo_start_xmit         = rwnx_ndo_start_xmit,
+ 	.ndo_get_stats          = rwnx_get_stats,
+ #ifndef CONFIG_ONE_TXQ
+ 	.ndo_select_queue       = rwnx_select_queue,

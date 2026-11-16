@@ -3,6 +3,8 @@ package direct
 import (
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/stream"
+	"encoding/binary"
+	"math/rand/v2"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,7 +14,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const pongWait = 30 * time.Second
+const (
+	pongWait = 30 * time.Second
+	// instanceMessage carries instanceID, the first message on every socket.
+	instanceMessage byte = 5
+)
+
+// A power cut sends the page no close, so its old socket can look alive for
+// half a minute. A probe socket (?probe=1) answers with instanceID and closes:
+// a different ID means the server restarted and the old socket is dead.
+var instanceID = rand.Uint32()
 
 var (
 	streamer = newStreamer()
@@ -35,6 +46,13 @@ func connect(c *gin.Context, config stream.EncoderConfig) {
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Errorf("failed to upgrade to websocket: %s", err)
+		return
+	}
+	instance := []byte{instanceMessage, 0, 0, 0, 0}
+	binary.LittleEndian.PutUint32(instance[1:], instanceID)
+	_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
+	if err := ws.WriteMessage(websocket.BinaryMessage, instance); err != nil || c.Query("probe") == "1" {
+		_ = ws.Close()
 		return
 	}
 	stopSessionWatcher := middleware.WatchWebSocket(c.Request.Context(), ws)

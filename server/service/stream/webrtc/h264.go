@@ -16,7 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/pion/interceptor"
-	"github.com/pion/interceptor/pkg/nack"
 	"github.com/pion/webrtc/v4"
 	log "github.com/sirupsen/logrus"
 )
@@ -208,10 +207,9 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 		if len(budgets) > 0 && budgets[0] != nil {
 			registry.Add(&rtpmtu.Factory{Budget: budgets[0].size})
 		}
-		// Each peer's packets come from a slab of their own per frame that is
-		// never reused or changed after the write (adaptiveVideoPacketizer),
-		// so the retransmission buffer can keep them instead of a copy.
-		if err := webrtc.ConfigureNackWithOptions(mediaEngine, registry, nil, nack.DisableCopy()); err != nil {
+		// Keep NACK's copy: TrackLocalStaticRTP passes a pooled RTP header
+		// that it resets after the write, even when the payload is owned.
+		if err := webrtc.ConfigureNack(mediaEngine, registry); err != nil {
 			return nil, err
 		}
 		if err := webrtc.ConfigureRTCPReports(registry); err != nil {

@@ -5,10 +5,12 @@ import (
 	"NanoKVM-Server/common/rtpmtu"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/stream"
+	"NanoKVM-Server/service/stream/icelocal"
 	"NanoKVM-Server/service/stream/iceservers"
 	"NanoKVM-Server/service/stream/srtpaccel"
 	"NanoKVM-Server/service/stream/webrtcdtls"
 	"encoding/json"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -78,7 +80,7 @@ func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 	}
 
 	pathBudget := newPeerPathMTU()
-	videoConn, err := createPeerConnection(iceServers, mediaEngine, pathBudget)
+	videoConn, err := createPeerConnection(icelocal.Filter(c.Request), iceServers, mediaEngine, pathBudget)
 	if err != nil {
 		log.Errorf("failed to create h264 video peer connection: %s", err)
 		return
@@ -182,8 +184,11 @@ func createMediaEngine(config stream.EncoderConfig) (*webrtc.MediaEngine, error)
 	return mediaEngine, nil
 }
 
-func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
+func createPeerConnection(addresses func(net.IP) bool, iceServers []webrtc.ICEServer, mediaEngine *webrtc.MediaEngine, budgets ...*peerPathMTU) (*webrtc.PeerConnection, error) {
 	settingEngine := webrtc.SettingEngine{}
+	if addresses != nil {
+		settingEngine.SetIPFilter(addresses)
+	}
 	if len(budgets) > 0 && budgets[0] != nil {
 		network, err := pathmtu.NewNet(budgets[0].receive)
 		if err != nil {

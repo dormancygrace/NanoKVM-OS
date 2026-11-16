@@ -31,5 +31,9 @@
   "watchdog.unknown": { "title": "Сторож не смог опросить компьютер", "body": "Агент датчиков ничего не присылал {minutes} мин, а NanoKVM не смог спросить компьютер, жив ли он: {error}. Кнопки не нажимались." },
   "settings.changed": { "title": "Настройки изменены", "body": "{actor} изменил(а): {setting}." },
   "system.action": { "title": "Действие с NanoKVM", "body": "{actor}: {action}." },
-  "system.started": { "title": "NanoKVM запущен", "body": "NanoKVM OS {version} запущена." }
+  "system.started": { "title": "NanoKVM запущен", "body": "NanoKVM OS {version} запущена." },
+  "system.started.power": { "title": "NanoKVM запущен", "body": "NanoKVM OS {version} запущена после включения питания." },
+  "system.started.restart": { "title": "NanoKVM перезапущен", "body": "NanoKVM OS {version} запущена после перезагрузки." },
+  "system.started.watchdog": { "title": "NanoKVM перезапущен сторожевым таймером", "body": "NanoKVM OS {version} запущена после сброса аппаратным сторожевым таймером: система перестала отвечать." },
+  "system.started.overheat": { "title": "NanoKVM перезапущен после перегрева", "body": "NanoKVM OS {version} запущена после того, как чип выключился из-за перегрева." }
 }

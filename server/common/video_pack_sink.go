@@ -74,16 +74,17 @@ func readMjpegIntoOwnedStorage(width, height, quality uint16) ([]byte, int) {
 	return state.mjpegResult(result)
 }
 
-// Tiled MJPEG: one message (result 6) or a bare JPEG (0), copied like a JPEG.
-func readMjpegTilesIntoOwnedStorage(width, height, quality uint16, key bool, maxTiles uint16) ([]byte, int) {
+// Tiled MJPEG: one message (result 6) or a bare JPEG (0), copied like a JPEG
+// behind room for a whole-picture message header (framed).
+func readMjpegTilesIntoOwnedStorage(width, height, quality uint16, key bool, maxTiles uint16) (data, framed []byte, result int) {
 	if w := jpegWorkerLocked(); w != nil {
 		state, result := w.readTiles(width, height, quality, key, maxTiles)
 		return state.mjpegTilesResult(result)
 	}
-	state := &videoPackStorage{}
+	state := &videoPackStorage{headroom: MjpegTilesWholeHeadroom}
 	handle := cgo.NewHandle(state)
 	defer handle.Delete()
-	result := int(C.nkosReadMjpegTiles(C.uint16_t(width), C.uint16_t(height), C.uint16_t(quality),
+	result = int(C.nkosReadMjpegTiles(C.uint16_t(width), C.uint16_t(height), C.uint16_t(quality),
 		C.uint8_t(boolToInt(key)), C.uint16_t(maxTiles), C.uintptr_t(handle)))
 	return state.mjpegTilesResult(result)
 }

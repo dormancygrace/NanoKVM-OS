@@ -64,13 +64,36 @@ func MjpegTilesAvailable() bool {
 	return mjpegTilesAvailable
 }
 
-// MjpegTilesWholeMessage wraps a JPEG of the whole picture as a message.
+// MjpegTilesWholeHeadroom is what a whole-picture message holds before its
+// JPEG: the header and one tile record.
+const MjpegTilesWholeHeadroom = mjpegTilesHeader + mjpegTilesRecord
+
+// MjpegTilesWholeMessage wraps a JPEG of the whole picture as a message: a
+// copy of it.
 func MjpegTilesWholeMessage(jpeg []byte) []byte {
-	width, height, ok := JpegSize(jpeg)
-	if !ok {
+	message := make([]byte, MjpegTilesWholeHeadroom, MjpegTilesWholeHeadroom+len(jpeg))
+	if !putMjpegTilesWholeHeader(message, jpeg) {
 		return nil
 	}
-	message := make([]byte, mjpegTilesHeader+mjpegTilesRecord, mjpegTilesHeader+mjpegTilesRecord+len(jpeg))
+	return append(message, jpeg...)
+}
+
+// MjpegTilesWholeInPlace makes a whole-picture message of framed, a JPEG
+// behind MjpegTilesWholeHeadroom free bytes, by writing the header into them.
+// A frame a second the size of the picture is not copied again.
+func MjpegTilesWholeInPlace(framed []byte) []byte {
+	if len(framed) < MjpegTilesWholeHeadroom || !putMjpegTilesWholeHeader(framed, framed[MjpegTilesWholeHeadroom:]) {
+		return nil
+	}
+	return framed
+}
+
+func putMjpegTilesWholeHeader(message, jpeg []byte) bool {
+	width, height, ok := JpegSize(jpeg)
+	if !ok {
+		return false
+	}
+	clear(message[:MjpegTilesWholeHeadroom])
 	message[0] = 1
 	message[1] = MjpegTilesWhole
 	binary.LittleEndian.PutUint16(message[2:], 1)
@@ -80,7 +103,7 @@ func MjpegTilesWholeMessage(jpeg []byte) []byte {
 	binary.LittleEndian.PutUint16(record[4:], uint16(width))
 	binary.LittleEndian.PutUint16(record[6:], uint16(height))
 	binary.LittleEndian.PutUint32(record[8:], uint32(len(jpeg)))
-	return append(message, jpeg...)
+	return true
 }
 
 // MjpegTilesMessageWhole reports whether a message holds the whole picture.

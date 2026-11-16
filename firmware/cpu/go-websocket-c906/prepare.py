@@ -13,6 +13,7 @@ MODULE = "github.com/gorilla/websocket"
 VERSION = "v1.5.3"
 PINS = {
     "mask.go": "964df1f35553a0893ae496fc41da0020583af35c3a3d21c6d94f6bc3f17bcc5c",
+    "conn.go": "43e43e797f891846fcf6cdb92de318ccc38f5b346a24d58f7076bd4fecc6341b",
     "go.mod": "09dc8a9227a54c1069ea065d610a5f2ca195f1f5fba6e7dbb2d7eb0fd6e01df6",
 }
 PATCH_FILES = ("mask_other.go", "mask_linux_riscv64.go", "mask_linux_riscv64.s")
@@ -32,6 +33,10 @@ def stage_module(source, output):
     for name in PATCH_FILES:
         if (source / name).exists():
             raise ValueError(f"Upstream file conflicts with the patch: {name}")
+    conn = (source / "conn.go").read_text()
+    fast_copy = "\t\tn := copy(c.writeBuf[mw.pos:], data)\n"
+    if conn.count(fast_copy) != 1:
+        raise ValueError("Expected one WriteMessage fast-path copy")
     original = (source / "mask.go").read_text()
     declaration = "func maskBytes(key [4]byte, pos int, b []byte) int {"
     if original.count(declaration) != 1:
@@ -44,6 +49,20 @@ def stage_module(source, output):
             if not path.name.endswith("_test.go"):
                 shutil.copyfile(path, output / path.name)
     (output / "mask.go").write_text(original.replace(declaration, declaration.replace("maskBytes", "maskBytesGeneric")))
+    # A large server message is written from the caller's slice: only its
+    # first part shares the header's write (one full TLS record), instead of
+    # a copy of the whole message into the write buffer.
+    (output / "conn.go").write_text(conn.replace(fast_copy, (
+        "\t\thead := data\n"
+        "\t\tif len(head) > writeHeadCopy {\n"
+        "\t\t\thead = head[:writeHeadCopy]\n"
+        "\t\t}\n"
+        "\t\tn := copy(c.writeBuf[mw.pos:], head)\n")))
+    (output / "write_head.go").write_text(
+        "package websocket\n\n"
+        "// writeHeadCopy is the part of a large server message copied next to its\n"
+        "// header (NanoKVM patch): with the header, one full TLS record.\n"
+        "const writeHeadCopy = 16*1024 - maxFrameHeaderSize\n")
     for name in PATCH_FILES:
         shutil.copyfile(HERE / name, output / name)
     return {path.name: sha256(path) for path in sorted(output.iterdir()) if path.is_file()}

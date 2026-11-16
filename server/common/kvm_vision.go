@@ -143,16 +143,24 @@ func (k *KvmVision) ReadMjpeg(width uint16, height uint16, quality uint16) (data
 
 // ReadMjpegTiles reads tiled MJPEG (kvm_vision.h): MjpegTilesResult with a
 // message, 0 with a bare JPEG of the whole picture, 5 when nothing changed,
-// MjpegTilesUnsupported from a library without it.
-func (k *KvmVision) ReadMjpegTiles(width, height, quality uint16, key bool, maxTiles uint16) (data []byte, result int) {
+// MjpegTilesUnsupported from a library without it. With a bare JPEG, framed
+// is the same JPEG behind room for a whole-picture message header
+// (MjpegTilesWholeInPlace), or nil.
+func (k *KvmVision) ReadMjpegTiles(width, height, quality uint16, key bool, maxTiles uint16) (data, framed []byte, result int) {
 	data, result = readMjpegChecked(func() ([]byte, int) {
 		k.mutex.Lock()
 		defer k.mutex.Unlock()
 		if k.closed {
 			return nil, -1
 		}
-		return readMjpegTilesIntoOwnedStorage(width, height, quality, key, maxTiles)
+		var data []byte
+		var result int
+		data, framed, result = readMjpegTilesIntoOwnedStorage(width, height, quality, key, maxTiles)
+		return data, result
 	})
+	if result != 0 {
+		framed = nil
+	}
 	if result < 0 && result != MjpegBlockedResult && result != MjpegTilesUnsupported {
 		log.Errorf("failed to read tiled kvm image: %v", result)
 	}

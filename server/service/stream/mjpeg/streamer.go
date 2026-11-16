@@ -52,7 +52,9 @@ func sameMjpegImage(a, b []byte) bool {
 	return bytes.Equal(a, b)
 }
 
-func (d *frameDelivery) offer(clients []*mjpegClient, data []byte, now time.Time) bool {
+// framed, when not nil, is data behind room for a whole-picture message
+// header: tiled viewers then get it without a copy of the picture.
+func (d *frameDelivery) offer(clients []*mjpegClient, data, framed []byte, now time.Time) bool {
 	if !sameMjpegImage(d.last, data) {
 		d.last = data // ReadMjpeg returns an owned Go buffer, never mutated.
 		d.generation++
@@ -65,7 +67,9 @@ func (d *frameDelivery) offer(clients []*mjpegClient, data []byte, now time.Time
 		}
 		if c.generation != d.generation || c.lastOffer.IsZero() || now.Sub(c.lastOffer) >= duplicateRefreshInterval {
 			if c.tiled {
-				if whole == nil {
+				if whole == nil && framed != nil {
+					whole = common.MjpegTilesWholeInPlace(framed)
+				} else if whole == nil {
 					whole = common.MjpegTilesWholeMessage(data)
 				}
 				if whole == nil {
@@ -325,7 +329,7 @@ func (s *Streamer) run() {
 			continue
 		}
 
-		if delivery.offer(clients, data, time.Now()) {
+		if delivery.offer(clients, data, nil, time.Now()) {
 			stream.GetMjpegFrameRateCounter().Update()
 		}
 	}

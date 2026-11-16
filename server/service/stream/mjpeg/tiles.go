@@ -20,7 +20,7 @@ const tiledQueue = 8
 
 var (
 	tilesAvailable = common.MjpegTilesAvailable
-	readTiles      = func(width, height, quality uint16, key bool, maxTiles uint16) ([]byte, int) {
+	readTiles      = func(width, height, quality uint16, key bool, maxTiles uint16) ([]byte, []byte, int) {
 		return common.GetKvmVision().ReadMjpegTiles(width, height, quality, key, maxTiles)
 	}
 	releaseTiles = func() { common.GetKvmVision().ReleaseMjpegTiles() }
@@ -105,7 +105,7 @@ func (t *tileDelivery) read(clients []*mjpegClient, delivery *frameDelivery, scr
 		key = key || c.resync
 	}
 	t.used = true
-	data, result := readTiles(screen.Width, screen.Height, uint16(quality), key, mjpegMaxTiles)
+	data, framed, result := readTiles(screen.Width, screen.Height, uint16(quality), key, mjpegMaxTiles)
 	status := result
 	if status == common.MjpegTilesResult {
 		status = 0
@@ -120,7 +120,7 @@ func (t *tileDelivery) read(clients []*mjpegClient, delivery *frameDelivery, scr
 		return false
 	}
 	if result == 0 && len(data) > 0 {
-		return delivery.offer(clients, data, now)
+		return delivery.offer(clients, data, framed, now)
 	}
 	message := data
 	if result != common.MjpegTilesResult || len(message) == 0 {

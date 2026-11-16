@@ -51,13 +51,18 @@ func (s *videoPackStorage) mjpegResult(result int) ([]byte, int) {
 	return s.storage, result
 }
 
-// Tiled MJPEG results 0 (a bare JPEG) and 6 (a message) carry data.
-func (s *videoPackStorage) mjpegTilesResult(result int) ([]byte, int) {
+// Tiled MJPEG results 0 (a bare JPEG) and 6 (a message) carry data. A bare
+// JPEG read with MjpegTilesWholeHeadroom comes framed too: the storage, the
+// JPEG behind the room for a whole-picture message header.
+func (s *videoPackStorage) mjpegTilesResult(result int) (data, framed []byte, _ int) {
 	if result != 0 && result != MjpegTilesResult {
-		return nil, result
+		return nil, nil, result
 	}
 	if !s.complete() {
-		return nil, -2
+		return nil, nil, -2
 	}
-	return s.storage, result
+	if result == 0 && s.headroom == MjpegTilesWholeHeadroom {
+		framed = s.storage
+	}
+	return s.storage[s.headroom:], framed, result
 }

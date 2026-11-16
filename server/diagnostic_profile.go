@@ -30,6 +30,7 @@ func startDiagnosticCPUProfile() {
 			return
 		}
 		var before, after runtime.MemStats
+		writeDiagnosticAllocs(".start")
 		runtime.ReadMemStats(&before)
 		if err = pprof.StartCPUProfile(f); err != nil {
 			f.Close()
@@ -40,6 +41,7 @@ func startDiagnosticCPUProfile() {
 		time.Sleep(duration)
 		pprof.StopCPUProfile()
 		runtime.ReadMemStats(&after)
+		writeDiagnosticAllocs("")
 		if err = f.Close(); err != nil {
 			log.Printf("CPU profile close: %v", err)
 		}
@@ -78,6 +80,25 @@ func startDiagnosticTrace() {
 			log.Printf("trace close: %v", err)
 		}
 	}()
+}
+
+// writeDiagnosticAllocs writes the allocation profile (sampled, cumulative)
+// to NANOKVM_ALLOCS_PROFILE_PATH plus suffix: at the start and the end of the
+// CPU profile, for go tool pprof -base.
+func writeDiagnosticAllocs(suffix string) {
+	path := os.Getenv("NANOKVM_ALLOCS_PROFILE_PATH")
+	if path == "" {
+		return
+	}
+	f, err := os.OpenFile(path+suffix, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		log.Printf("allocs profile: %v", err)
+		return
+	}
+	if err = pprof.Lookup("allocs").WriteTo(f, 0); err != nil {
+		log.Printf("allocs profile: %v", err)
+	}
+	f.Close()
 }
 
 func diagnosticSeconds(name string, fallback, maximum int) time.Duration {

@@ -75,11 +75,14 @@ func ConnectTiles(c *gin.Context) {
 				return
 			}
 		case message := <-client.frames:
-			_ = ws.SetWriteDeadline(time.Now().Add(clientWriteTimeout))
+			now := time.Now()
+			client.writing(now)
+			_ = ws.SetWriteDeadline(now.Add(clientWriteTimeout))
 			if err := ws.WriteMessage(websocket.BinaryMessage, message); err != nil {
 				log.Debugf("failed to write tiled mjpeg to %s: %s", c.Request.RemoteAddr, err)
 				return
 			}
+			client.wrote(time.Now())
 		}
 	}
 }

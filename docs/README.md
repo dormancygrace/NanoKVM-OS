@@ -26,7 +26,7 @@
 ## Network and access
 
 - [Network changes on trial](NETWORK-TRIAL.md)
-- [Ethernet receive batching](ETHERNET-RX-BATCHING.md)
+- [Ethernet interrupt coalescing](ETHERNET-RX-BATCHING.md)
 - [VPN profiles](VPN.md)
 - [Two-factor authentication](TWO-FACTOR.md)
 - [SSH public keys](SSH-KEYS.md)

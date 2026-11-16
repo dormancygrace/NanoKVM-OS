@@ -10,7 +10,6 @@ RESERVE_INET="192.168.90.1/22"
 : "${NANOKVM_WIFI_SCRIPT:=/etc/init.d/S30wifi}"
 : "${NANOKVM_IP:=ip}"
 : "${NANOKVM_IPV6_INIT:=/etc/init.d/S02ipv6}"
-: "${NANOKVM_ETH_RX_TUNER:=/usr/libexec/nanokvm/ethernet-rx-batching}"
 : "${NANOKVM_MODPROBE:=modprobe}"
 : "${NANOKVM_UDHCPC:=udhcpc}"
 : "${NANOKVM_ARPING:=arping}"
@@ -97,10 +96,12 @@ start() {
     fi
     "$NANOKVM_IP" link set dev eth0 up
     ethernet_interface || return 1
-    if [ "${NANOKVM_ETH_RX_BATCHING:-0}" = 1 ] && [ -x "$NANOKVM_ETH_RX_TUNER" ]; then
-        "$NANOKVM_ETH_RX_TUNER" ||
-            echo "Ethernet receive batching unavailable; continuing network setup" >&2
-    fi
+    # Software interrupt coalescing (docs/ETHERNET-RX-BATCHING.md): while
+    # packets keep coming, NAPI polls on a 1 ms timer instead of taking an
+    # interrupt per packet, and goes back to interrupts after two empty polls.
+    { echo 2 > /sys/class/net/eth0/napi_defer_hard_irqs &&
+        echo 1000000 > /sys/class/net/eth0/gro_flush_timeout; } ||
+        echo "Ethernet interrupt coalescing not applied; continuing network setup" >&2
     "$NANOKVM_IP" -4 addr flush dev "$eth_iface"
     if [ -e "$NANOKVM_ETH_CONFIG" ]; then
         while IFS= read -r line || [ -n "$line" ]; do

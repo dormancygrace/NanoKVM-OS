@@ -7,6 +7,7 @@ import { RouterProvider } from 'react-router-dom';
 
 import { AppTheme } from './components/app-theme.tsx';
 import { MainError } from './components/main-error.tsx';
+import { RecheckDialog } from './components/recheck-dialog.tsx';
 import { i18nReady } from './i18n';
 import { router } from './router';
 
@@ -26,6 +27,7 @@ const renderApp = () => {
           <StyleProvider layer>
             <AppTheme>
               <RouterProvider router={router} />
+              <RecheckDialog />
             </AppTheme>
           </StyleProvider>
         </ErrorBoundary>

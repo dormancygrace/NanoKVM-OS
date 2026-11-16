@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { AttachAddon } from '@xterm/addon-attach';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal as XtermTerminal } from '@xterm/xterm';
@@ -6,14 +6,49 @@ import { useTranslation } from 'react-i18next';
 
 import '@xterm/xterm/css/xterm.css';
 
+import { getRecheck } from '@/api/auth.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
+import { requestRecheck } from '@/lib/recheck.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 import { Head } from '@/components/head.tsx';
 
 import { readSerialSession } from './launch.ts';
 import { buildSerialQuery } from './validater.ts';
 
+// A shell acts as root: the session confirms its password first (the server
+// refuses the socket otherwise), then the terminal opens.
 export const Terminal = () => {
+  const { t } = useTranslation();
+  const [state, setState] = useState<'checking' | 'ready' | 'declined'>('checking');
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const fresh = await getRecheck()
+        .then((rsp) => rsp.code === 0 && rsp.data.fresh)
+        .catch(() => false);
+      const confirmed = fresh || (await requestRecheck());
+      if (active) setState(confirmed ? 'ready' : 'declined');
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (state === 'ready') return <TerminalSession />;
+  return (
+    <>
+      <Head title={t('head.terminal')} />
+      {state === 'declined' && (
+        <div className="text-fg-muted flex h-full w-full items-center justify-center p-4 text-sm">
+          {t('recheck.declined')}
+        </div>
+      )}
+    </>
+  );
+};
+
+const TerminalSession = () => {
   const { t } = useTranslation();
   const invalidParameters = useEffectEvent(() =>
     t('terminal.invalidParameters', { defaultValue: 'Invalid serial parameters.' })

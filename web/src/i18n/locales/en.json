@@ -2950,5 +2950,14 @@
     "invalid": "Enter valid OpenSSH public keys only (up to 32 KiB); do not upload private keys, certificates or key options.",
     "failed": "Could not import SSH keys.",
     "result": "Added: {{added}}. Already present: {{skipped}}."
+  },
+  "recheck": {
+    "title": "Confirm your password",
+    "description": "This acts as root on the NanoKVM. Confirm your password to continue; it is not asked again for a few minutes.",
+    "password": "Password",
+    "code": "Authenticator or recovery code",
+    "confirm": "Confirm",
+    "failed": "The password could not be confirmed.",
+    "declined": "The terminal needs your password. Reload the page to try again."
   }
 }

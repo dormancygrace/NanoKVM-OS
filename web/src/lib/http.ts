@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 import { notifyAuthExpired, notifyPasswordChangeRequired } from '@/lib/auth-events.ts';
+import { recentAuthRequiredCode, requestRecheck } from '@/lib/recheck.ts';
 import { isHandledRequestError, passwordChangeRequiredCode } from '@/lib/request-error.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
@@ -8,6 +9,8 @@ declare module 'axios' {
   interface AxiosRequestConfig {
     // Suppress diagnostics containing credentials or signed URLs in request data.
     sensitive?: boolean;
+    // Set on the repeat after a password confirmation: it is asked once.
+    rechecked?: boolean;
   }
 }
 
@@ -50,6 +53,19 @@ class Http {
         // Aborts, session expiry and the password redirect are expected.
         if (!isHandledRequestError(error) && !error.config?.sensitive) console.log(error);
         const code = error.response?.status;
+        if (
+          code === 403 &&
+          error.response?.data?.code === recentAuthRequiredCode &&
+          error.config &&
+          !error.config.rechecked
+        ) {
+          // An action that acts as root: confirm the password, then repeat.
+          return requestRecheck().then((confirmed) =>
+            confirmed
+              ? this.instance.request({ ...error.config, rechecked: true })
+              : Promise.reject(error)
+          );
+        }
         if (code === 401) {
           notifyAuthExpired();
         } else if (code === 403 && error.response?.data?.code === passwordChangeRequiredCode) {

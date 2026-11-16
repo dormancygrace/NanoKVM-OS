@@ -32,6 +32,22 @@ type TOTPCodeReq struct {
 	OTP string `json:"otp" form:"otp" validate:"required"`
 }
 
+// RecheckReq proves the signed-in account's password, and its second factor
+// when it has one, before an action that acts as root.
+type RecheckReq struct {
+	// Empty selects the legacy CryptoJS format for existing clients.
+	PasswordEncoding string `json:"passwordEncoding" form:"passwordEncoding"`
+	Password         string `json:"password" form:"password" validate:"required"`
+	OTP              string `json:"otp" form:"otp"`
+}
+
+// RecheckRsp says whether the session's last proof is recent enough, and
+// whether a proof needs a second factor.
+type RecheckRsp struct {
+	Fresh bool `json:"fresh"`
+	TOTP  bool `json:"totp"`
+}
+
 // TOTPCheckReq proves the account's password and second factor, for turning
 // it off or replacing the recovery codes.
 type TOTPCheckReq struct {

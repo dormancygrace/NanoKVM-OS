@@ -196,9 +196,14 @@ curl --fail --silent --show-error \
 
 An administrator can create users, rename non-owner users, and reset non-owner passwords. The
 device owner may rename only their own account; the following owner-token example renames the
-default `admin` owner account:
+default `admin` owner account. Account changes act as root, so the session first confirms its
+password (and `otp`, the second factor, when the account has one); the confirmation lasts five
+minutes:
 
 ```sh
+curl --fail --silent --show-error -X POST -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'passwordEncoding=plain' --data-urlencode 'password=admin-password' \
+  "$BASE/api/auth/recheck"
 curl --fail --silent --show-error -X POST -H "Authorization: Bearer $TOKEN" \
   --data-urlencode 'username=operator' \
   --data-urlencode "password=$(encrypt_password 'operator-password')" \

@@ -87,6 +87,19 @@ func (d *frameDelivery) offer(clients []*mjpegClient, data, framed []byte, now t
 	return sent
 }
 
+// viewersDue reports whether a viewer will want a picture by the time one is
+// read: nothing queued, and its current write ends within lead. A picture read
+// earlier would wait behind the write and be replaced by the next one, read
+// and encoded for nothing; one read later would be older when it is sent.
+func viewersDue(clients []*mjpegClient, now time.Time, lead time.Duration) bool {
+	for _, c := range clients {
+		if c.ctx.Err() == nil && len(c.frames) == 0 && c.writeEndsWithin(now, lead) {
+			return true
+		}
+	}
+	return false
+}
+
 // viewersReady reports whether a viewer can take the next picture. A tiled
 // viewer may have one message waiting behind the one being written, since its
 // messages cannot be skipped; more would only make the picture lag.
@@ -126,6 +139,27 @@ type mjpegClient struct {
 	lastOffer  time.Time
 	// A tiled viewer waiting for a whole picture.
 	resync bool
+	// Set by the viewer's writer: when its current write started (Unix ns,
+	// 0 while it waits), and how long its writes usually take (ns).
+	writeStart, writeTime atomic.Int64
+}
+
+// writing and wrote bracket one write to the viewer.
+func (c *mjpegClient) writing(now time.Time) { c.writeStart.Store(now.UnixNano()) }
+
+func (c *mjpegClient) wrote(now time.Time) {
+	took := now.UnixNano() - c.writeStart.Swap(0)
+	if usual := c.writeTime.Load(); usual != 0 {
+		took = usual + (took-usual)/4
+	}
+	c.writeTime.Store(took)
+}
+
+// writeEndsWithin reports whether the viewer's current write is due to end
+// within lead, by its usual write time, or it is not writing.
+func (c *mjpegClient) writeEndsWithin(now time.Time, lead time.Duration) bool {
+	start := c.writeStart.Load()
+	return start == 0 || start+c.writeTime.Load()-now.UnixNano() <= int64(lead)
 }
 
 func newMjpegClient(ctx context.Context) *mjpegClient {
@@ -268,6 +302,9 @@ func (s *Streamer) run() {
 	delivery := frameDelivery{}
 	tiles := tileDelivery{wantWhole: true}
 	var adaptive adaptiveQuality
+	// How long a read usually takes: a read starts that long, plus a tick,
+	// before the viewer's write is due to end.
+	var readTime time.Duration
 
 	for range ticker.C {
 		screen = common.GetCaptureScreen()
@@ -293,7 +330,8 @@ func (s *Streamer) run() {
 		// Avoid captures nobody can use while browser writers are backed up.
 		busy := !viewersReady(clients)
 		quality := adaptive.next(int(screen.Quality), busy, time.Now())
-		if busy {
+		readStart := time.Now()
+		if busy || !viewersDue(clients, readStart, time.Second/time.Duration(fps)+readTime) {
 			continue
 		}
 
@@ -308,7 +346,9 @@ func (s *Streamer) run() {
 		}
 
 		if tilesOnly(clients) {
-			if tiles.read(clients, &delivery, screen, quality, time.Now()) {
+			sent := tiles.read(clients, &delivery, screen, quality, time.Now())
+			readTime += (time.Since(readStart) - readTime) / 4
+			if sent {
 				stream.GetMjpegFrameRateCounter().Update()
 			}
 			continue
@@ -316,6 +356,7 @@ func (s *Streamer) run() {
 		tiles.wantWhole = true
 
 		data, result := vision.ReadMjpeg(screen.Width, screen.Height, uint16(quality))
+		readTime += (time.Since(readStart) - readTime) / 4
 		stream.UpdateCaptureStatus(stream.CaptureModeMJPEG, result)
 		if result == common.MjpegBlockedResult {
 			logBlocked()

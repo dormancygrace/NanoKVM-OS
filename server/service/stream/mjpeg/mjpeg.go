@@ -63,10 +63,12 @@ func Connect(c *gin.Context) {
 			return
 		}
 
+		client.writing(time.Now())
 		if err := writeFrame(c, controller, data, first); err != nil {
 			log.Errorf("failed to write mjpeg frame for client %s: %s", c.Request.RemoteAddr, err)
 			return
 		}
+		client.wrote(time.Now())
 		first = false
 	}
 }

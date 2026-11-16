@@ -16,6 +16,8 @@ import (
 	"NanoKVM-Server/service/hid"
 	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/service/stream/audio"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func (s usbComposition) validate() error {
@@ -108,7 +110,19 @@ func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) erro
 	}
 	h.CloseNoLock()
 	defer h.OpenNoLock()
-	return store.apply(current, candidate)
+	if err := store.apply(current, candidate); err != nil {
+		return err
+	}
+	// S03usbdev only binds the gadget. A USB network that comes or goes needs
+	// its address, DHCP and the usb0 input filter set up or removed now, not
+	// at the next boot. The composition stands either way; the USB network's
+	// status reports a failure.
+	if current.network != candidate.network {
+		if err := applyUSBNetwork(); err != nil {
+			log.Errorf("USB network after composition change: %v", err)
+		}
+	}
+	return nil
 }
 
 func (s usbComposition) empty() bool {

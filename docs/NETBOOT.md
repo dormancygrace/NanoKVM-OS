@@ -22,7 +22,9 @@ Images → Network boot in the web UI turns it on and off.
    internet through USB internet sharing.
 
 The script listener binds the usb0 address only, serves nothing but
-`/boot.ipxe`, and follows a subnet change of the USB network.
+`/boot.ipxe`, and follows a subnet change of the USB network. The usb0 input
+filter opens its port only while network boot is on
+([what the computer reaches](USB-COMPOSITION.md#what-the-computer-reaches-over-the-usb-network)).
 
 ## Requirements
 

@@ -113,6 +113,7 @@ func vmRouter(r *gin.Engine) {
 
 	admin.GET("/vm/usb-internet", service.GetUSBInternet)
 	admin.PUT("/vm/usb-internet", service.SetUSBInternet)
+	admin.PUT("/vm/usb-host-access", service.SetUSBHostAccess)
 
 	admin.GET("/vm/memory/status", service.GetMemoryStatus)
 	admin.POST("/vm/memory/swap", service.SetMemorySwap)

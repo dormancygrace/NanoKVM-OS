@@ -1551,6 +1551,11 @@
           "subnet-conflict": "USB subnet conflicts with another network. Internet sharing is paused.",
           "unavailable": "USB network service is unavailable. Check the Alpine base package and service.",
           "error": "USB network could not be applied. Check the device service logs."
+        },
+        "hostAccess": {
+          "title": "Computer can open the NanoKVM over USB",
+          "description": "Off: over the USB network the computer gets its address, DNS while sharing, network boot and the sensors report; the web interface, SSH and other services refuse it, so a compromised computer cannot attack the KVM that manages it. Turn on only to manage the NanoKVM from this computer.",
+          "updateFailed": "Could not change USB access to the NanoKVM. Refresh and check the device status."
         }
       },
       "confirmDisable": "Turn off USB?",

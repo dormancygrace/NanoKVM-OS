@@ -1,39 +1,116 @@
 From: Gleb Pesin <dormancygrace@gmail.com>
 Subject: [PATCH] aic8800: wake the TX thread once per burst of frames
 
-aicwf_frame_tx woke the SDIO TX thread for every frame. That thread runs
-SCHED_FIFO, so at the first frame of a burst (the segments of a UDP GSO
-send, a qdisc batch) it preempted the sender and sent what was queued so
-far: a burst of 16 datagrams went out in several SDIO transfers, each with
-a host claim, a flow-control register read (CMD52) and a data write
-(CMD53), each waited for. Wake it only when no more frames of the burst
-follow (netdev_xmit_more), and when flow control stops the queue, since
-the stack then sends nothing more.
+aicwf_sdio_bus_txdata woke the SDIO TX thread for every queued frame. That
+thread runs SCHED_FIFO, so at the first frame of a burst (the segments of
+a UDP GSO send, a qdisc batch) it preempted the sender and sent what was
+queued so far: a burst of 16 datagrams went out in several SDIO transfers,
+each with a host claim, a flow-control register read (CMD52) and a data
+write (CMD53), each waited for.
 
+rwnx_start_xmit now wraps the transmit path: while netdev_xmit_more() says
+more frames of the burst follow, queued frames do not wake the thread; the
+last call wakes it whatever became of its own frame (queued, dropped on an
+error, held by the TCP ACK filter), and a stopped queue wakes it too.
+Frames sent outside ndo_start_xmit (the TCP ACK timer, management frames,
+power save) keep waking it at once.
+
+diff --git a/aic8800_fdrv/aicwf_sdio.h b/aic8800_fdrv/aicwf_sdio.h
+--- a/aic8800_fdrv/aicwf_sdio.h
++++ b/aic8800_fdrv/aicwf_sdio.h
+@@ -137,6 +137,10 @@
+ 	struct aicwf_rx_priv *rx_priv;
+ 	struct aicwf_tx_priv *tx_priv;
+ 	u32 state;
++	/* Set by rwnx_start_xmit while more frames of the same burst follow:
++	 * queued data frames then wait for the burst's end to wake the TX
++	 * thread (aicwf_sdio_tx_kick). */
++	bool tx_wake_deferred;
+ #ifdef CONFIG_TX_NETIF_FLOWCTRL
+ 	u8 flowctrl;
+ 	spinlock_t tx_flow_lock;
+@@ -222,6 +226,7 @@
+ int aicwf_sdio_send(struct aicwf_tx_priv *tx_priv, u8 txnow);
+ void aicwf_sdio_aggr_send(struct aicwf_tx_priv *tx_priv);
+ void aicwf_sdio_aggrbuf_reset(struct aicwf_tx_priv *tx_priv);
++void aicwf_sdio_tx_kick(struct aic_sdio_dev *sdiodev);
+ extern void aicwf_hostif_ready(void);
+ extern void aicwf_hostif_fail(void);
+ #ifdef CONFIG_PLATFORM_AMLOGIC
 diff --git a/aic8800_fdrv/aicwf_sdio.c b/aic8800_fdrv/aicwf_sdio.c
 --- a/aic8800_fdrv/aicwf_sdio.c
 +++ b/aic8800_fdrv/aicwf_sdio.c
-@@ -2003,7 +2003,12 @@
+@@ -1964,6 +1964,13 @@
+ 	up(&sdiodev->tx_priv->txctl_sema);
+ }
+ 
++/* Wake the TX thread for what is queued: the end of a burst whose frames
++ * rwnx_start_xmit left waiting (tx_wake_deferred). */
++void aicwf_sdio_tx_kick(struct aic_sdio_dev *sdiodev)
++{
++	complete(&sdiodev->bus_if->bustx_trgg);
++}
++
+ static int aicwf_sdio_bus_txdata(struct device *dev, struct sk_buff *pkt)
+ {
+     uint prio;
+@@ -2003,7 +2010,8 @@
  
      atomic_inc(&sdiodev->tx_priv->tx_pktcnt);
      spin_unlock_bh(&sdiodev->tx_priv->txqlock);
 -    complete(&bus_if->bustx_trgg);
-+    /* More frames of the same burst follow (UDP GSO segments, a qdisc
-+     * batch): wake the TX thread for the last one only. The thread runs
-+     * SCHED_FIFO, so waking it at the first preempted this sender and sent
-+     * a burst in several SDIO transfers, each with its flow-control read. */
-+    if (!netdev_xmit_more())
++    if (!sdiodev->tx_wake_deferred)
 +        complete(&bus_if->bustx_trgg);
  
  	flowctrl:
  #ifdef CONFIG_TX_NETIF_FLOWCTRL
-@@ -2014,6 +2019,9 @@
- 		if (!sdiodev->flowctrl) {
- 			sdiodev->flowctrl = 1;
- 			aicwf_sdio_tx_netif_flowctrl(sdiodev->rwnx_hw, true);
-+			/* The stack sends nothing more while the queue is stopped:
-+			 * the frames held back above go now. */
-+			complete(&bus_if->bustx_trgg);
- 		}
- 	}
- 	spin_unlock_irqrestore(&sdiodev->tx_flow_lock, flags);
+diff --git a/aic8800_fdrv/rwnx_tx.c b/aic8800_fdrv/rwnx_tx.c
+--- a/aic8800_fdrv/rwnx_tx.c
++++ b/aic8800_fdrv/rwnx_tx.c
+@@ -1404,7 +1404,7 @@
+  *  - If possible (i.e. credit available and not in PS) the pkt is pushed
+  *    to fw
+  */
+-netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
++static netdev_tx_t __rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct rwnx_vif *rwnx_vif = netdev_priv(dev);
+ 	struct rwnx_hw *rwnx_hw = rwnx_vif->rwnx_hw;
+@@ -1613,6 +1613,37 @@
+ 	return NETDEV_TX_OK;
+ }
+ 
++/*
++ * The SDIO TX thread runs SCHED_FIFO. Woken for every frame, it preempted
++ * this sender at the first frame of a burst (the segments of a UDP GSO send,
++ * a qdisc batch) and sent the burst in several SDIO transfers, each with a
++ * flow-control read and a data write that are waited for. While more frames
++ * of the burst follow (netdev_xmit_more), queued frames do not wake it; the
++ * last call of the burst wakes it whatever became of its own frame (sent,
++ * dropped, held by the TCP ACK filter), and so does a stopped queue, after
++ * which the stack sends nothing more. Frames sent outside ndo_start_xmit
++ * (the TCP ACK timer, management, power save) wake it at once as before.
++ */
++netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++#ifdef AICWF_SDIO_SUPPORT
++	struct rwnx_vif *rwnx_vif = netdev_priv(dev);
++	struct aic_sdio_dev *sdiodev = rwnx_vif->rwnx_hw->sdiodev;
++	u16 queue = skb_get_queue_mapping(skb);
++	bool more = netdev_xmit_more();
++	netdev_tx_t ret;
++
++	sdiodev->tx_wake_deferred = more;
++	ret = __rwnx_start_xmit(skb, dev);
++	sdiodev->tx_wake_deferred = false;
++	if (!more || __netif_subqueue_stopped(dev, queue))
++		aicwf_sdio_tx_kick(sdiodev);
++	return ret;
++#else
++	return __rwnx_start_xmit(skb, dev);
++#endif
++}
++
+ #if 0//def CONFIG_BAND_STEERING
+ void rwnx_probersp_work(struct work_struct *work)
+ {

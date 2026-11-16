@@ -23,7 +23,7 @@ require (
 	github.com/pion/webrtc/v4 v4.2.26
 	github.com/rs/cors/wrapper/gin v0.0.0-20261101222852-7ca5fe28f7d5
 	github.com/sirupsen/logrus v1.10.2
-	golang.org/x/crypto v0.58.0
+	golang.org/x/crypto v0.59.0
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.50.0
 	gopkg.in/yaml.v3 v3.0.1

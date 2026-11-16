@@ -221,13 +221,18 @@ func run() {
 			server := utils.NewHTTPServer(utils.ListenAddr(conf.Host, httpsPortStr), r, true)
 			// The pair comes from ServerCertificate, so an uploaded or renewed
 			// certificate applies to new connections without a restart.
-			server.TLSConfig = &tls.Config{GetCertificate: utils.ServerCertificate.GetCertificate}
+			// "h2" in NextProtos makes Serve set up HTTP/2 (see TLSListener).
+			server.TLSConfig = &tls.Config{
+				GetCertificate: utils.ServerCertificate.GetCertificate,
+				NextProtos:     []string{"h2", "http/1.1"},
+			}
 			listener, err := net.Listen("tcp", server.Addr)
 			if err != nil {
 				panic("start https server failed")
 			}
 			markListening()
-			if err := server.ServeTLS(utils.RawListener(listener), "", ""); err != nil {
+			limited := utils.LimitConnections(utils.RawListener(listener))
+			if err := server.Serve(utils.TLSListener(limited, server.TLSConfig)); err != nil {
 				panic("start https server failed")
 			}
 		}()
@@ -272,7 +277,7 @@ func run() {
 			panic("start http server failed")
 		}
 		markListening()
-		if err := server.Serve(listener); err != nil {
+		if err := server.Serve(utils.LimitConnections(listener)); err != nil {
 			panic("start http server failed")
 		}
 	}

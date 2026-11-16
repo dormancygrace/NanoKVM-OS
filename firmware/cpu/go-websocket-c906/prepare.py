@@ -50,7 +50,7 @@ def stage_module(source, output):
                 shutil.copyfile(path, output / path.name)
     (output / "mask.go").write_text(original.replace(declaration, declaration.replace("maskBytes", "maskBytesGeneric")))
     # A large server message is written from the caller's slice: only its
-    # first part shares the header's write (one full TLS record), instead of
+    # first part shares the header's write (at most 16 KiB), instead of
     # a copy of the whole message into the write buffer.
     (output / "conn.go").write_text(conn.replace(fast_copy, (
         "\t\thead := data\n"
@@ -61,7 +61,7 @@ def stage_module(source, output):
     (output / "write_head.go").write_text(
         "package websocket\n\n"
         "// writeHeadCopy is the part of a large server message copied next to its\n"
-        "// header (NanoKVM patch): with the header, one full TLS record.\n"
+        "// header (NanoKVM patch): at most 16 KiB including the header.\n"
         "const writeHeadCopy = 16*1024 - maxFrameHeaderSize\n")
     for name in PATCH_FILES:
         shutil.copyfile(HERE / name, output / name)

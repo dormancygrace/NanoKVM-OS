@@ -22,8 +22,8 @@ or Go safe points. Linux preserves it across signals and task switches.
 
 `WriteMessage` on a server connection copied the whole message into its write
 buffer (256 KiB on the video sockets) before writing it. The staged `conn.go`
-copies only the first `16 KiB - 14` bytes, so the header and that part make one
-full TLS record, and writes the rest from the caller's slice. A whole MJPEG
+copies only the first `16 KiB - 14` bytes, so the buffered prefix including
+the WebSocket header fits within 16 KiB, and writes the rest from the caller's slice. A whole MJPEG
 picture or a video frame is no longer copied once more per viewer. Messages
 up to that size are written as before.
 

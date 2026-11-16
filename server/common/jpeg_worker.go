@@ -133,6 +133,11 @@ func (w *jpegWorker) read(request C.int32_t, width, height, quality uint16, key 
 	size, total := int(s.size), int(s.total)
 	if size > 0 {
 		w.lastTotal = total
+	} else {
+		// Unchanged frames and no-image results must not allocate a full
+		// picture on every poll. The next image refreshes the estimate
+		// through the worker-owned buffer.
+		w.lastTotal = 0
 	}
 	// A message under half the buffer is copied out, so a small tile
 	// message does not hold the memory of a whole picture.

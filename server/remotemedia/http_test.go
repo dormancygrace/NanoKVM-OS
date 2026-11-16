@@ -7,11 +7,32 @@ import (
 
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+// The test servers listen on loopback, which image URLs may not reach on the
+// device; TestLocalAddressRefused covers that check.
+func TestMain(m *testing.M) {
+	imageDialer.Control = nil
+	os.Exit(m.Run())
+}
+
+func TestLocalAddressRefused(t *testing.T) {
+	for _, address := range []string{"127.0.0.1:80", "[::1]:443", "0.0.0.0:80", "169.254.1.1:80", "[fe80::1]:80", "224.0.0.1:80"} {
+		if refuseLocalAddress("tcp", address, nil) == nil {
+			t.Errorf("%s allowed", address)
+		}
+	}
+	for _, address := range []string{"192.168.1.10:80", "10.0.0.2:8080", "[2001:db8::1]:443", "93.184.216.34:443"} {
+		if err := refuseLocalAddress("tcp", address, nil); err != nil {
+			t.Errorf("%s refused: %v", address, err)
+		}
+	}
+}
 
 func httpImage() []byte {
 	b := make([]byte, 3*MaxRead+2048)

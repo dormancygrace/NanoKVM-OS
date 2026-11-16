@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -62,6 +63,7 @@ type HTTPSource struct {
 func (s *HTTPSource) setTransport(chacha bool) {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.Proxy = nil // A device-side mount uses the explicitly selected server.
+	t.DialContext = imageDialer.DialContext
 	t.DisableCompression = true
 	t.MaxConnsPerHost = 1
 	t.MaxIdleConnsPerHost = 1
@@ -78,6 +80,24 @@ func (s *HTTPSource) setTransport(chacha bool) {
 		s.transport.CloseIdleConnections()
 	}
 	s.transport, s.client.Transport, s.chacha = t, t, chacha
+}
+
+// imageDialer refuses the device itself and link-local addresses, for the
+// first URL and every redirect alike: the address is checked after DNS, so a
+// name or a redirect cannot point the device at its own loopback services.
+// LAN and Internet servers stay reachable.
+var imageDialer = &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: refuseLocalAddress}
+
+func refuseLocalAddress(_, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return err
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsMulticast() {
+		return errors.New("Image URLs cannot point to this device or a link-local address")
+	}
+	return nil
 }
 
 func ValidateHTTPOptions(o HTTPOptions) error {

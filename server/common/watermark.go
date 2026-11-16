@@ -36,10 +36,13 @@ const (
 	WatermarkMaxWidth  = 960
 	WatermarkMaxHeight = 270
 	WatermarkMaxArea   = WatermarkMaxWidth * WatermarkMaxHeight
-	// PNG bytes of one block and of all blocks together. A block of at
-	// most WatermarkMaxArea pixels stays below them even uncompressed.
-	WatermarkMaxBytes      = 1 << 20
-	WatermarkMaxTotalBytes = 2 << 20
+	// PNG bytes of one block and of all blocks together. The saved file
+	// (the pictures in base64, the design and the JSON around them) stays
+	// within what a settings archive takes of one file (recovery.MaxFile,
+	// 512 KiB).
+	WatermarkMaxBytes      = 256 << 10
+	WatermarkMaxTotalBytes = 360 << 10
+	watermarkMaxFile       = 512 << 10
 	// A request: the pictures in base64, the design and the JSON around them.
 	WatermarkMaxRequest = WatermarkMaxTotalBytes/3*4 + 64<<10
 	watermarkMaxMargin  = 200
@@ -47,14 +50,20 @@ const (
 	rgnDevice           = "/dev/cvi-rgn"
 )
 
-// WatermarkDir is a symbolic link to the saved generation, a directory in
-// WatermarkDir+".d" with settings.json and block-N.png. A save writes a whole
-// new generation and then replaces the link in one rename, so a failed save
-// leaves the previous watermark as it was.
+// WatermarkFile holds the whole watermark, the blocks' PNGs included, so that
+// a save replaces it in one rename (a failed save leaves the previous one)
+// and settings backup, restore and reset handle it as one setting.
 var (
-	WatermarkDir   = "/etc/kvm/watermark"
+	WatermarkFile  = "/etc/kvm/watermark.json"
 	watermarkMutex sync.Mutex
 )
+
+// watermarkFile is WatermarkFile's content: the settings, and each block's
+// picture beside its place.
+type watermarkFile struct {
+	WatermarkSettings
+	Pictures [][]byte `json:"pictures"`
+}
 
 // WatermarkBlock is one block's place: X and Y in thousandths of the free
 // room inside the margin (0 left or top, 500 centre, 1000 right or bottom).
@@ -95,11 +104,6 @@ func (s WatermarkSettings) Validate() error {
 	return nil
 }
 
-func watermarkSettingsFile() string { return filepath.Join(WatermarkDir, "settings.json") }
-func watermarkBlockFile(i int) string {
-	return filepath.Join(WatermarkDir, fmt.Sprintf("block-%d.png", i))
-}
-
 // LoadWatermark returns the saved settings and each block's picture (nil
 // where missing).
 func LoadWatermark() (WatermarkSettings, [][]byte) {
@@ -110,28 +114,26 @@ func LoadWatermark() (WatermarkSettings, [][]byte) {
 
 func loadWatermarkLocked() (WatermarkSettings, [][]byte) {
 	settings := DefaultWatermarkSettings()
-	if raw, err := os.ReadFile(watermarkSettingsFile()); err == nil {
-		var saved WatermarkSettings
-		if json.Unmarshal(raw, &saved) == nil && saved.Validate() == nil {
-			settings = saved
-			if settings.Blocks == nil {
-				settings.Blocks = []WatermarkBlock{}
-			}
-		}
+	raw, err := os.ReadFile(WatermarkFile)
+	if err != nil || len(raw) > watermarkMaxFile {
+		return settings, [][]byte{}
 	}
-	pictures := make([][]byte, len(settings.Blocks))
-	for i := range settings.Blocks {
-		if picture, err := os.ReadFile(watermarkBlockFile(i)); err == nil {
-			pictures[i] = picture
-		}
+	var saved watermarkFile
+	if json.Unmarshal(raw, &saved) != nil || saved.Validate() != nil {
+		return settings, [][]byte{}
 	}
-	return settings, pictures
+	if saved.Blocks == nil {
+		saved.Blocks = []WatermarkBlock{}
+	}
+	pictures := make([][]byte, len(saved.Blocks))
+	copy(pictures, saved.Pictures)
+	return saved.WatermarkSettings, pictures
 }
 
 // DecodeWatermark checks a block's PNG and returns its pixels.
 func DecodeWatermark(picture []byte) (*image.NRGBA, error) {
 	if len(picture) == 0 || len(picture) > WatermarkMaxBytes {
-		return nil, errors.New("a block must be a PNG of at most 1 MiB")
+		return nil, fmt.Errorf("a block must be a PNG of at most %d KiB", WatermarkMaxBytes>>10)
 	}
 	config, err := png.DecodeConfig(bytes.NewReader(picture))
 	if err != nil {
@@ -149,10 +151,10 @@ func DecodeWatermark(picture []byte) (*image.NRGBA, error) {
 	return nrgba, nil
 }
 
-// SaveWatermark stores the settings and the blocks' pictures as a new
-// generation: pictures[i] replaces block i's picture; nil keeps the saved
-// picture of block i, which must exist. Nothing changes unless all of it is
-// written.
+// SaveWatermark stores the settings and the blocks' pictures: pictures[i]
+// replaces block i's picture; nil keeps the saved picture of block i, which
+// must exist. The file is replaced in one rename: nothing changes unless all
+// of it is written.
 func SaveWatermark(settings WatermarkSettings, pictures [][]byte) error {
 	if err := settings.Validate(); err != nil {
 		return err
@@ -162,15 +164,15 @@ func SaveWatermark(settings WatermarkSettings, pictures [][]byte) error {
 	}
 	watermarkMutex.Lock()
 	defer watermarkMutex.Unlock()
+	_, saved := loadWatermarkLocked()
 	complete := make([][]byte, len(pictures))
 	area, total := 0, 0
 	for i, picture := range pictures {
 		if picture == nil {
-			saved, err := os.ReadFile(watermarkBlockFile(i))
-			if err != nil {
+			if i >= len(saved) || saved[i] == nil {
 				return fmt.Errorf("block %d needs a picture", i+1)
 			}
-			picture = saved
+			picture = saved[i]
 		}
 		decoded, err := DecodeWatermark(picture)
 		if err != nil {
@@ -184,73 +186,45 @@ func SaveWatermark(settings WatermarkSettings, pictures [][]byte) error {
 		return fmt.Errorf("the blocks together must be at most %d pixels (now %d)", WatermarkMaxArea, area)
 	}
 	if total > WatermarkMaxTotalBytes {
-		return fmt.Errorf("the blocks together must be at most %d bytes of PNG", WatermarkMaxTotalBytes)
+		return fmt.Errorf("the blocks together must be at most %d KiB of PNG", WatermarkMaxTotalBytes>>10)
 	}
-	generations := WatermarkDir + ".d"
-	if err := os.MkdirAll(generations, 0o755); err != nil {
-		return err
-	}
-	generation, err := os.MkdirTemp(generations, "g")
+	raw, err := json.Marshal(watermarkFile{WatermarkSettings: settings, Pictures: complete})
 	if err != nil {
 		return err
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = os.RemoveAll(generation)
-		}
-	}()
-	if err := os.Chmod(generation, 0o755); err != nil {
-		return err
+	if len(raw) > watermarkMaxFile {
+		return fmt.Errorf("the watermark must be at most %d KiB", watermarkMaxFile>>10)
 	}
-	for i, picture := range complete {
-		if err := os.WriteFile(filepath.Join(generation, fmt.Sprintf("block-%d.png", i)), picture, 0o644); err != nil {
-			return err
-		}
-	}
-	raw, _ := json.Marshal(settings)
-	if err := os.WriteFile(filepath.Join(generation, "settings.json"), append(raw, '\n'), 0o644); err != nil {
-		return err
-	}
-	if err := syncDir(generation); err != nil {
-		return err
-	}
-	// The link replaces the previous one (or a directory of an earlier
-	// layout, which is removed first) in one rename.
-	if info, err := os.Lstat(WatermarkDir); err == nil && info.IsDir() {
-		if err := os.RemoveAll(WatermarkDir); err != nil {
-			return err
-		}
-	}
-	link := WatermarkDir + ".new"
-	_ = os.Remove(link)
-	if err := os.Symlink(generation, link); err != nil {
-		return err
-	}
-	if err := os.Rename(link, WatermarkDir); err != nil {
-		_ = os.Remove(link)
-		return err
-	}
-	committed = true
-	_ = syncDir(filepath.Dir(WatermarkDir))
-	// Earlier generations are no longer referenced.
-	if entries, err := os.ReadDir(generations); err == nil {
-		for _, entry := range entries {
-			if old := filepath.Join(generations, entry.Name()); old != generation {
-				_ = os.RemoveAll(old)
-			}
-		}
-	}
-	return nil
+	return writeFileSynced(WatermarkFile, append(raw, '\n'))
 }
 
-func syncDir(path string) error {
-	dir, err := os.Open(path)
+// writeFileSynced replaces path with data: a synced temporary file renamed
+// over it, and the directory synced.
+func writeFileSynced(path string, data []byte) error {
+	temporary := path + ".new"
+	file, err := os.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
-	return dir.Sync()
+	_, err = file.Write(data)
+	if err == nil {
+		err = file.Sync()
+	}
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err == nil {
+		err = os.Rename(temporary, path)
+	}
+	if err != nil {
+		_ = os.Remove(temporary)
+		return err
+	}
+	if dir, err := os.Open(filepath.Dir(path)); err == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
+	return nil
 }
 
 // appendARGB appends a picture as 0xAARRGGBB words.

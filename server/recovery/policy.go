@@ -20,7 +20,7 @@ var settings = strings.Fields(`
  etc/kvm/monitor_resolution etc/kvm/monitor_portrait
  etc/kvm/monitor_portrait_resolution etc/kvm/monitor_edid_sha256 etc/kvm/monitor_identity
  etc/kvm/shortcuts.json etc/kvm/server.yaml etc/kvm/ssh_stop etc/kvm/mdns_disabled
- etc/kvm/hevc_vi_direct etc/kvm/hdmi_disable etc/kvm/hdmi_idle_timeout etc/kvm/atx etc/kvm/screen-text-off
+ etc/kvm/hevc_vi_direct etc/kvm/watermark.json etc/kvm/hdmi_disable etc/kvm/hdmi_idle_timeout etc/kvm/atx etc/kvm/screen-text-off
  etc/kvm/mcp.json etc/kvm/ai-control.mode etc/kvm/autostart.list
  etc/kvm/wifi.ssid etc/kvm/wifi.pass etc/kvm/wifi.disabled etc/kvm/wifi.band_preference etc/kvm/wifi.country
  etc/kvm/usb-before-rustdesk.json

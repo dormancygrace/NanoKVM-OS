@@ -100,6 +100,18 @@ func viewersDue(clients []*mjpegClient, now time.Time, lead time.Duration) bool 
 	return false
 }
 
+// captureTick decides one capture tick: read a picture now, and whether the
+// tick counts as busy for the adaptive quality. A tick is busy when no viewer
+// will want a picture within lead: each has one queued, or its writer is
+// still busy with an earlier one. On a slow link that is where the pacing
+// holds reads back, and the quality must step down as it did when such
+// pictures were read and queued. An idle writer (a still screen, where
+// nothing new is sent) never makes a tick busy, so the quality climbs back.
+func captureTick(clients []*mjpegClient, now time.Time, lead time.Duration) (busy, read bool) {
+	read = viewersDue(clients, now, lead)
+	return !read, read
+}
+
 // viewersReady reports whether a viewer can take the next picture. A tiled
 // viewer may have one message waiting behind the one being written, since its
 // messages cannot be skipped; more would only make the picture lag.
@@ -328,10 +340,10 @@ func (s *Streamer) run() {
 			}
 		}
 		// Avoid captures nobody can use while browser writers are backed up.
-		busy := !viewersReady(clients)
-		quality := adaptive.next(int(screen.Quality), busy, time.Now())
 		readStart := time.Now()
-		if busy || !viewersDue(clients, readStart, time.Second/time.Duration(fps)+readTime) {
+		busy, read := captureTick(clients, readStart, time.Second/time.Duration(fps)+readTime)
+		quality := adaptive.next(int(screen.Quality), busy, readStart)
+		if !read {
 			continue
 		}
 

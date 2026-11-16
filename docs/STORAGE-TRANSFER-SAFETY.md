@@ -73,9 +73,8 @@ both draining the old response and receiving the replacement; expiry closes the
 session, staying below the kernel's 20-second NBD timeout. Browser disconnect and access revocation
 still close the socket, interrupt pending reads and tear down the NBD device.
 
-Ethernet startup can optionally apply the [SG2002 receive batching policy](ETHERNET-RX-BATCHING.md).
-It is disabled by default and affects the whole physical interface when enabled;
-its throughput/latency trade-off is separate from browser buffering and seeking.
+Ethernet uses [software interrupt coalescing](ETHERNET-RX-BATCHING.md) on the
+whole physical interface; it is separate from browser buffering and seeking.
 
 ## HTTP(S)-mounted ISO reads
 

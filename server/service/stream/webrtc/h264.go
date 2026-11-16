@@ -207,6 +207,8 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 		if len(budgets) > 0 && budgets[0] != nil {
 			registry.Add(&rtpmtu.Factory{Budget: budgets[0].size})
 		}
+		// Keep NACK's copy: TrackLocalStaticRTP passes a pooled RTP header
+		// that it resets after the write, even when the payload is owned.
 		if err := webrtc.ConfigureNack(mediaEngine, registry); err != nil {
 			return nil, err
 		}

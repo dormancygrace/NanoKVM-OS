@@ -26,7 +26,10 @@ type frameProtector struct {
 	inner  [sha1mb.Size]byte
 
 	// Reused across frames: the SRTP context lock serializes ProtectFrame.
-	packets []hwcrypto.CTRSHA1Packet
+	// counter and stream are tail's: through the cipher.Block interface,
+	// local arrays would be moved to the heap for every packet.
+	counter, stream [16]byte
+	packets         []hwcrypto.CTRSHA1Packet
 	digests [][sha1mb.Size]byte
 	tags    [][sha1mb.Size]byte
 }
@@ -55,17 +58,17 @@ func (f *frameProtector) tail(p *srtp.FramePacket) {
 	if len(rest) == 0 {
 		return
 	}
-	counter := p.IV
+	counter := &f.counter
+	*counter = p.IV
 	// The counter block is a big-endian 128-bit number.
 	low := binary.BigEndian.Uint64(counter[8:]) + uint64(blocks)
 	if low < uint64(blocks) {
 		binary.BigEndian.PutUint64(counter[:8], binary.BigEndian.Uint64(counter[:8])+1)
 	}
 	binary.BigEndian.PutUint64(counter[8:], low)
-	var stream [16]byte
-	f.block.Encrypt(stream[:], counter[:])
+	f.block.Encrypt(f.stream[:], counter[:])
 	for i := range rest {
-		rest[i] ^= stream[i]
+		rest[i] ^= f.stream[i]
 	}
 }
 

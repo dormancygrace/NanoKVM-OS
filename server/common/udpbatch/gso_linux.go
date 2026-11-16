@@ -28,7 +28,8 @@ func (c *Conn) sendGSOLocked(count int) (int, error, bool) {
 	if segment <= 0 {
 		return 0, nil, false
 	}
-	var iovs [maxBatchPackets]unix.Iovec
+	s := &c.scratch
+	iovs := &s.iovs
 	for i := 0; i < count; i++ {
 		n := c.slots[i].n
 		if n <= 0 || n > segment || (i != count-1 && n != segment) {
@@ -37,26 +38,28 @@ func (c *Conn) sendGSOLocked(count int) (int, error, bool) {
 		iovs[i] = unix.Iovec{Base: &c.slots[i].data[0], Len: uint64(n)}
 	}
 
-	var messages [maxBatchPackets]mmsghdr
+	messages := &s.messages
+	messages[0] = mmsghdr{}
 	messages[0].msg.Iov = &iovs[0]
 	messages[0].msg.Iovlen = uint64(count)
-	var addr4 unix.RawSockaddrInet4
-	var addr6 unix.RawSockaddrInet6
+	addr4, addr6 := &s.addr4[0], &s.addr6[0]
+	*addr4, *addr6 = unix.RawSockaddrInet4{}, unix.RawSockaddrInet6{}
 	address := c.slots[0].addr
 	if c.family == unix.AF_INET {
 		addr4.Family = unix.AF_INET
 		binary.BigEndian.PutUint16((*[2]byte)(unsafe.Pointer(&addr4.Port))[:], address.Port())
 		addr4.Addr = address.Addr().As4()
-		messages[0].msg.Name = (*byte)(unsafe.Pointer(&addr4))
-		messages[0].msg.Namelen = uint32(unsafe.Sizeof(addr4))
+		messages[0].msg.Name = (*byte)(unsafe.Pointer(addr4))
+		messages[0].msg.Namelen = uint32(unsafe.Sizeof(*addr4))
 	} else {
 		addr6.Family = unix.AF_INET6
 		binary.BigEndian.PutUint16((*[2]byte)(unsafe.Pointer(&addr6.Port))[:], address.Port())
 		addr6.Addr = address.Addr().As16()
-		messages[0].msg.Name = (*byte)(unsafe.Pointer(&addr6))
-		messages[0].msg.Namelen = uint32(unsafe.Sizeof(addr6))
+		messages[0].msg.Name = (*byte)(unsafe.Pointer(addr6))
+		messages[0].msg.Namelen = uint32(unsafe.Sizeof(*addr6))
 	}
-	var control [24]byte // CMSG_SPACE(sizeof(uint16)) on supported 64-bit Linux.
+	control := &s.control
+	*control = [24]byte{}
 	header := (*unix.Cmsghdr)(unsafe.Pointer(&control[0]))
 	header.Level = unix.SOL_UDP
 	header.Type = unix.UDP_SEGMENT
@@ -68,7 +71,7 @@ func (c *Conn) sendGSOLocked(count int) (int, error, bool) {
 	if c.gsoStats != nil {
 		c.gsoStats.attempts++
 	}
-	sent, err := c.sendMessagesLocked(&messages, 1)
+	sent, err := c.sendMessagesLocked(messages, 1)
 	if sent == 0 && gsoUnsupported(err) {
 		// An unsuccessful atomic UDP send accepted no datagrams. Disable this
 		// optional path for the socket and retry through ordinary sendmmsg.

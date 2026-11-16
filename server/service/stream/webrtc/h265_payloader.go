@@ -15,6 +15,9 @@ import (
 type h265Payloader struct {
 	payloader     codecs.H265Payloader
 	parameterSets [3][]byte
+	// pionCached: Pion's own cache may hold parameter sets, so the next
+	// access unit goes through Pion too (ownedH265Payload assumes it empty).
+	pionCached bool
 }
 
 func (p *h265Payloader) Payload(mtu uint16, payload []byte) [][]byte {
@@ -62,6 +65,13 @@ func (p *h265Payloader) Payload(mtu uint16, payload []byte) [][]byte {
 			payload = configured
 		}
 	}
+	// Access units with parameter sets (IRAP) go through Pion, which caches
+	// them by ID; the others take the one-slab path with the same packets.
+	params, cachedAfter := h265ParameterSets(payload, p.pionCached)
+	if !params && !p.pionCached {
+		return ownedH265Payload(mtu, payload)
+	}
+	p.pionCached = cachedAfter
 	return p.payloader.Payload(mtu, payload)
 }
 

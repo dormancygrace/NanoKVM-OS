@@ -2692,9 +2692,23 @@
     },
     "events": {
       "title": "Event log",
-      "description": "What happened to the host (power, picture, a crash on its screen), logins from new addresses and blocked ones, and who pressed a button or changed the image in the virtual drive. The newest {{count}} events are kept, across restarts.",
+      "description": "What happened to the host (power, picture, a crash on its screen), logins from new addresses and blocked ones, who pressed a button, changed the image in the virtual drive or changed a setting, and when NanoKVM started. The newest {{count}} events are kept, across restarts.",
       "empty": "No events yet.",
-      "failed": "The event log could not be read."
+      "failed": "The event log could not be read.",
+      "search": "Search",
+      "group": "Group",
+      "noMatch": "No events match.",
+      "groups": {
+        "all": "All groups",
+        "power": "Power",
+        "hdmi": "HDMI",
+        "screen": "Screen",
+        "security": "Security",
+        "action": "Actions",
+        "settings": "Settings",
+        "system": "NanoKVM",
+        "journal": "Journal"
+      }
     },
     "hostSensors": {
       "watchdog": "Watchdog",

@@ -14,6 +14,7 @@ import (
 
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
+	"NanoKVM-Server/journal"
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/proto"
 	"NanoKVM-Server/standby"
@@ -113,6 +114,9 @@ func standbyRouter(r *gin.Engine) {
 					return
 				}
 				committed = true
+				principal, _ := middleware.CurrentPrincipal(c)
+				journal.Record(journal.WithActor(c.Request.Context(), principal.Username), "system", "system.action",
+					map[string]string{"action": "shutdown"})
 			}
 			rsp.OkRsp(c)
 			return

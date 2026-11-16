@@ -8,7 +8,7 @@ import {
   resolutionAtom
 } from '@/jotai/screen.ts';
 
-import { detectFrameContent, getMediaSize } from './geometry.ts';
+import { detectFrameContent, getMediaSize, isMediaReady } from './geometry.ts';
 
 export const AutoRegion = () => {
   const mode = useAtomValue(controlRegionModeAtom);
@@ -30,7 +30,9 @@ export const AutoRegion = () => {
       if (stopped) return;
 
       const screen = document.getElementById('screen');
-      if (!screen) return;
+      // Nothing to measure while the stream has no picture (between
+      // reconnects, or MJPEG stopped in a hidden tab).
+      if (!screen || !isMediaReady(screen)) return;
       if (screen !== target) {
         target = screen;
         candidate = '';

@@ -198,8 +198,9 @@ const MjpegImage = () => {
     retryDelay.current = INITIAL_RETRY_DELAY;
     setHasError(false);
     setScreenshotSource(null);
-    // Shown again: a new URL, so the browser opens a new request.
-    return () => setStreamNonce((current) => current + 1);
+    // A new URL for when the tab is shown again, so the browser opens a new
+    // request rather than taking the old picture from its cache.
+    setStreamNonce((current) => current + 1);
   }, [stopped, setScreenshotSource]);
 
   useEffect(() => {

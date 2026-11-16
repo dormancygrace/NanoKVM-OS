@@ -11,11 +11,11 @@ done
 # NanoKVM services load their drivers explicitly; the kernel set the clock
 # from the RTC (osclock provides "clock" instead of hwclock), and
 # nanokvm-clock keeps it from starting in 1970.
-for service in loopback bootmisc hostname localmount modules osclock nanokvm-clock sysctl udev udev-trigger; do
+for service in loopback hostname localmount modules osclock nanokvm-clock sysctl udev udev-trigger; do
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" boot
 done
 for service in nanokvm-storage nanokvm-modules nanokvm-board \
-	       nanokvm-network nanokvm-usb-internet nanokvm-usb nanokvm-policy nanokvm-ssh nanokvm-app nanokvm-rescue nanokvm-watchdog chronyd crond nanokvm-mdns; do
+	       nanokvm-network nanokvm-usb-internet nanokvm-usb nanokvm-policy nanokvm-ssh nanokvm-app bootmisc nanokvm-rescue nanokvm-watchdog chronyd crond nanokvm-mdns; do
 	[ ! -x "/etc/init.d/$service" ] || rc-update add "$service" default
 done
 [ ! -x /etc/init.d/mount-ro ] || rc-update add mount-ro shutdown
@@ -30,6 +30,9 @@ done
 #   sshd, and the config binds no single address, so it needs nothing more.
 # - bootmisc's copy of the kernel log on the SD card at every boot duplicates
 #   the boot log archive.
+# - bootmisc waits for the server: it writes utmp and wtmp, and its cleanup
+#   of /run and /tmp has nothing to do on tmpfs. hostname stays in boot: the
+#   server checks request Host names against it.
 # - udev-trigger replays the add event of every device at boot, about 530 on
 #   the SG2002. Without coldplug it replays those with a /dev node and the
 #   network interfaces: the same nodes, permissions and links, and the same
@@ -42,6 +45,9 @@ if [ -f /etc/conf.d/sshd ] && ! grep -q '^[[:space:]]*rc_need=' /etc/conf.d/sshd
 fi
 if [ -f /etc/conf.d/bootmisc ]; then
     sed -i 's/^log_dmesg="YES"$/log_dmesg="NO"/' /etc/conf.d/bootmisc
+fi
+if [ -f /etc/conf.d/bootmisc ] && ! grep -q '^[[:space:]]*rc_after=' /etc/conf.d/bootmisc; then
+    printf '%s\n' '# NanoKVM: after the server' 'rc_after="nanokvm-app"' >> /etc/conf.d/bootmisc
 fi
 # NanoKVM udev coldplug default: evaluated when OpenRC sources the config.
 # Preserve service-local, exported, global and legacy-uppercase preferences.

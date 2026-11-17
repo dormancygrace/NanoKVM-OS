@@ -71,7 +71,7 @@ func connect(c *gin.Context, encoderConfig stream.EncoderConfig) {
 	wsConn.SetReadLimit(maxSignalingSize)
 
 	// create video connection
-	iceServers := iceservers.FromConfig()
+	iceServers := icelocal.Servers(c.Request, iceservers.FromConfig())
 
 	mediaEngine, err := createMediaEngine(encoderConfig)
 	if err != nil {

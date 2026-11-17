@@ -1140,7 +1140,15 @@ func (a *Agent) gatherCandidatesRelay(ctx context.Context, urls []*stun.URI, gen
 							return
 						}
 
-						conn, connectErr := a.net.DialTCP(network, nil, tcpAddr)
+						// Bind the local end like the UDP relay socket, so a filtered
+						// agent reaches its TURN server from the selected address.
+						localAddr, resolveErr := a.net.ResolveTCPAddr(network, localBindAddr)
+						if resolveErr != nil {
+							a.log.Warnf("Failed to resolve local address %s: %v", localBindAddr, resolveErr)
+
+							return
+						}
+						conn, connectErr := a.net.DialTCP(network, localAddr, tcpAddr)
 						if connectErr != nil {
 							a.log.Warnf("Failed to dial TCP address %s: %v", turnServerAddr, connectErr)
 
@@ -1159,7 +1167,13 @@ func (a *Agent) gatherCandidatesRelay(ctx context.Context, urls []*stun.URI, gen
 							return
 						}
 
-						udpConn, dialErr := a.net.DialUDP(network, nil, udpAddr)
+						localAddr, resolveErr := a.net.ResolveUDPAddr(network, localBindAddr)
+						if resolveErr != nil {
+							a.log.Warnf("Failed to resolve local address %s: %v", localBindAddr, resolveErr)
+
+							return
+						}
+						udpConn, dialErr := a.net.DialUDP(network, localAddr, udpAddr)
 						if dialErr != nil {
 							a.log.Warnf("Failed to dial DTLS address %s: %v", turnServerAddr, dialErr)
 
@@ -1201,7 +1215,13 @@ func (a *Agent) gatherCandidatesRelay(ctx context.Context, urls []*stun.URI, gen
 							return
 						}
 
-						tcpConn, dialErr := a.net.DialTCP(network, nil, tcpAddr)
+						localAddr, resolveErr := a.net.ResolveTCPAddr(network, localBindAddr)
+						if resolveErr != nil {
+							a.log.Warnf("Failed to resolve local address %s: %v", localBindAddr, resolveErr)
+
+							return
+						}
+						tcpConn, dialErr := a.net.DialTCP(network, localAddr, tcpAddr)
 						if dialErr != nil {
 							a.log.Warnf("Failed to connect to relay: %v", dialErr)
 

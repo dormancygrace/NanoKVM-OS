@@ -44,6 +44,7 @@
 ## Building and maintaining
 
 - [Building NanoKVM OS](BUILD.md)
+- [Hot kernel text](KERNEL-HOT-TEXT.md)
 - [Component build profiles](COMPONENT-BUILD-PROFILES.md)
 - [Dependency maintenance](DEPENDENCY-UPDATES.md)
 - [Third-party software](THIRD-PARTY.md) and [source distribution](DISTRIBUTION.md)

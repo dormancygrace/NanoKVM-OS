@@ -6,7 +6,7 @@ code of a system call, a wakeup or a context switch is spread over the
 image in link order, so its lines share cache sets and evict each other.
 Which lines collide depends on everything linked before them: any change
 anywhere moves the kernel's hot paths by tens of percent. A 4 KiB padding
-in init/main.c alone moved stat() by 13 %, and -mbranch-cost=1, which
+in init/main.c alone made stat() 6 % faster, and -mbranch-cost=1, which
 leaves the instruction count unchanged, doubled the I-cache misses of a
 pipe round trip (114 to 216) while cutting those of stat() from 10 to 3.
 

@@ -75,9 +75,15 @@ spread between the boots of the same kernel):
 Within the spread, no change: TCP over Ethernet at line rate (94.9 Mbit/s;
 CPU per MB +3 %, spread 6 %), WireGuard to the PC over the product's tunnel,
 the web UI's cold load, SSH backup and upload (upload +5 %, spread 7 %),
-Wi-Fi, SD card and filesystem tests. With
-the browser showing a playing video, the H.264 stream ran at 60 fps and
-13.8–15.8 Mbit/s with 28–30 % CPU on both kernels.
+Wi-Fi, SD card and filesystem tests.
+
+The H.264 stream to a browser over Wi-Fi, with the same deterministic
+animation on the captured screen for every boot (60 fps, 2.63 MB/s), three
+boots each: 33.5 % CPU on main, 33.8 % with the hot text; the server process
+used 116.5 and 118 ms per MB (+1.3 %). Its own kernel paths are not in the
+list: appending them moved the earlier functions through linker relaxation
+(shorter calls) and cost the pipe, open and fork paths far more than the
+1.6 % it saved on the stream.
 
 ## Changing the list
 

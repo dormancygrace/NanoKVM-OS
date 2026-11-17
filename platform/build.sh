@@ -291,6 +291,9 @@ kernel_source() {
     mkdir -p "$out/kernel" "$kbuild"
     tar -xf "$dl/linux-7.3.4.tar.xz" -C "$out/kernel"
     mv "$out/kernel/linux-7.3.4" "$ksrc"
+    # The order of the hot kernel functions, included by vmlinux.lds.S (patch
+    # 0088, docs/KERNEL-HOT-TEXT.md).
+    cp "$here/kernel/hot-text.lds" "$ksrc/arch/riscv/kernel/vmlinux-hot.lds.h"
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"

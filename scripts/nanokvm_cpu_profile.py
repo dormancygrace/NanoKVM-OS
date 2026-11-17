@@ -42,6 +42,8 @@ def flags(kind='userspace'):
     # Kernel functions start on a 64-byte I-cache line. On the C906 (32 KiB
     # 2-way I-cache) this cut L1I misses about 7% and CPU time 3-7% under a
     # fixed kernel-heavy load; 16 and 32 did less, 128 raised jTLB misses.
+    # Built-in code takes the same line alignment from the linker script
+    # instead (kernel patch 0088, docs/KERNEL-HOT-TEXT.md); modules use this.
     if kind == 'kernel' and PROFILE.get('kernel_function_align'):
         result.append('-falign-functions=%d' % PROFILE['kernel_function_align'])
     # Keep handwritten/vendor RVV assembly; disable compiler autovectorization.

@@ -78,7 +78,7 @@ func Connect(c *gin.Context) {
 	defer ws.Close()
 	stopWatcher := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopWatcher()
-	servers := icelocal.Servers(c.Request, iceservers.FromConfig())
+	servers := iceservers.FromConfig()
 	peer, err := createPeerConnection(icelocal.Filter(c.Request), servers)
 	if err != nil {
 		return

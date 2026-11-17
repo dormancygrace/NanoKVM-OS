@@ -77,7 +77,7 @@ CPU per MB +3 %, spread 6 %), WireGuard to the PC over the product's tunnel,
 the web UI's cold load, SSH backup and upload (upload +5 %, spread 7 %),
 Wi-Fi, SD card and filesystem tests. With
 the browser showing a playing video, the H.264 stream ran at 60 fps and
-13.8–14.7 Mbit/s with 28–30 % CPU on both kernels.
+13.8–15.8 Mbit/s with 28–30 % CPU on both kernels.
 
 ## Changing the list
 

@@ -54,7 +54,13 @@ func CipherSuites() []dtls.CipherSuiteID {
 // Configure makes NanoKVM the DTLS server for answers and applies the
 // cipher order of CipherSuites. SRTP policy is configured
 // separately by the caller and is intentionally untouched here.
+//
+// The server does not send a HelloVerifyRequest: its cookie exchange proves
+// that the client receives at its address, which ICE has already proved
+// before a DTLS packet of the pair is accepted. Skipping it saves a round
+// trip and a second ClientHello on every connection.
 func Configure(settings *webrtc.SettingEngine) error {
 	settings.SetDTLSCipherSuites(CipherSuites()...)
+	settings.SetDTLSInsecureSkipHelloVerify(true)
 	return settings.SetAnsweringDTLSRole(webrtc.DTLSRoleServer)
 }

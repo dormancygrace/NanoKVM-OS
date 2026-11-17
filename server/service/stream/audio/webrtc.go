@@ -52,7 +52,11 @@ func createPeerConnection(servers []webrtc.ICEServer) (*webrtc.PeerConnection, e
 	if err := webrtcdtls.Configure(&settings); err != nil {
 		return nil, err
 	}
-	return webrtc.NewAPI(webrtc.WithSettingEngine(settings)).NewPeerConnection(webrtc.Configuration{ICEServers: servers})
+	certificates, err := webrtcdtls.Certificates()
+	if err != nil {
+		return nil, err
+	}
+	return webrtc.NewAPI(webrtc.WithSettingEngine(settings)).NewPeerConnection(webrtc.Configuration{ICEServers: servers, Certificates: certificates})
 }
 
 func Connect(c *gin.Context) {

@@ -278,8 +278,13 @@ func (b *rtcBridge) answer(endpoint string) (*rtcSession, string, string, string
 	if b.iceServers != nil {
 		servers = b.iceServers()
 	}
+	certificates, certErr := webrtcdtls.Certificates()
+	if certErr != nil {
+		close(s.pcReady)
+		return failed(certErr)
+	}
 	api := webrtc.NewAPI(webrtc.WithSettingEngine(setting))
-	s.pc, err = api.NewPeerConnection(webrtc.Configuration{ICEServers: servers})
+	s.pc, err = api.NewPeerConnection(webrtc.Configuration{ICEServers: servers, Certificates: certificates})
 	close(s.pcReady)
 	if err != nil {
 		return failed(err)

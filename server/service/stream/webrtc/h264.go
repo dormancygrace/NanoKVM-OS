@@ -220,9 +220,14 @@ func createPeerConnection(iceServers []webrtc.ICEServer, mediaEngine *webrtc.Med
 	}
 
 	api := webrtc.NewAPI(apiOptions...)
+	certificates, err := webrtcdtls.Certificates()
+	if err != nil {
+		return nil, err
+	}
 
 	return api.NewPeerConnection(webrtc.Configuration{
 		ICEServers:   iceServers,
 		SDPSemantics: webrtc.SDPSemanticsUnifiedPlan,
+		Certificates: certificates,
 	})
 }

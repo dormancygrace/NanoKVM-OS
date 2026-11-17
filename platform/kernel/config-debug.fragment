@@ -19,6 +19,8 @@ CONFIG_TRACEFS_AUTOMOUNT_DEPRECATED=y
 # Function and syscall tracing, kprobes, block I/O and latency tracers.
 CONFIG_FUNCTION_TRACER=y
 CONFIG_DYNAMIC_FTRACE=y
+# Function hit counts (trace_stat), for the hot-text order (docs/KERNEL-HOT-TEXT.md).
+CONFIG_FUNCTION_PROFILER=y
 CONFIG_FUNCTION_GRAPH_TRACER=y
 CONFIG_FTRACE_SYSCALLS=y
 CONFIG_STACK_TRACER=y

@@ -1,0 +1,88 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: lay out the hot kernel text for the C906 I-cache
+
+The C906 L1 I-cache is 32 KiB, two ways of 16 KiB with 64-byte lines. The
+code of a system call, a wakeup or a context switch is spread over the
+image in link order, so its lines share cache sets and evict each other.
+Which lines collide depends on everything linked before them: any change
+anywhere moves the kernel's hot paths by tens of percent. A 4 KiB padding
+in init/main.c alone moved stat() by 13 %, and -mbranch-cost=1, which
+leaves the instruction count unchanged, doubled the I-cache misses of a
+pipe round trip (114 to 216) while cutting those of stat() from 10 to 3.
+
+Put the hot code at the start of .text in a fixed order: the exception
+entry, the noinstr text and the scheduler core's .sched.text, then a list
+of functions (vmlinux-hot.lds.h) grouped by path, so that each path is the
+shared block plus one contiguous run. Built-in functions get their own
+sections for this; the output section aligns every input section to a
+64-byte line instead of a per-function .align, whose linker relaxation
+NOPs ld leaves at the start of each function section. The rest of
+.sched.text keeps its bounds behind the scheduler core.
+
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -1067,6 +1067,12 @@
+ KBUILD_CFLAGS += -fno-inline-functions-called-once
+ endif
+ 
++# Built-in code: every function in its own section, for the hot-text order
++# of arch/riscv/kernel/vmlinux.lds.S. The linker script puts each section on
++# a 64-byte line (SUBALIGN): a per-function .align would leave its linker
++# relaxation NOPs at the start of every section, about 700 KiB in all.
++KBUILD_CFLAGS_KERNEL += -ffunction-sections -falign-functions=1
++
+ # `rustc`'s `-Zfunction-sections` applies to data too (as of 1.59.0).
+ ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
+ KBUILD_CFLAGS_KERNEL += -ffunction-sections -fdata-sections
+diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
+--- a/arch/riscv/kernel/vmlinux.lds.S
++++ b/arch/riscv/kernel/vmlinux.lds.S
+@@ -31,15 +31,33 @@
+ 	HEAD_TEXT_SECTION
+ 	. = ALIGN(PAGE_SIZE);
+ 
+-	.text : {
++	.text : SUBALIGN(64) {
+ 		_text = .;
+ 		_stext = .;
++		/*
++		 * The code of the frequent kernel paths first, in an order of its
++		 * own: the C906 L1 I-cache is 32 KiB in two 16 KiB ways, and hot
++		 * code spread over the image by link order shares sets and evicts
++		 * itself, differently after every change elsewhere. Exception
++		 * entry, the noinstr text and the scheduler core come first, then
++		 * the listed functions (vmlinux-hot.lds.h, from
++		 * platform/kernel/hot-text.lds), continuing the cache sets where
++		 * the scheduler core ends.
++		 */
++		IRQENTRY_TEXT
++		NOINSTR_TEXT
++		ALIGN_FUNCTION();
++		__sched_text_start = .;
++		*:kernel/sched/core.o(.sched.text)
++		__hot_entry_end = .;
++		*(.sched.text)
++		__sched_text_end = .;
++		. = . + ((__hot_entry_end - .) & 0x3fff);
++#include "vmlinux-hot.lds.h"
+ 		TEXT_TEXT
+-		SCHED_TEXT
+ 		LOCK_TEXT
+ 		KPROBES_TEXT
+ 		ENTRY_TEXT
+-		IRQENTRY_TEXT
+ 		SOFTIRQENTRY_TEXT
+ 		_etext = .;
+ 	}
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -606,7 +606,6 @@
+ 		. = ALIGN(PAGE_SIZE);					\
+ 		TEXT_HOT						\
+ 		*(TEXT_MAIN .text.fixup)				\
+-		NOINSTR_TEXT						\
+ 		*(.ref.text)
+ 
+ /* sched.text is aling to function alignment to secure we have same

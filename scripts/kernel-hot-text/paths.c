@@ -31,22 +31,32 @@ int main(int argc, char **argv)
 		if (pipe(a) || pipe(b))
 			return 1;
 		pid_t p = fork();
+		if (p < 0)
+			return 1;
 		if (!p) {
+			close(a[1]);
+			close(b[0]);
 			for (int i = 0; i < n; i++)
 				if (read(a[0], &c, 1) != 1 || write(b[1], &c, 1) != 1)
 					_exit(1);
 			_exit(0);
 		}
+		close(a[0]);
+		close(b[1]);
 		for (int i = 0; i < n; i++)
 			if (write(a[1], &c, 1) != 1 || read(b[0], &c, 1) != 1)
 				return 1;
-		waitpid(p, 0, 0);
+		int status;
+		if (waitpid(p, &status, 0) != p || !WIFEXITED(status) || WEXITSTATUS(status))
+			return 1;
 	} else if (!strcmp(op, "stat")) {
 		for (int i = 0; i < n; i++)
-			stat(path, &st);
+			if (stat(path, &st))
+				return 1;
 	} else if (!strcmp(op, "open")) {
 		for (int i = 0; i < n; i++)
-			close(open(path, O_RDONLY));
+			if (close(open(path, O_RDONLY)))
+				return 1;
 	} else if (!strcmp(op, "getppid")) {
 		for (int i = 0; i < n; i++)
 			getppid();

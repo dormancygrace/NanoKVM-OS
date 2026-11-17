@@ -19,7 +19,7 @@ from collections import defaultdict
 from pathlib import Path
 
 # path, minimum hits per pass, baseline. System-call paths: profile.sh runs 2000 passes (fault: 12800 pages,
-# 100 per munmap), baseline "nop" (start and exit of the driver). Network: 12 MiB of 1448-byte segments in a
+# 128 per munmap), baseline "nop" (start and exit of the driver). Network: 12 MiB of 1448-byte segments in a
 # 22 s window, a third of the segments, baseline "idle" (22 s of the idle system).
 SEG = 12 * 2**20 // 1448
 PATHS = [('pipe', 1000, 'nop'), ('read', 1000, 'nop'), ('write', 1000, 'nop'), ('stat', 1000, 'nop'),

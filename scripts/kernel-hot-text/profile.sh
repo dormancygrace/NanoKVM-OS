@@ -8,6 +8,15 @@ P=$1; O=$2
 T=/sys/kernel/tracing
 [ -e $T/function_profile_enabled ] || mount -t tracefs nodev $T
 mkdir -p "$O"
+d=
+cleanup() {
+	echo 0 > $T/function_profile_enabled
+	[ -z "$d" ] || rm -rf "$d"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
 run() { # NAME CMD...
 	n=$1; shift
 	echo 0 > $T/function_profile_enabled
@@ -24,4 +33,3 @@ d=$(mktemp -d)
 run nop "$P" getppid 0 "$d"
 for op in pipe stat open getppid read write; do run $op "$P" $op 2000 "$d"; done
 run fault "$P" fault 12800 "$d"
-rm -rf "$d"

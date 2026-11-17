@@ -16,11 +16,12 @@ import (
 // certificate only against the fingerprint in the SDP, so one serves every
 // peer. Pion's certificates last a month (and start a day early); a new one
 // is made a day before the old one expires, or if the clock went back before
-// its start.
+// its creation time.
 var (
-	certMu   sync.Mutex
-	cert     webrtc.Certificate
-	haveCert bool
+	certMu      sync.Mutex
+	cert        webrtc.Certificate
+	haveCert    bool
+	certCreated time.Time
 )
 
 // Certificates returns the DTLS certificate list for a PeerConnection
@@ -29,7 +30,7 @@ func Certificates() ([]webrtc.Certificate, error) {
 	certMu.Lock()
 	defer certMu.Unlock()
 	now := time.Now()
-	if !haveCert || now.Add(24*time.Hour).After(cert.Expires()) || now.Before(cert.Expires().AddDate(0, -1, 0)) {
+	if !haveCert || now.Add(24*time.Hour).After(cert.Expires()) || now.Before(certCreated) {
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			return nil, err
@@ -39,6 +40,8 @@ func Certificates() ([]webrtc.Certificate, error) {
 			return nil, err
 		}
 		cert, haveCert = *fresh, true
+		// Keep wall time: the monotonic clock cannot detect a clock correction.
+		certCreated = now.Round(0)
 	}
 	return []webrtc.Certificate{cert}, nil
 }

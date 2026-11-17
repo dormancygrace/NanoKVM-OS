@@ -16,7 +16,6 @@ import (
 
 	"github.com/pion/ice/v4"
 	"github.com/pion/transport/v5"
-	"github.com/pion/transport/v5/stdnet"
 	"golang.org/x/sys/unix"
 )
 
@@ -29,16 +28,16 @@ type Net struct {
 	mu           sync.Mutex
 	dontFragment map[socketKey]bool
 	callback     func(ice.PathMTUResult)
+	oif          int
 	batch        bool
 	batchConns   map[*udpbatch.Conn]struct{}
 }
 
-func NewNet(callback func(ice.PathMTUResult)) (*Net, error) {
-	base, err := stdnet.NewNet()
-	if err != nil {
-		return nil, err
-	}
-	return &Net{Net: base, dontFragment: make(map[socketKey]bool), callback: callback, batchConns: make(map[*udpbatch.Conn]struct{})}, nil
+// NewNet wraps base. When base binds its sockets to one interface, oif is
+// that interface's index, so that route budgets come from the routes through
+// it; 0 means any interface.
+func NewNet(base transport.Net, oif int, callback func(ice.PathMTUResult)) *Net {
+	return &Net{Net: base, dontFragment: make(map[socketKey]bool), callback: callback, oif: oif, batchConns: make(map[*udpbatch.Conn]struct{})}
 }
 
 func (n *Net) ListenUDP(network string, addr *net.UDPAddr) (transport.UDPConn, error) {
@@ -215,7 +214,7 @@ func (n *Net) ICEPathMTUConfig(local, remote ice.Candidate) ice.PathMTUConfig {
 	n.mu.Lock()
 	df := n.dontFragment[socketKey{port, ipv6}]
 	n.mu.Unlock()
-	route, err := lookupRoute(src, dst)
+	route, err := lookupRoute(src, dst, n.oif)
 	if err != nil {
 		return config
 	}
@@ -273,7 +272,7 @@ func netlinkAttr(kind uint16, value []byte) []byte {
 	return b
 }
 
-func lookupRoute(source, destination net.IP) (routeInfo, error) {
+func lookupRoute(source, destination net.IP, oif int) (routeInfo, error) {
 	family, bits := byte(unix.AF_INET6), byte(128)
 	dst, src := destination.To16(), source.To16()
 	if v4 := destination.To4(); v4 != nil {
@@ -300,6 +299,11 @@ func lookupRoute(source, destination net.IP) (routeInfo, error) {
 	msg[16], msg[17], msg[18] = family, bits, bits
 	msg = append(msg, netlinkAttr(unix.RTA_DST, dst)...)
 	msg = append(msg, netlinkAttr(unix.RTA_SRC, src)...)
+	if oif > 0 {
+		index := make([]byte, 4)
+		binary.NativeEndian.PutUint32(index, uint32(oif))
+		msg = append(msg, netlinkAttr(unix.RTA_OIF, index)...)
+	}
 	binary.NativeEndian.PutUint32(msg, uint32(len(msg)))
 	if err = unix.Sendto(fd, msg, 0, &unix.SockaddrNetlink{Family: unix.AF_NETLINK}); err != nil {
 		return routeInfo{}, err

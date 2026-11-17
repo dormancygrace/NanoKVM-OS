@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
-	"net"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -48,11 +47,16 @@ func ReleaseSession() { sessions.Add(-1) }
 func StatusData() gin.H {
 	return gin.H{"audio": enabled(), "bitrate": 192000, "complexity": 3}
 }
-func createPeerConnection(addresses func(net.IP) bool, servers []webrtc.ICEServer) (*webrtc.PeerConnection, error) {
+func createPeerConnection(path icelocal.Path, servers []webrtc.ICEServer) (*webrtc.PeerConnection, error) {
 	settings := webrtc.SettingEngine{}
-	if addresses != nil {
-		settings.SetIPFilter(addresses)
+	if path.Addresses != nil {
+		settings.SetIPFilter(path.Addresses)
 	}
+	network, err := path.Net()
+	if err != nil {
+		return nil, err
+	}
+	settings.SetNet(network)
 	srtpaccel.Configure(&settings)
 	if err := webrtcdtls.Configure(&settings); err != nil {
 		return nil, err
@@ -79,7 +83,7 @@ func Connect(c *gin.Context) {
 	stopWatcher := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopWatcher()
 	servers := iceservers.FromConfig()
-	peer, err := createPeerConnection(icelocal.Filter(c.Request), servers)
+	peer, err := createPeerConnection(icelocal.For(c.Request), servers)
 	if err != nil {
 		return
 	}

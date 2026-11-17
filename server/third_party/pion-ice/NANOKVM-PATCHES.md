@@ -8,7 +8,7 @@ complete v4.4.9 module.
 | File | Change |
 | --- | --- |
 | `agent.go`, `path_mtu.go` | Opt-in authenticated datagram path-MTU probing on the selected pair. Nomination logic is not replaced. |
-| `gather.go` | Local TURN/UDP control endpoint kept as local relay-candidate metadata for route accounting. |
+| `gather.go` | Local TURN/UDP control endpoint kept as local relay-candidate metadata for route accounting. TURN over TCP, TLS and DTLS dials from the same local bind address as TURN/UDP (upstream passes no local address), so an IP filter also selects the source of those relay connections; the proxy-dialer path is unchanged. |
 | `tcp_mux.go` | ICE-TCP length guard for RFC 4571 framing. |
 
 Upstream options NanoKVM does not use: padded connectivity checks and

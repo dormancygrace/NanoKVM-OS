@@ -2,6 +2,7 @@ package audio
 
 import (
 	"NanoKVM-Server/middleware"
+	"NanoKVM-Server/service/stream/icelocal"
 	"NanoKVM-Server/service/stream/iceservers"
 	"NanoKVM-Server/service/stream/srtpaccel"
 	"NanoKVM-Server/service/stream/webrtcdtls"
@@ -46,8 +47,16 @@ func ReleaseSession() { sessions.Add(-1) }
 func StatusData() gin.H {
 	return gin.H{"audio": enabled(), "bitrate": 192000, "complexity": 3}
 }
-func createPeerConnection(servers []webrtc.ICEServer) (*webrtc.PeerConnection, error) {
+func createPeerConnection(path icelocal.Path, servers []webrtc.ICEServer) (*webrtc.PeerConnection, error) {
 	settings := webrtc.SettingEngine{}
+	if path.Addresses != nil {
+		settings.SetIPFilter(path.Addresses)
+	}
+	network, err := path.Net()
+	if err != nil {
+		return nil, err
+	}
+	settings.SetNet(network)
 	srtpaccel.Configure(&settings)
 	if err := webrtcdtls.Configure(&settings); err != nil {
 		return nil, err
@@ -78,7 +87,7 @@ func Connect(c *gin.Context) {
 	stopWatcher := middleware.WatchWebSocket(c.Request.Context(), ws)
 	defer stopWatcher()
 	servers := iceservers.FromConfig()
-	peer, err := createPeerConnection(servers)
+	peer, err := createPeerConnection(icelocal.For(c.Request), servers)
 	if err != nil {
 		return
 	}

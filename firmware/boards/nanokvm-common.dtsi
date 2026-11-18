@@ -354,7 +354,12 @@
 &i2c2 { status = "okay"; };
 &i2c3 { status = "okay"; };
 &usb {
-	dr_mode = "peripheral";
+	// Device or host, chosen at run time (/sys/class/usb_role, set by
+	// S03usbdev from the USB mode setting). The controller starts as a
+	// device.
+	dr_mode = "otg";
+	usb-role-switch;
+	role-switch-default-mode = "peripheral";
 	// Working device's FIFO partition, required for composite gadgets.
 	g-rx-fifo-size = <536>;
 	g-np-tx-fifo-size = <32>;

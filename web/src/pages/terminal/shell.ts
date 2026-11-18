@@ -264,6 +264,13 @@ export function attachShell(
     }
     chunk.answers += data;
   });
+  // Mouse reports in the default (X10) encoding are bytes, not text: a
+  // column or row past 95 is a byte above 127. They go out as a binary
+  // message of their own, which starts with ESC, unlike the JSON messages.
+  const mouse = terminal.onBinary((data) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(Uint8Array.from(data, (c) => c.charCodeAt(0) & 0xff));
+  });
   const enter = terminal.onKey(({ domEvent }) => {
     if (domEvent.key === 'Enter' && onEnter) onEnter();
   });
@@ -286,6 +293,7 @@ export function attachShell(
       window.removeEventListener('resize', resize, false);
       input.dispose();
       userInputMark.dispose();
+      mouse.dispose();
       enter.dispose();
       // The shell keeps running on the device and can be opened again.
       ws?.close();

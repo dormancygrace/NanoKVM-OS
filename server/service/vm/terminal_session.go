@@ -67,7 +67,9 @@ type WinSize struct {
 // pageMessage is a binary message from the terminal page: the window size,
 // the output offset its terminal processed (see shell.processed), or the
 // terminal's answers to the queries in a chunk of output together with the
-// offset of its end. Keyboard input comes as text messages.
+// offset of its end. Keyboard input comes as text messages, and mouse reports
+// in the X10 encoding, which are not text, as binary messages starting with
+// ESC.
 type pageMessage struct {
 	Rows uint16  `json:"rows"`
 	Cols uint16  `json:"cols"`
@@ -449,7 +451,7 @@ func (s *shell) readInput(ws *websocket.Conn) {
 		if err != nil {
 			return
 		}
-		if kind == websocket.TextMessage {
+		if kind == websocket.TextMessage || len(data) > 0 && data[0] == 0x1b {
 			if _, err = s.ptmx.Write(data); err != nil {
 				return
 			}

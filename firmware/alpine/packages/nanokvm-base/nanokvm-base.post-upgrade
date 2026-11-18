@@ -74,11 +74,12 @@ unset udev_trigger udev_default
 # anyway skip their stop at shutdown; each stop costs an OpenRC service run.
 # nkos-standby accepts the failed entries OpenRC leaves for skipped stops. A
 # conf.d that already sets rc_keyword stays.
-for service in devfs procfs sysfs fsck loopback hostname sysctl osclock udev-trigger; do
+# fsck has a real stop action when fsck_shutdown is enabled.
+for service in devfs procfs sysfs loopback hostname sysctl osclock udev-trigger; do
     conf=/etc/conf.d/$service
     if ! grep -q '^[[:space:]]*rc_keyword=' "$conf" 2>/dev/null; then
         mkdir -p /etc/conf.d
-        printf '%s\n' 'rc_keyword="-shutdown"' >> "$conf"
+        printf '\n%s\n' 'rc_keyword="-shutdown"' >> "$conf"
     fi
 done
 unset service conf

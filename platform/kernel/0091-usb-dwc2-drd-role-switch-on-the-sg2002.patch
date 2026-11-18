@@ -8,25 +8,25 @@ GOTGINT.SesEndDet asserted. Writing 1 to the bit does not clear it (it
 clears once BVALOVAL is set or BVALOEN cleared), so the OTG interrupt
 repeats without end; nothing is printed and the watchdog resets the board.
 
-Keep the B-session override value in the host role. The device role then
-finds the B-session valid already, so dwc2_ovr_bvalid() reports "already"
-only when the A-session is not valid as well; otherwise it clears the
-A-session value and the mode is forced back to device.
+A core parameter, ovr_bvalid_high, set for the CV1800 family, keeps the
+B-session override value set in every write of the session overrides:
+at initialization, in the host role, and when a role is restored on
+resume. Such a core has no state without a session, so "none" is the
+default role there, and the device role when the device tree names none.
+The device role finds the B-session valid after the host role, so
+dwc2_ovr_bvalid() reports "already" only when the A-session is not valid
+as well; otherwise it gives the A-session up and the mode is forced back.
 
-The PHY follows the role. usb_add_hcd() puts the controller's PHY in host
-mode when the host side registers; on the SG2002 that is an ID override
-and the VBUS setting, with which the gadget of the default device role
-never attaches. Set the PHY mode of the default role after the host side
-is added, and of the new role at each switch.
+The PHY follows the role: host mode for the host role, device mode for
+any other. usb_add_hcd() puts the controller's PHY in host mode when the
+host side registers; on the SG2002 that is an ID override and the VBUS
+power bit, with which the gadget of a device role never attaches. The
+PHY gets the mode of the default role after the host side is added, and
+of the requested role at each switch, before anything else changes, so a
+failure leaves the controller as it was and the request can be repeated.
+A failure after the host side is added fails the probe.
 
 Without usb-role-switch in the device tree nothing changes.
-
-On an SG2002 with a dual-role kernel (dr_mode "otg", usb-role-switch,
-role-switch-default-mode "peripheral"): the gadget is configured by the
-computer after boot; "host" ends that, and a high-speed flash drive on the
-port enumerates; "device" disconnects the drive and the computer
-configures the gadget again; a second "host" enumerates the drive again.
-GOTGCTL and the PHY register read the same after each return to a role.
 
 diff --git a/drivers/usb/dwc2/drd.c b/drivers/usb/dwc2/drd.c
 --- a/drivers/usb/dwc2/drd.c
@@ -39,102 +39,247 @@ diff --git a/drivers/usb/dwc2/drd.c b/drivers/usb/dwc2/drd.c
  #include <linux/platform_device.h>
  #include <linux/usb/role.h>
  #include "core.h"
-@@ -51,7 +52,12 @@
- 	/* Always enable overrides to handle the resume case */
- 	dwc2_ovr_gotgctl(gotgctl);
+@@ -17,8 +18,39 @@
+ 	((gotgctl) |= GOTGCTL_BVALOEN | GOTGCTL_AVALOEN | GOTGCTL_VBVALOEN | \
+ 	 GOTGCTL_DBNCE_FLTR_BYPASS)
  
--	gotgctl &= ~GOTGCTL_BVALOVAL;
-+	/*
-+	 * The B-session override value stays as it is. With BVALOEN set and
-+	 * BVALOVAL clear, the DWC_otg 4.20a of the SG2002 holds
-+	 * GOTGINT.SesEndDet asserted: writing 1 does not clear it, and the
-+	 * OTG interrupt repeats without end.
-+	 */
- 	if (valid)
++/*
++ * The role the controller takes for a role switch setting: no role is the
++ * default role. A core that cannot give the B-session up (ovr_bvalid_high)
++ * has no state without a session, so without a default it is a device then.
++ */
++static enum usb_role dwc2_drd_role(struct dwc2_hsotg *hsotg, enum usb_role role)
++{
++	if (role != USB_ROLE_NONE)
++		return role;
++	if (hsotg->role_sw_default_mode == USB_DR_MODE_HOST)
++		return USB_ROLE_HOST;
++	if (hsotg->role_sw_default_mode == USB_DR_MODE_PERIPHERAL ||
++	    hsotg->params.ovr_bvalid_high)
++		return USB_ROLE_DEVICE;
++	return USB_ROLE_NONE;
++}
++
++/*
++ * Every write of the session overrides ends here. With BVALOEN set and
++ * BVALOVAL clear, the DWC_otg 4.20a of the SG2002 holds GOTGINT.SesEndDet
++ * asserted: writing 1 does not clear it, and the OTG interrupt repeats
++ * without end. There the B-session value is set whatever the role.
++ */
++static void dwc2_ovr_write(struct dwc2_hsotg *hsotg, u32 gotgctl)
++{
++	if (hsotg->params.ovr_bvalid_high)
++		gotgctl |= GOTGCTL_BVALOVAL;
++	dwc2_writel(hsotg, gotgctl, GOTGCTL);
++}
++
+ static void dwc2_ovr_init(struct dwc2_hsotg *hsotg)
+ {
++	enum usb_role role = dwc2_drd_role(hsotg, USB_ROLE_NONE);
+ 	unsigned long flags;
+ 	u32 gotgctl;
+ 
+@@ -27,16 +59,16 @@
+ 	gotgctl = dwc2_readl(hsotg, GOTGCTL);
+ 	dwc2_ovr_gotgctl(gotgctl);
+ 	gotgctl &= ~(GOTGCTL_BVALOVAL | GOTGCTL_AVALOVAL | GOTGCTL_VBVALOVAL);
+-	if (hsotg->role_sw_default_mode == USB_DR_MODE_HOST)
++	if (role == USB_ROLE_HOST)
+ 		gotgctl |= GOTGCTL_AVALOVAL | GOTGCTL_VBVALOVAL;
+-	else if (hsotg->role_sw_default_mode == USB_DR_MODE_PERIPHERAL)
++	else if (role == USB_ROLE_DEVICE)
+ 		gotgctl |= GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL;
+-	dwc2_writel(hsotg, gotgctl, GOTGCTL);
++	dwc2_ovr_write(hsotg, gotgctl);
+ 
+ 	spin_unlock_irqrestore(&hsotg->lock, flags);
+ 
+ 	dwc2_force_mode(hsotg, (hsotg->dr_mode == USB_DR_MODE_HOST) ||
+-				(hsotg->role_sw_default_mode == USB_DR_MODE_HOST));
++				role == USB_ROLE_HOST);
+ }
+ 
+ static int dwc2_ovr_avalid(struct dwc2_hsotg *hsotg, bool valid)
+@@ -56,7 +88,7 @@
  		gotgctl |= GOTGCTL_AVALOVAL | GOTGCTL_VBVALOVAL;
  	else
-@@ -65,8 +71,13 @@
+ 		gotgctl &= ~(GOTGCTL_AVALOVAL | GOTGCTL_VBVALOVAL);
+-	dwc2_writel(hsotg, gotgctl, GOTGCTL);
++	dwc2_ovr_write(hsotg, gotgctl);
+ 
+ 	return 0;
+ }
+@@ -65,8 +97,13 @@
  {
  	u32 gotgctl = dwc2_readl(hsotg, GOTGCTL);
  
 -	/* Check if B-Session is already in the right state */
 -	if ((valid && (gotgctl & GOTGCTL_BSESVLD)) ||
 +	/*
-+	 * Check if B-Session is already in the right state. After the host
-+	 * role it is still valid (see dwc2_ovr_avalid()); the role changes
-+	 * only once the A-session is given up.
++	 * Check if B-Session is already in the right state. Where it stays
++	 * valid in the host role (ovr_bvalid_high), the device role is in
++	 * place only once the A-session is given up.
 +	 */
 +	if ((valid && (gotgctl & GOTGCTL_BSESVLD) &&
-+	     !(gotgctl & GOTGCTL_ASESVLD)) ||
++	     !(hsotg->params.ovr_bvalid_high && (gotgctl & GOTGCTL_ASESVLD))) ||
  	    (!valid && !(gotgctl & GOTGCTL_BSESVLD)))
  		return -EALREADY;
  
-@@ -83,6 +94,33 @@
+@@ -78,16 +115,44 @@
+ 		gotgctl |= GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL;
+ 	else
+ 		gotgctl &= ~(GOTGCTL_BVALOVAL | GOTGCTL_VBVALOVAL);
+-	dwc2_writel(hsotg, gotgctl, GOTGCTL);
++	dwc2_ovr_write(hsotg, gotgctl);
+ 
  	return 0;
  }
  
 +/*
-+ * The PHY follows the role: its ID and VBUS settings for the host role keep
-+ * a gadget from attaching.
++ * The PHY follows the role: host mode for the host role, device mode for any
++ * other. Its ID and VBUS settings for a host keep a gadget from attaching.
 + */
-+static void dwc2_drd_phy_mode(struct dwc2_hsotg *hsotg, enum usb_role role)
++static int dwc2_drd_phy_mode(struct dwc2_hsotg *hsotg, enum usb_role role)
 +{
-+	if (role == USB_ROLE_HOST)
-+		phy_set_mode(hsotg->phy, PHY_MODE_USB_HOST);
-+	else if (role == USB_ROLE_DEVICE)
-+		phy_set_mode(hsotg->phy, PHY_MODE_USB_DEVICE);
++	int ret = phy_set_mode(hsotg->phy, role == USB_ROLE_HOST ?
++			       PHY_MODE_USB_HOST : PHY_MODE_USB_DEVICE);
++
++	if (ret)
++		dev_err(hsotg->dev, "failed to set the PHY mode for the %s role: %d\n",
++			role == USB_ROLE_HOST ? "host" : "device", ret);
++	return ret;
 +}
 +
 +/*
 + * usb_add_hcd() sets the PHYs of the controller to host mode. With a role
 + * switch the controller starts in its default role, not as a host.
 + */
-+void dwc2_drd_hcd_added(struct dwc2_hsotg *hsotg)
++int dwc2_drd_hcd_added(struct dwc2_hsotg *hsotg)
 +{
 +	if (!hsotg->role_sw || hsotg->dr_mode != USB_DR_MODE_OTG)
-+		return;
++		return 0;
 +
-+	if (hsotg->role_sw_default_mode == USB_DR_MODE_HOST)
-+		dwc2_drd_phy_mode(hsotg, USB_ROLE_HOST);
-+	else
-+		dwc2_drd_phy_mode(hsotg, USB_ROLE_DEVICE);
++	return dwc2_drd_phy_mode(hsotg, dwc2_drd_role(hsotg, USB_ROLE_NONE));
 +}
 +
  static int dwc2_drd_role_sw_set(struct usb_role_switch *sw, enum usb_role role)
  {
  	struct dwc2_hsotg *hsotg = usb_role_switch_get_drvdata(sw);
-@@ -156,9 +194,11 @@
+ 	unsigned long flags;
+ 	int already = 0;
++	int ret;
  
- 	spin_unlock_irqrestore(&hsotg->lock, flags);
+ 	/* Skip session not in line with dr_mode */
+ 	if ((role == USB_ROLE_DEVICE && hsotg->dr_mode == USB_DR_MODE_HOST) ||
+@@ -111,22 +176,29 @@
+ 	 * mode and sessions. It is the case if cable is plugged at boot.
+ 	 */
+ 	if (!hsotg->ll_hw_enabled && hsotg->clk) {
+-		int ret = clk_prepare_enable(hsotg->clk);
+-
++		ret = clk_prepare_enable(hsotg->clk);
+ 		if (ret)
+ 			return ret;
+ 	}
  
--	if (!already && hsotg->dr_mode == USB_DR_MODE_OTG)
-+	if (!already && hsotg->dr_mode == USB_DR_MODE_OTG) {
-+		dwc2_drd_phy_mode(hsotg, role);
- 		/* This will raise a Connector ID Status Change Interrupt */
- 		dwc2_force_mode(hsotg, role == USB_ROLE_HOST);
-+	}
+-	spin_lock_irqsave(&hsotg->lock, flags);
++	/* default operation mode when usb role is USB_ROLE_NONE */
++	role = dwc2_drd_role(hsotg, role);
  
- 	if (!hsotg->ll_hw_enabled && hsotg->clk)
- 		clk_disable_unprepare(hsotg->clk);
+-	if (role == USB_ROLE_NONE) {
+-		/* default operation mode when usb role is USB_ROLE_NONE */
+-		if (hsotg->role_sw_default_mode == USB_DR_MODE_HOST)
+-			role = USB_ROLE_HOST;
+-		else if (hsotg->role_sw_default_mode == USB_DR_MODE_PERIPHERAL)
+-			role = USB_ROLE_DEVICE;
++	/*
++	 * The PHY first, and at every request: when it fails nothing else
++	 * has changed, and the same request can be made again.
++	 */
++	if (hsotg->dr_mode == USB_DR_MODE_OTG) {
++		ret = dwc2_drd_phy_mode(hsotg, role);
++		if (ret) {
++			if (!hsotg->ll_hw_enabled && hsotg->clk)
++				clk_disable_unprepare(hsotg->clk);
++			return ret;
++		}
+ 	}
+ 
++	spin_lock_irqsave(&hsotg->lock, flags);
++
+ 	if ((IS_ENABLED(CONFIG_USB_DWC2_PERIPHERAL) ||
+ 	     IS_ENABLED(CONFIG_USB_DWC2_DUAL_ROLE)) &&
+ 	     dwc2_is_device_mode(hsotg) &&
+@@ -223,12 +295,7 @@
+ 		/* get last known role (as the get ops isn't implemented by this driver) */
+ 		role = usb_role_switch_get_role(hsotg->role_sw);
+ 
+-		if (role == USB_ROLE_NONE) {
+-			if (hsotg->role_sw_default_mode == USB_DR_MODE_HOST)
+-				role = USB_ROLE_HOST;
+-			else if (hsotg->role_sw_default_mode == USB_DR_MODE_PERIPHERAL)
+-				role = USB_ROLE_DEVICE;
+-		}
++		role = dwc2_drd_role(hsotg, role);
+ 
+ 		/* restore last role that may have been lost */
+ 		if (role == USB_ROLE_HOST)
 diff --git a/drivers/usb/dwc2/core.h b/drivers/usb/dwc2/core.h
 --- a/drivers/usb/dwc2/core.h
 +++ b/drivers/usb/dwc2/core.h
-@@ -1419,6 +1419,7 @@
+@@ -382,6 +382,11 @@
+  *			1 - Partial power down
+  *			2 - Hibernation
+  * @no_clock_gating:	Specifies whether to avoid clock gating feature.
++ * @ovr_bvalid_high:	The B-session valid override value must stay set while
++ *			the session overrides are enabled: with it clear the
++ *			core holds GOTGINT.SesEndDet asserted. A role switch
++ *			then has no state without a session: no role is the
++ *			default role, or the device role when none is given.
+  *			0 - No (use clock gating)
+  *			1 - Yes (avoid it)
+  * @lpm:		Enable LPM support.
+@@ -483,6 +488,7 @@
+ #define DWC2_POWER_DOWN_PARAM_PARTIAL		1
+ #define DWC2_POWER_DOWN_PARAM_HIBERNATION	2
+ 	bool no_clock_gating;
++	bool ovr_bvalid_high;
+ 
+ 	bool lpm;
+ 	bool lpm_clock_gating;
+@@ -1419,6 +1425,7 @@
  void dwc2_drd_suspend(struct dwc2_hsotg *hsotg);
  void dwc2_drd_resume(struct dwc2_hsotg *hsotg);
  void dwc2_drd_exit(struct dwc2_hsotg *hsotg);
-+void dwc2_drd_hcd_added(struct dwc2_hsotg *hsotg);
++int dwc2_drd_hcd_added(struct dwc2_hsotg *hsotg);
  
  /*
   * Dump core registers and SPRAM
+diff --git a/drivers/usb/dwc2/params.c b/drivers/usb/dwc2/params.c
+--- a/drivers/usb/dwc2/params.c
++++ b/drivers/usb/dwc2/params.c
+@@ -242,6 +242,7 @@
+ 	p->besl = false;
+ 	p->hird_threshold_en = false;
+ 	p->power_down = DWC2_POWER_DOWN_PARAM_NONE;
++	p->ovr_bvalid_high = true;
+ }
+ 
+ static void dwc2_set_stm32f4x9_fsotg_params(struct dwc2_hsotg *hsotg)
 diff --git a/drivers/usb/dwc2/platform.c b/drivers/usb/dwc2/platform.c
 --- a/drivers/usb/dwc2/platform.c
 +++ b/drivers/usb/dwc2/platform.c
-@@ -602,6 +602,7 @@
+@@ -601,6 +601,13 @@
+ 				dwc2_hsotg_remove(hsotg);
  			goto error_drd;
  		}
++		retval = dwc2_drd_hcd_added(hsotg);
++		if (retval) {
++			dwc2_hcd_remove(hsotg);
++			if (hsotg->gadget_enabled)
++				dwc2_hsotg_remove(hsotg);
++			goto error_drd;
++		}
  		hsotg->hcd_enabled = 1;
-+		dwc2_drd_hcd_added(hsotg);
  	}
  
- 	platform_set_drvdata(dev, hsotg);

@@ -51,20 +51,22 @@ def main():
 
     text = a.list.read_text().splitlines()
     first = next(i for i, l in enumerate(text) if 'KEEP(' in l)
-    # the lines before the first entry stay; after it, the offsets replace the spacing and older pins
-    lines = text[:first] + [l for l in text[first:]
-                            if not re.match(r'\s*\. = (MAX\(\., __hot_list \+ 0x[0-9a-f]+\)|ALIGN\(\. \+ 62, 64\));$', l)]
-    out, base, last, pinning = [], None, None, True
-    for l in lines:
+    # Retain the initial alignment and the hand-placed slots verbatim.
+    out = [l for l in text[:first] if l.strip() != '__hot_list = .;']
+    out.append('\t\t__hot_list = .;')
+    base = last = None
+    for i in range(first, len(text)):
+        l = text[i]
         if re.match(r'\s*__hot_(?!list\b)\w+ = \.;$', l):
-            pinning = False
-        if not pinning or 'KEEP(' not in l:
-            if not re.match(r'\s*__hot_list = \.;$', l):
-                out.append(l)
+            out.extend(text[i:])
+            break
+        if re.match(r'\s*\. = (MAX\(\., __hot_list \+ 0x[0-9a-f]+\)|ALIGN\(\. \+ 62, 64\));$', l):
+            continue
+        if 'KEEP(' not in l:
+            out.append(l)
             continue
         x = where(l)
         if base is None:
-            out.append('\t\t__hot_list = .;')
             base = last = x
         elif x is not None and x > last:
             out.append(f'\t\t. = MAX(., __hot_list + 0x{x - base:x});')

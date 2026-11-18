@@ -247,11 +247,22 @@ func usbHostDevicesAt(root string) []proto.USBHostDevice {
 
 func (s *Service) GetUSBHostDevices(c *gin.Context) {
 	var rsp proto.Response
-	// The port of the PCIe board supplies no power (every input is behind an
-	// ideal diode); on the other boards its VBUS is the board's 5 V rail.
-	power := "board"
-	if hw, err := os.ReadFile("/etc/kvm/hw"); err == nil && strings.TrimSpace(string(hw)) == "pcie" {
-		power = "none"
+	rsp.OkRspWithData(c, &proto.GetUSBHostDevicesRsp{Devices: usbHostDevicesAt("/sys/bus/usb/devices"), PortPower: usbPortPower()})
+}
+
+// usbPortPower is what the port supplies to a device attached to it.
+//   - none: the PCIe board, where every power input is behind an ideal diode;
+//   - board: a Cube, powered through its other port: the data port's VBUS is
+//     the board's 5 V rail;
+//   - shared: a Lite, whose one USB-C port is also its power input. It is a
+//     Cube's core board without the OLED board, which is how it is told.
+func usbPortPower() string {
+	hw, _ := os.ReadFile("/etc/kvm/hw")
+	if strings.TrimSpace(string(hw)) == "pcie" {
+		return "none"
 	}
-	rsp.OkRspWithData(c, &proto.GetUSBHostDevicesRsp{Devices: usbHostDevicesAt("/sys/bus/usb/devices"), PortPower: power})
+	if _, err := os.Stat(OLEDExistFile); err != nil {
+		return "shared"
+	}
+	return "board"
 }

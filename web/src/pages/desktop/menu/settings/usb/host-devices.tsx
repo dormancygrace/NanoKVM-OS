@@ -89,11 +89,7 @@ export const UsbHostDevices = () => {
       })}
       {state && (
         <p className="text-fg-muted m-0 text-xs">
-          {t(
-            state.portPower === 'none'
-              ? 'settings.usb.host.powerNone'
-              : 'settings.usb.host.powerBoard'
-          )}
+          {t(`settings.usb.host.power.${state.portPower}`)}
         </p>
       )}
     </div>

@@ -1200,7 +1200,7 @@
         "allOk": "Everything is OK",
         "problems": "Problems found: {{count}}",
         "packages": "Packages ({{count}})",
-        "usbOff": "USB is switched off in USB Gadget settings.",
+        "usbOff": "USB is switched off in the USB settings.",
         "optionalIdle": "Optional, not running",
         "nftFeatures": {
           "mss-clamp": "MSS clamp to path MTU",
@@ -1615,8 +1615,11 @@
           "full": "Full speed",
           "high": "High speed"
         },
-        "powerNone": "This board does not power the USB port: use a hub with its own power supply, or a device that has one.",
-        "powerBoard": "The port is powered from the board’s 5 V supply, without a current limit or protection."
+        "power": {
+          "none": "This board does not power the USB port: use a hub with its own power supply, or a device that has one.",
+          "board": "The port is powered from the board’s 5 V supply, without a current limit or protection.",
+          "shared": "The only USB-C port of this board is also its power input. As a host, power the board through the 5 V pins of its header; the port then powers the device from the same supply, without a current limit or protection."
+        }
       },
       "compositionMenu": "Composition",
       "identityMenu": "Identity (VID/PID)",

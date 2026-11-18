@@ -1,5 +1,5 @@
 import { http } from '@/lib/http.ts';
-import type { UsbComposition, UsbRole, UsbStatus } from '@/lib/usb-composition.ts';
+import type { UsbComposition, UsbPortPower, UsbRole, UsbStatus } from '@/lib/usb-composition.ts';
 
 export const usbCompositionChangedEvent = 'nanokvm:usb-composition-changed';
 
@@ -71,8 +71,7 @@ export type UsbHostDevice = {
 };
 export type UsbHostDevices = {
   devices: UsbHostDevice[];
-  // what the port supplies: nothing, or the board's 5 V rail
-  portPower: 'none' | 'board';
+  portPower: UsbPortPower;
 };
 
 export function getUsbHostDevices() {

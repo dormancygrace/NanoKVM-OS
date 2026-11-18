@@ -93,6 +93,8 @@ type GetVirtualDeviceRsp struct {
 	UserDisk bool `json:"userDisk"`
 	// gadget, host or off; a gadget with an empty composition is off as well
 	Role string `json:"role"`
+	// what the port supplies to a device in the host role (GetUSBHostDevicesRsp)
+	PortPower string `json:"portPower"`
 }
 
 type SetUSBRoleReq struct {
@@ -115,7 +117,8 @@ type USBHostDevice struct {
 
 type GetUSBHostDevicesRsp struct {
 	Devices []USBHostDevice `json:"devices"`
-	// what the port supplies to a device: "none", or "board" (the 5 V rail, unprotected)
+	// what the port supplies to a device: "none", "board" (the 5 V rail,
+	// unprotected) or "shared" (the port is also the power input)
 	PortPower string `json:"portPower"`
 }
 

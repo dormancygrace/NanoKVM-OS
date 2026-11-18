@@ -1,7 +1,7 @@
 import { Button, Segmented } from 'antd';
 import { useTranslation } from 'react-i18next';
 
-import type { UsbModeChoice } from '@/lib/usb-composition.ts';
+import type { UsbModeChoice, UsbPortPower } from '@/lib/usb-composition.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
 type UsbModeProps = {
@@ -12,6 +12,8 @@ type UsbModeProps = {
   pending: boolean;
   busy: boolean;
   disabled: boolean;
+  // what the port supplies in the host role, said before the switch to it
+  portPower?: UsbPortPower;
   onSelect: (mode: UsbModeChoice) => void;
   onApply: () => void;
   onCancel: () => void;
@@ -23,6 +25,7 @@ export const UsbMode = ({
   pending,
   busy,
   disabled,
+  portPower,
   onSelect,
   onApply,
   onCancel
@@ -56,6 +59,9 @@ export const UsbMode = ({
               from: t(`settings.usb.role.${current}.title`)
             })}
           </p>
+          {selected === 'host' && portPower && (
+            <p className="text-fg-muted m-0 text-xs">{t(`settings.usb.host.power.${portPower}`)}</p>
+          )}
           <div className="flex items-center gap-3">
             <Button type="primary" loading={busy} onClick={onApply}>
               {t('settings.usb.role.apply')}

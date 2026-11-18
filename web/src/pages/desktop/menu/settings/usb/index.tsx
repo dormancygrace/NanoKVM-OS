@@ -276,6 +276,7 @@ export const Usb = ({ part }: { part: UsbPart }) => {
           pending={modePending}
           busy={loading}
           disabled={!status}
+          portPower={status?.portPower}
           onSelect={(next) => {
             setPicked(next === current && next !== 'gadget' ? undefined : next);
             setError('');

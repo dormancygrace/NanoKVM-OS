@@ -848,7 +848,20 @@
     "flowControlHard": "Hard",
     "dataBits": "Data bits",
     "stopBits": "Stop bits",
-    "confirm": "OK"
+    "confirm": "OK",
+    "cancel": "Cancel",
+    "reconnecting": "Connection lost; the shell keeps running. Reconnecting… Press Enter to retry now.",
+    "takenOver": "This session was opened in another tab. Press Enter to take it back.",
+    "sessionClosed": "The session was ended from the session list. Press Enter to start a new shell.",
+    "sessionEnded": "The shell has ended. Press Enter to start a new one.",
+    "sessionGone": "This session is no longer running. Press Enter to start a new shell.",
+    "sessionLimit": "Too many terminal sessions are running. End one in the Terminal menu, then press Enter.",
+    "sessions": "Running sessions ({{count}} of {{max}})",
+    "sessionAttached": "open: {{where}}",
+    "sessionDetached": "no page open, ends {{ends}}",
+    "sessionOpen": "Open in a new tab",
+    "sessionClose": "End",
+    "sessionCloseConfirm": "End this shell and the programs running in it?"
   },
   "wol": {
     "title": "Wake-on-LAN",

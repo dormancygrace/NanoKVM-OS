@@ -126,8 +126,28 @@ func (r *sessionRegistry) recheck() {
 	}
 }
 
+var (
+	revokeHooksMutex sync.Mutex
+	revokeHooks      []func(username string)
+)
+
+// OnUserRevoked registers a function RevokeUserSessions calls after it ended
+// the user's requests: for state that outlives a request, such as a detached
+// terminal shell.
+func OnUserRevoked(hook func(username string)) {
+	revokeHooksMutex.Lock()
+	revokeHooks = append(revokeHooks, hook)
+	revokeHooksMutex.Unlock()
+}
+
 func RevokeUserSessions(username string) {
 	activeSessions.revoke(username)
+	revokeHooksMutex.Lock()
+	hooks := append([]func(string){}, revokeHooks...)
+	revokeHooksMutex.Unlock()
+	for _, hook := range hooks {
+		hook(username)
+	}
 }
 
 func (r *sessionRegistry) revoke(username string) {

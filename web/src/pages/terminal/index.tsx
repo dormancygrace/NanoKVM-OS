@@ -13,6 +13,7 @@ import { getBaseUrl } from '@/lib/service.ts';
 import { Head } from '@/components/head.tsx';
 
 import { readSerialSession } from './launch.ts';
+import { attachShell, type ShellText } from './shell.ts';
 import { buildSerialQuery } from './validater.ts';
 
 // A shell acts as root: the session confirms its password first (the server
@@ -54,6 +55,14 @@ const TerminalSession = () => {
     t('terminal.invalidParameters', { defaultValue: 'Invalid serial parameters.' })
   );
   const disconnected = useEffectEvent(() => t('terminal.disconnected'));
+  const shellText = useEffectEvent((): ShellText => ({
+    reconnecting: t('terminal.reconnecting'),
+    takenOver: t('terminal.takenOver'),
+    closed: t('terminal.sessionClosed'),
+    ended: t('terminal.sessionEnded'),
+    gone: t('terminal.sessionGone'),
+    limit: t('terminal.sessionLimit')
+  }));
 
   useEffect(() => {
     const terminalEle = document.getElementById('terminal');
@@ -69,29 +78,33 @@ const TerminalSession = () => {
     fitAddon.fit();
 
     const searchParams = readSerialSession();
-    let query = '';
-    if (searchParams.has('port')) {
-      const serialQuery = buildSerialQuery({
-        port: searchParams.get('port'),
-        baud: searchParams.get('baud'),
-        parity: searchParams.get('parity'),
-        flowControl: searchParams.get('flowControl'),
-        dataBits: searchParams.get('dataBits'),
-        stopBits: searchParams.get('stopBits')
-      });
-      if (serialQuery === null) {
-        terminal.writeln(invalidParameters());
-        return () => terminal.dispose();
-      }
-      query = `?${serialQuery}`;
+    if (!searchParams.has('port')) {
+      const shell = attachShell(terminal, fitAddon, terminalEle, shellText());
+      return () => {
+        shell.dispose();
+        terminal.dispose();
+      };
     }
-    const url = `${getBaseUrl('ws')}/api/vm/terminal${query}`;
+    // A serial terminal: a direct bridge to the port that ends with the page.
+    const serialQuery = buildSerialQuery({
+      port: searchParams.get('port'),
+      baud: searchParams.get('baud'),
+      parity: searchParams.get('parity'),
+      flowControl: searchParams.get('flowControl'),
+      dataBits: searchParams.get('dataBits'),
+      stopBits: searchParams.get('stopBits')
+    });
+    if (serialQuery === null) {
+      terminal.writeln(invalidParameters());
+      return () => terminal.dispose();
+    }
+    const url = `${getBaseUrl('ws')}/api/vm/terminal?${serialQuery}`;
     const ws = new WebSocket(url);
     let disposed = false;
     let resizeNonce = '';
     const resizeProtocol = terminal.parser.registerOscHandler(777, (data) => {
       const match = /^nkos-resize;1;([a-f0-9]{32})$/.exec(data);
-      if (!searchParams.has('port') || !match) return false;
+      if (!match) return false;
       resizeNonce = match[1];
       sendSize();
       return true;

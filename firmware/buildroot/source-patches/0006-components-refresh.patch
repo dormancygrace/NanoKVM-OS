@@ -1162,9 +1162,9 @@ index cfcd738b..74eb13d5 100644
  UTIL_LINUX_SOURCE = util-linux-$(UTIL_LINUX_VERSION).tar.xz
  UTIL_LINUX_SITE = $(BR2_KERNEL_MIRROR)/linux/utils/util-linux/v$(UTIL_LINUX_VERSION_MAJOR)
  
-diff --git a/support/libtool/buildroot-libtool-v2.6.patch b/support/libtool/buildroot-libtool-v2.6.patch
---- a/support/libtool/buildroot-libtool-v2.6.patch
-+++ b/support/libtool/buildroot-libtool-v2.6.patch
+diff --git a/support/libtool/buildroot-libtool-v2.6.2.patch b/support/libtool/buildroot-libtool-v2.6.2.patch
+--- a/support/libtool/buildroot-libtool-v2.6.2.patch
++++ b/support/libtool/buildroot-libtool-v2.6.2.patch
 @@ -3,9 +3,11 @@
  
  Signed-off-by: Yegor Yefremov <yegorslists@googlemail.com>

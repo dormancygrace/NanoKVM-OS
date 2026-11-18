@@ -73,6 +73,8 @@ func vmRouter(r *gin.Engine) {
 	api.POST("/vm/input-region", service.SetInputRegion)
 
 	admin.GET("/vm/terminal", middleware.RequireRecentAuth(), service.Terminal) // web terminal
+	admin.GET("/vm/terminal/sessions", service.GetTerminalSessions)             // running shells
+	admin.DELETE("/vm/terminal/sessions/:id", service.CloseTerminalSession)     // end a shell
 
 	admin.GET("/vm/script", service.GetScripts)                                                    // get script
 	admin.POST("/vm/script/upload", middleware.RequireRecentAuth(), service.UploadScript)          // upload script

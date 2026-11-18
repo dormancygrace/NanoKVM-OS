@@ -3,26 +3,32 @@ import { Divider } from 'antd';
 import { SquareTerminalIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { getTerminalSessions, type TerminalSession } from '@/api/terminal.ts';
 import { getVirtualDevice, usbCompositionChangedEvent } from '@/api/virtual-device.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 import { openSerialTerminal } from '@/pages/terminal/launch.ts';
 
 import { Nanokvm } from './nanokvm';
 import { SerialPort } from './serial-port';
+import { Sessions } from './sessions';
 
 export const Terminal = () => {
   const { t } = useTranslation();
   const [serialEnabled, setSerialEnabled] = useState(false);
+  const [sessions, setSessions] = useState<TerminalSession[]>([]);
+  const [maxSessions, setMaxSessions] = useState(0);
   const requestGeneration = useRef(0);
   const refresh = useCallback(async () => {
     const generation = ++requestGeneration.current;
-    try {
-      const response = await getVirtualDevice();
-      if (generation === requestGeneration.current)
-        setSerialEnabled(response.code === 0 && response.data?.serial === true);
-    } catch {
-      if (generation === requestGeneration.current) setSerialEnabled(false);
-    }
+    const [device, shells] = await Promise.allSettled([getVirtualDevice(), getTerminalSessions()]);
+    if (generation !== requestGeneration.current) return;
+    setSerialEnabled(
+      device.status === 'fulfilled' && device.value.code === 0 && device.value.data?.serial === true
+    );
+    const list =
+      shells.status === 'fulfilled' && shells.value.code === 0 ? shells.value.data : null;
+    setSessions(list?.sessions ?? []);
+    setMaxSessions(list?.max ?? 0);
   }, []);
 
   useEffect(() => {
@@ -59,6 +65,7 @@ export const Terminal = () => {
         </button>
       )}
       <SerialPort />
+      <Sessions sessions={sessions} max={maxSessions} onChange={() => void refresh()} />
     </div>
   );
 

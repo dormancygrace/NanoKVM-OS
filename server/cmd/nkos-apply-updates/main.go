@@ -217,13 +217,18 @@ func gather() snapshot {
 				}
 			}
 		case "nanokvm-policy":
-			for _, n := range []string{"S34mssclamp", "S38memory", "S49persistent-cron", "S94hwcrypto"} {
+			for _, n := range []string{"S34mssclamp", "S38memory", "S94hwcrypto"} {
 				t.Paths = append(t.Paths, "/usr/libexec/nanokvm/legacy/"+n)
 			}
+		case "nanokvm-policy-late":
+			t.Paths = append(t.Paths, "/usr/libexec/nanokvm/legacy/S49persistent-cron")
 		case "nanokvm-watchdog":
 			t.Paths = append(t.Paths, "/usr/libexec/nanokvm/legacy/S13nanokvm-watchdog")
 			t.Kind = "reboot"
-		case "nanokvm-board", "nanokvm-modules", "nanokvm-storage", "nanokvm-usb", "dbus", "udev", "udev-trigger", "devfs", "sysfs", "procfs", "root", "localmount", "hwclock", "sysctl", "modules", "hwdrivers", "bootmisc", "hostname":
+		case "procfs", "localmount":
+			t.Paths = append(t.Paths, "/etc/rc.conf.d/nanokvm-boot.conf")
+			t.Kind = "reboot"
+		case "nanokvm-board", "nanokvm-modules", "nanokvm-storage", "nanokvm-usb", "dbus", "udev", "udev-trigger", "devfs", "sysfs", "root", "hwclock", "sysctl", "modules", "hwdrivers", "bootmisc", "hostname":
 			t.Kind = "reboot"
 		}
 		if len(records) == 0 && !strings.HasPrefix(name, "nanokvm-") {

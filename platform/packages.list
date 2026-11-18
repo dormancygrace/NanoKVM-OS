@@ -52,6 +52,12 @@ base  file  /etc/sysctl.d/30-nanokvm-panic.conf          0644  firmware/alpine/e
 base  file  /etc/sysctl.d/40-nanokvm-multihome.conf      0644  firmware/alpine/etc/sysctl.d/40-nanokvm-multihome.conf
 base  file  /etc/sysctl.d/50-nanokvm-hardening.conf      0644  firmware/alpine/etc/sysctl.d/50-nanokvm-hardening.conf
 base  file  /etc/ssh/sshd_config.d/10-nanokvm-limits.conf 0644  firmware/alpine/etc/ssh/sshd_config.d/10-nanokvm-limits.conf
+base  file  /etc/rc.conf.d/nanokvm-boot.conf             0644  firmware/alpine/etc/rc.conf.d/nanokvm-boot.conf
+base  link  /etc/rc.conf.d/nanokvm-module-lists/etc-modules -     /etc/modules
+base  link  /etc/rc.conf.d/nanokvm-module-lists/etc-modules-load.d -     /etc/modules-load.d
+base  link  /etc/rc.conf.d/nanokvm-module-lists/lib-modules-load.d -     /lib/modules-load.d
+base  link  /etc/rc.conf.d/nanokvm-module-lists/usr-lib-modules-load.d -     /usr/lib/modules-load.d
+base  link  /etc/rc.conf.d/nanokvm-module-lists/run-modules-load.d -     /run/modules-load.d
 # /etc/profile.d/nanokvm-banner.sh is added by the nanokvm-base APKBUILD.
 base  file  /etc/init.d/nanokvm-app                       0755  firmware/alpine/openrc/nanokvm-app
 base  file  /etc/init.d/nanokvm-board                     0755  firmware/alpine/openrc/nanokvm-board
@@ -63,6 +69,7 @@ base  file  /etc/modprobe.d/nanokvm-accelerators.conf     0644  firmware/alpine/
 base  file  /etc/modprobe.d/nanokvm-wifi.conf             0644  firmware/alpine/modprobe.d/nanokvm-wifi.conf
 base  file  /etc/init.d/nanokvm-network                   0755  firmware/alpine/openrc/nanokvm-network
 base  file  /etc/init.d/nanokvm-policy                    0755  firmware/alpine/openrc/nanokvm-policy
+base  file  /etc/init.d/nanokvm-policy-late               0755  firmware/alpine/openrc/nanokvm-policy-late
 base  file  /etc/init.d/nanokvm-ssh                       0755  firmware/alpine/openrc/nanokvm-ssh
 base  file  /etc/init.d/nanokvm-rescue                    0755  firmware/alpine/openrc/nanokvm-rescue
 base  file  /etc/init.d/nanokvm-storage                   0755  firmware/alpine/openrc/nanokvm-storage

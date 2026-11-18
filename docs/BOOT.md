@@ -36,7 +36,8 @@ from it, the system starts, but without the drivers that need them.
 ## Start without video
 
 The application (`nanokvm-app`), USB HID (`nanokvm-usb`) and the runtime
-policy need the storage setup and `nanokvm-board`, which fails only when the
+policy (`nanokvm-policy` before the server, `nanokvm-policy-late` after it)
+need the storage setup and `nanokvm-board`, which fails only when the
 settings recovery it runs first fails (docs/SETTINGS-RECOVERY.md): then the
 restored configuration cannot be used and they stay stopped. The board's
 hardware steps (configuration, identity, receiver detection) and the media

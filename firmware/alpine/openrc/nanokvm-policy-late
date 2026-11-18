@@ -1,0 +1,17 @@
+#!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034
+description="NanoKVM policy the server does not need at start"
+depend() {
+    need nanokvm-storage nanokvm-board
+    after nanokvm-app
+    before crond
+}
+start() {
+    ebegin "Applying deferred NanoKVM policy"
+    # nanokvm-app returns once the server listens. A crontab(1) write before
+    # this already reaches /etc/kvm/cron: its spool, /var/spool/cron/crontabs,
+    # is alpine-baselayout's link to /etc/crontabs, which nanokvm-base links
+    # there. This only makes the spool link direct, once per system.
+    /usr/libexec/nanokvm/legacy/S49persistent-cron start || ewarn "Could not apply S49persistent-cron"
+    eend 0
+}

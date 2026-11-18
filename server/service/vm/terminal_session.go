@@ -65,8 +65,9 @@ type WinSize struct {
 }
 
 // pageMessage is a binary message from the terminal page: the window size,
-// or keyboard input and terminal answers together with the output offset the
-// page has processed (see shell.processed).
+// the output offset its terminal processed (see shell.processed), or the
+// terminal's answers to the queries in a chunk of output together with the
+// offset of its end. Keyboard input comes as text messages.
 type pageMessage struct {
 	Rows uint16  `json:"rows"`
 	Cols uint16  `json:"cols"`
@@ -449,8 +450,8 @@ func (s *shell) readInput(ws *websocket.Conn) {
 		if json.Unmarshal(data, &message) != nil {
 			continue
 		}
-		// An answer reaches the shell together with the offset it answers up
-		// to: a page that went away after sending it is not asked again.
+		// Answers reach the shell together with the end of the output they
+		// answer: a page that went away after sending them is not asked again.
 		if message.Data != nil {
 			if _, err = s.ptmx.Write([]byte(*message.Data)); err != nil {
 				return
@@ -516,9 +517,13 @@ func (s *shell) finish(ws *websocket.Conn, code int, reason string, first bool) 
 	err := endSession(s.cmd.Process.Pid)
 	if first {
 		_ = s.ptmx.Close()
-		// The shell itself is in the session; Kill covers an attempt that
-		// failed before reaching it, so Wait cannot hang.
-		_ = s.cmd.Process.Kill()
+	}
+	// The shell stays unreaped until no program of its session is left: its
+	// pid is the session id, and while it is a zombie no new process or
+	// session can take that number, so a later attempt still signals this
+	// session. Once the attempt succeeded the shell has exited (it is in the
+	// session), and Wait returns at once.
+	if err == nil {
 		_ = s.cmd.Wait()
 	}
 

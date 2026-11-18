@@ -27,6 +27,9 @@ const shellEnded = 4411;
 const shellLimit = 4429;
 
 const retryDelays = [1000, 2000, 4000, 8000];
+// The terminal's answers to the queries in one chunk of output, at most:
+// with JSON escaping well inside the server's 64 KiB message limit.
+const maxAnswers = 4096;
 
 // attachShell connects the terminal to this tab's shell on the NanoKVM, or to
 // a new one. The shell outlives the connection: after a dropped network the
@@ -45,13 +48,14 @@ export function attachShell(
   let onEnter: (() => void) | null = null;
   // The output of the current connection, by offset in the shell's output:
   // written to the terminal up to `written`, processed by it up to
-  // `processed`, and the chunks in between. Answers to the terminal queries
-  // in a muted chunk are dropped: a page processed it before and answered.
+  // `processed`, and the chunks in between, each with the terminal's answers
+  // to the queries in it so far. Answers in a muted chunk are dropped: a page
+  // processed it before and answered.
   type Output = {
     written: number;
     processed: number;
     acked: number;
-    chunks: { end: number; mute: boolean }[];
+    chunks: { end: number; mute: boolean; answers: string }[];
     replayNext: boolean;
     replayPending: number;
   };
@@ -80,11 +84,21 @@ export function attachShell(
     if (data.length === 0) return;
     const end = current.written + data.length;
     current.written = end;
-    current.chunks.push({ end, mute });
+    const chunk = { end, mute, answers: '' };
+    current.chunks.push(chunk);
     terminal.write(data, () => {
       current.chunks.shift();
       current.processed = end;
-      if (current === output && !ackTimer) ackTimer = window.setTimeout(sendAck, 100);
+      if (current !== output) return;
+      // The chunk is processed: its answers go out with its end, in one
+      // message, so the server never has the answers without the offset or
+      // the offset without the answers.
+      if (chunk.answers) {
+        send({ data: chunk.answers, ack: end });
+        current.acked = Math.max(current.acked, end);
+      } else if (!ackTimer) {
+        ackTimer = window.setTimeout(sendAck, 100);
+      }
     });
   };
 
@@ -215,12 +229,29 @@ export function attachShell(
   // processing: each goes out with the offset it answers up to, in one
   // message, so the server never has the answer without the offset or the
   // offset without the answer.
+  // The terminal's data: what the user types, pastes or does with the mouse,
+  // which arrives during a keyboard, mouse, focus, input or clipboard event,
+  // and its answers to queries in the output, which it gives while it
+  // processes a chunk: in its own timer, or right in the message handler
+  // after user input. Input goes out as text at once, without moving the
+  // processed offset; answers wait for the end of their chunk.
   const input = terminal.onData((data) => {
-    if (!output) return;
+    if (!output || !ws || ws.readyState !== WebSocket.OPEN) return;
     const chunk = output.chunks[0];
-    if (chunk?.mute) return;
-    send({ data, ack: chunk ? chunk.end : output.processed });
-    if (chunk) output.acked = Math.max(output.acked, chunk.end);
+    const event = (window as { event?: Event }).event;
+    if (event instanceof UIEvent || event instanceof ClipboardEvent || !chunk) {
+      ws.send(data);
+      return;
+    }
+    if (chunk.mute) return;
+    if (chunk.answers.length + data.length > maxAnswers) {
+      // Far beyond any real answer: pass it on without the offset, so a
+      // page attaching later may answer the same queries again.
+      ws.send(chunk.answers + data);
+      chunk.answers = '';
+      return;
+    }
+    chunk.answers += data;
   });
   const enter = terminal.onKey(({ domEvent }) => {
     if (domEvent.key === 'Enter' && onEnter) onEnter();

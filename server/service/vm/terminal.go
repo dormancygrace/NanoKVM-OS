@@ -35,7 +35,7 @@ func (s *Service) Terminal(c *gin.Context) {
 			return
 		}
 	}
-	principal, _ := middleware.CurrentPrincipal(c)
+	account := middleware.CurrentAccount(c)
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Errorf("failed to init websocket: %s", err)
@@ -55,12 +55,16 @@ func (s *Service) Terminal(c *gin.Context) {
 	}
 
 	var sh *shell
+	started := false
 	if id := query.Get("session"); id != "" {
-		if sh = shells.get(id); sh == nil || sh.username != principal.Username {
+		// Only the sign-in that started a shell attaches to it: the same
+		// user is not enough once their account changed or they signed in
+		// again after a revocation.
+		if sh = shells.get(id); sh == nil || !sh.account.Same(account) {
 			closeWebSocket(ws, shellNotFoundCode, "terminal session not found")
 			return
 		}
-	} else if sh, err = shells.start(principal.Username); err != nil {
+	} else if sh, err = shells.start(account); err != nil {
 		if errors.Is(err, errShellLimit) {
 			closeWebSocket(ws, shellLimitCode, "too many terminal sessions")
 			return
@@ -68,18 +72,31 @@ func (s *Service) Terminal(c *gin.Context) {
 		_ = ws.WriteMessage(websocket.BinaryMessage, []byte("Unable to start terminal session.\r\n"))
 		log.Errorf("terminal session failed: %s", err)
 		return
+	} else {
+		started = true
 	}
 	if err := sh.attach(ws, middleware.ClientAddress(c.Request), c.Request.UserAgent()); err != nil {
-		closeWebSocket(ws, shellNotFoundCode, "terminal session not found")
+		switch {
+		case errors.Is(err, errShellEnded):
+			closeWebSocket(ws, shellNotFoundCode, "terminal session not found")
+		case started:
+			// Nobody learnt this shell's id: end it rather than leave it
+			// waiting for a page that cannot come back.
+			if err := sh.close(0, ""); err != nil {
+				log.Errorf("terminal session of %s: %s", account.Username, err)
+			}
+		}
 		return
 	}
 	sh.readInput(ws)
 
 	// A cancelled request means the session watcher revoked the sign-in
-	// (sign-out, password change, account removed): end the shell rather
-	// than keep it for the next page.
+	// (sign-out, password change, account removed) or it expired: end the
+	// shell rather than keep it for the next page.
 	if c.Request.Context().Err() != nil {
-		sh.close(0, "")
+		if err := sh.close(0, ""); err != nil {
+			log.Errorf("terminal session of %s: %s", account.Username, err)
+		}
 		return
 	}
 	sh.detach(ws)
@@ -105,16 +122,16 @@ type terminalSessionInfo struct {
 // GetTerminalSessions lists the running shells of all users.
 func (s *Service) GetTerminalSessions(c *gin.Context) {
 	var rsp proto.Response
-	principal, _ := middleware.CurrentPrincipal(c)
+	account := middleware.CurrentAccount(c)
 	list := shells.list()
 	infos := make([]terminalSessionInfo, 0, len(list))
 	for _, sh := range list {
 		info := terminalSessionInfo{
 			ID:        sh.id,
-			Username:  sh.username,
+			Username:  sh.account.Username,
 			Command:   sh.foreground(),
 			CreatedAt: sh.created.UnixMilli(),
-			Own:       sh.username == principal.Username,
+			Own:       sh.account.Same(account),
 		}
 		sh.mutex.Lock()
 		info.Attached = sh.ws != nil
@@ -137,6 +154,10 @@ func (s *Service) CloseTerminalSession(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "terminal session not found")
 		return
 	}
-	sh.close(shellClosedCode, "terminal session closed")
+	if err := sh.close(shellClosedCode, "terminal session closed"); err != nil {
+		log.Errorf("terminal session of %s: %s", sh.account.Username, err)
+		rsp.ErrRsp(c, -1, "programs of the terminal session are still running")
+		return
+	}
 	rsp.OkRsp(c)
 }

@@ -14,6 +14,7 @@ import (
 	"NanoKVM-Server/authn"
 	"NanoKVM-Server/config"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
@@ -124,6 +125,46 @@ func (r *sessionRegistry) recheck() {
 			entry.cancel()
 		}
 	}
+}
+
+// Account is the sign-in a request was made with: the user and the
+// generation of their sign-in (token version) in the account store that
+// accepted it. State that outlives the request, such as a detached terminal
+// shell, keeps it and checks it again later.
+type Account struct {
+	Username     string
+	tokenVersion uint64
+	// store is nil when the request carried no token (authentication
+	// disabled): such an account has no generation to lose.
+	store *authn.Store
+}
+
+// CurrentAccount is the request's sign-in, known once CheckToken accepted it.
+func CurrentAccount(c *gin.Context) Account {
+	principal, _ := CurrentPrincipal(c)
+	account := Account{Username: principal.Username}
+	if value, ok := c.Get(tokenContextKey); ok {
+		if token, isToken := value.(*Token); isToken && token != nil {
+			account.tokenVersion, account.store = token.TokenVersion, authn.DefaultStore
+		}
+	}
+	return account
+}
+
+// Same reports whether two requests share one sign-in generation.
+func (a Account) Same(b Account) bool {
+	return a.Username == b.Username && a.tokenVersion == b.tokenVersion && a.store == b.store
+}
+
+// Valid reports whether the store still accepts this sign-in and the user
+// still has the role: false once the account was removed, disabled, reset,
+// changed or signed out, through the server or not.
+func (a Account) Valid(role authn.Role) bool {
+	if a.store == nil {
+		return true
+	}
+	user, err := a.store.ValidateToken(a.Username, a.tokenVersion)
+	return err == nil && user.Role == role
 }
 
 var (

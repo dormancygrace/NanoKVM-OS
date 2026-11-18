@@ -43,8 +43,10 @@ export function attachShell(
   let retryTimer = 0;
   // What Enter does while the connection is down.
   let onEnter: (() => void) | null = null;
-  // The next output message is the replay; it is being written.
+  // The next output message is the replay, of which the last replayPending
+  // bytes no page received; the received part is being written.
   let replayNext = false;
+  let replayPending = 0;
   let replaying = false;
 
   const notice = (message: string) => terminal.writeln(`\r\n\x1b[33m${message}\x1b[0m`);
@@ -71,12 +73,17 @@ export function attachShell(
       if (typeof event.data === 'string') {
         // The first message names the shell; the replay of its recent output
         // follows, so the screen starts over.
-        const hello = JSON.parse(event.data) as { session?: string; replay?: number };
+        const hello = JSON.parse(event.data) as {
+          session?: string;
+          replay?: number;
+          pending?: number;
+        };
         if (hello.session) {
           storeShellSession(hello.session);
           retries = 0;
           terminal.reset();
           replayNext = (hello.replay ?? 0) > 0;
+          replayPending = hello.pending ?? 0;
           sendSize();
         }
         return;
@@ -86,13 +93,17 @@ export function attachShell(
         terminal.write(data);
         return;
       }
-      // The replay's terminal queries were answered when they first ran: the
-      // answers the terminal gives now must not reach the shell as input.
+      // A page already received the start of the replay and answered its
+      // terminal queries (cursor position and the like): answering again
+      // would reach the shell as input. The end was output while no page was
+      // attached; a program may still wait for the answers to its queries.
       replayNext = false;
+      const answered = data.length - Math.min(replayPending, data.length);
       replaying = true;
-      terminal.write(data, () => {
+      terminal.write(data.subarray(0, answered), () => {
         replaying = false;
       });
+      terminal.write(data.subarray(answered));
     };
     socket.onclose = (event) => {
       if (disposed || ws !== socket) return;

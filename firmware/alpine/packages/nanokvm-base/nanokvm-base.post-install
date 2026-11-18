@@ -137,4 +137,9 @@ if [ ! -e /etc/ssh/sshd_config.d/00-nanokvm-root.conf ]; then
     printf 'PermitRootLogin yes\n' > /etc/ssh/sshd_config.d/00-nanokvm-root.conf
 fi
 
+# A new installation has the 40-bit Ethernet MAC from its first boot: there is
+# no older address for a later update to keep (see post-upgrade).
+mkdir -p /var/lib/nanokvm
+: > /var/lib/nanokvm/eth-mac-checked
+
 exit 0

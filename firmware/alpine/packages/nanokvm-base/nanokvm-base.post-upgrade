@@ -125,29 +125,40 @@ fi
 unset syslog_conf syslog_marker syslog_changed
 
 # Ethernet MAC: releases up to 4.2.1 derived it from 16 bits of the chip UID
-# (48:da:35:6f:xx:xx); S10uuid now uses 40 bits. A device running with the
-# old address keeps it, and its DHCP reservations. The address is recorded
-# here, in the root filesystem this update is being written to, as a complete
-# file under its final name; the boot volume may be unmounted or read-only
-# now. S10uuid uses the record when /boot/eth.mac sets no address and moves
-# it there. Decided once: after that, removing /boot/eth.mac gives the device
-# its new address at the next boot, also when a later update runs before it.
-if [ ! -e /etc/kvm/eth.mac.checked ]; then
+# (48:da:35:6f:xx:xx); S10uuid now uses 40 bits. A device that used the old
+# address keeps it, and its DHCP reservations. The address is recorded here,
+# in the root filesystem this update is being written to, as a complete file
+# under its final name; the boot volume may be unmounted or read-only now.
+# S10uuid uses the record when /boot/eth.mac sets no address and moves it
+# there. Decided once (a new installation is marked decided by post-install):
+# after that, removing /boot/eth.mac gives the device its new address at the
+# next boot, also when a later update runs before it.
+if [ ! -e /var/lib/nanokvm/eth-mac-checked ]; then
     eth_mac=$(cat /sys/class/net/eth0/address 2>/dev/null || true)
-    mkdir -p /etc/kvm
     case "$eth_mac" in
-        48:da:35:6f:??:??)
-            if ! { printf '%s\n' "$eth_mac" > /etc/kvm/eth.mac.legacy.new &&
-                mv -f /etc/kvm/eth.mac.legacy.new /etc/kvm/eth.mac.legacy; }; then
-                rm -f /etc/kvm/eth.mac.legacy.new
-                echo "Could not record the Ethernet MAC address $eth_mac in /etc/kvm/eth.mac.legacy: do not reboot before /boot/eth.mac contains it, or the address changes." >&2
-                eth_mac_lost=yes
-            fi
-            ;;
+        48:da:35:6f:??:??) ;;
+        # Another address was seen: an override. Nothing to keep.
+        ??:??:??:??:??:??) eth_mac= ;;
+        # The interface cannot be read: S10uuid derives the default of that
+        # release from the chip UID. An override in /boot/eth.mac still wins
+        # over the record.
+        *) eth_mac=legacy-default ;;
     esac
-    # Not decided while the record failed: the next update tries again, and
-    # this one reports failure once its other steps are done.
-    [ -n "${eth_mac_lost:-}" ] || : > /etc/kvm/eth.mac.checked
+    if [ -n "$eth_mac" ]; then
+        mkdir -p /etc/kvm
+        if ! { printf '%s\n' "$eth_mac" > /etc/kvm/eth.mac.legacy.new &&
+            mv -f /etc/kvm/eth.mac.legacy.new /etc/kvm/eth.mac.legacy; }; then
+            rm -f /etc/kvm/eth.mac.legacy.new
+            echo "Could not record the Ethernet MAC address ($eth_mac) in /etc/kvm/eth.mac.legacy: do not reboot before /boot/eth.mac contains the address, or it changes." >&2
+            eth_mac_lost=yes
+        fi
+    fi
+    # Not decided while the record failed: the next run of this script
+    # tries again, and this one reports failure once its other steps are done.
+    if [ -z "${eth_mac_lost:-}" ]; then
+        mkdir -p /var/lib/nanokvm
+        : > /var/lib/nanokvm/eth-mac-checked
+    fi
     unset eth_mac
 fi
 # Ethernet MAC end

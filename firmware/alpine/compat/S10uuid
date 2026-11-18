@@ -7,6 +7,7 @@ set -eu
 : "${NANOKVM_ID_UID:=/sys/class/cvi-base/base_uid}"
 : "${NANOKVM_ID_HOSTNAME:=hostname}"
 : "${NANOKVM_ID_IP:=ip}"
+: "${NANOKVM_ID_MOUNTPOINT:=mountpoint}"
 
 die() { echo "S10uuid: $*" >&2; exit 1; }
 read_value() { sed 's/\r$//' "$1"; }
@@ -51,11 +52,14 @@ valid_hostname "$new_hostname" || die 'invalid hostname'
 # 16-bit address this device ran with before an update (written by the
 # package's post-upgrade to the root filesystem, which it can always write).
 kept_mac=$NANOKVM_ID_ETC/kvm/eth.mac.legacy
+override=
 if [ -s "$NANOKVM_ID_BOOT/eth.mac" ]; then
     ethmac=$(read_value "$NANOKVM_ID_BOOT/eth.mac")
-    rm -f "$kept_mac"
+    override=yes
 elif [ -s "$kept_mac" ]; then
     ethmac=$(read_value "$kept_mac")
+    # The update could not read the interface: the default of that release.
+    [ "$ethmac" != legacy-default ] || ethmac="48:da:35:6f:${suffix%??}:${suffix#??}"
 else
     # A locally administered address from 40 bits of the chip UID hash: with
     # the 16 bits used before, two devices on one network share an address
@@ -67,11 +71,18 @@ else
 fi
 valid_mac "$ethmac" || die 'invalid Ethernet MAC address'
 # The kept address becomes the eth.mac override, where the user finds and can
-# remove it. Until the boot volume takes it (complete file, then rename), the
-# record stays and is used again at the next boot.
-if [ ! -s "$NANOKVM_ID_BOOT/eth.mac" ] && [ -s "$kept_mac" ]; then
-    if cp "$kept_mac" "$NANOKVM_ID_BOOT/eth.mac.new" 2>/dev/null &&
-        mv -f "$NANOKVM_ID_BOOT/eth.mac.new" "$NANOKVM_ID_BOOT/eth.mac" 2>/dev/null; then
+# remove it; an override the user set, now known to be valid, replaces it. The
+# record goes only while the boot volume is mounted, and only after that
+# volume holds the address (complete file, rename, flush): the storage service
+# goes on without /boot when its mount fails, and a file written into the
+# bare directory would be hidden by the volume at the next boot. Until then
+# the record stays and is used again.
+if [ -s "$kept_mac" ] && "$NANOKVM_ID_MOUNTPOINT" -q "$NANOKVM_ID_BOOT"; then
+    if [ -n "$override" ]; then
+        rm -f "$kept_mac"
+    elif { printf '%s\n' "$ethmac" > "$NANOKVM_ID_BOOT/eth.mac.new"; } 2>/dev/null &&
+        mv -f "$NANOKVM_ID_BOOT/eth.mac.new" "$NANOKVM_ID_BOOT/eth.mac" 2>/dev/null &&
+        sync; then
         rm -f "$kept_mac"
     else
         rm -f "$NANOKVM_ID_BOOT/eth.mac.new" 2>/dev/null || true

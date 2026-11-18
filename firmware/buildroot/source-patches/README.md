@@ -18,7 +18,5 @@ Changes invalidate the platform toolchain input fingerprint. Do not relabel
 old output as rebuilt: a change here needs a complete platform build and a
 test of its output.
 
-Buildroot 2026.08.1 already supplies Python 3.14.8 and the libtool 2.6
-support patch. The local refresh retains its 2.6.2 adjustments by modifying
-that patch rather than adding it again. The upstream libtool hook already
-normalizes 2.6.2 to 2.6, so its version selection is unchanged.
+Buildroot 2026.08.2 selects separate libtool support patches for 2.6.0 and
+2.6.2. The local refresh adjusts the 2.6.2 patch used by the platform.

@@ -215,7 +215,9 @@ func (s *shell) attach(ws *websocket.Conn, clientIP, userAgent string) error {
 	if previous != nil {
 		closeWebSocket(previous, shellTakenOverCode, "terminal session opened elsewhere")
 	}
-	hello, _ := json.Marshal(map[string]string{"session": s.id})
+	// The page writes the replay without answering the terminal queries in it
+	// (cursor position and the like): they were answered when they ran.
+	hello, _ := json.Marshal(map[string]any{"session": s.id, "replay": len(replay)})
 	_ = ws.SetWriteDeadline(time.Now().Add(messageWait))
 	if err := ws.WriteMessage(websocket.TextMessage, hello); err != nil {
 		return err

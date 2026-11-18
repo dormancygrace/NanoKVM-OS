@@ -1,7 +1,9 @@
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 
+import { getRecheck } from '@/api/auth.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
+import { requestRecheck } from '@/lib/recheck.ts';
 import { getBaseUrl } from '@/lib/service.ts';
 
 import { readShellSession, storeShellSession } from './launch.ts';
@@ -13,6 +15,7 @@ export type ShellText = {
   ended: string;
   gone: string;
   limit: string;
+  declined: string;
 };
 
 // Close codes of server/service/vm/terminal_session.go.
@@ -40,6 +43,9 @@ export function attachShell(
   let retryTimer = 0;
   // What Enter does while the connection is down.
   let onEnter: (() => void) | null = null;
+  // The next output message is the replay; it is being written.
+  let replayNext = false;
+  let replaying = false;
 
   const notice = (message: string) => terminal.writeln(`\r\n\x1b[33m${message}\x1b[0m`);
 
@@ -65,16 +71,28 @@ export function attachShell(
       if (typeof event.data === 'string') {
         // The first message names the shell; the replay of its recent output
         // follows, so the screen starts over.
-        const hello = JSON.parse(event.data) as { session?: string };
+        const hello = JSON.parse(event.data) as { session?: string; replay?: number };
         if (hello.session) {
           storeShellSession(hello.session);
           retries = 0;
           terminal.reset();
+          replayNext = (hello.replay ?? 0) > 0;
           sendSize();
         }
         return;
       }
-      terminal.write(new Uint8Array(event.data));
+      const data = new Uint8Array(event.data);
+      if (!replayNext) {
+        terminal.write(data);
+        return;
+      }
+      // The replay's terminal queries were answered when they first ran: the
+      // answers the terminal gives now must not reach the shell as input.
+      replayNext = false;
+      replaying = true;
+      terminal.write(data, () => {
+        replaying = false;
+      });
     };
     socket.onclose = (event) => {
       if (disposed || ws !== socket) return;
@@ -85,7 +103,7 @@ export function attachShell(
           return;
         case shellTakenOver:
           notice(text.takenOver);
-          onEnter = connect;
+          onEnter = () => void reconnect();
           return;
         case shellClosed:
         case shellEnded:
@@ -98,26 +116,54 @@ export function attachShell(
                 ? text.ended
                 : text.gone
           );
-          onEnter = connect;
+          onEnter = () => void reconnect();
           return;
         case shellLimit:
           notice(text.limit);
-          onEnter = connect;
+          onEnter = () => void reconnect();
           return;
       }
       // The network or the page's connection dropped: the shell is waiting.
-      notice(text.reconnecting);
-      onEnter = connect;
-      retryTimer = window.setTimeout(
-        connect,
-        retryDelays[Math.min(retries, retryDelays.length - 1)]
-      );
-      retries += 1;
+      if (retries === 0) notice(text.reconnecting);
+      retry();
     };
   };
 
+  const retry = () => {
+    onEnter = reconnect;
+    retryTimer = window.setTimeout(
+      reconnect,
+      retryDelays[Math.min(retries, retryDelays.length - 1)]
+    );
+    retries += 1;
+  };
+
+  // The server opens a shell only within a few minutes of a password
+  // confirmation, reattaching included (the shell acts as root). Past that it
+  // refuses the socket, so confirm first, as the page did when it opened.
+  const reconnect = async () => {
+    window.clearTimeout(retryTimer);
+    onEnter = null;
+    const fresh = await getRecheck()
+      .then((rsp) => (rsp.code === 0 ? rsp.data.fresh : null))
+      .catch(() => null);
+    if (disposed) return;
+    if (fresh === null) {
+      // The NanoKVM is still out of reach.
+      retry();
+      return;
+    }
+    if (!fresh && !(await requestRecheck())) {
+      if (disposed) return;
+      notice(text.declined);
+      onEnter = () => void reconnect();
+      return;
+    }
+    if (!disposed) connect();
+  };
+
   const input = terminal.onData((data) => {
-    if (ws?.readyState === WebSocket.OPEN) ws.send(data);
+    if (!replaying && ws?.readyState === WebSocket.OPEN) ws.send(data);
   });
   const enter = terminal.onKey(({ domEvent }) => {
     if (domEvent.key === 'Enter' && onEnter) onEnter();

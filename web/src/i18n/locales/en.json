@@ -859,6 +859,7 @@
     "sessions": "Running sessions ({{count}} of {{max}})",
     "sessionAttached": "open: {{where}}",
     "sessionDetached": "no page open, ends {{ends}}",
+    "recheckDeclined": "The terminal needs your password. Press Enter to try again.",
     "sessionOpen": "Open in a new tab",
     "sessionClose": "End",
     "sessionCloseConfirm": "End this shell and the programs running in it?"

@@ -796,6 +796,7 @@
     "sessions": "Запущенные сессии ({{count}} из {{max}})",
     "sessionAttached": "открыта: {{where}}",
     "sessionDetached": "без вкладки, завершится {{ends}}",
+    "recheckDeclined": "Для терминала нужен пароль. Нажмите Enter, чтобы попробовать снова.",
     "sessionOpen": "Открыть в новой вкладке",
     "sessionClose": "Завершить",
     "sessionCloseConfirm": "Завершить эту оболочку и запущенные в ней программы?"

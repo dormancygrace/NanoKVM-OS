@@ -61,7 +61,8 @@ const TerminalSession = () => {
     closed: t('terminal.sessionClosed'),
     ended: t('terminal.sessionEnded'),
     gone: t('terminal.sessionGone'),
-    limit: t('terminal.sessionLimit')
+    limit: t('terminal.sessionLimit'),
+    declined: t('terminal.recheckDeclined')
   }));
 
   useEffect(() => {

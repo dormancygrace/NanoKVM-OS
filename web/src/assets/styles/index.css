@@ -197,3 +197,17 @@ body {
     opacity: 1;
   }
 }
+
+/*
+ * antd draws a pop-up list with a shadow only, and a segmented switch
+ * without a frame: on the dark page neither has a visible edge. Both get the
+ * line of the other controls, and the segments of a switch a gap between them.
+ */
+.ant-select-dropdown,
+.ant-segmented {
+  border: 1px solid var(--color-line);
+}
+
+.ant-segmented .ant-segmented-group {
+  gap: 2px;
+}

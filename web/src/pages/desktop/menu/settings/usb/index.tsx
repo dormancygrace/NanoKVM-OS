@@ -312,15 +312,16 @@ export const Usb = ({ part }: { part: UsbPart }) => {
                     disabled={!status || loading}
                     onChange={choosePreset}
                     options={[
-                      ...usbPresets.map((preset) => ({
-                        value: preset.id,
-                        label:
-                          preset.id === 'disabled'
-                            ? t('settings.network.ethernet.disabled')
-                            : t(`settings.usb.presets.${preset.id}.title`),
-                        disabled: !status || !fitsBudget(preset.composition, status)
-                      })),
-                      { value: 'custom', label: t('settings.usb.custom') }
+                      ...usbPresets
+                        .filter((preset) => preset.id !== 'disabled')
+                        .map((preset) => ({
+                          value: preset.id,
+                          label: t(`settings.usb.presets.${preset.id}.title`),
+                          disabled: !status || !fitsBudget(preset.composition, status)
+                        })),
+                      { value: 'custom', label: t('settings.usb.custom') },
+                      // no function at all: last, apart from the choices of functions
+                      { value: 'disabled', label: t('settings.network.ethernet.disabled') }
                     ]}
                   />
                 </SettingRow>

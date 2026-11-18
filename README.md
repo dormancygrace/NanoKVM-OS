@@ -244,7 +244,7 @@ platform/build.sh -d
 
 `-d` generates **local test signing keys**. Official release builds require the maintainer's ECDSA key; test-signed packages are not official updates. See [build and signing instructions](platform/README.md).
 
-The platform uses **Linux 7.3.4**, **U-Boot 2026.10**, **OpenSBI 1.9** and a **GCC 16.2 / T-Head C906** toolchain built with **Buildroot 2026.08.2**. Kernel/modules use `-O3` without LTO; native userspace uses the reviewed scalar `-O2` profile. The server uses **Go 1.27.4**, and web builds use **Node.js 26 LTS**. Ordinary userspace comes from official Alpine repositories; NanoKVM packages provide **OpenSSL 3.5.9 LTS** with the C906 `-O3` profile, the zlib-compatible zlib-ng library, exfatprogs, i2c-tools, lolcat and BusyBox devmem.
+The platform uses **Linux 7.3.5**, **U-Boot 2026.10**, **OpenSBI 1.9** and a **GCC 16.2 / T-Head C906** toolchain built with **Buildroot 2026.08.2**. Kernel/modules use `-O3` without LTO; native userspace uses the reviewed scalar `-O2` profile. The server uses **Go 1.27.4**, and web builds use **Node.js 26 LTS**. Ordinary userspace comes from official Alpine repositories; NanoKVM packages provide **OpenSSL 3.5.9 LTS** with the C906 `-O3` profile, the zlib-compatible zlib-ng library, exfatprogs, i2c-tools, lolcat and BusyBox devmem.
 
 Pinned platform inputs, Go modules and the web lockfile fix their respective source versions. Alpine 3.24 repositories continue receiving updates, so later builds can install newer Alpine packages; the build records them in `release/installed-packages.txt`.
 

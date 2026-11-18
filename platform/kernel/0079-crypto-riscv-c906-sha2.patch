@@ -27,7 +27,7 @@ diff --git a/lib/crypto/Kconfig b/lib/crypto/Kconfig
  	default y if SPARC64
  	default y if X86_64
 @@ -280,6 +281,7 @@
- 	default y if MIPS && CPU_CAVIUM_OCTEON
+ 	default y if MIPS && CPU_CAVIUM_OCTEON && CPU_BIG_ENDIAN
  	default y if RISCV && 64BIT && TOOLCHAIN_HAS_VECTOR_CRYPTO && \
  		     RISCV_EFFICIENT_VECTOR_UNALIGNED_ACCESS
 +	default y if RISCV && 64BIT && RISCV_ISA_XTHEADVECTOR

@@ -7,7 +7,7 @@
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
 #   toolchain  Buildroot 2026.08.2: cross toolchain, host tools, initramfs userland
-#   kernel     Linux 7.3.4 with kernel/*.patch and kernel/config
+#   kernel     Linux 7.3.5 with kernel/*.patch and kernel/config
 #              (NANOKVM_KERNEL_PROFILE=debug adds kernel/config-debug.fragment)
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
@@ -46,7 +46,7 @@
 # with a throwaway key made in OUTPUT/keys/build; the image trusts only the
 # published keys, and scripts/sign-release.sh then signs the repository with
 # the release key, outside the build. NANOKVM_KERNEL_PROFILE=debug builds
-# the kernel and its modules with kernel/config-debug.fragment (release 7.3.4-nanokvm-os-rN-debug)
+# the kernel and its modules with kernel/config-debug.fragment (release 7.3.5-nanokvm-os-rN-debug)
 # and, with -d only, packages and an image that add platform/debug-packages.
 # With NANOKVM_PREVIOUS (the URL or directory of the
 # published repository's riscv64/ with packages.json) a package whose content
@@ -115,11 +115,11 @@ case " ${steps[*]} " in
 esac
 # Official Alpine packages.
 profile=stock
-release=7.3.4-nanokvm-os-r10
+release=7.3.5-nanokvm-os-r10
 [ "$kernel_profile" = release ] || release=$release-debug
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
-# is the upstream Linux 7.3.4 release date (00:00 UTC).
-kernel_timestamp='Tue Nov 10 00:00:00 UTC 2026'
+# is the upstream Linux 7.3.5 release date (00:00 UTC).
+kernel_timestamp='Tue Nov 17 00:00:00 UTC 2026'
 uboot_epoch=1788737047
 rtl8733bs_epoch=1788607804
 isa=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel)
@@ -289,8 +289,8 @@ kernel_make() {
 kernel_source() {
     rm -rf "$out/kernel"
     mkdir -p "$out/kernel" "$kbuild"
-    tar -xf "$dl/linux-7.3.4.tar.xz" -C "$out/kernel"
-    mv "$out/kernel/linux-7.3.4" "$ksrc"
+    tar -xf "$dl/linux-7.3.5.tar.xz" -C "$out/kernel"
+    mv "$out/kernel/linux-7.3.5" "$ksrc"
     # The order of the hot kernel functions, included by vmlinux.lds.S (patch
     # 0088, docs/KERNEL-HOT-TEXT.md).
     cp "$here/kernel/hot-text.lds" "$ksrc/arch/riscv/kernel/vmlinux-hot.lds.h"

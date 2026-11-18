@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"sort"
@@ -57,9 +58,20 @@ const (
 	shellLimitCode     = 4429 // maxShells are running
 )
 
+// WinSize is the window size a serial terminal page sends.
 type WinSize struct {
 	Rows uint16 `json:"rows"`
 	Cols uint16 `json:"cols"`
+}
+
+// pageMessage is a binary message from the terminal page: the window size,
+// or keyboard input and terminal answers together with the output offset the
+// page has processed (see shell.processed).
+type pageMessage struct {
+	Rows uint16  `json:"rows"`
+	Cols uint16  `json:"cols"`
+	Data *string `json:"data"`
+	Ack  *uint64 `json:"ack"`
 }
 
 var (
@@ -97,6 +109,15 @@ func (r *replayRing) bytes() []byte {
 	return out
 }
 
+type shellState int
+
+const (
+	shellRunning shellState = iota
+	shellClosing            // ending its programs; callers wait for the result
+	shellStuck              // programs outlived the last attempt; close tries again
+	shellGone
+)
+
 // shell is one login shell on a pty, in its own session (setsid) with the
 // jobs started from it. It belongs to the sign-in that started it and runs
 // until it exits, is closed from the session list, that sign-in stops being
@@ -123,10 +144,15 @@ type shell struct {
 	detached uint64
 	timer    *time.Timer
 	replay   replayRing
-	// Output bytes produced, and of those the ones a page received.
+	// Output bytes produced, and the offset up to which a page reported its
+	// terminal processed them (and sent the answers to the queries in them,
+	// in the same message).
 	produced  uint64
-	delivered uint64
-	closed    bool
+	processed uint64
+	state     shellState
+	// While closing: closed when the attempt ends, with its result.
+	done     chan struct{}
+	closeErr error
 }
 
 type shellRegistry struct {
@@ -209,7 +235,8 @@ func (r *shellRegistry) list() []*shell {
 }
 
 // watch ends the shells whose sign-in the account store no longer accepts,
-// attached or not, until no shell is left; start begins it again.
+// attached or not, and tries again to end those whose programs outlived an
+// attempt, until no shell is left; start begins it again.
 func (r *shellRegistry) watch() {
 	ticker := time.NewTicker(shellAccountRecheck)
 	defer ticker.Stop()
@@ -221,7 +248,10 @@ func (r *shellRegistry) watch() {
 				ok = s.account.Valid(authn.RoleAdmin)
 				valid[s.account] = ok
 			}
-			if !ok {
+			s.mutex.Lock()
+			stuck := s.state == shellStuck
+			s.mutex.Unlock()
+			if !ok || stuck {
 				if err := s.close(middleware.SessionRevokedCloseCode, "session expired or revoked"); err != nil {
 					log.Errorf("terminal session of %s: %s", s.account.Username, err)
 				}
@@ -250,16 +280,16 @@ func (r *shellRegistry) closeUser(username string) {
 	}
 }
 
-// attach makes ws the shell's page: it tells the page the shell's id and how
-// much output follows, sends the retained output, and closes the page
-// attached before, if any. errShellEnded means the shell is gone; any other
-// error is the page's connection, and leaves the shell detached.
+// attach makes ws the shell's page: it tells the page the shell's id and the
+// output that follows, sends the retained output, and closes the page
+// attached before, if any. errShellEnded means the shell is gone or going;
+// any other error is the page's connection, and leaves the shell detached.
 func (s *shell) attach(ws *websocket.Conn, clientIP, userAgent string) error {
 	s.writeMutex.Lock()
 	defer s.writeMutex.Unlock()
 
 	s.mutex.Lock()
-	if s.closed {
+	if s.state != shellRunning {
 		s.mutex.Unlock()
 		return errShellEnded
 	}
@@ -271,15 +301,19 @@ func (s *shell) attach(ws *websocket.Conn, clientIP, userAgent string) error {
 		s.timer = nil
 	}
 	replay := s.replay.bytes()
-	// The end of the replay that no page received: output produced while
-	// detached, whose terminal queries are still unanswered.
-	pending := min(s.produced-s.delivered, uint64(len(replay)))
+	offset := s.produced - uint64(len(replay))
+	// The end of the replay that no page processed: its terminal queries are
+	// still unanswered, whether it was output while detached or reached a
+	// page that went away before its terminal got to it.
+	pending := min(s.produced-s.processed, uint64(len(replay)))
 	s.mutex.Unlock()
 
 	if previous != nil {
 		closeWebSocket(previous, shellTakenOverCode, "terminal session opened elsewhere")
 	}
-	hello, _ := json.Marshal(map[string]any{"session": s.id, "replay": len(replay), "pending": pending})
+	hello, _ := json.Marshal(map[string]any{
+		"session": s.id, "offset": offset, "replay": len(replay), "pending": pending,
+	})
 	_ = ws.SetWriteDeadline(time.Now().Add(messageWait))
 	err := ws.WriteMessage(websocket.TextMessage, hello)
 	if err == nil && len(replay) > 0 {
@@ -289,9 +323,6 @@ func (s *shell) attach(ws *websocket.Conn, clientIP, userAgent string) error {
 		s.detach(ws)
 		return err
 	}
-	s.mutex.Lock()
-	s.delivered = s.produced
-	s.mutex.Unlock()
 	return nil
 }
 
@@ -300,7 +331,7 @@ func (s *shell) attach(ws *websocket.Conn, clientIP, userAgent string) error {
 func (s *shell) detach(ws *websocket.Conn) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.closed || s.ws != ws {
+	if s.state != shellRunning || s.ws != ws {
 		return
 	}
 	s.ws = nil
@@ -314,13 +345,13 @@ func (s *shell) detach(ws *websocket.Conn) {
 // timeout: no page attached since, not even one that left again.
 func (s *shell) expire(detachment uint64) {
 	s.mutex.Lock()
-	if s.closed || s.ws != nil || s.detached != detachment {
+	if s.state != shellRunning || s.ws != nil || s.detached != detachment {
 		s.mutex.Unlock()
 		return
 	}
-	ws := s.markClosed()
+	ws := s.beginClose()
 	s.mutex.Unlock()
-	if err := s.finish(ws, shellEndedCode, "terminal session ended"); err != nil {
+	if err := s.finish(ws, shellEndedCode, "terminal session ended", true); err != nil {
 		log.Errorf("terminal session of %s: %s", s.account.Username, err)
 	}
 }
@@ -348,7 +379,7 @@ func (s *shell) output(data []byte) {
 	defer s.writeMutex.Unlock()
 
 	s.mutex.Lock()
-	if s.closed {
+	if s.state != shellRunning {
 		s.mutex.Unlock()
 		return
 	}
@@ -365,17 +396,21 @@ func (s *shell) output(data []byte) {
 		// The page is gone; its reader ends too and the shell waits detached.
 		_ = ws.Close()
 		s.detach(ws)
-		return
 	}
+}
+
+// acknowledge records that a page's terminal processed the output up to
+// offset.
+func (s *shell) acknowledge(offset uint64) {
 	s.mutex.Lock()
-	if s.ws == ws {
-		s.delivered = s.produced
+	if offset > s.processed && offset <= s.produced {
+		s.processed = offset
 	}
 	s.mutex.Unlock()
 }
 
-// readInput copies the page's keystrokes to the pty until the page goes away.
-// Binary messages carry the window size.
+// readInput copies the page's keystrokes and terminal answers to the pty
+// until the page goes away.
 func (s *shell) readInput(ws *websocket.Conn) {
 	ws.SetReadLimit(maxReadSize)
 	// Detect a vanished browser or network even when no terminal data flows.
@@ -404,35 +439,61 @@ func (s *shell) readInput(ws *websocket.Conn) {
 		if err != nil {
 			return
 		}
-		if kind == websocket.BinaryMessage {
-			var size WinSize
-			if json.Unmarshal(data, &size) == nil && size.Rows > 0 && size.Cols > 0 {
-				_ = pty.Setsize(s.ptmx, &pty.Winsize{Rows: size.Rows, Cols: size.Cols})
+		if kind == websocket.TextMessage {
+			if _, err = s.ptmx.Write(data); err != nil {
+				return
 			}
 			continue
 		}
-		if _, err = s.ptmx.Write(data); err != nil {
-			return
+		var message pageMessage
+		if json.Unmarshal(data, &message) != nil {
+			continue
+		}
+		// An answer reaches the shell together with the offset it answers up
+		// to: a page that went away after sending it is not asked again.
+		if message.Data != nil {
+			if _, err = s.ptmx.Write([]byte(*message.Data)); err != nil {
+				return
+			}
+		}
+		if message.Ack != nil {
+			s.acknowledge(*message.Ack)
+		}
+		if message.Rows > 0 && message.Cols > 0 {
+			_ = pty.Setsize(s.ptmx, &pty.Winsize{Rows: message.Rows, Cols: message.Cols})
 		}
 	}
 }
 
 // close ends the shell and every program of its session. A non-zero code
-// tells the attached page why. The error says programs are still running.
+// tells the attached page why. It returns once the programs are gone, or with
+// an error naming those still running; the shell then stays listed and the
+// next close (End again, or the watcher) tries again. Concurrent callers
+// share one attempt and its result.
 func (s *shell) close(code int, reason string) error {
 	s.mutex.Lock()
-	if s.closed {
+	switch s.state {
+	case shellGone:
 		s.mutex.Unlock()
 		return nil
+	case shellClosing:
+		done := s.done
+		s.mutex.Unlock()
+		<-done
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+		return s.closeErr
 	}
-	ws := s.markClosed()
+	first := s.state == shellRunning
+	ws := s.beginClose()
 	s.mutex.Unlock()
-	return s.finish(ws, code, reason)
+	return s.finish(ws, code, reason, first)
 }
 
-// markClosed marks the shell closed and takes its page; s.mutex is held.
-func (s *shell) markClosed() *websocket.Conn {
-	s.closed = true
+// beginClose starts an attempt to close and takes the page; s.mutex is held.
+func (s *shell) beginClose() *websocket.Conn {
+	s.state = shellClosing
+	s.done = make(chan struct{})
 	ws := s.ws
 	s.ws = nil
 	if s.timer != nil {
@@ -442,8 +503,9 @@ func (s *shell) markClosed() *websocket.Conn {
 	return ws
 }
 
-func (s *shell) finish(ws *websocket.Conn, code int, reason string) error {
-	shells.remove(s.id)
+// finish ends the session's programs and, the first time, releases the
+// terminal and the page; the shell leaves the registry once nothing is left.
+func (s *shell) finish(ws *websocket.Conn, code int, reason string, first bool) error {
 	if ws != nil {
 		if code != 0 {
 			closeWebSocket(ws, code, reason)
@@ -452,10 +514,27 @@ func (s *shell) finish(ws *websocket.Conn, code int, reason string) error {
 		}
 	}
 	err := endSession(s.cmd.Process.Pid)
-	_ = s.ptmx.Close()
-	_ = s.cmd.Process.Kill()
-	_ = s.cmd.Wait()
-	log.Debugf("terminal session of %s ended", s.account.Username)
+	if first {
+		_ = s.ptmx.Close()
+		// The shell itself is in the session; Kill covers an attempt that
+		// failed before reaching it, so Wait cannot hang.
+		_ = s.cmd.Process.Kill()
+		_ = s.cmd.Wait()
+	}
+
+	s.mutex.Lock()
+	s.closeErr = err
+	if err == nil {
+		s.state = shellGone
+	} else {
+		s.state = shellStuck
+	}
+	close(s.done)
+	s.mutex.Unlock()
+	if err == nil {
+		shells.remove(s.id)
+		log.Debugf("terminal session of %s ended", s.account.Username)
+	}
 	return err
 }
 
@@ -464,37 +543,61 @@ func (s *shell) finish(ws *websocket.Conn, code int, reason string) error {
 // SIGHUP, as from a hung-up terminal, then SIGKILL. A program that left the
 // session on purpose (setsid, a service it started) keeps running.
 func endSession(sid int) error {
-	signal := func(sig syscall.Signal) int {
-		pids := sessionProcesses(sid)
-		for _, pid := range pids {
-			_ = syscall.Kill(pid, sig)
-		}
-		return len(pids)
+	if err := signalSession(sid, syscall.SIGHUP); err != nil {
+		return err
 	}
-	if signal(syscall.SIGHUP) == 0 {
-		return nil
-	}
-	signal(syscall.SIGCONT)
+	_ = signalSession(sid, syscall.SIGCONT)
 	for deadline := time.Now().Add(shellHangupWait); time.Now().Before(deadline); {
 		time.Sleep(50 * time.Millisecond)
-		if len(sessionProcesses(sid)) == 0 {
-			return nil
+		if pids, err := sessionProcesses(sid); err != nil || len(pids) == 0 {
+			return err
 		}
 	}
 	for deadline := time.Now().Add(shellKillWait); time.Now().Before(deadline); {
-		if signal(syscall.SIGKILL) == 0 {
-			return nil
+		if err := signalSession(sid, syscall.SIGKILL); err != nil {
+			return err
 		}
 		time.Sleep(50 * time.Millisecond)
+		if pids, err := sessionProcesses(sid); err != nil || len(pids) == 0 {
+			return err
+		}
 	}
-	return fmt.Errorf("programs of the terminal session still running: %v", sessionProcesses(sid))
+	pids, err := sessionProcesses(sid)
+	if err != nil || len(pids) == 0 {
+		return err
+	}
+	return fmt.Errorf("programs of the terminal session still running: %v", pids)
+}
+
+// signalSession sends sig to the live processes of session sid. Each process
+// is held by a pidfd from before its session is checked until the signal, so
+// a pid that a process frees and another one takes is never signalled.
+func signalSession(sid int, sig syscall.Signal) error {
+	pids, err := sessionProcesses(sid)
+	if err != nil {
+		return err
+	}
+	for _, pid := range pids {
+		fd, err := unix.PidfdOpen(pid, 0)
+		if err != nil {
+			continue // gone already
+		}
+		// The pidfd holds the process: while it is alive (signal 0) its pid
+		// is not reused, so the session read now is its own.
+		if session, err := processSession(pid); err == nil && session == sid &&
+			unix.PidfdSendSignal(fd, 0, nil, 0) == nil {
+			_ = unix.PidfdSendSignal(fd, sig, nil, 0)
+		}
+		_ = unix.Close(fd)
+	}
+	return nil
 }
 
 // sessionProcesses lists the live (not zombie) processes of session sid.
-func sessionProcesses(sid int) []int {
+func sessionProcesses(sid int) ([]int, error) {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var pids []int
 	for _, entry := range entries {
@@ -502,24 +605,43 @@ func sessionProcesses(sid int) []int {
 		if err != nil {
 			continue
 		}
-		stat, err := os.ReadFile("/proc/" + entry.Name() + "/stat")
-		if err != nil {
-			continue
-		}
-		// pid (comm) state ppid pgrp session ...; comm may contain anything.
-		i := strings.LastIndexByte(string(stat), ')')
-		if i < 0 {
-			continue
-		}
-		fields := strings.Fields(string(stat[i+1:]))
-		if len(fields) < 4 || fields[0] == "Z" || fields[0] == "X" {
-			continue
-		}
-		if session, err := strconv.Atoi(fields[3]); err == nil && session == sid {
+		session, err := processSession(pid)
+		switch {
+		case errors.Is(err, fs.ErrNotExist), errors.Is(err, errNotLive):
+			continue // exited
+		case err != nil:
+			return nil, err
+		case session == sid:
 			pids = append(pids, pid)
 		}
 	}
-	return pids
+	return pids, nil
+}
+
+var errNotLive = errors.New("zombie process")
+
+// processSession is the session id of a live process.
+func processSession(pid int) (int, error) {
+	stat, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	if err != nil {
+		if errors.Is(err, syscall.ESRCH) {
+			return 0, fs.ErrNotExist
+		}
+		return 0, err
+	}
+	// pid (comm) state ppid pgrp session ...; comm may contain anything.
+	i := strings.LastIndexByte(string(stat), ')')
+	if i < 0 {
+		return 0, fmt.Errorf("unexpected /proc/%d/stat", pid)
+	}
+	fields := strings.Fields(string(stat[i+1:]))
+	if len(fields) < 4 {
+		return 0, fmt.Errorf("unexpected /proc/%d/stat", pid)
+	}
+	if fields[0] == "Z" || fields[0] == "X" {
+		return 0, errNotLive
+	}
+	return strconv.Atoi(fields[3])
 }
 
 // foreground is the command running in the foreground of the shell's

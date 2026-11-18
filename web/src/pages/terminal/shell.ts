@@ -43,18 +43,49 @@ export function attachShell(
   let retryTimer = 0;
   // What Enter does while the connection is down.
   let onEnter: (() => void) | null = null;
-  // The next output message is the replay, of which the last replayPending
-  // bytes no page received; the received part is being written.
-  let replayNext = false;
-  let replayPending = 0;
-  let replaying = false;
+  // The output of the current connection, by offset in the shell's output:
+  // written to the terminal up to `written`, processed by it up to
+  // `processed`, and the chunks in between. Answers to the terminal queries
+  // in a muted chunk are dropped: a page processed it before and answered.
+  type Output = {
+    written: number;
+    processed: number;
+    acked: number;
+    chunks: { end: number; mute: boolean }[];
+    replayNext: boolean;
+    replayPending: number;
+  };
+  let output: Output | null = null;
+  let ackTimer = 0;
 
   const notice = (message: string) => terminal.writeln(`\r\n\x1b[33m${message}\x1b[0m`);
 
-  const sendSize = () => {
+  const send = (message: object) => {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const size = JSON.stringify({ rows: terminal.rows, cols: terminal.cols });
-    ws.send(new Blob([size], { type: 'application/json' }));
+    ws.send(new Blob([JSON.stringify(message)], { type: 'application/json' }));
+  };
+  const sendSize = () => send({ rows: terminal.rows, cols: terminal.cols });
+
+  // Tells the server how far the terminal got, so that a page attaching
+  // later answers the queries this one did not.
+  const sendAck = () => {
+    ackTimer = 0;
+    if (output && output.processed > output.acked) {
+      output.acked = output.processed;
+      send({ ack: output.processed });
+    }
+  };
+
+  const write = (current: Output, data: Uint8Array, mute: boolean) => {
+    if (data.length === 0) return;
+    const end = current.written + data.length;
+    current.written = end;
+    current.chunks.push({ end, mute });
+    terminal.write(data, () => {
+      current.chunks.shift();
+      current.processed = end;
+      if (current === output && !ackTimer) ackTimer = window.setTimeout(sendAck, 100);
+    });
   };
 
   const connect = () => {
@@ -75,6 +106,7 @@ export function attachShell(
         // follows, so the screen starts over.
         const hello = JSON.parse(event.data) as {
           session?: string;
+          offset?: number;
           replay?: number;
           pending?: number;
         };
@@ -82,28 +114,34 @@ export function attachShell(
           storeShellSession(hello.session);
           retries = 0;
           terminal.reset();
-          replayNext = (hello.replay ?? 0) > 0;
-          replayPending = hello.pending ?? 0;
+          const offset = hello.offset ?? 0;
+          output = {
+            written: offset,
+            processed: offset,
+            acked: offset,
+            chunks: [],
+            replayNext: (hello.replay ?? 0) > 0,
+            replayPending: hello.pending ?? 0
+          };
           sendSize();
         }
         return;
       }
+      if (!output) return;
       const data = new Uint8Array(event.data);
-      if (!replayNext) {
-        terminal.write(data);
+      if (!output.replayNext) {
+        write(output, data, false);
         return;
       }
-      // A page already received the start of the replay and answered its
-      // terminal queries (cursor position and the like): answering again
-      // would reach the shell as input. The end was output while no page was
-      // attached; a program may still wait for the answers to its queries.
-      replayNext = false;
-      const answered = data.length - Math.min(replayPending, data.length);
-      replaying = true;
-      terminal.write(data.subarray(0, answered), () => {
-        replaying = false;
-      });
-      terminal.write(data.subarray(answered));
+      // A page processed the start of the replay and answered its terminal
+      // queries (cursor position and the like): answering again would reach
+      // the shell as input. No page processed the end, whether it was output
+      // while detached or reached a page that went away first; a program may
+      // still wait for the answers to its queries.
+      output.replayNext = false;
+      const answered = data.length - Math.min(output.replayPending, data.length);
+      write(output, data.subarray(0, answered), true);
+      write(output, data.subarray(answered), false);
     };
     socket.onclose = (event) => {
       if (disposed || ws !== socket) return;
@@ -173,8 +211,16 @@ export function attachShell(
     if (!disposed) connect();
   };
 
+  // Keystrokes, and the terminal's answers to queries in the chunk it is
+  // processing: each goes out with the offset it answers up to, in one
+  // message, so the server never has the answer without the offset or the
+  // offset without the answer.
   const input = terminal.onData((data) => {
-    if (!replaying && ws?.readyState === WebSocket.OPEN) ws.send(data);
+    if (!output) return;
+    const chunk = output.chunks[0];
+    if (chunk?.mute) return;
+    send({ data, ack: chunk ? chunk.end : output.processed });
+    if (chunk) output.acked = Math.max(output.acked, chunk.end);
   });
   const enter = terminal.onKey(({ domEvent }) => {
     if (domEvent.key === 'Enter' && onEnter) onEnter();
@@ -193,6 +239,7 @@ export function attachShell(
     dispose() {
       disposed = true;
       window.clearTimeout(retryTimer);
+      window.clearTimeout(ackTimer);
       observer.disconnect();
       window.removeEventListener('resize', resize, false);
       input.dispose();

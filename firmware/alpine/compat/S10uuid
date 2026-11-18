@@ -47,18 +47,36 @@ new_hostname=$prefix-$suffix
 if [ -f "$NANOKVM_ID_BOOT/hostname" ]; then new_hostname=$(read_value "$NANOKVM_ID_BOOT/hostname"); fi
 valid_hostname "$new_hostname" || die 'invalid hostname'
 
-if [ -f "$NANOKVM_ID_BOOT/eth.mac" ]; then
+# An empty eth.mac is no override, as in stock firmware. kept_mac is the
+# 16-bit address this device ran with before an update (written by the
+# package's post-upgrade to the root filesystem, which it can always write).
+kept_mac=$NANOKVM_ID_ETC/kvm/eth.mac.legacy
+if [ -s "$NANOKVM_ID_BOOT/eth.mac" ]; then
     ethmac=$(read_value "$NANOKVM_ID_BOOT/eth.mac")
+    rm -f "$kept_mac"
+elif [ -s "$kept_mac" ]; then
+    ethmac=$(read_value "$kept_mac")
 else
     # A locally administered address from 40 bits of the chip UID hash: with
     # the 16 bits used before, two devices on one network share an address
     # once there are a few hundred of them. A device that had such an address
-    # keeps it in eth.mac (written by the package update and the stock
-    # installer), so its DHCP reservations remain usable.
+    # keeps it (kept_mac, or eth.mac from the stock installer), so its DHCP
+    # reservations remain usable.
     ethmac=$(printf '%s' "$uid" | cut -c1-10 | sed 's/../:&/g')
     ethmac="02$ethmac"
 fi
 valid_mac "$ethmac" || die 'invalid Ethernet MAC address'
+# The kept address becomes the eth.mac override, where the user finds and can
+# remove it. Until the boot volume takes it (complete file, then rename), the
+# record stays and is used again at the next boot.
+if [ ! -s "$NANOKVM_ID_BOOT/eth.mac" ] && [ -s "$kept_mac" ]; then
+    if cp "$kept_mac" "$NANOKVM_ID_BOOT/eth.mac.new" 2>/dev/null &&
+        mv -f "$NANOKVM_ID_BOOT/eth.mac.new" "$NANOKVM_ID_BOOT/eth.mac" 2>/dev/null; then
+        rm -f "$kept_mac"
+    else
+        rm -f "$NANOKVM_ID_BOOT/eth.mac.new" 2>/dev/null || true
+    fi
+fi
 ethmac=$(printf '%s' "$ethmac" | tr 'A-F' 'a-f')
 
 # Validate all inputs before changing identity or taking the link down.

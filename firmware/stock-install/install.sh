@@ -207,7 +207,9 @@ case "$(cat /etc/kvm/hw 2>/dev/null || true)" in
 esac
 # NanoKVM OS derives the Ethernet MAC from more of the chip UID than stock
 # firmware did. Keep the address this device runs with, and its DHCP
-# reservations, as the override NanoKVM OS reads.
+# reservations, as the override NanoKVM OS reads. Stock firmware takes an
+# empty eth.mac for none: it is not carried over.
+[ -s "$settings/boot/eth.mac" ] || rm -f "$settings/boot/eth.mac"
 if [ ! -e "$settings/boot/eth.mac" ]; then
     eth_mac=$(cat /sys/class/net/eth0/address 2>/dev/null || true)
     case "$eth_mac" in

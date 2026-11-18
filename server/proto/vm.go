@@ -91,6 +91,32 @@ type GetVirtualDeviceRsp struct {
 	Identity        USBIdentity                `json:"identity"`
 	// the writable FAT32 user disk, a third LUN of the virtual storage
 	UserDisk bool `json:"userDisk"`
+	// gadget, host or off; a gadget with an empty composition is off as well
+	Role string `json:"role"`
+}
+
+type SetUSBRoleReq struct {
+	Role string `json:"role" validate:"required,oneof=gadget host off"`
+}
+
+// USBHostDevice is a device attached to the NanoKVM in the host role, as the
+// kernel describes it in /sys/bus/usb/devices.
+type USBHostDevice struct {
+	Port             string   `json:"port"`
+	VendorID         string   `json:"vendorId"`
+	ProductID        string   `json:"productId"`
+	Manufacturer     string   `json:"manufacturer"`
+	Product          string   `json:"product"`
+	Speed            string   `json:"speed"` // Mbit/s
+	Class            string   `json:"class"`
+	InterfaceClasses []string `json:"interfaceClasses"`
+	MaxPower         string   `json:"maxPower"`
+}
+
+type GetUSBHostDevicesRsp struct {
+	Devices []USBHostDevice `json:"devices"`
+	// what the port supplies to a device: "none", or "board" (the 5 V rail, unprotected)
+	PortPower string `json:"portPower"`
 }
 
 // USBIdentity is what the connected computer sees in the device descriptor.

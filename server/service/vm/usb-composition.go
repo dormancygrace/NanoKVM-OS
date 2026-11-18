@@ -74,6 +74,12 @@ func applyLiveUSBComposition(h *hid.Hid, current, candidate usbComposition) erro
 	if current == candidate {
 		return nil
 	}
+	// In the host role, and with USB switched off, there is no gadget to
+	// rebuild: nothing changes the composition behind that choice, RustDesk
+	// included. The role is changed first (SetUSBRole).
+	if usbRoleFlags(hid.USBFlagsDir) != usbRoleGadget {
+		return errUSBNotGadget
+	}
 	// Attaching or detaching the user disk excludes creating or deleting
 	// the image for the whole apply (storage.LockUserDiskForComposition).
 	if current.userDisk || candidate.userDisk {

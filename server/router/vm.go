@@ -94,6 +94,8 @@ func vmRouter(r *gin.Engine) {
 	admin.GET("/vm/device/virtual", service.GetVirtualDevice)     // get virtual device
 	admin.POST("/vm/device/virtual", service.UpdateVirtualDevice) // update virtual device
 	admin.PUT("/vm/device/virtual", service.SetUSBComposition)    // apply an entire composition
+	admin.PUT("/vm/usb/role", service.SetUSBRole)                 // gadget, host or off
+	admin.GET("/vm/usb/devices", service.GetUSBHostDevices)       // devices attached in the host role
 
 	admin.GET("/vm/serial-console", service.GetSerialConsole)        // headless-Linux console helper
 	admin.POST("/vm/serial-console/test", service.TestSerialConsole) // Enter on ttyGS0, read the prompt

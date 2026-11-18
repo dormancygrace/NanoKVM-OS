@@ -1577,6 +1577,47 @@
       "off": "Off",
       "title": "USB composition",
       "gadget": "USB Gadget",
+      "menu": "USB",
+      "modeMenu": "Mode",
+      "role": {
+        "label": "USB port mode",
+        "apply": "Apply mode",
+        "failed": "Could not change the USB mode. The previous mode was restored.",
+        "notGadget": "The USB port is not in gadget mode. Switch the mode first.",
+        "confirmDescription": "The connected computer loses the NanoKVM keyboard, mouse, virtual disk, USB network and serial console until the mode is Gadget again. Video keeps working.",
+        "gadget": {
+          "title": "Gadget",
+          "description": "The NanoKVM is a device for the computer: keyboard, mouse, disk, network.",
+          "change": "The port changes from {{from}} to Gadget: the computer sees the NanoKVM again.",
+          "confirm": "Switch USB to gadget mode?"
+        },
+        "host": {
+          "title": "Host",
+          "description": "Devices attach to the NanoKVM, such as a UPS. The computer gets no keyboard or mouse from it.",
+          "change": "The port changes from {{from}} to Host: devices attach to the NanoKVM.",
+          "confirm": "Switch USB to host mode?"
+        },
+        "disabled": {
+          "title": "Disabled",
+          "description": "The port does nothing. The composition is kept for the return to Gadget.",
+          "change": "The port changes from {{from}} to Disabled.",
+          "confirm": "Switch USB off?"
+        }
+      },
+      "host": {
+        "title": "Attached devices",
+        "empty": "Nothing is attached.",
+        "unnamed": "Unnamed device",
+        "port": "port",
+        "loadFailed": "Could not read the attached devices.",
+        "speed": {
+          "low": "Low speed",
+          "full": "Full speed",
+          "high": "High speed"
+        },
+        "powerNone": "This board does not power the USB port: use a hub with its own power supply, or a device that has one.",
+        "powerBoard": "The port is powered from the board’s 5 V supply, without a current limit or protection."
+      },
       "compositionMenu": "Composition",
       "identityMenu": "Identity (VID/PID)",
       "budgetTitle": "Endpoint budget",

@@ -31,12 +31,12 @@ export const builtinMenu = [
     title: { key: 'videoSettings.watermark.title' }
   },
 
-  { id: 'usb', order: 30, icon: 'usb', title: { key: 'settings.usb.gadget' } },
+  { id: 'usb', order: 30, icon: 'usb', title: { key: 'settings.usb.menu' } },
   {
     id: 'usb-composition',
     order: 10,
     icon: 'layers',
-    title: { key: 'settings.usb.compositionMenu' }
+    title: { key: 'settings.usb.modeMenu' }
   },
   {
     id: 'usb-identity',

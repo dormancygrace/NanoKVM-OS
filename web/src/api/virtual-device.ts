@@ -1,5 +1,5 @@
 import { http } from '@/lib/http.ts';
-import type { UsbComposition, UsbStatus } from '@/lib/usb-composition.ts';
+import type { UsbComposition, UsbRole, UsbStatus } from '@/lib/usb-composition.ts';
 
 export const usbCompositionChangedEvent = 'nanokvm:usb-composition-changed';
 
@@ -43,6 +43,40 @@ export async function setUsbComposition(composition: UsbComposition, revision: s
   });
   if (response.code === 0) window.dispatchEvent(new Event(usbCompositionChangedEvent));
   return response;
+}
+
+// What the USB port is: gadget, host or off. The answer is the new status.
+export async function setUsbRole(role: UsbRole) {
+  const response = await http.request<UsbStatus>({
+    method: 'put',
+    url: '/api/vm/usb/role',
+    data: { role }
+  });
+  if (response.code === 0) window.dispatchEvent(new Event(usbCompositionChangedEvent));
+  return response;
+}
+
+// A device attached to the NanoKVM while its port is a host.
+export type UsbHostDevice = {
+  port: string;
+  vendorId: string;
+  productId: string;
+  manufacturer: string;
+  product: string;
+  // Mbit/s: 1.5, 12, 480
+  speed: string;
+  class: string;
+  interfaceClasses: string[] | null;
+  maxPower: string;
+};
+export type UsbHostDevices = {
+  devices: UsbHostDevice[];
+  // what the port supplies: nothing, or the board's 5 V rail
+  portPower: 'none' | 'board';
+};
+
+export function getUsbHostDevices() {
+  return http.get<UsbHostDevices>('/api/vm/usb/devices');
 }
 
 // The headless-Linux console helper: serial number, script and helper disk.

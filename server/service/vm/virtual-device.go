@@ -78,6 +78,7 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 		Network: s.network, Disk: s.disk, Serial: s.serial, Audio: s.audio,
 		UserDisk: s.userDisk, StorageIdentity: s.storageIdentity.Normalized(),
 		HID: s.keyboard || s.relative || s.absolute, Mode: s.mode,
+		Role:     usbRoleFlags(hid.USBFlagsDir),
 		Revision: s.revision(),
 		Budget:   proto.USBEndpointBudget{InUsed: inUsed, OutUsed: outUsed, InLimit: usbInEndpointLimit, OutLimit: usbOutEndpointLimit},
 		Costs:    usbEndpointCosts,
@@ -154,6 +155,8 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 			rsp.ErrRsp(c, -6, err.Error())
 		case errors.Is(err, errUserDiskMissing):
 			rsp.ErrRsp(c, -4, err.Error())
+		case errors.Is(err, errUSBNotGadget):
+			rsp.ErrRsp(c, -7, err.Error())
 		default:
 			rsp.ErrRsp(c, -3, "failed to apply USB composition")
 		}

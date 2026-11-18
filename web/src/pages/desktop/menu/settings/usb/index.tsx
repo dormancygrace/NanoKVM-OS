@@ -10,6 +10,7 @@ import {
   hasUsbDevice,
   identityProblem,
   matchingPreset,
+  modeOf,
   normalizeUsbStatus,
   sameComposition,
   setCompatibilityProfile,
@@ -18,20 +19,35 @@ import {
   usbDevices,
   usbPresets
 } from '@/lib/usb-composition.ts';
-import type { UsbComposition, UsbDevice, UsbStatus } from '@/lib/usb-composition.ts';
+import type {
+  UsbComposition,
+  UsbDevice,
+  UsbModeChoice,
+  UsbRole,
+  UsbStatus
+} from '@/lib/usb-composition.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
 import { MouseJiggler } from '../device/mouse-jiggler';
+import { UsbHostDevices } from './host-devices';
 import { UsbIdentitySection } from './identity';
 import { UsbInternet } from './internet';
+import { UsbMode } from './mode';
 import { SerialConsole } from './serial-console';
 import { StorageIdentitySection } from './storage-identity';
 import { UserDisk } from './user-disk';
 
-// Which part a panel shows: the composition (the toolbar's quick menu and
-// Settings > USB Gadget > Composition) or the identity (its other page).
+// Which part a panel shows: the mode with what belongs to it, the gadget's
+// composition or the host's devices (the toolbar's quick menu and Settings >
+// USB > Mode), or the gadget's identity (its other page).
 type UsbPart = 'composition' | 'identity';
+
+const roleOfMode: Record<UsbModeChoice, UsbRole> = {
+  gadget: 'gadget',
+  host: 'host',
+  disabled: 'off'
+};
 
 export const Usb = ({ part }: { part: UsbPart }) => {
   const { t } = useTranslation();
@@ -43,6 +59,8 @@ export const Usb = ({ part }: { part: UsbPart }) => {
   const busy = useRef(false);
   const [error, setError] = useState('');
   const [loadFailed, setLoadFailed] = useState(false);
+  // The mode picked in the switch; undefined follows the mode in effect.
+  const [picked, setPicked] = useState<UsbModeChoice>();
 
   const adopt = useCallback((next: UsbStatus) => {
     setLoadFailed(false);
@@ -134,17 +152,22 @@ export const Usb = ({ part }: { part: UsbPart }) => {
     try {
       const rsp = await api.setUsbComposition(requested, status.revision);
       if (rsp.code === 0) {
-        adopt(normalizeUsbStatus(rsp.data));
+        const next = normalizeUsbStatus(rsp.data);
+        adopt(next);
+        // without a function the gadget is off: the switch says so
+        if (!hasUsbDevice(next)) setPicked(undefined);
       } else {
         adopt(await fetchStatus());
         const reason = t(
           rsp.code === -5
             ? 'settings.usb.changed'
-            : rsp.code === -6
-              ? 'settings.usb.userDisk.busy'
-              : rsp.code === -4 && requested.userDisk
-                ? 'settings.usb.userDisk.missing'
-                : 'settings.usb.updateFailed'
+            : rsp.code === -7
+              ? 'settings.usb.role.notGadget'
+              : rsp.code === -6
+                ? 'settings.usb.userDisk.busy'
+                : rsp.code === -4 && requested.userDisk
+                  ? 'settings.usb.userDisk.missing'
+                  : 'settings.usb.updateFailed'
         );
         setError(reason);
         message.error(reason);
@@ -159,6 +182,47 @@ export const Usb = ({ part }: { part: UsbPart }) => {
           setError(t('settings.usb.updateFailed'));
           message.error(t('settings.usb.updateFailed'));
         }
+      } catch {
+        setError(t('settings.usb.reconnectFailed'));
+        message.error(t('settings.usb.reconnectFailed'));
+      }
+    } finally {
+      window.dispatchEvent(new Event('nanokvm:usb-updated'));
+      busy.current = false;
+      setLoading(false);
+    }
+  }
+
+  // Leaving the gadget takes keyboard, mouse and the rest from the computer,
+  // so it asks first.
+  async function applyMode() {
+    if (!status || !picked || busy.current) return;
+    if (current === 'gadget') {
+      const confirmed = await confirmAction({
+        title: t(`settings.usb.role.${picked}.confirm`),
+        content: t('settings.usb.role.confirmDescription'),
+        danger: true
+      });
+      if (!confirmed) return;
+    }
+    busy.current = true;
+    setLoading(true);
+    setError('');
+    try {
+      const rsp = await api.setUsbRole(roleOfMode[picked]);
+      if (rsp.code === 0) {
+        adopt(normalizeUsbStatus(rsp.data));
+        // a gadget without functions stays "disabled": keep its editor open
+        setPicked(picked === 'gadget' ? 'gadget' : undefined);
+      } else {
+        adopt(await fetchStatus());
+        setError(t('settings.usb.role.failed'));
+        message.error(t('settings.usb.role.failed'));
+      }
+    } catch {
+      // The page may be open over the USB network that just went away.
+      try {
+        adopt(await fetchStatus());
       } catch {
         setError(t('settings.usb.reconnectFailed'));
         message.error(t('settings.usb.reconnectFailed'));
@@ -190,14 +254,39 @@ export const Usb = ({ part }: { part: UsbPart }) => {
   const identityOk =
     (!draft?.identity || !identityProblem(draft.identity)) &&
     (!draft?.storageIdentity || !storageIdentityProblem(draft.storageIdentity));
-  const showComposition = part === 'composition';
+  const role = status?.role ?? 'gadget';
+  const current = modeOf(role, enabled);
+  const mode = picked ?? current;
+  // the picked mode is not what the device has: nothing of it shows yet
+  const modePending = Boolean(
+    picked && (picked === 'disabled' ? current !== 'disabled' : role !== roleOfMode[picked])
+  );
+  const showMode = part === 'composition';
+  const showComposition = part === 'composition' && mode === 'gadget' && !modePending;
+  const showHost = part === 'composition' && mode === 'host' && !modePending;
   const showIdentity = part === 'identity';
 
   return (
     <div className="space-y-6">
       {loadFailed && <Alert type="error" showIcon message={t('settings.usb.loadFailed')} />}
+      {showMode && (
+        <UsbMode
+          current={current}
+          selected={mode}
+          pending={modePending}
+          busy={loading}
+          disabled={!status}
+          onSelect={(next) => {
+            setPicked(next === current && next !== 'gadget' ? undefined : next);
+            setError('');
+          }}
+          onApply={applyMode}
+          onCancel={() => setPicked(undefined)}
+        />
+      )}
+      {showHost && <UsbHostDevices />}
       {showComposition && <UsbInternet usbBusy={loading} network={Boolean(status?.network)} />}
-      {
+      {(showComposition || showIdentity) && (
         <>
           <div className="space-y-4">
             {showComposition && (
@@ -382,7 +471,7 @@ export const Usb = ({ part }: { part: UsbPart }) => {
           )}
           {showComposition && enabled && (status?.relative || status?.absolute) && <MouseJiggler />}
         </>
-      }
+      )}
     </div>
   );
 };

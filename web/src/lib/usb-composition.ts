@@ -25,8 +25,21 @@ export type UsbIdentity = {
   product: string;
   serialNumber?: string;
 };
+// What the port is: a gadget (a device for the computer, with the
+// composition), a host for devices attached to the NanoKVM, or off.
+export type UsbRole = 'gadget' | 'host' | 'off';
+// The mode the settings show. "Disabled" is the off role, and also a gadget
+// without any function.
+export type UsbModeChoice = 'gadget' | 'host' | 'disabled';
+export function modeOf(role: UsbRole, hasFunction: boolean): UsbModeChoice {
+  if (role === 'host') return 'host';
+  if (role === 'off' || !hasFunction) return 'disabled';
+  return 'gadget';
+}
 export type UsbStatus = UsbComposition & {
   hid: boolean;
+  // absent from servers without the host role: a gadget
+  role?: UsbRole;
   revision?: string;
   budget: { inUsed: number; outUsed: number; inLimit: number; outLimit: number };
   costs: Record<UsbDevice, EndpointCost>;

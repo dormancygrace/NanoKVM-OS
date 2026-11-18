@@ -53,6 +53,7 @@ import { useTranslation } from 'react-i18next';
 
 import { getAddonInventory, type AddonManifest } from '@/api/addons';
 import { getWiFi } from '@/api/network.ts';
+import { getVirtualDevice } from '@/api/virtual-device.ts';
 import { getBluetoothState } from '@/api/vm.ts';
 import { addonTabId, localized } from '@/lib/addon-form.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
@@ -278,6 +279,9 @@ export const Settings = ({
   // Network > Wi-Fi is left out only once the device reports no adapter:
   // until then (and when the request fails) it stays, so a link to it works.
   const [hasWifi, setHasWifi] = useState(true);
+  // USB > Identity belongs to the gadget: it is left out while the port is
+  // a host or switched off. Until the device answers it stays.
+  const [usbGadget, setUsbGadget] = useState(true);
 
   useEffect(() => {
     if (!isModalOpen || !isAdmin) return;
@@ -292,8 +296,17 @@ export const Settings = ({
         if (active && rsp.code === 0) setHasWifi(rsp.data?.supported !== false);
       })
       .catch(() => {});
+    const readUsbRole = () =>
+      getVirtualDevice()
+        .then((rsp) => {
+          if (active && rsp.code === 0) setUsbGadget((rsp.data?.role ?? 'gadget') === 'gadget');
+        })
+        .catch(() => {});
+    void readUsbRole();
+    window.addEventListener('nanokvm:usb-updated', readUsbRole);
     return () => {
       active = false;
+      window.removeEventListener('nanokvm:usb-updated', readUsbRole);
     };
   }, [isModalOpen, isAdmin]);
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<SettingsGroup>>(new Set());
@@ -317,7 +330,7 @@ export const Settings = ({
         'video-watermark': <WatermarkPage />,
         usb: null,
         'usb-composition': <Usb part="composition" />,
-        'usb-identity': <Usb part="identity" />,
+        'usb-identity': usbGadget ? <Usb part="identity" /> : undefined,
         network: null,
         'network-general': <Network />,
         'network-wifi': hasWifi ? <WifiSettings /> : undefined,

@@ -19,6 +19,10 @@ sections for this; the output section aligns every input section to a
 NOPs ld leaves at the start of each function section. The rest of
 .sched.text keeps its bounds behind the scheduler core.
 
+The hot text is kept whole when the linker discards unreferenced
+sections: three noinstr functions nothing calls would otherwise drop out
+and move the list by five cache lines.
+
 diff --git a/Makefile b/Makefile
 --- a/Makefile
 +++ b/Makefile
@@ -38,7 +42,7 @@ diff --git a/Makefile b/Makefile
 diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
 --- a/arch/riscv/kernel/vmlinux.lds.S
 +++ b/arch/riscv/kernel/vmlinux.lds.S
-@@ -31,15 +31,33 @@
+@@ -31,15 +31,44 @@
  	HEAD_TEXT_SECTION
  	. = ALIGN(PAGE_SIZE);
  
@@ -54,15 +58,26 @@ diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
 +		 * entry, the noinstr text and the scheduler core come first, then
 +		 * the listed functions (vmlinux-hot.lds.h, from
 +		 * platform/kernel/hot-text.lds), continuing the cache sets where
-+		 * the scheduler core ends.
++		 * the scheduler core ends. All of it is kept (KEEP) when the
++		 * linker discards unreferenced sections: a function nothing calls
++		 * in this configuration must not move the ones after it.
 +		 */
-+		IRQENTRY_TEXT
-+		NOINSTR_TEXT
++		ALIGN_FUNCTION();
++		__irqentry_text_start = .;
++		KEEP(*(.irqentry.text))
++		__irqentry_text_end = .;
++		ALIGN_FUNCTION();
++		__noinstr_text_start = .;
++		KEEP(*(.noinstr.text))
++		__cpuidle_text_start = .;
++		KEEP(*(.cpuidle.text))
++		__cpuidle_text_end = .;
++		__noinstr_text_end = .;
 +		ALIGN_FUNCTION();
 +		__sched_text_start = .;
-+		*:kernel/sched/core.o(.sched.text)
++		KEEP(*:kernel/sched/core.o(.sched.text))
 +		__hot_entry_end = .;
-+		*(.sched.text)
++		KEEP(*(.sched.text))
 +		__sched_text_end = .;
 +		. = . + ((__hot_entry_end - .) & 0x3fff);
 +#include "vmlinux-hot.lds.h"

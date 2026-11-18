@@ -34,7 +34,22 @@ At the start of `.text` (`arch/riscv/kernel/vmlinux.lds.S`):
    ends: the functions shared by the system-call paths, then each path's own
    functions (pipe, read, write, stat, open, getppid, page fault, Ethernet and
    Wi-Fi send and receive), so that a path is the shared block plus one run.
-   The shared block and the pipe path have a spare line after each function.
+   The shared block and the pipe path have a spare line after each function;
+4. a slot of one I-cache way (16 KiB) for the functions of `stat()` of a
+   missing name (the slow lookup and the negative dentry), at a measured
+   offset in the slot. Being a whole way, the slot leaves the cache sets of the
+   code after it unchanged.
+
+Each listed function starts at a fixed offset from the first one
+(`. = MAX(., __hot_list + OFFSET);`, written by `scripts/kernel-hot-text/pin.py`
+from a measured kernel). The order alone does not hold the layout: when a call
+becomes short enough for linker relaxation, the function shrinks and every one
+after it moves by a line, and the measured placement of every later path with
+it. With the offsets, a shorter function leaves a gap; a longer one pushes the next one,
+and the layout needs measuring again. All of the hot text is kept (`KEEP`)
+when the linker discards unreferenced code, for the same reason: three
+functions of the noinstr text that nothing calls moved the list by five
+lines, and `open()` became 25 % slower.
 
 Every built-in function is compiled into its own section and starts on a
 64-byte line. The line alignment comes from the linker script (`SUBALIGN(64)`)
@@ -43,6 +58,61 @@ instead of `-falign-functions=64`: with relaxation, GCC's per-function
 remove them there), which made the image 700 KiB larger. Modules keep
 `-falign-functions=64` from the CPU profile. The image is 33 KiB smaller than
 before.
+
+## Data
+
+The C906 D-cache is 64 KiB, four ways of 16 KiB. The system call and network
+paths read the system call table, the file, socket and protocol operations,
+`init_net` and the hash tables on every call, so the cache sets of the data
+matter as much as those of the code. Patch `0089` fixes them:
+
+- The read-only data starts at offset 0x0000 in the way, the tables after the
+  kallsyms tables in `.rodata` at 0x0380, and `.bss` at 0x1000: the offsets
+  of the measured kernel. Without them the read-only data moves with the size
+  of the init sections, the operation tables with the number of functions
+  (kallsyms), and `.bss` with everything before it.
+- `.data` starts with `init_thread_union`, aligned to 16 KiB, and needs no
+  offset.
+- The data, read-only data and bss of every linked object are kept when
+  unreferenced sections are discarded, so nothing inside them moves either.
+
+What moving them cost, with the code at its offsets: trimmed exports moved the
+read-only data 12 KiB and a `stat()` call went from 0.1 to 2.9 D-cache read
+misses; the data of discarded objects moved `init_net` and `tcp_hashinfo` by
+4 KiB and Ethernet TCP send had 5 % more I-cache, 10 % more D-cache and 15 %
+more jTLB misses. With `.data` and `.bss` back in place but the read-only data
+still elsewhere, `open()` went from 0.1 to 4.3 D-cache read misses: what
+counts is where the data lies against each other, not one section alone.
+
+## Unused code and exports
+
+The kernel is linked with `--gc-sections` (`CONFIG_LD_DEAD_CODE_DATA_ELIMINATION`)
+and exports only the symbols its modules use (`CONFIG_TRIM_UNUSED_KSYMS`). The
+out-of-tree modules are built after the kernel, so the exports they import are
+listed in `platform/kernel/ksyms-keep.txt` (`scripts/kernel-ksyms/generate.sh`);
+a module that needs one missing from the list fails its modpost. The code is
+compiled without `-fdata-sections` (patch `0090`): with it GCC 16 generates
+different code for functions that address static data, and even with every hot
+function at its offset a pipe round trip took 17 % more cycles (I-cache misses
+81 to 99). The kernel image is 10.75 MB → 9.37 MB (the boot image 7.25 → 6.72 MB)
+and the system has 884 KB more memory (MemTotal).
+
+The same paths, release kernel, against `main` (pathbench, three passes per
+boot; cycles and I-cache misses per call from the C906 PMU):
+
+| Path | main | unused code discarded |
+| --- | ---: | ---: |
+| `stat()`, 1 / 4 / 8 path components | 3.31 / 4.01 / 4.99 µs | 3.34 / 4.07 / 5.01 µs |
+| `open()` + `close()`, 1 / 4 / 8 components | 6.55 / 7.41 / 8.31 µs | 6.47 / 7.50 / 8.42 µs |
+| `stat()` of a missing name | 5.85 µs | 5.89 µs |
+| pipe round trip | 28,700 cycles, 81 I-misses | 29,900 cycles, 89 I-misses |
+
+The pipe round trip of `main` itself took 28,700–31,100 cycles over three
+boots. Ethernet TCP send and UDP receive (100 Mbit/s, C906 counters over the
+whole transfer) have the same I-cache, D-cache and jTLB misses as `main`.
+
+Without the offsets and the slot, the same discarding made `stat()` 12–50 %
+and `open()` 11–25 % slower.
 
 ## Effect
 
@@ -104,5 +174,9 @@ version:
 4. Boot the release kernel with the new list and compare the paths above with
    the old list (the I-cache miss counts need the PMU events of the debug
    kernel or a counting module) before committing it.
+5. Pin the measured layout: `scripts/kernel-hot-text/pin.py --kbuild
+   BUILD/kernel/build --cross PREFIX --list platform/kernel/hot-text.lds --out
+   platform/kernel/hot-text.lds`, with the build of the kernel that was measured.
+   Keep the slot at the end of the old list.
 
 Names the kernel no longer has match nothing and are ignored.

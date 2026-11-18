@@ -294,6 +294,8 @@ kernel_source() {
     # The order of the hot kernel functions, included by vmlinux.lds.S (patch
     # 0088, docs/KERNEL-HOT-TEXT.md).
     cp "$here/kernel/hot-text.lds" "$ksrc/arch/riscv/kernel/vmlinux-hot.lds.h"
+    # CONFIG_UNUSED_KSYMS_WHITELIST: exports the out-of-tree modules import.
+    cp "$here/kernel/ksyms-keep.txt" "$ksrc/nanokvm-ksyms-keep.txt"
     apply_patches "$ksrc" "$here/kernel"
     python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel --record "$out/kernel/cpu-profile.json" --compiler "${cross}gcc"
     cp "$here/kernel/config" "$kbuild/.config"

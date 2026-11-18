@@ -1,0 +1,29 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] kbuild: dead code elimination without -fdata-sections
+
+CONFIG_LD_DEAD_CODE_DATA_ELIMINATION compiles with -ffunction-sections
+-fdata-sections. With -fdata-sections GCC 16 generates different code
+for functions that address static data: 22 of the hot functions changed
+size. With every one of them still at its measured offset, a pipe round
+trip between two processes took 17 % more cycles (I-cache misses 81 to
+99 per round trip) and sched_yield() had twice the I-cache misses.
+
+Keep -ffunction-sections and --gc-sections, and leave the data in its
+per-object sections: unreferenced functions are still discarded. The
+data is kept whole anyway, at fixed D-cache offsets
+(arch/riscv/kernel/vmlinux.lds.S).
+
+---
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -1076,5 +1076,8 @@
+ # `rustc`'s `-Zfunction-sections` applies to data too (as of 1.59.0).
+ ifdef CONFIG_LD_DEAD_CODE_DATA_ELIMINATION
+-KBUILD_CFLAGS_KERNEL += -ffunction-sections -fdata-sections
++# No -fdata-sections: it changes the code GCC generates for functions that
++# address static data, and the hot paths with it
++# (arch/riscv/kernel/vmlinux.lds.S).
++KBUILD_CFLAGS_KERNEL += -ffunction-sections
+ KBUILD_RUSTFLAGS_KERNEL += -Zfunction-sections=y
+ LDFLAGS_vmlinux += --gc-sections

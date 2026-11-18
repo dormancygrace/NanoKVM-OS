@@ -225,24 +225,35 @@ export function attachShell(
     if (!disposed) connect();
   };
 
-  // Keystrokes, and the terminal's answers to queries in the chunk it is
-  // processing: each goes out with the offset it answers up to, in one
-  // message, so the server never has the answer without the offset or the
-  // offset without the answer.
-  // The terminal's data: what the user types, pastes or does with the mouse,
-  // which arrives during a keyboard, mouse, focus, input or clipboard event,
-  // and its answers to queries in the output, which it gives while it
-  // processes a chunk: in its own timer, or right in the message handler
-  // after user input. Input goes out as text at once, without moving the
-  // processed offset; answers wait for the end of their chunk.
+  // The terminal's data is either user input or its answers to queries in the
+  // output. xterm marks user input at the source: its core fires onUserInput
+  // right before onData for what the user types, pastes, composes (an IME
+  // commit arrives in a timer after compositionend) or does with the mouse.
+  // Answers come without it, while the terminal parses a chunk; so do focus
+  // reports, which the user's focus change (a FocusEvent) sends as well.
+  // xterm 6.0.0 offers this only on its core service.
+  const core = (
+    terminal as unknown as {
+      _core: { coreService: { onUserInput: (listener: () => void) => { dispose(): void } } };
+    }
+  )._core.coreService;
+  let userInput = false;
+  const userInputMark = core.onUserInput(() => {
+    userInput = true;
+  });
+
+  // User input goes out as text at once, without moving the processed
+  // offset. Answers wait for the end of their chunk and go out with it.
   const input = terminal.onData((data) => {
+    const fromUser = userInput || (window as { event?: Event }).event instanceof FocusEvent;
+    userInput = false;
     if (!output || !ws || ws.readyState !== WebSocket.OPEN) return;
     const chunk = output.chunks[0];
-    const event = (window as { event?: Event }).event;
-    if (event instanceof UIEvent || event instanceof ClipboardEvent || !chunk) {
+    if (fromUser || !chunk) {
       ws.send(data);
       return;
     }
+    // A page processed this chunk before and answered its queries.
     if (chunk.mute) return;
     if (chunk.answers.length + data.length > maxAnswers) {
       // Far beyond any real answer: pass it on without the offset, so a
@@ -274,6 +285,7 @@ export function attachShell(
       observer.disconnect();
       window.removeEventListener('resize', resize, false);
       input.dispose();
+      userInputMark.dispose();
       enter.dispose();
       // The shell keeps running on the device and can be opened again.
       ws?.close();

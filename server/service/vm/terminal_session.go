@@ -400,14 +400,23 @@ func (s *shell) output(data []byte) {
 	}
 }
 
-// acknowledge records that a page's terminal processed the output up to
-// offset.
-func (s *shell) acknowledge(offset uint64) {
+// acknowledge records that the terminal of the page ws processed the output
+// up to offset and answered the queries in it. It reports false, recording
+// nothing, when ws is not the attached page: attach told the page that
+// replaced it which queries are pending, and that page answers them.
+// Recording comes before the answers reach the shell, under the mutex attach
+// takes the boundary under, so every answer is either counted in the next
+// page's hello or never written, without waiting on the pty.
+func (s *shell) acknowledge(ws *websocket.Conn, offset uint64) bool {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.ws != ws {
+		return false
+	}
 	if offset > s.processed && offset <= s.produced {
 		s.processed = offset
 	}
-	s.mutex.Unlock()
+	return true
 }
 
 // readInput copies the page's keystrokes and terminal answers to the pty
@@ -451,14 +460,12 @@ func (s *shell) readInput(ws *websocket.Conn) {
 			continue
 		}
 		// Answers reach the shell together with the end of the output they
-		// answer: a page that went away after sending them is not asked again.
-		if message.Data != nil {
+		// answer: a page that went away after sending them is not asked again,
+		// and those of a page already replaced are dropped.
+		if message.Ack != nil && s.acknowledge(ws, *message.Ack) && message.Data != nil {
 			if _, err = s.ptmx.Write([]byte(*message.Data)); err != nil {
 				return
 			}
-		}
-		if message.Ack != nil {
-			s.acknowledge(*message.Ack)
 		}
 		if message.Rows > 0 && message.Cols > 0 {
 			_ = pty.Setsize(s.ptmx, &pty.Winsize{Rows: message.Rows, Cols: message.Cols})

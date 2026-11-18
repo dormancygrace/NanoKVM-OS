@@ -6,6 +6,7 @@
 #include <string>
 
 static uint64_t oled_monotonic_ms();
+extern kvm_sys_state_t kvm_sys_state;
 
 namespace {
 
@@ -125,7 +126,10 @@ void oled_ip_window_status(bool force)
     const unsigned font = narrow ? 4U : 8U;
     char lines[2][24] = {};
     format_window_line(lines[0], sizeof(lines[0]), 'E', eth_addr, narrow);
-    format_window_line(lines[1], sizeof(lines[1]), 'W', wifi_addr, narrow);
+    // The Wi-Fi line only on a board with a Wi-Fi module (wifi_state -2 or
+    // -1: none found): a Cube has none.
+    const unsigned count = kvm_sys_state.wifi_state >= 0 ? 2U : 1U;
+    if (count == 2U) format_window_line(lines[1], sizeof(lines[1]), 'W', wifi_addr, narrow);
 
     const unsigned line_width = std::max(strlen(lines[0]), strlen(lines[1])) * (narrow ? 4U : 6U);
     const unsigned block_width = std::min(width, line_width);
@@ -136,10 +140,11 @@ void oled_ip_window_status(bool force)
         force = true;
     }
     const unsigned x = (step * 13U) % (width - block_width + 1U);
-    const unsigned page = step % (pages - 2U + 1U);
+    const unsigned page = step % (pages - count + 1U);
     force = force || strcmp(lines[0], shown[0]) != 0 || strcmp(lines[1], shown[1]) != 0;
     if (force) OLED_Clear();
-    for (unsigned i = 0; i < 2U; ++i) {
+    strcpy(shown[1], lines[1]);
+    for (unsigned i = 0; i < count; ++i) {
         if (force || strcmp(lines[i], shown[i]) != 0) {
             OLED_ShowString(x, page + i, lines[i], font);
             strcpy(shown[i], lines[i]);

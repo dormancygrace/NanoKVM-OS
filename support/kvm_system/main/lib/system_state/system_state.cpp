@@ -253,11 +253,17 @@ void kvm_observe_oled_ip_window(void)
 {
 	char eth_addr[16] = {};
 	char wifi_addr[16] = {};
-	(void)usable_ipv4_for_oled(ethernet_interface().c_str(), eth_addr, sizeof(eth_addr));
+	// An address counts only while its interface has a link: a static address
+	// stays on an interface whose cable is out, and nobody reaches the NanoKVM
+	// at it. It is shown, and opens the window, when the link comes up.
+	const std::string eth_interface = ethernet_interface();
+	if (get_nic_state(eth_interface.c_str()) == NIC_STATE_RUNNING) {
+		(void)usable_ipv4_for_oled(eth_interface.c_str(), eth_addr, sizeof(eth_addr));
+	}
 
 	// AP mode assigns wlan0 its own static address. It is a configuration
 	// endpoint, not a newly acquired Wi-Fi STA address, and must not wake OLED.
-	if (access(WIFI_AP_FLAG, F_OK) != 0) {
+	if (access(WIFI_AP_FLAG, F_OK) != 0 && get_nic_state("wlan0") == NIC_STATE_RUNNING) {
 		(void)usable_ipv4_for_oled("wlan0", wifi_addr, sizeof(wifi_addr));
 	}
 	oled_ip_window_observe(eth_addr, wifi_addr);

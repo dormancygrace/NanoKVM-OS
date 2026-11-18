@@ -1,8 +1,8 @@
 {
   "linux": {
-    "version": "7.3.4",
-    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.3.4.tar.xz",
-    "sha256": "b11b6df8295e8e991ff040b71aaa4994a8b55caa23b6b092907f195b5840fd1f"
+    "version": "7.3.5",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.3.5.tar.xz",
+    "sha256": "8f293f83d54f0b7b9be56863ebc5e4ea79d73e530b4ae55c572be97ef39f0990"
   },
   "sophgo_kernel_port_reference": {
     "url": "https://github.com/sophgo/linux_5.10.git",

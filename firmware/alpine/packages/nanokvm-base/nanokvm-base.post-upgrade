@@ -70,6 +70,18 @@ if [ -f "$udev_trigger" ] && ! grep -Fqx "$udev_default" "$udev_trigger"; then
 fi
 unset udev_trigger udev_default
 # End NanoKVM udev coldplug default
+# Services whose stop undoes nothing a reboot or power-off does not undo
+# anyway skip their stop at shutdown; each stop costs an OpenRC service run.
+# nkos-standby accepts the failed entries OpenRC leaves for skipped stops. A
+# conf.d that already sets rc_keyword stays.
+for service in devfs procfs sysfs fsck loopback hostname sysctl osclock udev-trigger; do
+    conf=/etc/conf.d/$service
+    if ! grep -q '^[[:space:]]*rc_keyword=' "$conf" 2>/dev/null; then
+        mkdir -p /etc/conf.d
+        printf '%s\n' 'rc_keyword="-shutdown"' >> "$conf"
+    fi
+done
+unset service conf
 # D-Bus serves only avahi, which starts it when mDNS is on (nanokvm-mdns).
 # A running D-Bus keeps running until the next boot.
 if [ -e /etc/runlevels/default/dbus ] && [ -x /etc/init.d/nanokvm-mdns ] &&

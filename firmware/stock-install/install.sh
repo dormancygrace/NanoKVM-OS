@@ -205,6 +205,20 @@ case "$(cat /etc/kvm/hw 2>/dev/null || true)" in
         printf 'on\n' >"$settings/etc/kvm/atx"
         ;;
 esac
+# NanoKVM OS derives the Ethernet MAC from more of the chip UID than stock
+# firmware did. Keep the address this device runs with, and its DHCP
+# reservations, as the override NanoKVM OS reads. Stock firmware takes an
+# empty eth.mac for none: it is not carried over.
+[ -s "$settings/boot/eth.mac" ] || rm -f "$settings/boot/eth.mac"
+if [ ! -e "$settings/boot/eth.mac" ]; then
+    eth_mac=$(cat /sys/class/net/eth0/address 2>/dev/null || true)
+    case "$eth_mac" in
+        ??:??:??:??:??:??)
+            mkdir -p "$settings/boot"
+            printf '%s\n' "$eth_mac" >"$settings/boot/eth.mac"
+            ;;
+    esac
+fi
 # Record regular files only; tar directory entries must not replace the new
 # root's /etc and /root directory permissions with staging-directory modes.
 (cd "$settings" && find . -type f) >"$settings.paths"

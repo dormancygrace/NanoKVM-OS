@@ -7,6 +7,7 @@ set -eu
 : "${NANOKVM_ID_UID:=/sys/class/cvi-base/base_uid}"
 : "${NANOKVM_ID_HOSTNAME:=hostname}"
 : "${NANOKVM_ID_IP:=ip}"
+: "${NANOKVM_ID_MOUNTPOINT:=mountpoint}"
 
 die() { echo "S10uuid: $*" >&2; exit 1; }
 read_value() { sed 's/\r$//' "$1"; }
@@ -47,13 +48,47 @@ new_hostname=$prefix-$suffix
 if [ -f "$NANOKVM_ID_BOOT/hostname" ]; then new_hostname=$(read_value "$NANOKVM_ID_BOOT/hostname"); fi
 valid_hostname "$new_hostname" || die 'invalid hostname'
 
-if [ -f "$NANOKVM_ID_BOOT/eth.mac" ]; then
+# An empty eth.mac is no override, as in stock firmware. kept_mac is the
+# 16-bit address this device ran with before an update (written by the
+# package's post-upgrade to the root filesystem, which it can always write).
+kept_mac=$NANOKVM_ID_ETC/kvm/eth.mac.legacy
+override=
+if [ -s "$NANOKVM_ID_BOOT/eth.mac" ]; then
     ethmac=$(read_value "$NANOKVM_ID_BOOT/eth.mac")
+    override=yes
+elif [ -s "$kept_mac" ]; then
+    ethmac=$(read_value "$kept_mac")
+    # The update could not read the interface: the default of that release.
+    [ "$ethmac" != legacy-default ] || ethmac="48:da:35:6f:${suffix%??}:${suffix#??}"
 else
-    # Keep the stock derivation so existing DHCP reservations remain usable.
-    ethmac="48:da:35:6f:${suffix%??}:${suffix#??}"
+    # A locally administered address from 40 bits of the chip UID hash: with
+    # the 16 bits used before, two devices on one network share an address
+    # once there are a few hundred of them. A device that had such an address
+    # keeps it (kept_mac, or eth.mac from the stock installer), so its DHCP
+    # reservations remain usable.
+    ethmac=$(printf '%s' "$uid" | cut -c1-10 | sed 's/../:&/g')
+    ethmac="02$ethmac"
 fi
 valid_mac "$ethmac" || die 'invalid Ethernet MAC address'
+# The kept address becomes the eth.mac override, where the user finds and can
+# remove it; an override the user set, now known to be valid, replaces it. The
+# record goes only while the boot volume is mounted, and only after that
+# volume holds the address (complete file, rename, flush): the storage service
+# goes on without /boot when its mount fails, and a file written into the
+# bare directory would be hidden by the volume at the next boot. Until then
+# the record stays and is used again.
+if [ -s "$kept_mac" ] && "$NANOKVM_ID_MOUNTPOINT" -q "$NANOKVM_ID_BOOT"; then
+    if [ -n "$override" ] || {
+        { printf '%s\n' "$ethmac" > "$NANOKVM_ID_BOOT/eth.mac.new"; } 2>/dev/null &&
+            mv -f "$NANOKVM_ID_BOOT/eth.mac.new" "$NANOKVM_ID_BOOT/eth.mac" 2>/dev/null
+    }; then
+        if sync -f "$NANOKVM_ID_BOOT"; then
+            rm -f "$kept_mac" || echo "S10uuid: will retry removing $kept_mac on the next boot" >&2
+        fi
+    else
+        rm -f "$NANOKVM_ID_BOOT/eth.mac.new" 2>/dev/null || true
+    fi
+fi
 ethmac=$(printf '%s' "$ethmac" | tr 'A-F' 'a-f')
 
 # Validate all inputs before changing identity or taking the link down.

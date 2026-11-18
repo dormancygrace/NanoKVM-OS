@@ -78,12 +78,13 @@ valid_mac "$ethmac" || die 'invalid Ethernet MAC address'
 # bare directory would be hidden by the volume at the next boot. Until then
 # the record stays and is used again.
 if [ -s "$kept_mac" ] && "$NANOKVM_ID_MOUNTPOINT" -q "$NANOKVM_ID_BOOT"; then
-    if [ -n "$override" ]; then
-        rm -f "$kept_mac"
-    elif { printf '%s\n' "$ethmac" > "$NANOKVM_ID_BOOT/eth.mac.new"; } 2>/dev/null &&
-        mv -f "$NANOKVM_ID_BOOT/eth.mac.new" "$NANOKVM_ID_BOOT/eth.mac" 2>/dev/null &&
-        sync; then
-        rm -f "$kept_mac"
+    if [ -n "$override" ] || {
+        { printf '%s\n' "$ethmac" > "$NANOKVM_ID_BOOT/eth.mac.new"; } 2>/dev/null &&
+            mv -f "$NANOKVM_ID_BOOT/eth.mac.new" "$NANOKVM_ID_BOOT/eth.mac" 2>/dev/null
+    }; then
+        if sync -f "$NANOKVM_ID_BOOT"; then
+            rm -f "$kept_mac" || echo "S10uuid: will retry removing $kept_mac on the next boot" >&2
+        fi
     else
         rm -f "$NANOKVM_ID_BOOT/eth.mac.new" 2>/dev/null || true
     fi

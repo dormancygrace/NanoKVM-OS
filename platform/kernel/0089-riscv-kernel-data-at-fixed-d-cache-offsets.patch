@@ -1,0 +1,92 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] riscv: kernel data at fixed D-cache offsets
+
+The C906 L1 D-cache is 64 KiB, four ways of 16 KiB. Which lines of the
+kernel's data share cache sets depends on everything linked before them,
+and the system call and network paths read the system call table, the
+file, socket and protocol operations, init_net and the hash tables on
+every call.
+
+When unused code and exports were discarded at link time, the data moved
+in four ways:
+- the read-only data followed the smaller init sections and moved 12 KiB
+  in the way; a stat() call went from 0.1 to 2.9 D-cache read misses;
+- the kallsyms tables in .rodata shrank with the number of functions and
+  moved the operation tables behind them;
+- the data of objects whose code was discarded dropped out of .data,
+  moving init_net and tcp_hashinfo by 4 KiB;
+- .bss started 4 KiB lower.
+Ethernet TCP send took 9 % more CPU per megabyte, with 15 % more jTLB,
+10 % more D-cache and 5 % more I-cache misses.
+
+Keep the data, read-only data and bss of every linked object, and start
+the read-only data, the tables after kallsyms and .bss at fixed offsets
+in the way: the offsets they have in the measured kernel. .data needs no
+offset: it starts with init_thread_union, aligned to 16 KiB.
+
+---
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -370,5 +370,5 @@
+ #define DATA_DATA							\
+ 	*(.xiptext)							\
+-	*(DATA_MAIN)							\
++	KEEP(*(DATA_MAIN))						\
+ 	*(.data..decrypted)						\
+ 	*(.ref.data)							\
+@@ -480,5 +480,7 @@
+ 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
+ 		__start_rodata = .;					\
+-		*(.rodata) *(.rodata.*) *(.data.rel.ro*)		\
++		KEEP(*(.rodata))					\
++		RO_DATA_TABLES_OFFSET					\
++		KEEP(*(.rodata.*)) KEEP(*(.data.rel.ro*))		\
+ 		SCHED_DATA						\
+ 		RO_AFTER_INIT_DATA	/* Read only after init */	\
+@@ -760,5 +762,5 @@
+ 	.sbss : AT(ADDR(.sbss) - LOAD_OFFSET) {				\
+ 		*(.dynsbss)						\
+-		*(SBSS_MAIN)						\
++		KEEP(*(SBSS_MAIN))					\
+ 		*(.scommon)						\
+ 	}
+@@ -780,5 +782,5 @@
+ 		. = ALIGN(PAGE_SIZE);					\
+ 		*(.dynbss)						\
+-		*(BSS_MAIN)						\
++		KEEP(*(BSS_MAIN))					\
+ 		*(COMMON)						\
+ 	}
+diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
+--- a/arch/riscv/kernel/vmlinux.lds.S
++++ b/arch/riscv/kernel/vmlinux.lds.S
+@@ -8,4 +8,15 @@
+ #define RUNTIME_DISCARD_EXIT
+
++/*
++ * The kernel's data starts at fixed offsets in a 16 KiB way of the C906
++ * D-cache, so that its cache sets do not depend on the size of the code,
++ * the init sections or the kallsyms tables linked before it. The offsets
++ * are those of the measured kernel. The data, read-only data and bss of
++ * linked objects are kept when unreferenced sections are discarded
++ * (include/asm-generic/vmlinux.lds.h), so they do not move either.
++ */
++#define D_WAY_OFFSET(off)	. = . + (((off) - .) & 0x3fff);
++#define RO_DATA_TABLES_OFFSET	D_WAY_OFFSET(0x0380)
++
+ #include <asm/pgtable.h>
+ #define LOAD_OFFSET KERNEL_LINK_ADDR
+@@ -136,4 +147,5 @@
+ 	__init_end = .;
+
+ 	/* Start of data section */
++	D_WAY_OFFSET(0x0000)
+ 	_sdata = .;
+@@ -180,4 +192,6 @@
+ 	_edata = .;
+
++	. = ALIGN(PAGE_SIZE);
++	D_WAY_OFFSET(0x1000)
+ 	BSS_SECTION(PAGE_SIZE, PAGE_SIZE, 0)
+

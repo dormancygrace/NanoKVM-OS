@@ -150,7 +150,9 @@ def main():
                 entry = f'*(.text.{n})'
             if p in SPACED:
                 lines.append('\t\t. = ALIGN(. + 62, 64);')
-            lines.append(f'\t\t{entry}')
+            # KEEP: the order must not move when --gc-sections drops a
+            # listed function that has no caller in this configuration.
+            lines.append(f'\t\tKEEP({entry})')
     a.out.write_text('/* SPDX-License-Identifier: GPL-2.0-only */\n'
                      '/* Measured order of the hot kernel functions (docs/KERNEL-HOT-TEXT.md). */\n'
                      + '\n'.join(lines) + '\n')

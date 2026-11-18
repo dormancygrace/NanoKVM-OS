@@ -50,8 +50,13 @@ valid_hostname "$new_hostname" || die 'invalid hostname'
 if [ -f "$NANOKVM_ID_BOOT/eth.mac" ]; then
     ethmac=$(read_value "$NANOKVM_ID_BOOT/eth.mac")
 else
-    # Keep the stock derivation so existing DHCP reservations remain usable.
-    ethmac="48:da:35:6f:${suffix%??}:${suffix#??}"
+    # A locally administered address from 40 bits of the chip UID hash: with
+    # the 16 bits used before, two devices on one network share an address
+    # once there are a few hundred of them. A device that had such an address
+    # keeps it in eth.mac (written by the package update and the stock
+    # installer), so its DHCP reservations remain usable.
+    ethmac=$(printf '%s' "$uid" | cut -c1-10 | sed 's/../:&/g')
+    ethmac="02$ethmac"
 fi
 valid_mac "$ethmac" || die 'invalid Ethernet MAC address'
 ethmac=$(printf '%s' "$ethmac" | tr 'A-F' 'a-f')

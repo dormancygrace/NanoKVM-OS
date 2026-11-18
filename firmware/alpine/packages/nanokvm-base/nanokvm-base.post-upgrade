@@ -124,6 +124,22 @@ if [ "$syslog_changed" = yes ]; then
 fi
 unset syslog_conf syslog_marker syslog_changed
 
+# Ethernet MAC: releases up to 4.2.1 derived it from 16 bits of the chip UID
+# (48:da:35:6f:xx:xx); S10uuid now uses 40 bits. A device running with the
+# old address keeps it, and its DHCP reservations, as an eth.mac override.
+# Removing the file gives the device its new address at the next boot.
+eth_mac=$(cat /sys/class/net/eth0/address 2>/dev/null || true)
+case "$eth_mac" in
+    48:da:35:6f:??:??)
+        if [ ! -e /boot/eth.mac ] && mountpoint -q /boot; then
+            printf '%s\n' "$eth_mac" > /boot/eth.mac ||
+                echo "Could not keep the Ethernet MAC address in /boot/eth.mac; it changes at the next boot." >&2
+        fi
+        ;;
+esac
+unset eth_mac
+# Ethernet MAC end
+
 tmpfs_entry='tmpfs /tmp tmpfs rw,nosuid,nodev,noexec,mode=1777,size=64M 0 0'
 if ! grep -qE '^[^#]+[[:space:]]+/tmp[[:space:]]' /etc/fstab 2>/dev/null; then
     printf '%s\n' "$tmpfs_entry" >> /etc/fstab

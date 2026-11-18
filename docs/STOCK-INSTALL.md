@@ -52,7 +52,11 @@ includes and root-login policy, or reference an unavailable SFTP server.
 
 USB gadget and networking settings (including RNDIS/NCM, DHCP/prefix, HID and
 USB identity/storage choices), the Ethernet MAC override, Ethernet disabled
-state and static DNS configuration are retained. A stock device with no USB
+state and static DNS configuration are retained. Without an override the
+installer records the Ethernet MAC address the device runs with as
+`/boot/eth.mac`, so DHCP reservations keep working; delete the file to get the
+address NanoKVM OS derives from the chip (`02:` and 40 bits of its UID hash).
+A stock device with no USB
 flags keeps its stock composition (HID only); the fresh-image defaults, including
 an enabled virtual disk, are not added.
 

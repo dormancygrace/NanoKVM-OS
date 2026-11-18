@@ -41,7 +41,7 @@ func Shutdown() error {
 	// OpenRC clears /run/openrc/failed before it returns, and its overall
 	// exit status does not propagate individual stop failures. Watch events,
 	// not just the final directory listing.
-	watch, watchErr := watchFailures("/run/openrc/failed")
+	watch, watchErr := watchFailures("/run/openrc/failed", "/run/openrc/deptree")
 	if watchErr != nil {
 		results = append(results, watchErr)
 	}
@@ -120,9 +120,10 @@ func watchdogsReleased(sysfs string) error {
 type failureWatch struct {
 	fd       int
 	existing error
+	deptree  string
 }
 
-func watchFailures(directory string) (*failureWatch, error) {
+func watchFailures(directory, deptree string) (*failureWatch, error) {
 	if e := os.MkdirAll(directory, 0755); e != nil {
 		return nil, e
 	}
@@ -134,7 +135,7 @@ func watchFailures(directory string) (*failureWatch, error) {
 		unix.Close(fd)
 		return nil, e
 	}
-	w := &failureWatch{fd: fd}
+	w := &failureWatch{fd: fd, deptree: deptree}
 	entries, e := os.ReadDir(directory)
 	if e != nil {
 		unix.Close(fd)
@@ -178,9 +179,51 @@ func (w *failureWatch) result() error {
 			}
 			if mask&(unix.IN_CREATE|unix.IN_MOVED_TO) != 0 {
 				name := strings.TrimRight(string(buf[offset+16:offset+16+length]), "\x00")
-				return fmt.Errorf("OpenRC service failed or refused shutdown: %s", name)
+				skipped, e := skipsStop(w.deptree, name)
+				if e != nil {
+					return e
+				}
+				if !skipped {
+					return fmt.Errorf("OpenRC service failed or refused shutdown: %s", name)
+				}
 			}
 			offset += 16 + length
 		}
 	}
+}
+
+// OpenRC marks a service failed when a -shutdown or noshutdown keyword tells
+// it not to stop the service at shutdown (the stop loop in src/openrc/rc.c),
+// though no stop ran. -stop and nostop are left out: OpenRC marks those failed
+// on any runlevel change, so they can already be failed before standby starts,
+// where the watch still refuses them. Read the deptree after OpenRC
+// returns: OpenRC rebuilds a stale one before it stops services.
+func skipsStop(deptree, service string) (bool, error) {
+	b, e := os.ReadFile(deptree)
+	if e != nil {
+		return false, fmt.Errorf("OpenRC deptree: %w", e)
+	}
+	lines := strings.Split(string(b), "\n")
+	prefix := ""
+	for _, line := range lines {
+		key, ok := strings.CutSuffix(line, "_service='"+service+"'")
+		if ok {
+			prefix = key + "_keyword_"
+			break
+		}
+	}
+	if prefix == "" {
+		return false, nil
+	}
+	for _, line := range lines {
+		key, value, ok := strings.Cut(line, "=")
+		if !ok || !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		switch strings.Trim(value, "'") {
+		case "-shutdown", "noshutdown":
+			return true, nil
+		}
+	}
+	return false, nil
 }

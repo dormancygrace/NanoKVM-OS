@@ -24,8 +24,8 @@ case "$1" in
     wait)
         n=0
         while owner_alive; do
-            [ "$n" -lt 3 ] || { echo 'Cannot stop server supervisor' >&2; exit 1; }
-            sleep 1
+            [ "$n" -lt 30 ] || { echo 'Cannot stop server supervisor' >&2; exit 1; }
+            sleep 0.1
             n=$((n + 1))
         done
         exit 0 ;;

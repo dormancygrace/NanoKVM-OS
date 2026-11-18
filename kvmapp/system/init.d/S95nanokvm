@@ -7,10 +7,10 @@ wait_for_exit() {
     elapsed=0
 
     while pidof "$process" >/dev/null 2>&1; do
-        if [ "$elapsed" -ge "$timeout" ]; then
+        if [ "$elapsed" -ge $((timeout * 10)) ]; then
             return 1
         fi
-        sleep 1
+        sleep 0.1
         elapsed=$((elapsed + 1))
     done
     return 0

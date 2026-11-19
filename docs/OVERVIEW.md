@@ -18,9 +18,9 @@ On a wide window it is at the left:
   name of their group;
 - **Reboot** and **Sign out** at the bottom.
 
-The line above the page has its name, whether the computer is powered and the
-**Power** button (both with ATX power control), and the **Capture** switch (an
-administrator's).
+The line above the page has its name, the state of the computer's power LED
+and the **Power** button (both with ATX power control), and the **Capture**
+switch (an administrator's).
 
 On a window narrower than 768 px, a phone, there are three tabs at the bottom
 instead:

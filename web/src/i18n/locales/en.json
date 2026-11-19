@@ -178,8 +178,6 @@
     "nothingFound": "Nothing found",
     "host": {
       "title": "Host",
-      "on": "Powered on",
-      "off": "Powered off",
       "noImage": "Nothing mounted"
     },
     "screen": {

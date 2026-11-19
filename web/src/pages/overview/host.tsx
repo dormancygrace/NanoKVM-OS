@@ -38,8 +38,8 @@ const Dot = ({ on }: { on: boolean }) => (
   />
 );
 
-// Whether the host is powered, in one line. Nothing without ATX power
-// control: there is no way to tell.
+// The power LED of the host in one line, with ATX power control. It names the
+// LED: one that is unlit or not wired does not mean a computer that is off.
 export const HostState = () => {
   const { t } = useTranslation();
   const { leds } = useHostLeds();
@@ -47,7 +47,10 @@ export const HostState = () => {
   return (
     <span className="text-fg-muted flex items-center gap-2 text-sm whitespace-nowrap">
       <Dot on={leds.pwr} />
-      {t(leds.pwr ? 'overview.host.on' : 'overview.host.off')}
+      {t('settings.keyboardLedStatus.indicatorLabel', {
+        label: t('settings.hostLedStatus.powerLed'),
+        state: t(`settings.keyboardLedStatus.${leds.pwr ? 'on' : 'off'}`)
+      })}
     </span>
   );
 };
@@ -117,15 +120,7 @@ export const HostCard = ({ className }: { className?: string }) => {
 
   return (
     <Panel className={clsx('flex flex-col gap-3', className)}>
-      <div className="flex items-center gap-2">
-        {leds && <Dot on={leds.pwr} />}
-        <span className="text-fg text-sm font-medium">{t('overview.host.title')}</span>
-        {leds && (
-          <span className="text-fg-muted ml-auto text-sm">
-            {t(leds.pwr ? 'overview.host.on' : 'overview.host.off')}
-          </span>
-        )}
-      </div>
+      <span className="text-fg text-sm font-medium">{t('overview.host.title')}</span>
       <dl className="m-0">
         {atx && (
           <>

@@ -37,7 +37,7 @@ export const SearchField = ({
 type Row = { id: string; title: string; sub?: string; icon?: ReactNode };
 
 // Pages as a list. card: in a panel of its own, with rows for a finger.
-export const PageList = ({
+const PageList = ({
   rows,
   card = false,
   locked,

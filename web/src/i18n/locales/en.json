@@ -1372,6 +1372,8 @@
       "themeDark": "Dark",
       "themeLight": "Light",
       "themeSystem": "System",
+      "toLight": "Light theme",
+      "toDark": "Dark theme",
       "menuBar": {
         "mode": "Display mode",
         "modeDesc": "Auto hide: the bar appears when the mouse reaches the top edge.",

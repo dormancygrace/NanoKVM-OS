@@ -9,6 +9,7 @@ import { atxEnabledAtom, atxLocalChange } from '@/jotai/atx.ts';
 import { brandingAtom, brandingFavicon } from '@/jotai/branding';
 import { settingsRequestAtom, webTitleAtom } from '@/jotai/settings.ts';
 import { Head } from '@/components/head.tsx';
+import { ThemeToggle } from '@/components/theme-toggle.tsx';
 import { Logout } from '@/pages/desktop/menu/logout';
 import { Power } from '@/pages/desktop/menu/power';
 import { Settings } from '@/pages/desktop/menu/settings';
@@ -81,6 +82,7 @@ export const Overview = () => {
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {admin && <Terminal />}
             {atxEnabled && <Power />}
+            <ThemeToggle />
             <Settings />
             <Logout />
           </div>

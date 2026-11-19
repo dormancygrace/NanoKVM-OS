@@ -17,7 +17,7 @@ import { Terminal } from '@/pages/desktop/menu/terminal';
 import { settingsPath, wayOf } from './paths.ts';
 import { SearchField, SearchResults } from './settings-home.tsx';
 
-const row = 'min-h-9 w-full rounded-lg px-3';
+const row = 'box-border min-h-9 w-full rounded-lg px-3';
 
 // The navigation beside every page: the overview, the remote screen and what
 // is done to the host, then every page of the settings as one tree. active:

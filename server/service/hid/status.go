@@ -48,12 +48,29 @@ var modeMap = map[string]string{
 	"0x0721": ModeHidOnly,
 }
 
+// GadgetRole reports whether the USB port is a gadget for the computer: not
+// a host (usb.host) and not switched off (usb.off). S03usbdev reads the same
+// two flags.
+func GadgetRole(flagsDir string) bool {
+	for _, name := range []string{"usb.host", "usb.off"} {
+		if _, err := os.Lstat(filepath.Join(flagsDir, name)); err == nil {
+			return false
+		}
+	}
+	return true
+}
+
 // InputStatus is the HID part of the combined live status.
 func InputStatus() gin.H {
 	h := GetHid()
 	h.Lock()
 	defer h.Unlock()
 	keyboard, relative, absolute := disabledHIDFunctions(USBFlagsDir)
+	// As a USB host, and with USB switched off, the gadget is unbound: no
+	// input reaches the computer, whatever the composition keeps.
+	if !GadgetRole(USBFlagsDir) {
+		keyboard, relative, absolute = true, true, true
+	}
 	return gin.H{
 		"available": !keyboard || !relative || !absolute,
 		"keyboard":  !keyboard, "relative": !relative, "absolute": !absolute,

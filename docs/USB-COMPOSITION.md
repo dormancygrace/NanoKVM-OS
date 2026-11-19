@@ -1,14 +1,54 @@
 # USB composition and endpoint budget
 
 NanoKVM exposes several independent USB functions through the SG2002 DWC2
-device controller. The **Settings > USB Gadget > Composition** page (and the
-toolbar's USB Gadget quick menu, which opens the same panel) reports the
-active functions and edits a draft against the controller's endpoint budget.
-Selecting a preset or changing an individual switch does not reconnect USB.
-**Apply** sends the complete composition; **Discard changes** restores the
-active values. There is no separate USB switch: applying a composition
+controller. The **Settings > USB > Mode** page (and the toolbar's USB quick
+menu, which opens the same panel) starts with the port's mode; in the gadget
+mode it reports the active functions and edits a draft against the
+controller's endpoint budget. Selecting a preset or changing an individual
+switch does not reconnect USB. **Apply** sends the complete composition;
+**Discard changes** restores the active values. Applying a composition
 without any function turns USB off (it asks first) and applying one with a
 function turns it on again.
+
+## USB mode
+
+The port is one of three things, chosen with the switch at the top of the
+page and **Apply mode**:
+
+| Mode | The port | What shows below the switch |
+| --- | --- | --- |
+| Gadget | A device for the computer: keyboard, mouse, disk, network, serial, audio | The composition |
+| Host | A host: devices attach to the NanoKVM | The attached devices |
+| Disabled | Unused | Nothing; the composition is kept |
+
+A gadget without any function is Disabled as well. Leaving the gadget mode
+asks first: the computer loses the NanoKVM's keyboard, mouse, virtual disk,
+USB network and serial console until the mode is Gadget again; video keeps
+working. While the port is a host or disabled, nothing changes the
+composition, RustDesk's remote access included, and **Identity (VID/PID)** is
+not listed.
+
+In the host mode the page lists what is attached (name, vendor and product
+ID, port, speed, declared current) and says what the port supplies, which
+depends on the board:
+
+- **NanoKVM PCIe**: nothing. Every power input of the board is behind an
+  ideal diode, so a bus-powered device does not start. Use a hub with its own
+  power supply, or a device that has one.
+- **NanoKVM Cube**: the board's 5 V supply, when the Cube is powered through
+  its power-only port. There is no current limit and no protection on it.
+- **NanoKVM Lite**: its one USB-C port is also its power input. As a host,
+  power the board through the 5 V pins of its header; the port then powers
+  the device from the same supply, without a current limit or protection.
+
+The kernel carries the USB host core without class drivers: a device shows
+in the list, and a program that talks to it through usbfs (Network UPS
+Tools' `usbhid-ups`, for one) can use it; a flash drive or a keyboard
+attached to the NanoKVM does nothing by itself.
+
+The mode is two flags next to the composition's in `/etc/kvm/usb`:
+`usb.host` (host) and `usb.off` (disabled); neither is the gadget mode.
+`S03usbdev` reads them at boot and at every change.
 
 ## Presets and manual selection
 
@@ -53,7 +93,7 @@ network + storage + serial uses 6 IN / 4 OUT.
 
 ### USB identity
 
-The **Settings > USB Gadget > Identity (VID/PID)** page holds what the
+The **Settings > USB > Identity (VID/PID)** page holds what the
 computer reads from the
 device descriptor: vendor ID, product ID, manufacturer and product strings
 and the serial number.
@@ -87,7 +127,7 @@ Linux hosts from matching (it names the IDs).
 
 ### Disk names
 
-Settings → USB Gadget → Identity also configures the SCSI names of virtual
+Settings → USB → Identity also configures the SCSI names of virtual
 storage: a shared manufacturer (up to 8 printable ASCII characters), and
 separate names for mounted images / remote media, the Setup Disk and User Disk
 (up to 16 characters each). These are device names presented to the connected
@@ -204,8 +244,8 @@ before it) it is the table's only chain, and routing set up by hand over
 `usb0` is left alone. The server checks the interface a connection arrived on, not
 its destination address, which the computer can choose.
 
-**Managing the NanoKVM from that computer.** Settings > USB Gadget >
-Composition, under Internet over USB: **Computer can open the NanoKVM over
+**Managing the NanoKVM from that computer.** Settings > USB > Mode,
+under Internet over USB: **Computer can open the NanoKVM over
 USB** (off by default, the flag `usb.host_access`) gives the computer
 everything again: the input chain is not loaded and the server answers every
 request from `usb0`. Turn it on only when the computer is the one you manage

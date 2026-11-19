@@ -71,6 +71,15 @@ func virtualDeviceState() *proto.GetVirtualDeviceRsp {
 }
 
 func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
+	role := usbRoleFlags(hid.USBFlagsDir)
+	// As a host, and switched off, the port presents no function: the status
+	// says so, like an empty composition, and everything that asks whether
+	// the keyboard, the disk or the network is there gets the same answer.
+	// The composition itself stays in its flags for the return to the gadget.
+	if role != usbRoleGadget {
+		s.keyboard, s.relative, s.absolute = false, false, false
+		s.network, s.disk, s.serial, s.audio, s.userDisk = false, false, false, false, false
+	}
 	inUsed, outUsed := s.endpointUsage()
 	identity := s.identity.normalized()
 	return &proto.GetVirtualDeviceRsp{
@@ -78,6 +87,7 @@ func (s usbComposition) response() *proto.GetVirtualDeviceRsp {
 		Network: s.network, Disk: s.disk, Serial: s.serial, Audio: s.audio,
 		UserDisk: s.userDisk, StorageIdentity: s.storageIdentity.Normalized(),
 		HID: s.keyboard || s.relative || s.absolute, Mode: s.mode,
+		Role: role, PortPower: usbPortPower(),
 		Revision: s.revision(),
 		Budget:   proto.USBEndpointBudget{InUsed: inUsed, OutUsed: outUsed, InLimit: usbInEndpointLimit, OutLimit: usbOutEndpointLimit},
 		Costs:    usbEndpointCosts,
@@ -154,6 +164,8 @@ func (s *Service) SetUSBComposition(c *gin.Context) {
 			rsp.ErrRsp(c, -6, err.Error())
 		case errors.Is(err, errUserDiskMissing):
 			rsp.ErrRsp(c, -4, err.Error())
+		case errors.Is(err, errUSBNotGadget):
+			rsp.ErrRsp(c, -7, err.Error())
 		default:
 			rsp.ErrRsp(c, -3, "failed to apply USB composition")
 		}

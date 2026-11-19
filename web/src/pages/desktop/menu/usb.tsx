@@ -34,6 +34,8 @@ export const UsbMenu = () => {
   const lock = useSetAtom(keyboardLockAtom);
   const [open, setOpen] = useState(false);
   const [usbEnabled, setUsbEnabled] = useState<boolean | null>(null);
+  // the port is a USB host: no gadget function, and not "off" either
+  const [usbHost, setUsbHost] = useState(false);
   const status = useSyncExternalStore(client.subscribeConnectionStatus, client.getConnectionStatus);
   // A lost connection shows only after a visible second (connection-warning.ts);
   // the loss hushes the icon before paint, so no frame flashes.
@@ -71,6 +73,7 @@ export const UsbMenu = () => {
         const composition = normalizeUsbStatus(response.data);
         if (usbDevices.every((name) => typeof composition[name] === 'boolean'))
           setUsbEnabled(usbDevices.some((name) => composition[name]));
+        setUsbHost(composition.role === 'host');
       } catch {
         // Keep the last confirmed USB state while the connection recovers.
       }
@@ -82,7 +85,7 @@ export const UsbMenu = () => {
       window.removeEventListener(usbCompositionChangedEvent, refresh);
     };
   }, [status, open]);
-  const usbOff = usbEnabled === false;
+  const usbOff = usbEnabled === false && !usbHost;
   const warning = shownStatus === 'disconnected' || shownStatus === 'reconnecting';
   const statusText = t(`inputConnection.${shownStatus}`);
   const color =
@@ -91,7 +94,7 @@ export const UsbMenu = () => {
       : shownStatus === 'reconnecting'
         ? '#f59e0b'
         : undefined;
-  const title = `${t('settings.usb.gadget')}${usbOff ? ` — ${t('settings.usb.off')}` : ''}${warning ? ` — ${statusText}` : ''}`;
+  const title = `${t('settings.usb.menu')}${usbHost ? ` — ${t('settings.usb.role.host.title')}` : usbOff ? ` — ${t('settings.usb.off')}` : ''}${warning ? ` — ${statusText}` : ''}`;
   useEffect(() => () => lock({ source: 'usb-popover', locked: false }), [lock]);
   return (
     <MenuItem

@@ -7,11 +7,28 @@ conf=/etc/kvm/usb
 # replacement activates the new directory after the old process has stopped.
 [ -e "$conf/.layout-v1" ] || conf=/boot
 
-# Vendor kernels expose a role procfs control; mainline uses the DT device role.
-set_usb_role() {
-    if [ -w /proc/cviusb/otg_role ]; then
-        echo "$1" > /proc/cviusb/otg_role || return 1
+# The USB mode: gadget (the composition, a device for the computer), host
+# (devices attach to the NanoKVM) or off. An empty composition is off as well.
+usb_mode() {
+    if [ -e "$conf/usb.host" ]; then
+        echo host
+    elif [ -e "$conf/usb.off" ]; then
+        echo off
+    else
+        echo gadget
     fi
+}
+
+# The controller's role: device, or host (the kernel's role switch). A kernel
+# without the switch is a device already; the host role needs the switch.
+set_usb_role() {
+    _switched=
+    for _role in /sys/class/usb_role/*/role; do
+        [ -w "$_role" ] || continue
+        echo "$1" > "$_role" || return 1
+        _switched=1
+    done
+    [ "$1" != host ] || [ -n "$_switched" ]
 }
 
 set_hid_wakeup(){
@@ -43,6 +60,31 @@ reset_usb_config_links(){
 }
 
 start_usb_dev(){
+    # Host and off: the gadget stays unbound, with the objects an empty
+    # composition has, and the controller takes the role of the mode. The
+    # composition flags are kept for the return to the gadget mode.
+    _mode=$(usb_mode)
+    if [ "$_mode" != gadget ]; then
+        if [ ! -d /sys/kernel/config/usb_gadget/g0 ]; then
+            mkdir -p /sys/kernel/config/usb_gadget/g0/configs/c.1 \
+                /sys/kernel/config/usb_gadget/g0/functions/hid.GS0 \
+                /sys/kernel/config/usb_gadget/g0/functions/hid.GS1 \
+                /sys/kernel/config/usb_gadget/g0/functions/hid.GS2 || return 1
+            echo 0x0510 > /sys/kernel/config/usb_gadget/g0/bcdDevice || return 1
+        fi
+        stop_usb_dev || return 1
+        if [ "$_mode" = host ]; then
+            set_usb_role host || {
+                echo "USB mode: host is not available, the kernel has no USB role switch" >&2
+                return 1
+            }
+        else
+            set_usb_role device || return 1
+        fi
+        echo "USB mode: $_mode"
+        return 0
+    fi
+    set_usb_role device || return 1
     # At cold boot an empty composition needs no descriptors or identity.
     # Keep the mode readable and reserve HID minors in the usual order;
     # a later enable fills the existing objects through the normal path.
@@ -206,7 +248,6 @@ start_usb_dev(){
         return 0
     fi
     ls /sys/class/udc/ | cat > UDC
-    set_usb_role device
 }
 
 stop_usb_dev(){
@@ -216,6 +257,11 @@ stop_usb_dev(){
 }
 
 restart_usb_dev(){
+    # Host and off have no gadget to reconnect.
+    if [ "$(usb_mode)" != gadget ]; then
+        start_usb_dev
+        return $?
+    fi
     # Preserve a deliberately empty composition across the USB reset action.
     _has_function=0
     for _link in /sys/kernel/config/usb_gadget/g0/configs/c.1/*; do

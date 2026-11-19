@@ -24,7 +24,7 @@ export const Capture = () => {
         disabled={!ready || busy}
         className="flex! h-[30px]! w-[30px]! !min-w-0 items-center! justify-center! !rounded !p-0 hover:!bg-neutral-700/80 disabled:opacity-40!"
         style={{
-          color: enabled ? '#34d399' : '#fbbf24',
+          color: enabled ? 'var(--color-active)' : 'var(--color-warning)',
           backgroundColor: 'transparent',
           border: 0,
           boxShadow: 'none'

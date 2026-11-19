@@ -113,7 +113,7 @@ export const SidebarHeader = ({
             onClick={onClose}
             aria-label={t('menu.collapse')}
             title={t('menu.collapse')}
-            className="flex! items-center! justify-center! !text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200"
+            className="hover:!bg-tint/[0.08] flex! items-center! justify-center! !text-neutral-400 hover:!text-neutral-200"
             icon={<LayoutSidebarRightCollapse size={18} />}
           />
           {/* <span className="truncate text-[13px] font-medium text-neutral-200">{t('picoclaw.title')}</span> */}
@@ -139,7 +139,10 @@ export const SidebarHeader = ({
                 loading={isSwitchingAgent}
                 popupMatchSelectWidth={false}
                 className="min-w-[120px] text-xs"
-                styles={{ content: { color: '#e5e5e5' }, suffix: { color: '#d4d4d4' } }}
+                styles={{
+                  content: { color: 'var(--color-fg)' },
+                  suffix: { color: 'var(--color-neutral-300)' }
+                }}
                 options={agentOptions.map((option) => ({
                   value: option.value,
                   label: option.title
@@ -173,8 +176,8 @@ export const SidebarHeader = ({
                     className={[
                       'flex! items-center! justify-center!',
                       isHistoryOpen
-                        ? '!bg-white/[0.08] !text-neutral-200'
-                        : '!text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200'
+                        ? '!bg-tint/[0.08] !text-neutral-200'
+                        : 'hover:!bg-tint/[0.08] !text-neutral-400 hover:!text-neutral-200'
                     ].join(' ')}
                     icon={<HistoryIcon size={14} />}
                   />
@@ -187,7 +190,7 @@ export const SidebarHeader = ({
                     icon={!isTogglingRuntime ? <PowerIcon size={14} /> : undefined}
                     type="text"
                     size="small"
-                    className="flex! items-center! justify-center! !text-red-400 hover:!bg-white/[0.08] hover:!text-red-500"
+                    className="hover:!bg-tint/[0.08] flex! items-center! justify-center! !text-red-400 hover:!text-red-500"
                   />
                 </>
               ) : isModelConfigured ? (
@@ -200,7 +203,7 @@ export const SidebarHeader = ({
                   icon={!isTogglingRuntime ? <PlayIcon size={14} /> : undefined}
                   type="text"
                   size="small"
-                  className="flex! items-center! justify-center! !text-neutral-400 hover:!bg-white/[0.08] hover:!text-sky-400"
+                  className="hover:!bg-tint/[0.08] flex! items-center! justify-center! !text-neutral-400 hover:!text-sky-400"
                 />
               ) : null}
 
@@ -220,7 +223,7 @@ export const SidebarHeader = ({
                   icon={!isUninstallingRuntime ? <EllipsisIcon size={16} /> : undefined}
                   type="text"
                   size="small"
-                  className="flex! items-center! justify-center! !text-neutral-400 hover:!bg-white/[0.08] hover:!text-neutral-200"
+                  className="hover:!bg-tint/[0.08] flex! items-center! justify-center! !text-neutral-400 hover:!text-neutral-200"
                 />
               </Dropdown>
             </>

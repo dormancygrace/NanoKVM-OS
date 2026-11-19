@@ -278,7 +278,7 @@ export const VirtualKeyboard = () => {
       label={t('keyboard.virtual')}
       onClose={closeKeyboard}
       className={clsx(
-        'fixed right-0 bottom-0 left-0 z-999 mx-auto overflow-hidden rounded bg-white outline-none',
+        'theme-dark fixed right-0 bottom-0 left-0 z-999 mx-auto overflow-hidden rounded bg-white outline-none',
         isBigScreen ? 'w-[820px]' : 'w-full max-w-[650px]'
       )}
     >

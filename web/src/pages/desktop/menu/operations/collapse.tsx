@@ -14,7 +14,7 @@ export const Collapse = ({ toggleMenu }: CollapseProps) => {
     <MenuTooltip title={t('menu.collapse')}>
       <div
         data-toolbar-control
-        className="flex size-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
+        className="hover:text-fg-strong flex size-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80"
         onClick={() => toggleMenu(false)}
       >
         <XIcon size={18} />

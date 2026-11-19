@@ -1,8 +1,10 @@
 import { Popconfirm } from 'antd';
+import { useAtomValue } from 'jotai';
 import { PowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { themeAtom } from '@/jotai/settings.ts';
 
 import { reportGpioResult } from './report';
 
@@ -14,6 +16,7 @@ type PowerShortProps = {
 
 export const PowerShort = ({ showConfirm, isLoading, setIsLoading }: PowerShortProps) => {
   const { t } = useTranslation();
+  const dark = useAtomValue(themeAtom) === 'dark';
 
   function power() {
     if (isLoading) return;
@@ -36,7 +39,7 @@ export const PowerShort = ({ showConfirm, isLoading, setIsLoading }: PowerShortP
           okText={t('power.okBtn')}
           cancelText={t('power.cancelBtn')}
           onConfirm={power}
-          color="#404040"
+          color={dark ? '#404040' : undefined}
         >
           <div className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70">
             <PowerIcon size={16} />

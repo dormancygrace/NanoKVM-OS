@@ -38,7 +38,7 @@ export const Keyboard = ({ quickAccess = false }: { quickAccess?: boolean }) => 
           type="button"
           aria-label={t('keyboard.virtual')}
           aria-pressed={isKeyboardOpen}
-          className="nanokvm-button-base flex size-10 shrink-0 items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white aria-pressed:bg-neutral-700/80 aria-pressed:text-emerald-400"
+          className="nanokvm-button-base hover:text-fg-strong flex size-10 shrink-0 items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 aria-pressed:bg-neutral-700/80 aria-pressed:text-emerald-400"
           onClick={(event) => {
             releasePointerMenuFocus(event);
             setKeyboardOpen((open) => !open);

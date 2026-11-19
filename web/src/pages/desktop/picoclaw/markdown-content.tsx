@@ -67,14 +67,14 @@ export const MarkdownContent = ({ content, className }: MarkdownContentProps) =>
           ),
           h3: ({ children }) => <h3 className="mt-2 text-sm font-medium first:mt-0">{children}</h3>,
           blockquote: ({ children }) => (
-            <blockquote className="my-2 border-l-2 border-white/15 pl-3 text-neutral-300">
+            <blockquote className="border-tint/15 my-2 border-l-2 pl-3 text-neutral-300">
               {children}
             </blockquote>
           ),
           code: ({ children, className: codeClassName, ...props }: any) =>
             !String(codeClassName || '').includes('language-') ? (
               <code
-                className="rounded bg-black/25 px-1.5 py-0.5 font-mono text-[0.92em]"
+                className="bg-shade/25 rounded px-1.5 py-0.5 font-mono text-[0.92em]"
                 {...props}
               >
                 {children}
@@ -85,7 +85,7 @@ export const MarkdownContent = ({ content, className }: MarkdownContentProps) =>
               </code>
             ),
           pre: ({ children }) => (
-            <pre className="my-2 overflow-x-auto rounded-xl bg-black/30 px-3 py-2 text-xs leading-6 text-neutral-100">
+            <pre className="bg-shade/30 my-2 overflow-x-auto rounded-xl px-3 py-2 text-xs leading-6 text-neutral-100">
               {children}
             </pre>
           ),
@@ -95,10 +95,10 @@ export const MarkdownContent = ({ content, className }: MarkdownContentProps) =>
             </div>
           ),
           th: ({ children }) => (
-            <th className="border-b border-white/10 px-2 py-1 font-semibold">{children}</th>
+            <th className="border-tint/10 border-b px-2 py-1 font-semibold">{children}</th>
           ),
           td: ({ children }) => (
-            <td className="border-b border-white/5 px-2 py-1 align-top">{children}</td>
+            <td className="border-tint/5 border-b px-2 py-1 align-top">{children}</td>
           )
         }}
       >

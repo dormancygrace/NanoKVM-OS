@@ -80,10 +80,10 @@ export const SidebarModelConfig = ({
         href="https://docs.picoclaw.io/docs/configuration/model-list/#supported-vendors-and-protocols"
         target="_blank"
         rel="noreferrer"
-        className="group mb-5 flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 no-underline! decoration-transparent! transition-colors hover:border-white/[0.1] hover:bg-white/[0.04]"
+        className="group border-tint/[0.06] bg-tint/[0.02] hover:border-tint/[0.1] hover:bg-tint/[0.04] mb-5 flex items-center justify-between rounded-lg border p-3 no-underline! decoration-transparent! transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.04]">
+          <div className="border-tint/[0.08] bg-tint/[0.04] flex h-8 w-8 items-center justify-center rounded-md border">
             <BookOpenIcon className="text-sky-400" size={14} />
           </div>
           <div>

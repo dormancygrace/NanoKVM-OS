@@ -438,7 +438,7 @@ export const Software = () => {
         }
       />
       {showOperation && state?.operation.log && (
-        <pre className="border-line m-0 max-h-48 overflow-auto rounded-lg border bg-black/30 p-3 text-xs whitespace-pre-wrap">
+        <pre className="border-line bg-shade/30 m-0 max-h-48 overflow-auto rounded-lg border p-3 text-xs whitespace-pre-wrap">
           {state.operation.log}
         </pre>
       )}
@@ -454,7 +454,7 @@ export const Software = () => {
         }}
       >
         <p>{t('settings.software.removeDescription')}</p>
-        <pre className="border-line max-h-64 overflow-auto rounded-lg border bg-black/30 p-3 text-xs whitespace-pre-wrap">
+        <pre className="border-line bg-shade/30 max-h-64 overflow-auto rounded-lg border p-3 text-xs whitespace-pre-wrap">
           {removal?.preview}
         </pre>
       </Modal>

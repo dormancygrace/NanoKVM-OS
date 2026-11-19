@@ -41,7 +41,7 @@ export const Fullscreen = () => {
     <MenuTooltip title={t('fullscreen.toggle')}>
       <div
         data-toolbar-control
-        className="hidden h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white sm:flex"
+        className="hover:text-fg-strong hidden h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 sm:flex"
         onClick={handleFullscreen}
       >
         {isFullscreen ? <MinimizeIcon size={18} /> : <MaximizeIcon size={18} />}

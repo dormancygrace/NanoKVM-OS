@@ -90,10 +90,10 @@ export const SidebarHistory = ({
                   isSwitching ? 'pointer-events-none opacity-60' : '',
                   isActive
                     ? 'border-sky-400/30 bg-sky-400/10'
-                    : 'border-white/[0.06] bg-white/[0.03] hover:border-white/[0.1] hover:bg-white/[0.05]'
+                    : 'border-tint/[0.06] bg-tint/[0.03] hover:border-tint/[0.1] hover:bg-tint/[0.05]'
                 ].join(' ')}
               >
-                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.05] text-neutral-400">
+                <div className="bg-tint/[0.05] mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-neutral-400">
                   <MessageSquareTextIcon size={16} />
                 </div>
                 <div className="min-w-0 flex-1">

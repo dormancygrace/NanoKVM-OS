@@ -1,14 +1,23 @@
-// Semantic colours, shared by the antd theme (components/app-theme.tsx) and
-// the Tailwind utilities (@theme in assets/styles/index.css; a test keeps the
-// two equal). Use these instead of raw neutral/green/amber/red classes.
+// Semantic colours of the two themes, for the antd theme
+// (components/app-theme.tsx). The Tailwind utilities have the same values:
+// the dark ones in @theme of assets/styles/index.css, the light ones in
+// assets/styles/light.css. In components use the utilities (text-fg,
+// border-line, ...) or var(--color-...), which follow the theme by themselves.
+export type Theme = 'dark' | 'light';
+
 export const themeTokens = {
-  fg: '#e5e5e5', // body text (neutral-200)
-  fgMuted: '#a3a3a3', // descriptions, captions; lowest contrast for information (neutral-400)
-  line: 'rgb(64 64 64 / 0.7)', // borders and dividers (neutral-700/70)
-  surface: 'rgb(38 38 38 / 0.4)', // cards and panels (neutral-800/40)
-  surfaceRaised: 'rgb(38 38 38 / 0.7)', // rows and hover (neutral-800/70)
-  success: '#22c55e',
-  warning: '#fbbf24',
-  danger: '#f87171',
-  info: '#38bdf8'
+  dark: {
+    fgMuted: '#a3a3a3', // descriptions, captions; lowest contrast for information
+    success: '#22c55e',
+    warning: '#fbbf24',
+    danger: '#f87171',
+    info: '#38bdf8'
+  },
+  light: {
+    fgMuted: '#525252',
+    success: '#15803d',
+    warning: '#b45309',
+    danger: '#dc2626',
+    info: '#0369a1'
+  }
 } as const;

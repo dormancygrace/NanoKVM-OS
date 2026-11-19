@@ -185,7 +185,7 @@ const TerminalSession = () => {
     <>
       <Head title={t('head.terminal')} />
 
-      <div className="h-full w-full overflow-hidden">
+      <div className="h-full w-full overflow-hidden bg-black">
         <div id="terminal" className="h-full p-2"></div>
       </div>
     </>

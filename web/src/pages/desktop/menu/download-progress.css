@@ -8,7 +8,7 @@
 }
 .download-arrow-wave {
   position: absolute;
-  color: #34d399;
+  color: var(--color-active);
   animation: download-arrow-wave 1.6s linear infinite;
 }
 .download-mini-track {
@@ -19,12 +19,12 @@
   right: 2px;
   overflow: hidden;
   border-radius: 2px;
-  background: #525252;
+  background: var(--color-neutral-600);
 }
 .download-mini-fill,
 .download-progress-fill {
   height: 100%;
-  background: #34d399;
+  background: var(--color-active);
   transition: width 0.35s ease;
 }
 .download-indeterminate {

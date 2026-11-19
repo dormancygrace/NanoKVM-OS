@@ -1,5 +1,8 @@
 import { atom } from 'jotai';
 
+import type { Theme } from '@/lib/theme-tokens.ts';
+import { storedTheme } from '@/lib/theme.ts';
+
 // menu bar disabled items
 export const menuDisabledItemsAtom = atom<string[]>([]);
 
@@ -11,6 +14,9 @@ export const menuCloseSignalAtom = atom(0);
 
 // web title
 export const webTitleAtom = atom('');
+
+// the colours of the interface in this browser
+export const themeAtom = atom<Theme>(storedTheme());
 
 // menu display mode: 'off' | 'auto' | 'always'
 export const menuDisplayModeAtom = atom<string>('auto');

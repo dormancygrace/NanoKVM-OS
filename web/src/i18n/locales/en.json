@@ -1347,6 +1347,10 @@
       "languagePartialHint": "Partially translated. Missing texts are shown in English.",
       "webTitle": "Web title",
       "webTitleDesc": "Customize the web page title",
+      "theme": "Theme",
+      "themeDesc": "The colours of the interface. The picture of the remote computer is not affected.",
+      "themeDark": "Dark",
+      "themeLight": "Light",
       "menuBar": {
         "mode": "Display mode",
         "modeDesc": "Auto hide: the bar appears when the mouse reaches the top edge.",

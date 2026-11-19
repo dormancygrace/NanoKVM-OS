@@ -15,7 +15,7 @@ export function CapturePaused() {
   const busy = useAtomValue(captureBusyAtom);
   const [error, setError] = useState(false);
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black px-6 text-neutral-300">
+    <div className="theme-dark absolute inset-0 flex items-center justify-center bg-black px-6 text-neutral-300">
       <div className="flex max-w-sm flex-col items-center gap-5 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-neutral-800 bg-neutral-900/70 text-neutral-400">
           <VideoOffIcon size={28} strokeWidth={1.5} aria-hidden="true" />

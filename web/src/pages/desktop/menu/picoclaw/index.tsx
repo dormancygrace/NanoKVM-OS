@@ -29,7 +29,7 @@ export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {
           }
         }}
         aria-label={t('picoclaw.title')}
-        className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
+        className="hover:text-fg-strong flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80"
         onClick={(event) => {
           releasePointerMenuFocus(event);
           dismissMobileMenu();

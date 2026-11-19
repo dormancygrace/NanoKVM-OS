@@ -213,7 +213,7 @@ export const Sidebar = () => {
 
   const controlStatusBar =
     runtimeStatus && shouldShowControlStatusBar ? (
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.06] px-3 py-2.5">
+      <div className="border-tint/[0.06] flex shrink-0 items-center justify-between gap-3 border-b px-3 py-2.5">
         <div className="min-w-0 text-xs">
           <div className="flex min-w-0 items-center gap-2 text-neutral-300">
             {controlView.isTransitioning ? (
@@ -257,7 +257,7 @@ export const Sidebar = () => {
   return (
     <aside
       data-picoclaw-sidebar="true"
-      className="picoclaw-sidebar-scrollbar flex h-full min-h-0 w-full flex-col overflow-x-hidden bg-[#0d0d0f]"
+      className="picoclaw-sidebar-scrollbar bg-panel flex h-full min-h-0 w-full flex-col overflow-x-hidden"
     >
       {contextHolder}
       {/* Header */}
@@ -285,7 +285,7 @@ export const Sidebar = () => {
       />
 
       {/* Divider */}
-      <div className="h-px bg-white/[0.06]" />
+      <div className="bg-tint/[0.06] h-px" />
       {controlStatusBar}
 
       {/* Body */}
@@ -338,7 +338,7 @@ export const Sidebar = () => {
             {!runtimeStatus?.ready ? (
               <div className="flex flex-1 flex-col items-center px-6 pt-10 pb-6 text-center">
                 <div className="flex flex-col items-center gap-4">
-                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
+                  <div className="border-tint/[0.08] bg-tint/[0.04] mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border">
                     <PlayIcon className="text-sky-400" size={22} />
                   </div>
                   <div>
@@ -371,7 +371,7 @@ export const Sidebar = () => {
             ) : !canUseGateway ? (
               <div className="flex flex-1 flex-col items-center px-6 pt-10 pb-6 text-center">
                 <div className="flex flex-col items-center gap-4">
-                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
+                  <div className="border-tint/[0.08] bg-tint/[0.04] mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border">
                     <ShieldOffIcon className="text-amber-400" size={22} />
                   </div>
                   <div>
@@ -393,7 +393,7 @@ export const Sidebar = () => {
             ) : !isGatewayConnected ? (
               <div className="flex flex-1 flex-col items-center px-6 pt-10 pb-6 text-center">
                 <div className="flex flex-col items-center gap-4">
-                  <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
+                  <div className="border-tint/[0.08] bg-tint/[0.04] mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border">
                     {isGatewayConnecting ? (
                       <Loader2Icon className="animate-spin text-sky-400" size={22} />
                     ) : (
@@ -420,7 +420,7 @@ export const Sidebar = () => {
             ) : (
               <>
                 <MessageList messages={messages} runState={runState} />
-                <div className="border-t border-white/[0.06] px-3 pt-3 pb-3">
+                <div className="border-tint/[0.06] border-t px-3 pt-3 pb-3">
                   <MessageInput
                     transportState={transportState}
                     disabled={actionBusy}

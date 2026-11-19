@@ -138,7 +138,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
                   'cursor-pointer hover:bg-neutral-700',
                   isMounted || remoteConnected || netbootEnabled
                     ? 'text-blue-500'
-                    : 'text-neutral-300 hover:text-white'
+                    : 'hover:text-fg-strong text-neutral-300'
                 ]
           )}
           onClick={(event) => {

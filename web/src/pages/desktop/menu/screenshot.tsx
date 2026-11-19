@@ -52,7 +52,7 @@ export const Screenshot = () => {
           type="text"
           aria-label={title}
           disabled={!captureEnabled || !source || saving}
-          className={`flex! h-[30px]! w-[30px]! min-w-[30px]! items-center! justify-center! !p-0 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${!captureEnabled || !source ? '!text-neutral-500' : '!text-neutral-300 hover:!text-white'}`}
+          className={`flex! h-[30px]! w-[30px]! min-w-[30px]! items-center! justify-center! !p-0 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${!captureEnabled || !source ? '!text-neutral-500' : 'hover:!text-fg-strong !text-neutral-300'}`}
           onClick={() => void takeScreenshot()}
           icon={<CameraIcon size={19} strokeWidth={1.7} />}
         />

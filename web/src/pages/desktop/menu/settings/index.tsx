@@ -672,7 +672,7 @@ export const Settings = ({
             openModal();
           }}
         >
-          <div className="relative flex items-center justify-center text-neutral-300 hover:text-white">
+          <div className="hover:text-fg-strong relative flex items-center justify-center text-neutral-300">
             <SettingsIcon size={18} className="block" />
             {updatesAvailable && <UpdateDot />}
           </div>

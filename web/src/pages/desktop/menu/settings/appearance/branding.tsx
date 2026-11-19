@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { Button, message } from 'antd';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import { http, type ApiResponse } from '@/lib/http';
 import type { Branding as BrandingState } from '@/jotai/branding';
 import { brandingAtom, brandingFavicon, brandingLogo } from '@/jotai/branding';
+import { themeAtom } from '@/jotai/settings.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
 type Asset = 'logo' | 'favicon';
@@ -16,6 +17,7 @@ export const Branding = () => {
   const { t } = useTranslation();
   const tr = (key: string) => t(`settings.appearance.branding.${key}`);
   const [branding, setBranding] = useAtom(brandingAtom);
+  const theme = useAtomValue(themeAtom);
   const [busy, setBusy] = useState<Asset>();
   const logoInput = useRef<HTMLInputElement>(null);
   const faviconInput = useRef<HTMLInputElement>(null);
@@ -49,7 +51,7 @@ export const Branding = () => {
   const assets = [
     {
       asset: 'logo' as const,
-      preview: brandingLogo(branding),
+      preview: brandingLogo(branding, theme),
       custom: branding.customLogoAvailable,
       input: logoInput,
       previewClassName: 'h-8 w-20'

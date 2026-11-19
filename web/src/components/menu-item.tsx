@@ -117,7 +117,7 @@ const MobileMenuPanel = ({
           <div className="flex h-8 min-w-0 items-center border-b border-neutral-700/80 px-1">
             <button
               type="button"
-              className="nanokvm-button-base flex size-[30px] shrink-0 items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
+              className="nanokvm-button-base hover:text-fg-strong flex size-[30px] shrink-0 items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80"
               onClick={pop}
               aria-label={t('settings.back')}
             >
@@ -128,7 +128,7 @@ const MobileMenuPanel = ({
             </span>
             <button
               type="button"
-              className="nanokvm-button-base flex size-[30px] shrink-0 items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80 hover:text-white"
+              className="nanokvm-button-base hover:text-fg-strong flex size-[30px] shrink-0 items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80"
               onClick={close}
               aria-label={t('settings.close')}
             >
@@ -348,7 +348,7 @@ export const MenuItem = ({
           'flex h-[30px] w-[30px] items-center justify-center rounded text-neutral-300',
           disabled
             ? 'cursor-not-allowed text-neutral-600 opacity-45'
-            : 'cursor-pointer hover:bg-neutral-700/80 hover:text-white',
+            : 'hover:text-fg-strong cursor-pointer hover:bg-neutral-700/80',
           className
         )}
       >

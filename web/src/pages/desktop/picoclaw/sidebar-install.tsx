@@ -22,7 +22,7 @@ export const SidebarInstall = ({
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pt-10 pb-10">
       {/* Icon */}
-      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04]">
+      <div className="border-tint/[0.08] bg-tint/[0.04] mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border">
         <DownloadIcon className="text-sky-400" size={22} />
       </div>
 
@@ -46,7 +46,7 @@ export const SidebarInstall = ({
               percent={installProgress || 0}
               showInfo={false}
               strokeColor="#38bdf8"
-              railColor="rgba(255,255,255,0.07)"
+              railColor="color-mix(in srgb, var(--color-tint) 7%, transparent)"
               status="active"
             />
           </div>

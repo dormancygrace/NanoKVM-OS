@@ -28,6 +28,8 @@ const (
 	nutUPS = "ups"
 	// the account of the clients on the network
 	nutUser = "monitor"
+	// where upsd listens while the UPS is not shared
+	nutLocal = "127.0.0.1"
 )
 
 var ups = &unit{
@@ -124,25 +126,27 @@ func (s upsSettings) validate() error {
 	return nil
 }
 
-// The content of nutPaths. upsd listens on the local host (the status below
-// reads it there), or on every address when the network is on.
+// The content of nutPaths. Each setting is in one file, so files of two
+// saves, which a save cut short leaves, are still what the settings then
+// show: the driver and its port in ups.conf, the password in upsd.users, and
+// sharing in the address upsd listens on, the local host (the status below
+// reads it there) or every address. nut.conf does not depend on them: its
+// mode only lets the service start.
 func (s upsSettings) files() map[string]string {
-	mode := "standalone"
-	listen := "LISTEN 127.0.0.1 3493\n"
+	listen := nutLocal
 	if s.Network {
-		mode = "netserver"
 		// instead of the local address, which it covers: upsd refuses to
 		// start when one of its addresses is already taken
-		listen = "LISTEN 0.0.0.0 3493\n"
+		listen = "0.0.0.0"
 	}
 	device := "[" + nutUPS + "]\n\tdriver = " + s.Driver + "\n\tport = " + s.Port + "\n"
 	if vendor, product, ok := strings.Cut(s.USBDevice, ":"); ok {
 		device += "\tvendorid = " + vendor + "\n\tproductid = " + product + "\n"
 	}
 	return map[string]string{
-		"nut.conf":   marker + "MODE=" + mode + "\n",
+		"nut.conf":   marker + "MODE=netserver\n",
 		"ups.conf":   marker + device,
-		"upsd.conf":  marker + listen,
+		"upsd.conf":  marker + "LISTEN " + listen + " 3493\n",
 		"upsd.users": marker + "[" + s.User + "]\n\tpassword = " + s.Password + "\n\tupsmon secondary\n",
 	}
 }
@@ -184,9 +188,16 @@ func readUPSSettings() (upsSettings, bool) {
 	if vendor, product := value("ups.conf", "vendorid"), value("ups.conf", "productid"); vendor != "" && product != "" {
 		s.USBDevice = vendor + ":" + product
 	}
-	s.Network = value("nut.conf", "MODE") == "netserver"
+	// sharing is what upsd does, not what another file says about it
+	listens := false
+	for _, line := range strings.Split(text["upsd.conf"], "\n") {
+		if fields := strings.Fields(line); len(fields) >= 2 && fields[0] == "LISTEN" {
+			listens = true
+			s.Network = s.Network || fields[1] != nutLocal
+		}
+	}
 	s.Password = value("upsd.users", "password")
-	if s.Password == "" || s.validate() != nil {
+	if !listens || s.Password == "" || s.validate() != nil {
 		return upsDefaults, false
 	}
 	return s, true

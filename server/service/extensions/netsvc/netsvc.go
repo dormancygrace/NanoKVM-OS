@@ -5,6 +5,7 @@
 package netsvc
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -177,10 +178,12 @@ func (u *unit) setEnabled(on bool) error {
 		if err := u.prepare(); err != nil {
 			return err
 		}
-		if err := rc(10*time.Second, "rc-update", "add", u.service, "default"); err != nil {
+		// the boot entry after the stop: a daemon that does not stop leaves
+		// the service as it was, at the next boot too
+		if err := u.stop(); err != nil {
 			return err
 		}
-		if err := u.stop(); err != nil {
+		if err := rc(10*time.Second, "rc-update", "add", u.service, "default"); err != nil {
 			return err
 		}
 		u.start()
@@ -235,13 +238,21 @@ func writeFile(path string, data []byte, mode os.FileMode, group string) error {
 	return writeFiles(map[string][]byte{path: data}, mode, group)
 }
 
-// writeFiles replaces several configuration files, all of them or none.
-// Every new file is complete on the disk before the first old one goes; when
-// one cannot be put in place, those already replaced get their previous
-// content back.
+// writeFiles replaces several configuration files, all of them or none. A
+// file that already has its content is left alone. Every new file is
+// complete on the disk before the first old one goes; when one cannot be put
+// in place, those already replaced get their previous content back.
 func writeFiles(files map[string][]byte, mode os.FileMode, group string) (err error) {
 	paths := make([]string, 0, len(files))
-	for path := range files {
+	previous := map[string][]byte{}
+	for path, data := range files {
+		old, readErr := os.ReadFile(path)
+		if readErr == nil {
+			if bytes.Equal(old, data) {
+				continue
+			}
+			previous[path] = old
+		}
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
@@ -251,11 +262,7 @@ func writeFiles(files map[string][]byte, mode os.FileMode, group string) (err er
 			os.Remove(name)
 		}
 	}()
-	previous := map[string][]byte{}
 	for _, path := range paths {
-		if data, readErr := os.ReadFile(path); readErr == nil {
-			previous[path] = data
-		}
 		name, stageErr := stage(path, files[path], mode, group)
 		if stageErr != nil {
 			return stageErr

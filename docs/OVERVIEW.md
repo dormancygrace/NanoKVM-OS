@@ -33,8 +33,12 @@ instead:
   group opens the list of its pages, and a page opens with a Back arrow to
   that list.
 
-The button in the lower right corner switches between the light and the dark
-theme.
+A page of the settings opened from the **Host** or the **Status** tab (the
+event log, the arrow of a panel) returns there by its Back arrow.
+
+A round button switches between the light and the dark theme: in the lower
+right corner of a wide window, at the right end of the title line of a narrow
+one.
 
 ## What the overview shows
 

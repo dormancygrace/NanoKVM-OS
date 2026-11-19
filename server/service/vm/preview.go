@@ -75,7 +75,9 @@ var (
 	previewRead  = func(width, height int) ([]byte, error) {
 		return common.GetKvmVision().ReadBGRScaled(width, height)
 	}
-	previewInput = common.CaptureInputSize
+	previewInput   = common.CaptureInputSize
+	previewSignal  = func() bool { return getHdmiSignal() }
+	previewViewers = func() int { return hdmiState().ViewerCount }
 )
 
 // ScreenPreview is GET /api/vm/screen/preview.
@@ -122,7 +124,14 @@ func takeScreenPreview(ctx context.Context) screenPreview {
 		return screenPreview{State: previewUnavailable}
 	}
 	defer release()
-	for attempt := 0; attempt < previewAttempts && ctx.Err() == nil; attempt++ {
+	// A read that gets no picture holds the capture for its whole wait, and
+	// a video session waits with it: next to one there is a single try, and
+	// the next request is the next.
+	attempts := previewAttempts
+	if previewViewers() > 0 {
+		attempts = 1
+	}
+	for attempt := 0; attempt < attempts && ctx.Err() == nil; attempt++ {
 		// read again every time: a new input size makes the last one stale
 		width, height := previewSize(previewInput())
 		planes, err := previewRead(width, height)
@@ -150,12 +159,21 @@ func takeScreenPreview(ctx context.Context) screenPreview {
 			errors.Is(err, common.ErrPlanarInputChanged):
 			// worth another try
 		default:
-			return screenPreview{State: previewUnavailable}
+			return noScreenPreview()
 		}
 		select {
 		case <-ctx.Done():
 		case <-time.After(previewRetry):
 		}
+	}
+	return noScreenPreview()
+}
+
+// noScreenPreview is the answer without a picture: with nothing on the
+// input that is the reason.
+func noScreenPreview() screenPreview {
+	if !previewSignal() {
+		return screenPreview{State: previewNoSignal}
 	}
 	return screenPreview{State: previewUnavailable}
 }

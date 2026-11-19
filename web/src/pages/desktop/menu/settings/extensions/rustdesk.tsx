@@ -14,7 +14,7 @@ import {
   Switch,
   Typography
 } from 'antd';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -26,6 +26,7 @@ import {
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
+import { themeAtom } from '@/jotai/settings.ts';
 import { SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { RustDeskVersions } from '../software/rustdesk-versions';
@@ -33,6 +34,7 @@ import { RustDeskVersions } from '../software/rustdesk-versions';
 export const RustDeskControls = () => {
   const { t } = useTranslation('translation', { keyPrefix: 'settings.rustdesk' });
   const [status, setStatus] = useAtom(rustDeskStatusAtom);
+  const dark = useAtomValue(themeAtom) === 'dark';
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [form] = Form.useForm<RustDeskConfig>();
@@ -186,7 +188,8 @@ export const RustDeskControls = () => {
       {status?.installed && (
         <ConfigProvider
           theme={{
-            token: { colorBgContainer: '#262626', colorBorder: '#525252' },
+            // a step lighter than the dialog; the light theme keeps its own white
+            token: dark ? { colorBgContainer: '#262626', colorBorder: '#525252' } : {},
             components: {
               Collapse: { headerPadding: '12px 16px', contentPadding: 16 }
             }

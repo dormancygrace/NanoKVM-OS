@@ -10,6 +10,7 @@ import { KeyboardLedStatusSetting } from './keyboard-led-status.tsx';
 import { Language } from './language.tsx';
 import { MenuIcons } from './menu-icons.tsx';
 import { MenuMode } from './menu-mode.tsx';
+import { Theme } from './theme.tsx';
 import { WebTitle } from './web-title.tsx';
 
 // Two kinds of settings, by where they are kept: this browser only (local
@@ -25,6 +26,7 @@ export const Appearance = () => {
         description={t('settings.appearance.browserDesc')}
       >
         <Language />
+        <Theme />
         <MenuMode />
         <KeyboardLedStatusSetting />
         <HostLedStatusSetting />

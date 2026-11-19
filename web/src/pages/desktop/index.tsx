@@ -511,7 +511,7 @@ export const Desktop = () => {
       {!isBigScreen && isPicoclawChatOpen ? (
         <div
           ref={adoptPicoclaw}
-          className="fixed inset-x-0 top-14 bottom-0 z-980 overflow-hidden bg-[#0d0d0f] shadow-2xl"
+          className="bg-panel fixed inset-x-0 top-14 bottom-0 z-980 overflow-hidden shadow-2xl"
         />
       ) : null}
       {/* After both slots: their refs adopt the host before the sidebar's

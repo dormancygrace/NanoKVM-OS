@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import * as api from '@/api/vm.ts';
 import type { MemoryLimit, MemoryStatus, MemorySwap } from '@/api/vm.ts';
 import { swapRequestSize } from '@/lib/swap-request.ts';
-import { themeTokens } from '@/lib/theme-tokens.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { Panel, SettingRow } from '@/components/ui/settings.tsx';
 
@@ -296,8 +295,8 @@ export const Memory = () => {
             <Progress
               percent={Math.round((data.usedBytes / data.totalBytes) * 100)}
               showInfo={false}
-              strokeColor={themeTokens.info}
-              railColor="#404040"
+              strokeColor="var(--color-info)"
+              railColor="var(--color-neutral-700)"
             />
             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <span className="text-fg-muted">{t('settings.memory.available')}</span>

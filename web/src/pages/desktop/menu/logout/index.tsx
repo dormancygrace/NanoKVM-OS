@@ -46,7 +46,7 @@ export const Logout = ({
           type="text"
           loading={loading}
           aria-label={label}
-          className="flex! size-[30px]! min-w-[30px]! items-center! justify-center! !p-0 text-neutral-300 hover:!bg-neutral-700/80 hover:!text-white"
+          className="hover:!text-fg-strong flex! size-[30px]! min-w-[30px]! items-center! justify-center! !p-0 text-neutral-300 hover:!bg-neutral-700/80"
           icon={<LogOutIcon size={18} aria-hidden="true" />}
         />
       </MenuTooltip>

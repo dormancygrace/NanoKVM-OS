@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Popconfirm, Slider } from 'antd';
+import { useAtomValue } from 'jotai';
 import { CirclePowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/vm.ts';
+import { themeAtom } from '@/jotai/settings.ts';
 
 import { reportGpioResult } from './report';
 
@@ -17,6 +19,7 @@ type PowerLongProps = {
 
 export const PowerLong = ({ showConfirm, isLoading, setIsLoading }: PowerLongProps) => {
   const { t } = useTranslation();
+  const dark = useAtomValue(themeAtom) === 'dark';
 
   const [duration, setDuration] = useState(DEFAULT_POWER_LONG_DURATION_SECONDS);
 
@@ -41,7 +44,7 @@ export const PowerLong = ({ showConfirm, isLoading, setIsLoading }: PowerLongPro
           okText={t('power.okBtn')}
           cancelText={t('power.cancelBtn')}
           onConfirm={power}
-          color="#404040"
+          color={dark ? '#404040' : undefined}
         >
           <div className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70">
             <CirclePowerIcon size={16} />

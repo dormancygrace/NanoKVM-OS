@@ -46,7 +46,7 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
         'h-[18px] w-[18px]',
         isPowerOn
           ? 'text-green-500 drop-shadow-[0_0_4px_currentColor]'
-          : 'text-neutral-300 hover:text-white'
+          : 'hover:text-fg-strong text-neutral-300'
       )}
     >
       {isLoading ? (

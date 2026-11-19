@@ -92,7 +92,7 @@ export const UsbMenu = () => {
     shownStatus === 'disconnected'
       ? '#ef4444'
       : shownStatus === 'reconnecting'
-        ? '#f59e0b'
+        ? 'var(--color-caution)'
         : undefined;
   const title = `${t('settings.usb.menu')}${usbHost ? ` — ${t('settings.usb.role.host.title')}` : usbOff ? ` — ${t('settings.usb.off')}` : ''}${warning ? ` — ${statusText}` : ''}`;
   useEffect(() => () => lock({ source: 'usb-popover', locked: false }), [lock]);

@@ -123,7 +123,7 @@ export function KeyboardSheet({
           setOffset(0);
         }}
       >
-        <div className="h-1 w-10 rounded-full bg-neutral-400" />
+        <div className="h-1 w-10 rounded-full bg-neutral-600" />
       </div>
       {children}
     </section>,

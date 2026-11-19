@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useAtomValue } from 'jotai';
 import { HeartIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { getInfo } from '@/api/vm';
 import { formatVersion } from '@/lib/version';
+import { builtinLogo } from '@/jotai/branding';
+import { themeAtom } from '@/jotai/settings.ts';
 import { GithubIcon } from '@/components/icons/github';
 import { Panel } from '@/components/ui/settings.tsx';
 
@@ -12,6 +15,7 @@ import { Credits } from './credits';
 
 export const About = () => {
   const { t } = useTranslation();
+  const theme = useAtomValue(themeAtom);
   const [version, setVersion] = useState('');
   useEffect(() => {
     let active = true;
@@ -30,11 +34,7 @@ export const About = () => {
     <div className="space-y-6">
       <div className="flex flex-col items-center space-y-3 text-center">
         <div className="inline-flex p-2">
-          <img
-            src="/nanokvm-os-connection-full.svg?v=2"
-            alt="NanoKVM OS"
-            className="h-36 w-60 object-contain"
-          />
+          <img src={builtinLogo(theme)} alt="NanoKVM OS" className="h-36 w-60 object-contain" />
         </div>
         <div className="text-fg-muted space-y-1 text-sm">
           <p>
@@ -51,7 +51,7 @@ export const About = () => {
             href="https://github.com/dormancygrace/NanoKVM-OS"
             target="_blank"
             rel="noopener noreferrer"
-            className="!text-fg inline-flex items-center gap-2 text-sm hover:!text-white"
+            className="!text-fg hover:!text-fg-strong inline-flex items-center gap-2 text-sm"
           >
             <GithubIcon size={16} />
             GitHub

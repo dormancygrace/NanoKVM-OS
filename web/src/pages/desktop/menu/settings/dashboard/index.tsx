@@ -17,7 +17,6 @@ import type { MemoryStatus } from '@/api/vm';
 import { formatDeviceTime, type DateTimeConfig } from '@/lib/date-time';
 import { getEncoderCodec } from '@/lib/encoder';
 import { http } from '@/lib/http';
-import { themeTokens } from '@/lib/theme-tokens';
 import { formatVersion } from '@/lib/version';
 import {
   captureReadyAtom,
@@ -292,8 +291,8 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           percent={fill}
           showInfo={false}
           size="small"
-          strokeColor={themeTokens.info}
-          railColor="#404040"
+          strokeColor="var(--color-info)"
+          railColor="var(--color-neutral-700)"
         />
       )}
     </Panel>
@@ -521,8 +520,8 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                       size="small"
                       percent={percent(item.used, item.total)}
                       showInfo={false}
-                      strokeColor={themeTokens.info}
-                      railColor="#404040"
+                      strokeColor="var(--color-info)"
+                      railColor="var(--color-neutral-700)"
                     />
                     <div className="text-fg-muted text-xs">
                       {t('dashboard.diskSpace', {

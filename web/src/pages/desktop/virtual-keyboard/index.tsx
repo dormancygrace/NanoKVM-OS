@@ -12,7 +12,7 @@ import { KeyboardSheet } from './keyboard-sheet.tsx';
 import 'react-simple-keyboard/build/css/index.css';
 import '@/assets/styles/keyboard.css';
 
-import { ConfigProvider, Segmented, Select, theme } from 'antd';
+import { Segmented, Select } from 'antd';
 
 import { getKeycode, getModifierBit } from '@/lib/keymap.ts';
 import * as storage from '@/lib/localstorage.ts';
@@ -278,42 +278,36 @@ export const VirtualKeyboard = () => {
       label={t('keyboard.virtual')}
       onClose={closeKeyboard}
       className={clsx(
-        'fixed right-0 bottom-0 left-0 z-999 mx-auto overflow-hidden rounded bg-white outline-none',
+        'keyboardSheet fixed right-0 bottom-0 left-0 z-999 mx-auto overflow-hidden rounded outline-none',
         isBigScreen ? 'w-[820px]' : 'w-full max-w-[650px]'
       )}
     >
       {/* header */}
       <div className="keyboard-drawer-header flex items-center justify-between gap-2 px-2 py-1 sm:px-3">
-        <ConfigProvider
-          theme={{
-            algorithm: theme.defaultAlgorithm
-          }}
-        >
-          <div className="keyboard-drawer-controls flex min-w-0 items-center space-x-5 overflow-x-auto">
-            <Select
-              size="small"
-              style={{ minWidth: 90 }}
-              defaultValue={keyboardLanguage}
-              options={languages}
-              onChange={selectLanguage}
-            />
+        <div className="keyboard-drawer-controls flex min-w-0 items-center space-x-5 overflow-x-auto">
+          <Select
+            size="small"
+            style={{ minWidth: 90 }}
+            defaultValue={keyboardLanguage}
+            options={languages}
+            onChange={selectLanguage}
+          />
 
-            {keyboardLanguage === 'en' && (
-              <Segmented
-                size="small"
-                options={systems}
-                value={keyboardSystem}
-                onChange={selectSystem}
-              />
-            )}
-          </div>
-        </ConfigProvider>
+          {keyboardLanguage === 'en' && (
+            <Segmented
+              size="small"
+              options={systems}
+              value={keyboardSystem}
+              onChange={selectSystem}
+            />
+          )}
+        </div>
 
         <div className="flex flex-none items-center justify-end">
           <button
             type="button"
             aria-label={t('settings.close')}
-            className="flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded text-neutral-600 hover:bg-neutral-300 hover:text-white"
+            className="text-fg-muted hover:text-fg-strong flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded hover:bg-neutral-700"
             onClick={closeKeyboard}
           >
             <XIcon size={18} />
@@ -321,7 +315,7 @@ export const VirtualKeyboard = () => {
         </div>
       </div>
 
-      <div className="h-px shrink-0 border-b bg-neutral-300" />
+      <div className="h-px shrink-0 bg-neutral-700" />
 
       <div className="keyboardContainer w-full">
         {/* main keyboard */}

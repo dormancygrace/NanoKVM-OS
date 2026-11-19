@@ -1,26 +1,28 @@
-import { PropsWithChildren, ReactNode, useEffect, useMemo } from 'react';
-import { ConfigProvider, theme } from 'antd';
+import { PropsWithChildren, ReactNode, useEffect, useLayoutEffect, useMemo } from 'react';
+import { theme as antdTheme, ConfigProvider } from 'antd';
 import { useAtomValue } from 'jotai';
 
 import { themeTokens } from '@/lib/theme-tokens';
-import { brandingAtom, brandingButtonColor, buttonTextColor } from '@/jotai/branding';
-
-// The colours the dark algorithm derives, for component tokens that name one.
-const darkTokens = theme.getDesignToken({ algorithm: theme.darkAlgorithm });
+import { applyTheme } from '@/lib/theme.ts';
+import { brandingAtom, brandingButtonColor, buttonTextColor, colorOnLight } from '@/jotai/branding';
+import { themeAtom } from '@/jotai/settings.ts';
 
 export const AppTheme = ({ children }: PropsWithChildren) => {
   const branding = useAtomValue(brandingAtom);
-  const colorPrimary = brandingButtonColor(branding);
-  const themeConfig = useMemo(
-    () => ({
-      algorithm: theme.darkAlgorithm,
+  const theme = useAtomValue(themeAtom);
+  const buttonColor = brandingButtonColor(branding);
+  const colorPrimary = theme === 'light' ? colorOnLight(buttonColor) : buttonColor;
+  const themeConfig = useMemo(() => {
+    const tokens = themeTokens[theme];
+    return {
+      algorithm: theme === 'light' ? antdTheme.defaultAlgorithm : antdTheme.darkAlgorithm,
       token: {
         colorPrimary,
-        colorSuccess: themeTokens.success,
-        colorWarning: themeTokens.warning,
-        colorError: themeTokens.danger,
-        colorInfo: themeTokens.info,
-        colorTextDescription: themeTokens.fgMuted
+        colorSuccess: tokens.success,
+        colorWarning: tokens.warning,
+        colorError: tokens.danger,
+        colorInfo: tokens.info,
+        colorTextDescription: tokens.fgMuted
       },
       components: {
         Button: {
@@ -29,23 +31,16 @@ export const AppTheme = ({ children }: PropsWithChildren) => {
         Collapse: {
           headerPadding: 0,
           contentPadding: 0
-        },
-        // A segmented switch on the background of the other form controls
-        // (a Select, an Input) instead of the darker page background. The
-        // selected segment is clearly lighter than one under the pointer.
-        Segmented: {
-          trackBg: darkTokens.colorBgContainer,
-          itemSelectedBg: darkTokens.colorFill,
-          itemHoverBg: darkTokens.colorFillQuaternary,
-          itemActiveBg: darkTokens.colorFillTertiary
         }
       }
-    }),
-    [colorPrimary]
-  );
+    };
+  }, [colorPrimary, theme]);
+
+  // The Tailwind colours follow the attribute on the root element.
+  useLayoutEffect(() => applyTheme(theme), [theme]);
 
   // Static message, Modal.confirm and notification calls render outside this
-  // provider; give them the same dark theme and colours.
+  // provider; give them the same theme and colours.
   useEffect(() => {
     ConfigProvider.config({
       holderRender: (node: ReactNode) => <ConfigProvider theme={themeConfig}>{node}</ConfigProvider>

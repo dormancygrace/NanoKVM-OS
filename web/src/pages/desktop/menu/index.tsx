@@ -71,7 +71,7 @@ function lazyItem(key: string, item: ReactNode, placeholder: ReactNode = <Toolba
 }
 
 const mobileRailToggleButtonClass =
-  'flex! size-[40px]! min-w-[40px]! touch-manipulation items-center! justify-center! !p-0 text-neutral-300 transition-colors hover:!bg-neutral-700/80 hover:!text-white active:!bg-neutral-600/70';
+  'flex! size-[40px]! min-w-[40px]! touch-manipulation items-center! justify-center! !p-0 text-neutral-300 transition-colors hover:!bg-neutral-700/80 hover:!text-fg-strong active:!bg-neutral-600/70';
 
 const mobileMenuPopoverClassName = 'nanokvm-mobile-menu-popover';
 

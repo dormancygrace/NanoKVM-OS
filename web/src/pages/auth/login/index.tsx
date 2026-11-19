@@ -7,12 +7,14 @@ import { useNavigate } from 'react-router-dom';
 
 import * as api from '@/api/auth.ts';
 import { brandingAtom, brandingLogo } from '@/jotai/branding';
+import { themeAtom } from '@/jotai/settings.ts';
 import { Head } from '@/components/head.tsx';
 
 import { Tips } from './tips.tsx';
 
 export const Login = (): ReactElement => {
   const branding = useAtomValue(brandingAtom);
+  const theme = useAtomValue(themeAtom);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -156,7 +158,7 @@ export const Login = (): ReactElement => {
                 <img
                   ref={logoRef}
                   id="logo"
-                  src={brandingLogo(branding)}
+                  src={brandingLogo(branding, theme)}
                   width={300}
                   height={branding.customLogoAvailable ? 100 : 180}
                   alt={branding.customLogoAvailable ? 'Logo' : 'NanoKVM OS'}

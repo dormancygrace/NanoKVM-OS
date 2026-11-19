@@ -42,7 +42,7 @@ export const ScreenText = () => {
           type="text"
           aria-label={title}
           disabled={!captureEnabled}
-          className={`flex! h-[30px]! w-[30px]! min-w-[30px]! items-center! justify-center! !p-0 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${captureEnabled ? '!text-neutral-300 hover:!text-white' : '!text-neutral-500'}`}
+          className={`flex! h-[30px]! w-[30px]! min-w-[30px]! items-center! justify-center! !p-0 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${captureEnabled ? 'hover:!text-fg-strong !text-neutral-300' : '!text-neutral-500'}`}
           onClick={() => setOpen(true)}
           icon={<ScanTextIcon size={19} strokeWidth={1.7} />}
         />

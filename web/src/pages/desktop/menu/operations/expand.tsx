@@ -18,7 +18,7 @@ export const Expand = ({ toggleMenu }: ExpandProps) => {
 
       <div
         data-toolbar-control
-        className="flex size-[26px] cursor-pointer items-center justify-center rounded text-neutral-500 hover:bg-neutral-800/60 hover:text-white"
+        className="hover:text-fg-strong flex size-[26px] cursor-pointer items-center justify-center rounded text-neutral-500 hover:bg-neutral-800/60"
         onClick={() => toggleMenu(true)}
       >
         <ChevronRightIcon size={18} />

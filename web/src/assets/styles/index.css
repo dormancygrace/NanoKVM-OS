@@ -1,13 +1,25 @@
 @layer theme, base, antd, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
+@import './light.css';
 
-/* Semantic colours (lib/theme-tokens.ts holds the same values for antd; a test
- * keeps them equal): text-fg, text-fg-muted, border-line, bg-surface,
- * bg-surface-raised, text-success / warning / danger / info. */
-@theme {
+/* Semantic colours of the dark theme; light.css has the light ones, and
+ * lib/theme-tokens.ts holds those antd needs: text-fg, text-fg-muted,
+ * text-fg-strong (white: a pointed-at control), border-line, bg-surface,
+ * bg-surface-raised, text-success / warning / danger / info, tint (a wash of
+ * white over the background: bg-tint/5, border-tint/10), shade (a well cut
+ * into it: bg-shade/30), bg-page (behind everything), bg-panel, and for icons
+ * that show a state, active (on, running) and caution (trying again). */
+@theme static {
   --color-fg: #e5e5e5;
   --color-fg-muted: #a3a3a3;
+  --color-fg-strong: #fff;
+  --color-tint: #fff;
+  --color-shade: #000;
+  --color-page: #000;
+  --color-panel: #0d0d0f;
+  --color-active: #34d399;
+  --color-caution: #f59e0b;
   --color-line: rgb(64 64 64 / 0.7);
   --color-surface: rgb(38 38 38 / 0.4);
   --color-surface-raised: rgb(38 38 38 / 0.7);
@@ -85,8 +97,8 @@ body {
 
 .nanokvm-mobile-menu-popover .ant-popover-container,
 .nanokvm-mobile-menu-popover .ant-tooltip-container {
-  background: rgba(38, 38, 38, 0.96);
-  color: #e5e5e5;
+  background: color-mix(in srgb, var(--color-neutral-800) 96%, transparent);
+  color: var(--color-fg);
 }
 
 .nanokvm-mobile-menu-popover .ant-popover-container {
@@ -97,7 +109,7 @@ html,
 body {
   padding: 0;
   margin: 0;
-  background: #000;
+  background: var(--color-page);
 }
 
 ::-webkit-scrollbar {
@@ -178,11 +190,11 @@ body {
   background: transparent;
 }
 .picoclaw-sidebar-scrollbar *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--color-tint) 15%, transparent);
   border-radius: 4px;
 }
 .picoclaw-sidebar-scrollbar *::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--color-tint) 30%, transparent);
 }
 
 /* PicoClaw Chat Loading Animation */

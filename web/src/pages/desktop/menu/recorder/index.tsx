@@ -248,7 +248,7 @@ export const Recorder = () => {
           aria-label={title}
           aria-pressed={state === 'recording' || state === 'waiting'}
           disabled={!supported || !captureEnabled || state === 'choosing' || state === 'saving'}
-          className={`flex! h-[30px]! min-w-[30px]! items-center! justify-center! !px-1 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${!supported || !captureEnabled ? '!text-neutral-500' : state === 'recording' || state === 'waiting' || state === 'saving' ? '!text-red-400 hover:!text-red-300' : '!text-neutral-300 hover:!text-white'}`}
+          className={`flex! h-[30px]! min-w-[30px]! items-center! justify-center! !px-1 [&_.ant-btn-icon]:flex! [&_.ant-btn-icon]:items-center! [&_svg]:block ${!supported || !captureEnabled ? '!text-neutral-500' : state === 'recording' || state === 'waiting' || state === 'saving' ? '!text-red-400 hover:!text-red-300' : 'hover:!text-fg-strong !text-neutral-300'}`}
           onClick={state === 'recording' || state === 'waiting' ? stop : () => void start()}
           icon={
             state === 'recording' || state === 'waiting' ? (

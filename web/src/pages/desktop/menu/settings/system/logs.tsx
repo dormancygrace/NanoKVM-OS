@@ -289,7 +289,7 @@ export const Logs = () => {
         tabIndex={0}
         aria-label={t(`${key}.title`)}
         aria-busy={loading}
-        className="border-line text-fg m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border bg-black/30 p-3 font-mono text-xs leading-5 break-all whitespace-pre-wrap focus-visible:outline-2 focus-visible:outline-blue-400"
+        className="border-line text-fg bg-shade/30 m-0 h-80 w-full max-w-full min-w-0 overflow-auto rounded-lg border p-3 font-mono text-xs leading-5 break-all whitespace-pre-wrap focus-visible:outline-2 focus-visible:outline-blue-400"
       >
         {view.lines.length ? (
           activeRow === undefined ? (

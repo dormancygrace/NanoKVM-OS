@@ -93,14 +93,14 @@ export const MessageInput = ({
             void submit();
           }
         }}
-        className="w-full resize-none rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 pr-12 text-sm text-neutral-100 placeholder-neutral-600 transition-colors outline-none focus:border-white/[0.15] focus:bg-white/[0.06] disabled:opacity-40"
+        className="border-tint/[0.08] bg-tint/[0.04] focus:border-tint/[0.15] focus:bg-tint/[0.06] w-full resize-none rounded-2xl border px-4 py-3 pr-12 text-sm text-neutral-100 placeholder-neutral-600 transition-colors outline-none disabled:opacity-40"
       />
       <Button
         type="text"
         icon={<PlusIcon size={14} />}
         onClick={() => void onNewConversation()}
         disabled={disabled || disableNewConversation}
-        className="absolute right-11 bottom-2.5 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg border! !border-white/[0.08]"
+        className="!border-tint/[0.08] absolute right-11 bottom-2.5 flex! !h-7 !w-7 items-center! justify-center! !rounded-lg border!"
         aria-label={t('picoclaw.newConversation')}
         title={t('picoclaw.newConversation')}
       />

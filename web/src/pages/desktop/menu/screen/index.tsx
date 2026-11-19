@@ -71,7 +71,7 @@ export const Screen = () => {
             <span
               aria-hidden="true"
               style={sessions > 0 ? { backgroundColor: '#38bdf8' } : undefined}
-              className={`pointer-events-none absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-mono text-[11px] leading-none font-bold ring-2 ring-neutral-800 ${sessions > 99 ? 'text-[7px]!' : sessions > 9 ? 'text-[9px]!' : ''} ${sessions > 0 ? 'text-neutral-950' : 'bg-neutral-600 text-neutral-200'}`}
+              className={`pointer-events-none absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-mono text-[11px] leading-none font-bold ring-2 ring-neutral-800 ${sessions > 99 ? 'text-[7px]!' : sessions > 9 ? 'text-[9px]!' : ''} ${sessions > 0 ? 'text-[#0a0a0a]' : 'bg-neutral-600 text-neutral-200'}`}
             >
               {sessions > 99 ? '99+' : sessions}
             </span>

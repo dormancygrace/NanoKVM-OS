@@ -17,9 +17,14 @@ import (
 // capture lease as a screenshot is: it starts no stream and counts as no
 // viewer, and it does not switch on a capture that was switched off.
 //
-// A still of its own size makes the capture set its output up again, and
-// with it the encoder of a video session. So while anyone watches the video
-// no picture is taken: the last one is shown, marked as held.
+// Next to a video session it depends on where the JPEG comes from. With an
+// output of its own (4:2:2, no frame detection) a still costs the viewer a
+// few frames of the second it is taken in: at 2560x1440 and 60 fps a reader
+// got 56-57 frames in those seconds and 59-61 in the others. On the output
+// it shares with the video (4:2:0, or frame detection on) a still of another
+// size makes the capture set that output up again, and with it the encoder
+// of the session: there no picture is taken while anyone watches, and the
+// last one is shown, marked as held.
 const (
 	previewMaxWidth  = 640
 	previewMaxHeight = 360
@@ -75,7 +80,12 @@ var (
 		return screen.Width, screen.Height
 	}
 	previewViewers = func() int { return hdmiState().ViewerCount }
-	previewSignal  = func() bool { return getHdmiSignal() }
+	// previewShared: the JPEG is read from the output the video uses.
+	previewShared = func() bool {
+		common.CheckScreen()
+		return common.GetScreen().MjpegChroma != 422 || common.FrameDetectEnabled()
+	}
+	previewSignal = func() bool { return getHdmiSignal() }
 	// previewPauseDetect switches frame detection off for a read that has
 	// to give a picture, and returns what puts the saved choice back.
 	previewPauseDetect = func() func() {
@@ -105,7 +115,7 @@ func screenPreviewNow(ctx context.Context) screenPreview {
 		preview.last = screenPreview{}
 		return screenPreview{State: previewDisabled}
 	}
-	if previewViewers() > 0 {
+	if previewViewers() > 0 && previewShared() {
 		return heldScreenPreview()
 	}
 	maxAge := previewMaxAge
@@ -121,8 +131,8 @@ func screenPreviewNow(ctx context.Context) screenPreview {
 	return preview.last
 }
 
-// heldScreenPreview is the answer while a video session is open. preview is
-// locked.
+// heldScreenPreview is the answer while a video session is open on the
+// output a still would disturb. preview is locked.
 func heldScreenPreview() screenPreview {
 	if preview.picture.State != previewOK {
 		return screenPreview{State: previewInUse}
@@ -141,7 +151,7 @@ func takeScreenPreview(ctx context.Context) screenPreview {
 	}
 	defer release()
 	// a viewer that joined while the lease was waited for
-	if previewViewers() > 0 {
+	if previewViewers() > 0 && previewShared() {
 		return heldScreenPreview()
 	}
 	restoreDetect := func() {}

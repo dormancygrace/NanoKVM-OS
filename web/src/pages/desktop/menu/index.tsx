@@ -38,6 +38,7 @@ import { Keyboard } from './keyboard';
 import { Logout } from './logout';
 import { Mouse } from './mouse';
 import { Collapse, Expand } from './operations';
+import { OverviewLink } from './overview.tsx';
 import { Power } from './power';
 import { Recorder } from './recorder';
 import { Screen } from './screen';
@@ -267,6 +268,7 @@ export const Menu = () => {
       ],
       variant === 'mobile'
         ? [
+            <OverviewLink key="overview" />,
             <Settings key="settings" tooltipPlacement={tooltipPlacement} />,
             ...(isEnabled('logout')
               ? [<Logout key="logout" tooltipPlacement={tooltipPlacement} />]
@@ -475,6 +477,7 @@ export const Menu = () => {
                   {renderMenuItems('desktop')}
                 </div>
                 <Divider type="vertical" className="shrink-0" />
+                <OverviewLink />
                 <Settings />
                 {isEnabled('logout') && <Logout />}
                 {isEnabled('fullscreen') && <Fullscreen />}

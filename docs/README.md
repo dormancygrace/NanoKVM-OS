@@ -33,6 +33,7 @@
 
 ## Managing the computer
 
+- [Overview page](OVERVIEW.md): the start page with the state of the device and a preview of the screen
 - [Redfish and IPMI](BMC.md)
 - [Computer sensors](HOST-SENSORS.md)
 - [LLDP, SNMP and UPS](NETWORK-SERVICES.md)

@@ -137,10 +137,11 @@ func vmRouter(r *gin.Engine) {
 	admin.DELETE("/vm/oled/preview", service.DeleteOLEDPreview)
 
 	// Only supported by PCIe version
-	api.GET("/vm/hdmi", service.GetHdmiState)                                  // get HDMI state
-	api.POST("/vm/hdmi/reset", middleware.RequireVideo, service.ResetHdmi)     // reset hdmi
-	admin.POST("/vm/hdmi/enable", middleware.RequireVideo, service.EnableHdmi) // enable hdmi
-	admin.POST("/vm/hdmi/disable", service.DisableHdmi)                        // disable hdmi
+	api.GET("/vm/screen/preview", middleware.RequireVideo, service.ScreenPreview) // a small still picture for the overview page
+	api.GET("/vm/hdmi", service.GetHdmiState)                                     // get HDMI state
+	api.POST("/vm/hdmi/reset", middleware.RequireVideo, service.ResetHdmi)        // reset hdmi
+	admin.POST("/vm/hdmi/enable", middleware.RequireVideo, service.EnableHdmi)    // enable hdmi
+	admin.POST("/vm/hdmi/disable", service.DisableHdmi)                           // disable hdmi
 	admin.POST("/vm/hdmi/timeout", service.SetHdmiIdleTimeout)
 
 	admin.POST("/vm/ssh/keys/import", service.ImportSSHKeys)                        // append root public keys

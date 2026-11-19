@@ -169,6 +169,19 @@
     "openvpnUpConfirm": "Turn {{name}} on?",
     "openvpnUpDescription": "An OpenVPN profile can send all traffic through the tunnel (redirect-gateway). If it does, this page may lose its connection."
   },
+  "overview": {
+    "title": "Overview",
+    "sections": "Settings sections",
+    "screen": {
+      "title": "Remote screen",
+      "open": "Open",
+      "loading": "Getting a picture…",
+      "noSignal": "No video signal",
+      "blocked": "No preview at 3840 × 2160",
+      "unavailable": "No picture right now",
+      "hint": "A still picture, renewed every few seconds. Open the screen for video and control."
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "live": "Updates while this page is open",
@@ -1347,6 +1360,13 @@
       "languagePartialHint": "Partially translated. Missing texts are shown in English.",
       "webTitle": "Web title",
       "webTitleDesc": "Customize the web page title",
+      "startPage": {
+        "title": "Start page",
+        "description": "What opens after the sign-in: the overview of the device, or the remote screen at once.",
+        "overview": "Overview",
+        "screen": "Remote screen",
+        "failed": "Could not save the start page."
+      },
       "theme": "Theme",
       "themeDesc": "The colours of the interface. System follows the theme of this device. The picture of the remote computer is not affected.",
       "themeDark": "Dark",

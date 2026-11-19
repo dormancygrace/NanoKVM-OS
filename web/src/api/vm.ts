@@ -331,6 +331,18 @@ export function setHostname(hostname: string) {
 }
 
 // get WebTitle
+export type ScreenPreview = {
+  state: 'ok' | 'disabled' | 'no-signal' | 'blocked' | 'unavailable';
+  jpeg?: string; // base64
+  width?: number;
+  height?: number;
+};
+
+// A small still picture of the host screen; it starts no video session.
+export function getScreenPreview() {
+  return http.get<ScreenPreview>('/api/vm/screen/preview');
+}
+
 export function getWebTitle() {
   return http.get<{ title: string }>('/api/vm/web-title');
 }

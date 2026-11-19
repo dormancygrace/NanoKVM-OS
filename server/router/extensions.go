@@ -33,16 +33,17 @@ func extensionsRouter(r *gin.Engine) {
 	api.POST("/wireguard/profile", wg.Change)
 
 	// Settings > Services: LLDP, SNMP and UPS, each installed on request.
-	for name, handlers := range map[string][5]gin.HandlerFunc{
-		"lldp": {netsvc.LLDPStatus, netsvc.LLDPInstall, netsvc.LLDPUninstall, netsvc.LLDPEnabled, netsvc.LLDPSettings},
-		"snmp": {netsvc.SNMPStatus, netsvc.SNMPInstall, netsvc.SNMPUninstall, netsvc.SNMPEnabled, netsvc.SNMPSettings},
-		"ups":  {netsvc.UPSStatus, netsvc.UPSInstall, netsvc.UPSUninstall, netsvc.UPSEnabled, netsvc.UPSSettings},
+	for name, handlers := range map[string][6]gin.HandlerFunc{
+		"lldp": {netsvc.LLDPStatus, netsvc.LLDPInstall, netsvc.LLDPUninstall, netsvc.LLDPEnabled, netsvc.LLDPSettings, netsvc.LLDPReset},
+		"snmp": {netsvc.SNMPStatus, netsvc.SNMPInstall, netsvc.SNMPUninstall, netsvc.SNMPEnabled, netsvc.SNMPSettings, netsvc.SNMPReset},
+		"ups":  {netsvc.UPSStatus, netsvc.UPSInstall, netsvc.UPSUninstall, netsvc.UPSEnabled, netsvc.UPSSettings, netsvc.UPSReset},
 	} {
 		api.GET("/"+name+"/status", handlers[0])
 		api.POST("/"+name+"/install", handlers[1])
 		api.POST("/"+name+"/uninstall", handlers[2])
 		api.PUT("/"+name+"/enabled", handlers[3])
 		api.PUT("/"+name+"/settings", handlers[4])
+		api.POST("/"+name+"/reset", handlers[5])
 	}
 
 	ts := tailscale.NewService()

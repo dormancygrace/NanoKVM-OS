@@ -9,7 +9,6 @@ import (
 	"NanoKVM-Server/proto"
 
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 )
 
 // LLDP: lldpd announces the NanoKVM to the switch it is plugged into and
@@ -23,6 +22,9 @@ var lldp = &unit{
 	packages: []string{"lldpd", "lldpd-openrc"},
 	binary:   "/usr/sbin/lldpd",
 	service:  "lldpd",
+	pidfile:  "/run/lldpd/lldpd.pid",
+	configs:  []string{lldpConfD},
+	fresh:    func() error { return writeLLDPSettings(lldpSettings{}) },
 }
 
 type lldpSettings struct {
@@ -45,6 +47,7 @@ type lldpStatus struct {
 	Installed bool           `json:"installed"`
 	Enabled   bool           `json:"enabled"`
 	Running   bool           `json:"running"`
+	Foreign   bool           `json:"foreign"`
 	Settings  lldpSettings   `json:"settings"`
 	Neighbors []lldpNeighbor `json:"neighbors"`
 }
@@ -131,7 +134,7 @@ func lldpState() any {
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running = lldp.enabled(), lldp.running()
+	status.Enabled, status.Running, status.Foreign = lldp.enabled(), lldp.running(), lldp.foreignNow()
 	status.Settings = readLLDPSettings()
 	if status.Running {
 		if out, err := output(5*time.Second, "lldpcli", "-f", "json0", "show", "neighbors"); err == nil {
@@ -148,6 +151,7 @@ func LLDPStatus(c *gin.Context) {
 func LLDPInstall(c *gin.Context)   { lldp.handleInstall(c, lldpState) }
 func LLDPUninstall(c *gin.Context) { lldp.handleUninstall(c, lldpState) }
 func LLDPEnabled(c *gin.Context)   { lldp.handleEnabled(c, lldpState) }
+func LLDPReset(c *gin.Context)     { lldp.handleReset(c, lldpState) }
 
 func LLDPSettings(c *gin.Context) {
 	var req lldpSettings
@@ -156,16 +160,5 @@ func LLDPSettings(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
-	lldp.mutex.Lock()
-	defer lldp.mutex.Unlock()
-	if !lldp.installed() {
-		rsp.ErrRsp(c, -2, errNotInstalled.Error())
-		return
-	}
-	if err := lldp.apply(func() error { return writeLLDPSettings(req) }); err != nil {
-		log.Errorf("LLDP settings: %v", err)
-		rsp.ErrRsp(c, -3, "could not save the settings")
-		return
-	}
-	rsp.OkRspWithData(c, lldpState())
+	lldp.handleSettings(c, lldpState, func() error { return writeLLDPSettings(req) })
 }

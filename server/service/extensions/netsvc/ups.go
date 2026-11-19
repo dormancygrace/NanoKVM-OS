@@ -14,7 +14,6 @@ import (
 	"NanoKVM-Server/service/hid"
 
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 )
 
 // UPS: Network UPS Tools reads a UPS attached to the NanoKVM's USB port (in
@@ -37,7 +36,19 @@ var ups = &unit{
 	binary:   "/usr/sbin/upsd",
 	service:  "nut-upsd",
 	pidfile:  "/run/nut/upsd.pid",
-	prepare:  prepareUPS,
+	configs:  nutPaths(),
+	access:   upsAccess,
+	complete: func() bool { _, complete := readUPSSettings(); return complete },
+	fresh:    freshUPS,
+}
+
+// The files NUT reads that are written here, always together.
+func nutPaths() []string {
+	paths := []string{}
+	for _, name := range []string{"nut.conf", "ups.conf", "upsd.conf", "upsd.users"} {
+		paths = append(paths, filepath.Join(nutDir, name))
+	}
+	return paths
 }
 
 type upsSettings struct {
@@ -59,6 +70,7 @@ type upsStatus struct {
 	Installed bool        `json:"installed"`
 	Enabled   bool        `json:"enabled"`
 	Running   bool        `json:"running"`
+	Foreign   bool        `json:"foreign"`
 	Settings  upsSettings `json:"settings"`
 	// the drivers the package has, for the settings
 	Drivers []string `json:"drivers"`
@@ -112,9 +124,8 @@ func (s upsSettings) validate() error {
 	return nil
 }
 
-// The files NUT reads, all written together. upsd listens on the local host
-// (the status below reads it there), or on every address when the network
-// is on.
+// The content of nutPaths. upsd listens on the local host (the status below
+// reads it there), or on every address when the network is on.
 func (s upsSettings) files() map[string]string {
 	mode := "standalone"
 	listen := "LISTEN 127.0.0.1 3493\n"
@@ -137,23 +148,31 @@ func (s upsSettings) files() map[string]string {
 }
 
 func writeUPSSettings(s upsSettings) error {
+	files := map[string][]byte{}
 	for name, content := range s.files() {
-		// NUT refuses configuration other users can read
-		if err := writeFile(filepath.Join(nutDir, name), []byte(content), 0o640, "nut"); err != nil {
-			return err
-		}
+		files[filepath.Join(nutDir, name)] = []byte(content)
 	}
-	return nil
+	// NUT refuses configuration other users can read
+	return writeFiles(files, 0o640, "nut")
 }
 
-func readUPSSettings() upsSettings {
-	s := upsSettings{Driver: "usbhid-ups", Port: nutUSBPort, User: nutUser}
-	if !ours(filepath.Join(nutDir, "ups.conf")) {
-		return s
+var upsDefaults = upsSettings{Driver: "usbhid-ups", Port: nutUSBPort, User: nutUser}
+
+// readUPSSettings is what the files say, when all of them are written here
+// and make a configuration the settings could have written: a set that is
+// short of that is not a configuration yet.
+func readUPSSettings() (upsSettings, bool) {
+	s := upsDefaults
+	text := map[string]string{}
+	for _, path := range nutPaths() {
+		data, err := os.ReadFile(path)
+		if err != nil || !strings.HasPrefix(string(data), marker) {
+			return upsDefaults, false
+		}
+		text[filepath.Base(path)] = string(data)
 	}
 	value := func(file, key string) string {
-		data, _ := os.ReadFile(filepath.Join(nutDir, file))
-		for _, line := range strings.Split(string(data), "\n") {
+		for _, line := range strings.Split(text[file], "\n") {
 			name, rest, ok := strings.Cut(strings.TrimSpace(line), "=")
 			if ok && strings.TrimSpace(name) == key {
 				return strings.TrimSpace(rest)
@@ -161,18 +180,16 @@ func readUPSSettings() upsSettings {
 		}
 		return ""
 	}
-	if driver := value("ups.conf", "driver"); driver != "" {
-		s.Driver = driver
-	}
-	if port := value("ups.conf", "port"); port != "" {
-		s.Port = port
-	}
+	s.Driver, s.Port = value("ups.conf", "driver"), value("ups.conf", "port")
 	if vendor, product := value("ups.conf", "vendorid"), value("ups.conf", "productid"); vendor != "" && product != "" {
 		s.USBDevice = vendor + ":" + product
 	}
 	s.Network = value("nut.conf", "MODE") == "netserver"
 	s.Password = value("upsd.users", "password")
-	return s
+	if s.Password == "" || s.validate() != nil {
+		return upsDefaults, false
+	}
+	return s, true
 }
 
 // upsAccess gives the driver (user nut) what it opens. The package's udev
@@ -184,17 +201,13 @@ func upsAccess() {
 	_ = rc(10*time.Second, "addgroup", "nut", "dialout")
 }
 
-// prepareUPS replaces the package's example configuration with ours, once.
-func prepareUPS() error {
-	upsAccess()
-	if ours(filepath.Join(nutDir, "ups.conf")) {
-		return nil
-	}
-	password, err := secret(20)
-	if err != nil {
+func freshUPS() error {
+	s := upsDefaults
+	var err error
+	if s.Password, err = secret(20); err != nil {
 		return err
 	}
-	return writeUPSSettings(upsSettings{Driver: "usbhid-ups", Port: nutUSBPort, User: nutUser, Password: password})
+	return writeUPSSettings(s)
 }
 
 func parseUPSValues(out []byte) map[string]string {
@@ -213,8 +226,8 @@ func upsState() any {
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running = ups.enabled(), ups.running()
-	status.Settings = readUPSSettings()
+	status.Enabled, status.Running, status.Foreign = ups.enabled(), ups.running(), ups.foreignNow()
+	status.Settings, _ = readUPSSettings()
 	status.Drivers = upsDrivers()
 	status.USBHost = fileExists(filepath.Join(hid.USBFlagsDir, "usb.host"))
 	if status.Running {
@@ -237,6 +250,7 @@ func UPSStatus(c *gin.Context) {
 func UPSInstall(c *gin.Context)   { ups.handleInstall(c, upsState) }
 func UPSUninstall(c *gin.Context) { ups.handleUninstall(c, upsState) }
 func UPSEnabled(c *gin.Context)   { ups.handleEnabled(c, upsState) }
+func UPSReset(c *gin.Context)     { ups.handleReset(c, upsState) }
 
 type upsSettingsReq struct {
 	Driver    string `json:"driver" validate:"required"`
@@ -254,31 +268,23 @@ func UPSSettings(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
-	ups.mutex.Lock()
-	defer ups.mutex.Unlock()
-	if !ups.installed() {
-		rsp.ErrRsp(c, -2, errNotInstalled.Error())
-		return
-	}
-	next := readUPSSettings()
-	next.Driver, next.Port, next.Network = req.Driver, req.Port, *req.Network
-	next.USBDevice = strings.ToLower(req.USBDevice)
-	if err := next.validate(); err != nil {
+	asked := upsSettings{Driver: req.Driver, Port: req.Port, USBDevice: strings.ToLower(req.USBDevice)}
+	if err := asked.validate(); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
 	}
-	if next.Password == "" || req.NewPassword {
-		password, err := secret(20)
-		if err != nil {
-			rsp.ErrRsp(c, -3, "could not save the settings")
-			return
+	ups.handleSettings(c, upsState, func() error {
+		next, _ := readUPSSettings()
+		next.Driver, next.Port, next.Network = req.Driver, req.Port, *req.Network
+		next.USBDevice = strings.ToLower(req.USBDevice)
+		if next.Password == "" || req.NewPassword {
+			password, err := secret(20)
+			if err != nil {
+				return err
+			}
+			next.Password = password
 		}
-		next.Password = password
-	}
-	if err := ups.apply(func() error { upsAccess(); return writeUPSSettings(next) }); err != nil {
-		log.Errorf("UPS settings: %v", err)
-		rsp.ErrRsp(c, -3, "could not save the settings")
-		return
-	}
-	rsp.OkRspWithData(c, upsState())
+		upsAccess()
+		return writeUPSSettings(next)
+	})
 }

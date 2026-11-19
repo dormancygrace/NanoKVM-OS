@@ -8,9 +8,11 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,10 +32,17 @@ type unit struct {
 	packages []string // the program first, then what depends on it
 	binary   string
 	service  string
-	// the daemon's pid file, where "started" for OpenRC is not enough
+	// the daemon's pid file: "started" for OpenRC is not enough
 	pidfile string
-	// before the first start: the configuration of a fresh installation
-	prepare func() error
+	// the files the settings are written to
+	configs []string
+	// what the daemon needs besides its files, before a start
+	access func()
+	// a configuration written here is there, all of it; nil for a service
+	// that runs with its package's own
+	complete func() bool
+	// writes the configuration of a fresh installation over what is there
+	fresh func() error
 
 	// one install, removal, switch or settings change at a time
 	mutex sync.Mutex
@@ -57,32 +66,34 @@ func (u *unit) running() bool {
 	return rc(5*time.Second, "rc-service", u.service, "status") == nil && u.alive()
 }
 
-// alive: the process of the pid file exists. A unit without one is taken at
-// OpenRC's word.
+// alive: the daemon is there, as the process of its pid file or as any
+// process of its program (a stop that failed can leave one without the file).
 func (u *unit) alive() bool {
-	if u.pidfile == "" {
-		return true
+	if data, err := os.ReadFile(u.pidfile); err == nil {
+		if pid, err := strconv.Atoi(strings.TrimSpace(string(data))); err == nil && pid > 0 {
+			if _, err = os.Stat("/proc/" + strconv.Itoa(pid)); err == nil {
+				return true
+			}
+		}
 	}
-	data, err := os.ReadFile(u.pidfile)
-	if err != nil {
-		return false
-	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil || pid <= 0 {
-		return false
-	}
-	_, err = os.Stat("/proc/" + strconv.Itoa(pid))
-	return err == nil
+	return rc(5*time.Second, "pidof", filepath.Base(u.binary)) == nil
 }
 
-// stop leaves the service stopped for OpenRC too. A stop whose last step
-// failed keeps the service marked as started with its daemon gone, and a
-// start would then do nothing.
-func (u *unit) stop() {
-	_ = rc(30*time.Second, "rc-service", u.service, "stop")
-	if u.pidfile != "" && !u.alive() {
-		_ = rc(10*time.Second, "rc-service", u.service, "zap")
+// stop returns nil when the daemon is stopped. A stop that fails with the
+// daemon still there is an error, and the caller changes nothing. One that
+// fails with the daemon gone (NUT: the last step, stopping the driver) keeps
+// the service marked as started, and a start would then do nothing: the mark
+// is removed.
+func (u *unit) stop() error {
+	out, err := output(30*time.Second, "rc-service", u.service, "stop")
+	if err == nil {
+		return nil
 	}
+	if u.alive() {
+		return fmt.Errorf("%s did not stop: %s", u.name, tail(out))
+	}
+	_ = rc(10*time.Second, "rc-service", u.service, "zap")
+	return nil
 }
 
 // start does not fail: a service that does not start says so in its status.
@@ -94,11 +105,14 @@ func (u *unit) start() {
 
 // apply changes the configuration of the service. A running service is
 // stopped first, with the configuration it was started with (NUT stops the
-// driver named there), and started again with the new one.
+// driver named there), and started again with the new one, or with the one
+// it had when the write fails.
 func (u *unit) apply(write func() error) error {
-	on := u.enabled()
+	on := u.enabled() || u.alive()
 	if on {
-		u.stop()
+		if err := u.stop(); err != nil {
+			return err
+		}
 	}
 	err := write()
 	if on {
@@ -122,14 +136,29 @@ func (u *unit) install() error {
 	if err := apkpkg.InstallCommunity(u.packages...); err != nil {
 		return err
 	}
-	if u.prepare != nil {
-		return u.prepare()
+	return u.prepare()
+}
+
+// prepare, before a start, replaces the package's example configuration
+// with the one of a fresh installation, until a complete one is there. One
+// that somebody wrote stays.
+func (u *unit) prepare() error {
+	if u.access != nil {
+		u.access()
 	}
-	return nil
+	if u.complete == nil || u.complete() {
+		return nil
+	}
+	if foreign, err := u.foreign(); foreign || err != nil {
+		return err
+	}
+	return u.fresh()
 }
 
 func (u *unit) uninstall() error {
-	u.stop()
+	if err := u.stop(); err != nil {
+		return err
+	}
 	_ = rc(10*time.Second, "rc-update", "del", u.service, "default")
 	// the dependants first: apk keeps a package another selected one needs
 	for i := len(u.packages) - 1; i >= 0; i-- {
@@ -145,19 +174,21 @@ func (u *unit) uninstall() error {
 // says that it is not running. Enabling an enabled service starts it again.
 func (u *unit) setEnabled(on bool) error {
 	if on {
-		if u.prepare != nil {
-			if err := u.prepare(); err != nil {
-				return err
-			}
+		if err := u.prepare(); err != nil {
+			return err
 		}
 		if err := rc(10*time.Second, "rc-update", "add", u.service, "default"); err != nil {
 			return err
 		}
-		u.stop()
+		if err := u.stop(); err != nil {
+			return err
+		}
 		u.start()
 		return nil
 	}
-	u.stop()
+	if err := u.stop(); err != nil {
+		return err
+	}
 	return rc(10*time.Second, "rc-update", "del", u.service, "default")
 }
 
@@ -169,16 +200,16 @@ func tail(out []byte) string {
 	return text
 }
 
-// writeFile replaces a configuration file with a complete new one.
-func writeFile(path string, data []byte, mode os.FileMode, group string) error {
+// stage writes the new content of a configuration file next to it and
+// returns the name of that file, to be renamed over the old one.
+func stage(path string, data []byte, mode os.FileMode, group string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return "", err
 	}
 	f, err := os.CreateTemp(filepath.Dir(path), ".pending-")
 	if err != nil {
-		return err
+		return "", err
 	}
-	defer os.Remove(f.Name())
 	_, err = f.Write(data)
 	if err == nil {
 		err = f.Chmod(mode)
@@ -189,15 +220,65 @@ func writeFile(path string, data []byte, mode os.FileMode, group string) error {
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
 	}
+	if err == nil && group != "" {
+		err = rc(5*time.Second, "chgrp", group, f.Name())
+	}
 	if err != nil {
+		os.Remove(f.Name())
+		return "", err
+	}
+	return f.Name(), nil
+}
+
+// writeFile replaces a configuration file with a complete new one.
+func writeFile(path string, data []byte, mode os.FileMode, group string) error {
+	return writeFiles(map[string][]byte{path: data}, mode, group)
+}
+
+// writeFiles replaces several configuration files, all of them or none.
+// Every new file is complete on the disk before the first old one goes; when
+// one cannot be put in place, those already replaced get their previous
+// content back.
+func writeFiles(files map[string][]byte, mode os.FileMode, group string) (err error) {
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	staged := make([]string, 0, len(paths))
+	defer func() {
+		for _, name := range staged {
+			os.Remove(name)
+		}
+	}()
+	previous := map[string][]byte{}
+	for _, path := range paths {
+		if data, readErr := os.ReadFile(path); readErr == nil {
+			previous[path] = data
+		}
+		name, stageErr := stage(path, files[path], mode, group)
+		if stageErr != nil {
+			return stageErr
+		}
+		staged = append(staged, name)
+	}
+	for i, path := range paths {
+		if err = os.Rename(staged[i], path); err == nil {
+			continue
+		}
+		for _, done := range paths[:i] {
+			data, was := previous[done]
+			if !was {
+				os.Remove(done)
+			} else if name, stageErr := stage(done, data, mode, group); stageErr == nil {
+				if os.Rename(name, done) != nil {
+					os.Remove(name)
+				}
+			}
+		}
 		return err
 	}
-	if group != "" {
-		if err = rc(5*time.Second, "chgrp", group, f.Name()); err != nil {
-			return err
-		}
-	}
-	return os.Rename(f.Name(), path)
+	return nil
 }
 
 // secret is a random string of n letters and digits, for a community name or
@@ -215,7 +296,7 @@ func secret(n int) (string, error) {
 }
 
 // The marker in the first line of a configuration file written here. A file
-// without it came with the package and is replaced at the first use.
+// without it is the package's own, or one somebody wrote (see foreign).
 const marker = "# Written by NanoKVM OS from Settings > Services; changes made here are replaced.\n"
 
 func ours(path string) bool {
@@ -223,7 +304,64 @@ func ours(path string) bool {
 	return err == nil && strings.HasPrefix(string(data), marker)
 }
 
-var errNotInstalled = errors.New("the service is not installed")
+// foreign: one of the configuration files is neither written here nor the
+// package's own, so somebody configured the service by hand. Such a
+// configuration is used as it is and never written over, until it is
+// replaced on request (handleReset). apk tells the two apart: its audit of a
+// directory lists the files that differ from their package's, as in
+// "U etc/snmp/snmpd.conf", and the ones no package has.
+func (u *unit) foreign() (bool, error) {
+	unknown := map[string]bool{}
+	dirs := map[string]bool{}
+	for _, path := range u.configs {
+		data, err := os.ReadFile(path)
+		if err != nil || strings.HasPrefix(string(data), marker) {
+			continue
+		}
+		unknown[strings.TrimPrefix(path, "/")] = true
+		dirs[filepath.Dir(path)] = true
+	}
+	for dir := range dirs {
+		out, err := output(30*time.Second, "/sbin/apk", "audit", dir)
+		if err != nil {
+			return false, fmt.Errorf("apk audit %s: %s", dir, tail(out))
+		}
+		for _, line := range strings.Split(string(out), "\n") {
+			if fields := strings.Fields(line); len(fields) == 2 && unknown[fields[1]] {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// foreignNow is foreign for a status: a configuration that could not be
+// examined is not offered for editing.
+func (u *unit) foreignNow() bool {
+	foreign, err := u.foreign()
+	if err != nil {
+		log.Warnf("%s configuration: %v", u.name, err)
+	}
+	return foreign || err != nil
+}
+
+var (
+	errNotInstalled = errors.New("the service is not installed")
+	errForeign      = errors.New("the service has a configuration that was not written here")
+)
+
+// writable is the check of every settings change: nil when the configuration
+// is ours to write.
+func (u *unit) writable() error {
+	foreign, err := u.foreign()
+	if err != nil {
+		return err
+	}
+	if foreign {
+		return errForeign
+	}
+	return nil
+}
 
 // The handlers common to the three services.
 
@@ -250,6 +388,46 @@ func (u *unit) handleUninstall(c *gin.Context, status func() any) {
 	if err := u.uninstall(); err != nil {
 		log.Errorf("uninstall %s: %v", u.name, err)
 		rsp.ErrRsp(c, -1, "removal failed")
+		return
+	}
+	rsp.OkRspWithData(c, status())
+}
+
+// handleReset replaces the configuration, whoever wrote it, with the one of a
+// fresh installation.
+func (u *unit) handleReset(c *gin.Context, status func() any) {
+	var rsp proto.Response
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	if !u.installed() {
+		rsp.ErrRsp(c, -2, errNotInstalled.Error())
+		return
+	}
+	if err := u.apply(u.fresh); err != nil {
+		log.Errorf("reset %s: %v", u.name, err)
+		rsp.ErrRsp(c, -3, "could not replace the configuration")
+		return
+	}
+	rsp.OkRspWithData(c, status())
+}
+
+// handleSettings writes the settings a handler has parsed and checked.
+func (u *unit) handleSettings(c *gin.Context, status func() any, write func() error) {
+	var rsp proto.Response
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	if !u.installed() {
+		rsp.ErrRsp(c, -2, errNotInstalled.Error())
+		return
+	}
+	if err := u.writable(); err != nil {
+		log.Errorf("%s settings: %v", u.name, err)
+		rsp.ErrRsp(c, -5, errForeign.Error())
+		return
+	}
+	if err := u.apply(write); err != nil {
+		log.Errorf("%s settings: %v", u.name, err)
+		rsp.ErrRsp(c, -3, "could not save the settings")
 		return
 	}
 	rsp.OkRspWithData(c, status())

@@ -10,7 +10,6 @@ import (
 	"NanoKVM-Server/proto"
 
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 )
 
 // SNMP: the net-snmp agent answers read-only SNMP v2c requests about the
@@ -29,7 +28,10 @@ var snmp = &unit{
 	packages: []string{"net-snmp", "net-snmp-openrc"},
 	binary:   "/usr/sbin/snmpd",
 	service:  "snmpd",
-	prepare:  prepareSNMP,
+	pidfile:  "/run/snmpd.pid",
+	configs:  []string{snmpConf},
+	complete: func() bool { return ours(snmpConf) },
+	fresh:    freshSNMP,
 }
 
 type snmpSettings struct {
@@ -44,6 +46,7 @@ type snmpStatus struct {
 	Installed bool         `json:"installed"`
 	Enabled   bool         `json:"enabled"`
 	Running   bool         `json:"running"`
+	Foreign   bool         `json:"foreign"`
 	Settings  snmpSettings `json:"settings"`
 }
 
@@ -138,11 +141,7 @@ func readSNMPSettings() snmpSettings {
 	return s
 }
 
-// prepareSNMP replaces the package's configuration with ours, once.
-func prepareSNMP() error {
-	if ours(snmpConf) {
-		return nil
-	}
+func freshSNMP() error {
 	community, err := secret(16)
 	if err != nil {
 		return err
@@ -155,7 +154,7 @@ func snmpState() any {
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running = snmp.enabled(), snmp.running()
+	status.Enabled, status.Running, status.Foreign = snmp.enabled(), snmp.running(), snmp.foreignNow()
 	status.Settings = readSNMPSettings()
 	return status
 }
@@ -167,6 +166,7 @@ func SNMPStatus(c *gin.Context) {
 func SNMPInstall(c *gin.Context)   { snmp.handleInstall(c, snmpState) }
 func SNMPUninstall(c *gin.Context) { snmp.handleUninstall(c, snmpState) }
 func SNMPEnabled(c *gin.Context)   { snmp.handleEnabled(c, snmpState) }
+func SNMPReset(c *gin.Context)     { snmp.handleReset(c, snmpState) }
 
 func SNMPSettings(c *gin.Context) {
 	var req snmpSettings
@@ -182,16 +182,5 @@ func SNMPSettings(c *gin.Context) {
 		return
 	}
 	req.Network, _ = source(req.Network)
-	snmp.mutex.Lock()
-	defer snmp.mutex.Unlock()
-	if !snmp.installed() {
-		rsp.ErrRsp(c, -2, errNotInstalled.Error())
-		return
-	}
-	if err := snmp.apply(func() error { return writeFile(snmpConf, req.file(), 0o600, "") }); err != nil {
-		log.Errorf("SNMP settings: %v", err)
-		rsp.ErrRsp(c, -3, "could not save the settings")
-		return
-	}
-	rsp.OkRspWithData(c, snmpState())
+	snmp.handleSettings(c, snmpState, func() error { return writeFile(snmpConf, req.file(), 0o600, "") })
 }

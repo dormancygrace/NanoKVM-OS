@@ -15,7 +15,17 @@ after a new install.
 
 The pages write the services' own configuration files. A file written from
 the settings starts with a comment saying so, and is replaced whenever the
-settings are saved.
+settings are saved. The package's own example file is replaced at the first
+use.
+
+A configuration file that is neither, because somebody wrote or edited it by
+hand, is never written over: the service runs with it as it is, the page says
+so and shows no settings. **Replace** on that page writes the configuration
+of a fresh installation in its place; the previous file is not kept.
+
+A change is applied to a stopped service. When the service does not stop, the
+change (switching off, settings, uninstall) is refused and nothing is
+written.
 
 ## LLDP
 

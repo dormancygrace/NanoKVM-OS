@@ -13,6 +13,9 @@ export type ServiceStatus = {
   // starts at boot; it can be enabled and not running
   enabled: boolean;
   running: boolean;
+  // the configuration was written by hand, not from these settings: it is
+  // used as it is until it is replaced
+  foreign: boolean;
 };
 
 export type LldpNeighbor = {
@@ -92,6 +95,12 @@ export function setEnabled<S extends ServiceStatus>(name: ServiceName, enabled: 
     data: { enabled },
     timeout: SLOW_CALL_TIMEOUT
   });
+}
+
+// Replaces the configuration, whoever wrote it, with the one of a fresh
+// installation.
+export function resetConfig<S extends ServiceStatus>(name: ServiceName) {
+  return http.request<S>({ method: 'post', url: url(name, 'reset'), timeout: SLOW_CALL_TIMEOUT });
 }
 
 export function saveSettings<S extends ServiceStatus>(name: ServiceName, settings: unknown) {

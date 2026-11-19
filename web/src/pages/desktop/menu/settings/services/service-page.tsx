@@ -26,7 +26,7 @@ type ServicePageProps<S extends api.ServiceStatus> = {
   children: (status: S, actions: ServiceActions) => ReactNode;
 };
 
-type Busy = '' | 'install' | 'uninstall' | 'switch' | 'save';
+type Busy = '' | 'install' | 'uninstall' | 'switch' | 'save' | 'reset';
 
 // One optional service of Settings > Services: an install button until its
 // package is installed, then a switch, and its settings while it is on.
@@ -189,7 +189,27 @@ export function ServicePage<S extends api.ServiceStatus>({
           />
         </SettingRow>
       </SettingsSection>
+      {status.foreign && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t('settings.netServices.foreign')}
+          action={
+            <Popconfirm
+              title={t('settings.netServices.replaceConfirm', { name: title })}
+              okText={t('settings.netServices.replace')}
+              okButtonProps={{ danger: true }}
+              onConfirm={() => void run('reset', () => api.resetConfig<S>(name))}
+            >
+              <Button size="small" loading={busy === 'reset'} disabled={busy !== ''}>
+                {t('settings.netServices.replace')}
+              </Button>
+            </Popconfirm>
+          }
+        />
+      )}
       {status.enabled &&
+        !status.foreign &&
         children(status, {
           save: (settings) => run('save', () => api.saveSettings<S>(name, settings)),
           saving: busy === 'save',

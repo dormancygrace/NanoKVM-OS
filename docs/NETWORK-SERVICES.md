@@ -49,10 +49,16 @@ with the computers the UPS feeds. Those computers run their own NUT client
 (`upsmon`, or an operating system's NUT support) and shut down on its
 decision; the NanoKVM does nothing on a power failure.
 
-- **Driver** and **Port**: `usbhid-ups` and `auto` serve most USB UPSes. A
-  USB UPS needs the USB port in the host mode
-  ([USB composition](USB-COMPOSITION.md)); the page says so when it is not. A
-  serial UPS takes its driver and a device such as `/dev/ttyS1`.
+- **Connection**: USB or a serial port.
+  - **USB** needs the USB port in the host mode
+    ([USB composition](USB-COMPOSITION.md)); the page says so when it is not.
+    It lists what is attached: **Any UPS the driver finds**, or one device,
+    which the driver then takes by its vendor and product ID.
+  - **Serial port** offers the two ports of the NanoKVM's header,
+    `/dev/ttyS1` and `/dev/ttyS2`. The port must not be in use by the serial
+    terminal or the computer sensors.
+- **Driver**: the drivers of the chosen connection. `usbhid-ups` serves most
+  USB UPSes; a serial UPS takes the driver of its protocol.
 - **Share on the network**: off, the UPS is read on the NanoKVM only. On,
   `upsd` listens on TCP port 3493 and the page shows what a client needs: the
   UPS name `ups@<address>`, the user `monitor` and its generated password

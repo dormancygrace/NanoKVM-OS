@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -42,8 +43,11 @@ var ups = &unit{
 type upsSettings struct {
 	// a NUT driver; usbhid-ups serves most USB UPSes
 	Driver string `json:"driver"`
-	// "auto" for USB; a device such as /dev/ttyS1 for a serial driver
+	// "auto" for USB, or one of the two serial ports
 	Port string `json:"port"`
+	// USB only: the one device to use, "vendor:product" as in 051d:0002;
+	// empty takes the first UPS the driver finds
+	USBDevice string `json:"usbDevice"`
 	// other computers may read the UPS over the network (port 3493)
 	Network bool `json:"network"`
 	// what those computers sign in with; generated, not chosen
@@ -66,8 +70,13 @@ type upsStatus struct {
 
 var (
 	nutDriver = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,31}$`)
-	nutPort   = regexp.MustCompile(`^[A-Za-z0-9_./:@-]{1,64}$`)
+	nutUSBID  = regexp.MustCompile(`^[0-9a-f]{4}:[0-9a-f]{4}$`)
 )
+
+// The serial ports on the boards' headers; ttyS0 is the system console.
+var nutSerialPorts = []string{"/dev/ttyS1", "/dev/ttyS2"}
+
+const nutUSBPort = "auto"
 
 func upsDrivers() []string {
 	entries, _ := os.ReadDir(nutDrivers)
@@ -91,8 +100,14 @@ func (s upsSettings) validate() error {
 	if _, err := os.Stat(filepath.Join(nutDrivers, s.Driver)); err != nil {
 		return errors.New("unknown UPS driver")
 	}
-	if !nutPort.MatchString(s.Port) {
-		return errors.New("the port is \"auto\" or a device such as /dev/ttyS1")
+	if s.Port == nutUSBPort {
+		if s.USBDevice != "" && !nutUSBID.MatchString(s.USBDevice) {
+			return errors.New("the USB device is a vendor and product ID such as 051d:0002")
+		}
+		return nil
+	}
+	if s.USBDevice != "" || !slices.Contains(nutSerialPorts, s.Port) {
+		return errors.New("the port is USB or one of the serial ports")
 	}
 	return nil
 }
@@ -109,9 +124,13 @@ func (s upsSettings) files() map[string]string {
 		// start when one of its addresses is already taken
 		listen = "LISTEN 0.0.0.0 3493\n"
 	}
+	device := "[" + nutUPS + "]\n\tdriver = " + s.Driver + "\n\tport = " + s.Port + "\n"
+	if vendor, product, ok := strings.Cut(s.USBDevice, ":"); ok {
+		device += "\tvendorid = " + vendor + "\n\tproductid = " + product + "\n"
+	}
 	return map[string]string{
 		"nut.conf":   marker + "MODE=" + mode + "\n",
-		"ups.conf":   marker + "[" + nutUPS + "]\n\tdriver = " + s.Driver + "\n\tport = " + s.Port + "\n",
+		"ups.conf":   marker + device,
 		"upsd.conf":  marker + listen,
 		"upsd.users": marker + "[" + s.User + "]\n\tpassword = " + s.Password + "\n\tupsmon secondary\n",
 	}
@@ -128,7 +147,7 @@ func writeUPSSettings(s upsSettings) error {
 }
 
 func readUPSSettings() upsSettings {
-	s := upsSettings{Driver: "usbhid-ups", Port: "auto", User: nutUser}
+	s := upsSettings{Driver: "usbhid-ups", Port: nutUSBPort, User: nutUser}
 	if !ours(filepath.Join(nutDir, "ups.conf")) {
 		return s
 	}
@@ -148,16 +167,26 @@ func readUPSSettings() upsSettings {
 	if port := value("ups.conf", "port"); port != "" {
 		s.Port = port
 	}
+	if vendor, product := value("ups.conf", "vendorid"), value("ups.conf", "productid"); vendor != "" && product != "" {
+		s.USBDevice = vendor + ":" + product
+	}
 	s.Network = value("nut.conf", "MODE") == "netserver"
 	s.Password = value("upsd.users", "password")
 	return s
 }
 
-// prepareUPS replaces the package's example configuration with ours, once.
-// The package's udev rules give the driver (user nut) the USB device of a
-// UPS when it is attached; one attached before the install gets them here.
-func prepareUPS() error {
+// upsAccess gives the driver (user nut) what it opens. The package's udev
+// rules hand it the USB device of a UPS when one is attached; one attached
+// before the install gets them here. The serial ports belong to the group
+// dialout, which the user joins.
+func upsAccess() {
 	_ = rc(10*time.Second, "udevadm", "trigger", "--subsystem-match=usb", "--action=change")
+	_ = rc(10*time.Second, "addgroup", "nut", "dialout")
+}
+
+// prepareUPS replaces the package's example configuration with ours, once.
+func prepareUPS() error {
+	upsAccess()
 	if ours(filepath.Join(nutDir, "ups.conf")) {
 		return nil
 	}
@@ -165,7 +194,7 @@ func prepareUPS() error {
 	if err != nil {
 		return err
 	}
-	return writeUPSSettings(upsSettings{Driver: "usbhid-ups", Port: "auto", User: nutUser, Password: password})
+	return writeUPSSettings(upsSettings{Driver: "usbhid-ups", Port: nutUSBPort, User: nutUser, Password: password})
 }
 
 func parseUPSValues(out []byte) map[string]string {
@@ -210,9 +239,10 @@ func UPSUninstall(c *gin.Context) { ups.handleUninstall(c, upsState) }
 func UPSEnabled(c *gin.Context)   { ups.handleEnabled(c, upsState) }
 
 type upsSettingsReq struct {
-	Driver  string `json:"driver" validate:"required"`
-	Port    string `json:"port" validate:"required"`
-	Network *bool  `json:"network" validate:"required"`
+	Driver    string `json:"driver" validate:"required"`
+	Port      string `json:"port" validate:"required"`
+	USBDevice string `json:"usbDevice"`
+	Network   *bool  `json:"network" validate:"required"`
 	// a new password for the clients
 	NewPassword bool `json:"newPassword"`
 }
@@ -231,7 +261,8 @@ func UPSSettings(c *gin.Context) {
 		return
 	}
 	next := readUPSSettings()
-	next.Driver, next.Port, next.Network = req.Driver, strings.TrimSpace(req.Port), *req.Network
+	next.Driver, next.Port, next.Network = req.Driver, req.Port, *req.Network
+	next.USBDevice = strings.ToLower(req.USBDevice)
 	if err := next.validate(); err != nil {
 		rsp.ErrRsp(c, -4, err.Error())
 		return
@@ -244,7 +275,7 @@ func UPSSettings(c *gin.Context) {
 		}
 		next.Password = password
 	}
-	if err := ups.apply(func() error { return writeUPSSettings(next) }); err != nil {
+	if err := ups.apply(func() error { upsAccess(); return writeUPSSettings(next) }); err != nil {
 		log.Errorf("UPS settings: %v", err)
 		rsp.ErrRsp(c, -3, "could not save the settings")
 		return

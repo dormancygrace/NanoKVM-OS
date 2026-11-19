@@ -42,7 +42,16 @@ export type SnmpSettings = {
 export type SnmpStatus = ServiceStatus & { settings: SnmpSettings };
 
 export type UpsStatus = ServiceStatus & {
-  settings: { driver: string; port: string; network: boolean; user: string; password: string };
+  settings: {
+    driver: string;
+    // 'auto' for USB, or a serial port
+    port: string;
+    // USB only: the one device to use, 'vendor:product'; '' is the first UPS found
+    usbDevice: string;
+    network: boolean;
+    user: string;
+    password: string;
+  };
   drivers: string[];
   // the USB port is in the host mode, which a USB UPS needs
   usbHost: boolean;
@@ -53,6 +62,7 @@ export type UpsStatus = ServiceStatus & {
 export type UpsSettingsRequest = {
   driver: string;
   port: string;
+  usbDevice: string;
   network: boolean;
   newPassword?: boolean;
 };

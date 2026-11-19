@@ -11,6 +11,11 @@
  * into it: bg-shade/30), bg-page (behind everything), bg-panel, and for icons
  * that show a state, active (on, running) and caution (trying again). */
 @theme static {
+  /* Inter comes with the interface (Latin, Cyrillic, Greek, Vietnamese); the
+   * scripts it lacks fall through to the fonts of the system. */
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
   --color-fg: #e5e5e5;
   --color-fg-muted: #a3a3a3;
   --color-fg-strong: #fff;

@@ -71,8 +71,17 @@ func (store usbRoleStore) set(role string) error {
 			return err
 		}
 	}
+	// The flag of the new role is written before the other one is removed.
+	// A change between host and off that is cut short then leaves both, and
+	// never neither: the port stays unbound, where no flag would be the
+	// gadget role with its keyboard and disk at the next boot.
 	write := func(role string) error {
-		for name, want := range map[string]bool{usbHostFlag: role == usbRoleHost, usbOffFlag: role == usbRoleOff} {
+		flags := []string{usbHostFlag, usbOffFlag}
+		if role == usbRoleOff {
+			flags = []string{usbOffFlag, usbHostFlag}
+		}
+		for _, name := range flags {
+			want := name == usbHostFlag && role == usbRoleHost || name == usbOffFlag && role == usbRoleOff
 			if err := writeUSBFile(filepath.Join(store.dir, name), usbFileSnapshot{exists: want, mode: 0o644}); err != nil {
 				return err
 			}

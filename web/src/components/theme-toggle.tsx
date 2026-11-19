@@ -29,14 +29,19 @@ export const ThemeToggle = () => {
           'nanokvm-button-base flex size-9 cursor-pointer items-center justify-center rounded-full shadow-lg shadow-black/25 transition-colors',
           next === 'dark'
             ? 'bg-[#3b2a7a] text-[#ede9fe] hover:bg-[#4c3799]'
-            : 'bg-[#2a2a2a] text-[#fde047] outline outline-1 outline-[#525252] hover:bg-[#383838]'
+            : 'bg-[#2a2a2a] text-[#fcd34d] outline outline-1 outline-[#525252] hover:bg-[#383838]'
         )}
         onClick={() => {
           setSetting(next);
           storage.setTheme(next);
         }}
       >
-        {next === 'light' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+        {next === 'light' ? (
+          // a filled disc with its rays: the outline alone looked thin
+          <SunIcon size={20} strokeWidth={2.4} fill="currentColor" />
+        ) : (
+          <MoonIcon size={18} />
+        )}
       </button>
     </MenuTooltip>
   );

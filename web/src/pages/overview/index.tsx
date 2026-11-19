@@ -214,6 +214,7 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
             {view === 'overview' ? webTitle || 'NanoKVM OS' : title}
           </span>
           <HostState />
+          <ThemeToggle />
         </header>
       )}
       <div key="page" className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -234,10 +235,7 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
             )}
           </header>
         )}
-        <main
-          ref={scroll}
-          className={clsx('min-h-0 flex-1 overflow-y-auto p-4 md:p-6', !wide && 'pb-24')}
-        >
+        <main ref={scroll} className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
           {view !== 'settings' && (
             <Overview wide={wide} view={view} admin={admin} locked={locked} open={frame.open} />
           )}
@@ -281,10 +279,13 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
           ))}
         </nav>
       )}
-      {/* Out of the way of the controls: the lower corner, above the tabs. */}
-      <div className={clsx('fixed right-4 z-10', wide ? 'bottom-4' : 'bottom-[4.5rem]')}>
-        <ThemeToggle />
-      </div>
+      {/* Out of the way of the controls: the lower corner. A narrow window has
+          it in the title line, whose right end is free. */}
+      {wide && (
+        <div className="fixed right-4 bottom-4 z-10">
+          <ThemeToggle />
+        </div>
+      )}
     </div>
   );
 };

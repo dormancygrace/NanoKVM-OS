@@ -182,7 +182,13 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
   ];
 
   return (
-    <div className={clsx('bg-page text-fg fixed inset-0 flex', wide ? 'flex-row' : 'flex-col')}>
+    <div
+      className={clsx(
+        // no flash of the whole control under a finger
+        'bg-page text-fg fixed inset-0 flex [-webkit-tap-highlight-color:transparent]',
+        wide ? 'flex-row' : 'flex-col'
+      )}
+    >
       <Head title={view === 'settings' ? t('settings.title') : t('overview.title')} />
       {wide ? (
         <Sidebar

@@ -29,7 +29,7 @@ export const ThemeToggle = () => {
           'nanokvm-button-base flex size-9 cursor-pointer items-center justify-center rounded-full shadow-lg shadow-black/25 transition-colors',
           next === 'dark'
             ? 'bg-[#3b2a7a] text-[#ede9fe] hover:bg-[#4c3799]'
-            : 'bg-[#2a2a2a] text-[#fbbf24] outline outline-1 outline-[#525252] hover:bg-[#383838]'
+            : 'bg-[#2a2a2a] text-[#fde047] outline outline-1 outline-[#525252] hover:bg-[#383838]'
         )}
         onClick={() => {
           setSetting(next);

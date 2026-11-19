@@ -63,12 +63,7 @@ export const CaptureSwitch = ({ className }: { className?: string }) => {
   const busy = useAtomValue(captureBusyAtom);
   const [error, setError] = useState(false);
   return (
-    <label
-      className={clsx(
-        'flex cursor-pointer items-center gap-2 text-sm [-webkit-tap-highlight-color:transparent]',
-        className
-      )}
-    >
+    <label className={clsx('flex cursor-pointer items-center gap-2 text-sm', className)}>
       <span className={error ? 'text-danger' : undefined}>
         {t(error ? 'capture.failed' : 'dashboard.capture')}
       </span>

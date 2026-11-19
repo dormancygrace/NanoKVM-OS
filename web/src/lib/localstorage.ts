@@ -16,7 +16,6 @@ const THEME_KEY = 'nano-kvm-theme';
 const MOBILE_MENU_PLACEMENT_KEY = 'nano-kvm-mobile-menu-placement';
 const KEYBOARD_LED_STATUS_VISIBLE_KEY = 'nano-kvm-keyboard-led-status-visible';
 const HOST_LED_STATUS_VISIBLE_KEY = 'nano-kvm-host-led-status-visible';
-const POWER_CONFIRM_KEY = 'nano-kvm-power-confirm';
 
 export function getLanguage() {
   return localStorage.getItem(LANGUAGE_KEY);
@@ -173,14 +172,6 @@ export function setHostLedStatusVisible(visible: boolean) {
   localStorage.setItem(HOST_LED_STATUS_VISIBLE_KEY, String(visible));
 }
 
-export function getPowerConfirm() {
-  const enabled = localStorage.getItem(POWER_CONFIRM_KEY);
-  return enabled !== 'false';
-}
-
-export function setPowerConfirm(enabled: boolean) {
-  localStorage.setItem(POWER_CONFIRM_KEY, String(enabled));
-}
 // Lowest latency unless this browser chose smooth playback.
 export function getDirectPlayback(): DirectPlayback {
   return localStorage.getItem('direct-playback') === 'paced' ? 'paced' : 'immediate';

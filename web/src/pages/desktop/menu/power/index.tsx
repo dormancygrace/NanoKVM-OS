@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Divider, Switch, Tooltip, type PopoverProps } from 'antd';
+import { Divider, type PopoverProps } from 'antd';
 import clsx from 'clsx';
 import { useAtomValue } from 'jotai';
 import { HardDriveIcon, LoaderCircleIcon, PowerIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { subscribeLEDStatus } from '@/lib/led-status.ts';
-import * as localstorage from '@/lib/localstorage.ts';
 import { hostLedStatusVisibleAtom } from '@/jotai/settings.ts';
 import { MenuItem } from '@/components/menu-item.tsx';
 import { MenuTooltip } from '@/components/menu-tooltip.tsx';
@@ -33,7 +32,6 @@ export const Power = ({
   const [isPowerOn, setIsPowerOn] = useState(false);
   const [isHddActive, setIsHddActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(localstorage.getPowerConfirm);
   // The indicator panel beside the menu shows the disk LED already (the
   // panel and this button both need ATX power control).
   const hddInPanel = useAtomValue(hostLedStatusVisibleAtom);
@@ -46,11 +44,6 @@ export const Power = ({
       }),
     []
   );
-
-  function updateShowConfirm(value: boolean) {
-    setShowConfirm(value);
-    localstorage.setPowerConfirm(value);
-  }
 
   const icon = (
     <div
@@ -73,24 +66,14 @@ export const Power = ({
     <div className="min-w-[200px]">
       <div className="flex items-center justify-between px-1">
         <span className="text-base font-bold text-neutral-300">{t('power.title')}</span>
-
-        <div className="flex items-center space-x-2">
-          <Tooltip title={t('power.showConfirmTip')} placement="right">
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-neutral-400">{t('power.showConfirm')}</span>
-
-              <Switch size="small" checked={showConfirm} onChange={updateShowConfirm} />
-            </div>
-          </Tooltip>
-        </div>
       </div>
 
       <Divider style={{ margin: '10px 0 15px 0' }} />
 
       <div className="flex flex-col space-y-1">
-        <Reset showConfirm={showConfirm} isLoading={isLoading} setIsLoading={setIsLoading} />
-        <PowerShort showConfirm={showConfirm} isLoading={isLoading} setIsLoading={setIsLoading} />
-        <PowerLong showConfirm={showConfirm} isLoading={isLoading} setIsLoading={setIsLoading} />
+        <Reset isLoading={isLoading} setIsLoading={setIsLoading} />
+        <PowerShort isLoading={isLoading} setIsLoading={setIsLoading} />
+        <PowerLong isLoading={isLoading} setIsLoading={setIsLoading} />
       </div>
     </div>
   );

@@ -9,12 +9,11 @@ import { themeAtom } from '@/jotai/settings.ts';
 import { reportGpioResult } from './report';
 
 type PowerShortProps = {
-  showConfirm: boolean;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
 };
 
-export const PowerShort = ({ showConfirm, isLoading, setIsLoading }: PowerShortProps) => {
+export const PowerShort = ({ isLoading, setIsLoading }: PowerShortProps) => {
   const { t } = useTranslation();
   const dark = useAtomValue(themeAtom) === 'dark';
 
@@ -32,29 +31,19 @@ export const PowerShort = ({ showConfirm, isLoading, setIsLoading }: PowerShortP
 
   return (
     <>
-      {showConfirm ? (
-        <Popconfirm
-          placement="bottomLeft"
-          title={t('power.powerConfirm')}
-          okText={t('power.okBtn')}
-          cancelText={t('power.cancelBtn')}
-          onConfirm={power}
-          color={dark ? '#404040' : undefined}
-        >
-          <div className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70">
-            <PowerIcon size={16} />
-            <span>{t('power.powerShort')}</span>
-          </div>
-        </Popconfirm>
-      ) : (
-        <div
-          className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70"
-          onClick={power}
-        >
+      <Popconfirm
+        placement="bottomLeft"
+        title={t('power.powerConfirm')}
+        okText={t('power.okBtn')}
+        cancelText={t('power.cancelBtn')}
+        onConfirm={power}
+        color={dark ? '#404040' : undefined}
+      >
+        <div className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70">
           <PowerIcon size={16} />
           <span>{t('power.powerShort')}</span>
         </div>
-      )}
+      </Popconfirm>
     </>
   );
 };

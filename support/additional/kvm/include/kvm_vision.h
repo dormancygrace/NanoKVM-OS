@@ -141,6 +141,15 @@ int kvmv_capture_reclaim_pending(void);
    other failures. */
 int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size);
 
+/* The whole screen scaled down by VPSS to width x height (even, no larger
+   than the input), in the same layout and with the same results, for any
+   input the capture runs: -13 here means that the picture asked for is
+   larger than the input, and -14 is not returned. It carries the watermark
+   when one is set; -5 when that could not be put on. The picture comes from a
+   VPSS channel of its own, set up for the call: the outputs the video and
+   the JPEG stream read, and their encoders, are not touched. */
+int kvmv_read_bgr_scaled(uint16_t width, uint16_t height, uint8_t *out, uint32_t size);
+
 #ifdef __cplusplus
 }
 #endif

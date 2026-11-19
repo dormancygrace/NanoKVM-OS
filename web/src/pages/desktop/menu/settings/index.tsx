@@ -266,10 +266,72 @@ const writeOpenTab = (tab: string | null) => {
 // Read once per page load: the menu renders Settings in more than one place.
 let reopenTab = readOpenTab();
 
+// Settings shown as a page instead of the dialog: the open tab is part of the
+// address, and leaving goes to another page.
+export type SettingsPageHost = {
+  tab?: string;
+  onTab: (tab: string) => void;
+  // to the overview
+  onClose: () => void;
+  // to the remote screen, where the chat lives
+  onOpenScreen: () => void;
+  // The address names a page this account or this device does not have.
+  onUnavailable: () => void;
+  // A page is at work (an installation, a connection) and must stay: the
+  // host keeps every way of leaving it closed until it is done.
+  onLock: (locked: boolean) => void;
+  // The host lays the settings out: it gets the navigation and the open page.
+  render: (frame: SettingsFrame) => ReactNode;
+};
+
+export type SettingsFrameEntry = {
+  id: string;
+  title: string;
+  icon: ReactNode;
+  // the group whose entry expands to show this one
+  group?: SettingsGroup;
+  // a group's own entry: it has no page
+  isGroup: boolean;
+  // a collection item: opened from its list, not shown in the navigation
+  hidden: boolean;
+  // marked while updates are available
+  marked: boolean;
+};
+
+// What the settings give a host that shows them as pages: the entries this
+// device and this user have, in menu order, and the page that is open.
+export type SettingsFrame = {
+  entries: SettingsFrameEntry[];
+  // The open page. With no page in the address it is one the host does not
+  // show.
+  current: string;
+  // the list a collection item goes back to
+  collection?: string;
+  locked: boolean;
+  expanded: ReadonlySet<SettingsGroup>;
+  // opens a page, or folds and unfolds a group
+  open: (id: string) => void;
+  title: (id: string) => string;
+  pageTitle: (id: string) => string;
+  // the open page itself
+  content: ReactNode;
+};
+
+// The tab a settings page opens without one in its address, or with one that
+// names no page. Add-on pages come and go with their add-ons and are checked
+// where the pages are listed.
+const pageDefaultTab = 'system-general';
+const pageTabOf = (tab: string | undefined) => {
+  const resolved = resolveSettingsTab(tab ?? pageDefaultTab);
+  return menuTitles.has(resolved) || resolved.includes('-addon-') ? resolved : pageDefaultTab;
+};
+
 export const Settings = ({
-  tooltipPlacement = 'bottom'
+  tooltipPlacement = 'bottom',
+  page
 }: {
   tooltipPlacement?: TooltipProps['placement'];
+  page?: SettingsPageHost;
 }) => {
   const { isMobilePortrait: mobile } = useResponsiveDevice();
   const { onRequestMobileMenuDismiss } = useContext(MobileMenuItemContext);
@@ -283,10 +345,13 @@ export const Settings = ({
 
   const [request, setRequest] = useAtom(settingsRequestAtom);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // a page is always open
+  const open = page ? true : isModalOpen;
   const [isLocked, setIsLocked] = useState(false);
-  const [currentTab, setCurrentTab] = useState('dashboard');
+  const [currentTab, setCurrentTab] = useState(() => (page ? pageTabOf(page.tab) : 'dashboard'));
   // Network > Bluetooth is listed only where the Wi-Fi chip has Bluetooth.
   const [hasBluetooth, setHasBluetooth] = useState(false);
+  const [bluetoothKnown, setBluetoothKnown] = useState(false);
   // Network > Wi-Fi is left out only once the device reports no adapter:
   // until then (and when the request fails) it stays, so a link to it works.
   const [hasWifi, setHasWifi] = useState(true);
@@ -295,13 +360,16 @@ export const Settings = ({
   const [usbGadget, setUsbGadget] = useState(true);
 
   useEffect(() => {
-    if (!isModalOpen || !isAdmin) return;
+    if (!open || !isAdmin) return;
     let active = true;
     getBluetoothState()
       .then((rsp) => {
         if (active && rsp.code === 0) setHasBluetooth(!!rsp.data?.available);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (active) setBluetoothKnown(true);
+      });
     getWiFi()
       .then((rsp) => {
         if (active && rsp.code === 0) setHasWifi(rsp.data?.supported !== false);
@@ -319,11 +387,14 @@ export const Settings = ({
       active = false;
       window.removeEventListener('nanokvm:usb-updated', readUsbRole);
     };
-  }, [isModalOpen, isAdmin]);
-  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<SettingsGroup>>(new Set());
+  }, [open, isAdmin]);
+  const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<SettingsGroup>>(() => {
+    const group = page?.tab !== undefined ? settingsGroupOf(currentTab) : undefined;
+    return new Set(group ? [group] : []);
+  });
   const [rustDeskStatus] = useAtom(rustDeskStatusAtom);
   const [inventory, setInventory] = useAtom(addonInventoryAtom);
-  const [, setInventoryError] = useState(false);
+  const [inventoryError, setInventoryError] = useState(false);
   const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
   const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
   const setBmcTab = useSetAtom(bmcTabAtom);
@@ -378,14 +449,7 @@ export const Settings = ({
         'ai-screen-text': (
           <ScreenTextSettingsPage onOpenAddons={() => changeTab('software-addons')} />
         ),
-        'ai-picoclaw': (
-          <PicoclawSettingsPage
-            onOpenChat={() => {
-              closeModal();
-              setPicoclawOpen(true);
-            }}
-          />
-        ),
+        'ai-picoclaw': <PicoclawSettingsPage onOpenChat={openChat} />,
         'ai-mcp': <MCP />,
         software: null,
         'software-addons': (
@@ -396,10 +460,7 @@ export const Settings = ({
               changeTab('services-bmc');
             }}
             onOpenAcme={() => changeTab('system-security')}
-            onOpen={() => {
-              closeModal();
-              setPicoclawOpen(true);
-            }}
+            onOpen={openChat}
           />
         ),
         'software-packages': <Software />
@@ -473,12 +534,12 @@ export const Settings = ({
     };
     // Start before the modal opens, and refresh installation facts while open.
     void refresh();
-    const stop = isModalOpen ? pollWhileVisible(() => void refresh(), 15000) : undefined;
+    const stop = open ? pollWhileVisible(() => void refresh(), 15000) : undefined;
     return () => {
       active = false;
       stop?.();
     };
-  }, [isAdmin, isModalOpen, setInventory]);
+  }, [isAdmin, open, setInventory]);
 
   useEffect(() => {
     if (rustDeskStatus) {
@@ -548,12 +609,49 @@ export const Settings = ({
     [setKeyboardLock, setSubmenuOpenCount]
   );
 
+  // As a page the open tab is part of the address: follow the address, and
+  // put a tab chosen here (or one a page fell back to) into it.
+  const pageTab = page?.tab;
+  const onPageTab = page?.onTab;
+  useEffect(() => {
+    // no page in the address: the host shows something else
+    if (!onPageTab || pageTab === undefined) return;
+    const tab = pageTabOf(pageTab);
+    const group = settingsGroupOf(tab);
+    if (group) setExpandedGroups((groups) => new Set(groups).add(group));
+    setCurrentTab(tab);
+  }, [pageTab, onPageTab]);
+  // The address names a page that is not among the entries. Some entries
+  // come late (Bluetooth, the pages of add-ons), so an administrator's
+  // address is judged once the device has answered about them; the other
+  // accounts have nothing to wait for.
+  const pageKnown = !isAdmin || (bluetoothKnown && (!!inventory || inventoryError));
+  const pageMissing =
+    pageTab !== undefined &&
+    currentTab === pageTabOf(pageTab) &&
+    !tabs.some((tab) => tab.id === currentTab);
+  const onPageUnavailable = page?.onUnavailable;
+  useEffect(() => {
+    if (pageMissing && pageKnown) onPageUnavailable?.();
+  }, [pageMissing, pageKnown, onPageUnavailable]);
+  const onPageLock = page?.onLock;
+  useEffect(() => {
+    onPageLock?.(isLocked);
+    return () => onPageLock?.(false);
+  }, [isLocked, onPageLock]);
+  const shownTab = useRef(currentTab);
+  useEffect(() => {
+    if (shownTab.current === currentTab) return;
+    shownTab.current = currentTab;
+    if (pageTab !== undefined && currentTab !== pageTab) onPageTab?.(currentTab);
+  }, [currentTab, pageTab, onPageTab]);
+
   // After a reload, open the page that was open before it.
   useEffect(() => {
-    if (!reopenTab) return;
+    if (page || !reopenTab) return;
     setRequest(reopenTab);
     reopenTab = null;
-  }, [setRequest]);
+  }, [page, setRequest]);
 
   // Remember the open page for a reload.
   useEffect(() => {
@@ -561,7 +659,8 @@ export const Settings = ({
   }, [isModalOpen, currentTab]);
 
   useEffect(() => {
-    if (!request || isLocked) return;
+    // as a page: the shell around it takes the requests
+    if (page || !request || isLocked) return;
     const requested = resolveSettingsTab(request);
     expandGroupOf(requested);
     setCurrentTab(requested);
@@ -573,7 +672,7 @@ export const Settings = ({
       setSubmenuOpenCount((count) => count + 1);
     }
     setRequest(null);
-  }, [request, isLocked, isModalOpen, setRequest, setKeyboardLock, setSubmenuOpenCount]);
+  }, [page, request, isLocked, isModalOpen, setRequest, setKeyboardLock, setSubmenuOpenCount]);
 
   function expandGroupOf(id: string) {
     const group = settingsGroupOf(id);
@@ -601,6 +700,13 @@ export const Settings = ({
     // instead of rendering an empty page.
     const resolved = resolveSettingsTab(tab);
     const target = tabs.some((item) => item.id === resolved) ? resolved : 'dashboard';
+    // As a page the address says what is open, and the dashboard is the
+    // overview itself.
+    if (page) {
+      if (target === 'dashboard') page.onClose();
+      else page.onTab(target);
+      return;
+    }
     expandGroupOf(target);
     setCurrentTab(target);
     setDetailOpen(true);
@@ -621,6 +727,10 @@ export const Settings = ({
     if (isLocked) {
       return;
     }
+    if (page) {
+      page.onClose();
+      return;
+    }
 
     if (!modalOpenRef.current) return;
     modalOpenRef.current = false;
@@ -632,7 +742,19 @@ export const Settings = ({
     setSubmenuOpenCount((count) => Math.max(0, count - 1));
   }
 
+  // The chat is part of the remote screen.
+  function openChat() {
+    if (page) {
+      setPicoclawOpen(true);
+      page.onOpenScreen();
+      return;
+    }
+    closeModal();
+    setPicoclawOpen(true);
+  }
+
   function tabTitle(id: string) {
+    if (page && id === 'dashboard') return t('overview.title');
     const addon = addonPages.get(id);
     if (addon) return localized(addon.title, i18n.language);
     const title = menuTitles.get(id);
@@ -648,6 +770,229 @@ export const Settings = ({
 
   // A collection item goes back to its list; other pages to the menu (mobile).
   const collection = settingsCollectionOf(currentTab);
+
+  // The open page. heading: its title above it, where nothing around it
+  // shows one.
+  const openPage = (heading: boolean) => (
+    <ErrorBoundary
+      key={currentTab}
+      fallbackRender={({ resetErrorBoundary }) => (
+        <Alert
+          type="error"
+          showIcon
+          message={t('error.title')}
+          description={
+            <div className="space-y-3">
+              <p>{t('error.settingsRecovery')}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => {
+                    retryPages.forEach((retry) => retry());
+                    resetErrorBoundary();
+                  }}
+                >
+                  {t('error.retry')}
+                </Button>
+                <Button onClick={() => window.location.reload()}>{t('error.refresh')}</Button>
+              </div>
+            </div>
+          }
+        />
+      )}
+    >
+      {heading && (
+        <>
+          <div className="flex items-center gap-2">
+            {collection && (
+              <Button
+                type="text"
+                size="small"
+                aria-label={t('settings.back')}
+                disabled={isLocked}
+                icon={<ArrowLeftIcon size={16} />}
+                onClick={() => changeTab(collection)}
+              />
+            )}
+            <h2 className="text-fg m-0 text-base font-medium">{pageTitle(currentTab)}</h2>
+          </div>
+          <Divider className="opacity-50" />
+        </>
+      )}
+      <Suspense fallback={<PageLoading />}>
+        {/* As a page the address says what is open: a page that is not there
+            is not replaced by another under its name. */}
+        {tabs.find((tab) => tab.id === currentTab)?.component ??
+          (page ? <PageLoading /> : tabs[0].component)}
+      </Suspense>
+    </ErrorBoundary>
+  );
+
+  if (page)
+    return page.render({
+      entries: tabs.map((tab) => ({
+        id: tab.id,
+        title: tabTitle(tab.id),
+        icon: tab.icon,
+        group: settingsGroupOf(tab.id),
+        isGroup: isSettingsGroup(tab.id),
+        hidden: !!tab.hidden,
+        marked: updatesAvailable && (tab.id === 'system' || tab.id === 'system-updates')
+      })),
+      current: currentTab,
+      collection,
+      locked: isLocked,
+      expanded: expandedGroups,
+      open: changeTab,
+      title: tabTitle,
+      pageTitle,
+      content: openPage(false)
+    });
+
+  const body = (
+    <div
+      className={clsx(
+        'flex min-w-0 overflow-hidden rounded-lg outline outline-1 outline-neutral-700',
+        mobile ? 'h-[calc(100dvh-32px)] flex-col overflow-hidden' : 'h-[80vh] max-h-[700px]'
+      )}
+    >
+      {mobile && (
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-neutral-700 bg-neutral-800 px-3 pr-12">
+          {detailOpen && (
+            <Button
+              type="text"
+              aria-label={t('settings.back')}
+              disabled={isLocked}
+              icon={<ArrowLeftIcon size={16} />}
+              onClick={() => (collection ? changeTab(collection) : setDetailOpen(false))}
+            />
+          )}
+          <span className="truncate font-medium">
+            {detailOpen ? pageTitle(currentTab) : t('settings.title')}
+          </span>
+        </div>
+      )}
+      <div
+        className={clsx(
+          mobile
+            ? detailOpen
+              ? 'hidden'
+              : 'min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2'
+            : 'flex h-full max-w-[260px] min-w-0 shrink-0 flex-col space-y-0.5 overflow-x-hidden overflow-y-auto bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2 [&>*]:shrink-0',
+          !mobile && 'rounded-l-lg'
+        )}
+      >
+        <div className={mobile ? 'hidden' : 'hidden px-3 pt-10 text-xl sm:block'}>
+          {t('settings.title')}
+        </div>
+        <div className={mobile ? 'hidden' : 'h-10 sm:h-5'} />
+        {tabs
+          .filter(
+            (tab) =>
+              tab.id !== 'about' &&
+              !tab.hidden &&
+              (() => {
+                const group = settingsGroupOf(tab.id);
+                return !group || expandedGroups.has(group);
+              })()
+          )
+          .map((tab) => {
+            const child = settingsGroupOf(tab.id) !== undefined;
+            const expanded = isSettingsGroup(tab.id) ? expandedGroups.has(tab.id) : undefined;
+            const label = tabTitle(tab.id);
+            return (
+              <Fragment key={tab.id}>
+                <button
+                  type="button"
+                  disabled={isLocked}
+                  aria-label={label}
+                  aria-current={currentTab === tab.id || collection === tab.id ? 'page' : undefined}
+                  data-child={child || undefined}
+                  aria-expanded={expanded}
+                  className={clsx(
+                    styles.item,
+                    'flex items-center gap-2 rounded-lg p-2 text-left select-none sm:px-3',
+                    mobile && 'min-h-12',
+                    child ? 'ml-4 w-[calc(100%_-_1rem)]' : 'w-full'
+                  )}
+                  onClick={() => changeTab(tab.id)}
+                >
+                  <div className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                    {tab.icon}
+                    {updatesAvailable && (tab.id === 'system' || tab.id === 'system-updates') && (
+                      <UpdateDot />
+                    )}
+                  </div>
+                  <span
+                    className={mobile ? 'truncate text-sm' : 'hidden truncate text-sm sm:block'}
+                  >
+                    {label}
+                  </span>
+                  {expanded !== undefined && (
+                    <ChevronRightIcon
+                      size={12}
+                      className={clsx(
+                        'ml-auto shrink-0 transition-transform',
+                        !mobile && 'hidden sm:block',
+                        expanded && 'rotate-90'
+                      )}
+                    />
+                  )}
+                </button>
+              </Fragment>
+            );
+          })}
+        <div className={clsx('pt-6', !mobile && 'mt-auto!')}>
+          <SessionActions isAdmin={isAdmin} disabled={isLocked} mobile={mobile} />
+        </div>
+        <div className="px-3 pt-2 pb-4">
+          <button
+            type="button"
+            disabled={isLocked}
+            aria-label={tabTitle('about')}
+            aria-current={currentTab === 'about' ? 'page' : undefined}
+            className={clsx(
+              styles.about,
+              'inline-flex items-center gap-2 rounded py-2 text-xs text-neutral-400 hover:text-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400',
+              mobile && 'min-h-11',
+              currentTab === 'about' && 'text-neutral-100'
+            )}
+            onClick={() => changeTab('about')}
+          >
+            <InfoIcon size={14} />
+            {tabTitle('about')}
+          </button>
+        </div>
+      </div>
+
+      {(!mobile || detailOpen) && (
+        <div
+          className={clsx(
+            'box-border flex min-h-0 min-w-0 flex-1 flex-col rounded-r-lg bg-neutral-900/50',
+            !mobile && 'pt-14'
+          )}
+        >
+          {/* Keep the desktop close button above, outside the scrolling viewport. */}
+          <ScrollArea
+            viewportRef={scrollViewportRef}
+            className="min-h-0 flex-1 px-3"
+            viewportClassName="pr-3"
+          >
+            <div className="flex min-h-full w-full min-w-0 justify-center">
+              <div
+                className={clsx(
+                  'w-full min-w-0 pb-10',
+                  currentTab === 'dashboard' ? 'max-w-[820px]' : 'max-w-[600px]',
+                  mobile && 'pt-5'
+                )}
+              >
+                {openPage(!mobile && currentTab !== 'about')}
+              </div>
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -689,200 +1034,7 @@ export const Settings = ({
         style={{ maxWidth: '1080px' }}
         styles={{ container: { padding: 0 } }}
       >
-        <div
-          className={clsx(
-            'flex min-w-0 overflow-hidden rounded-lg outline outline-1 outline-neutral-700',
-            mobile ? 'h-[calc(100dvh-32px)] flex-col overflow-hidden' : 'h-[80vh] max-h-[700px]'
-          )}
-        >
-          {mobile && (
-            <div className="flex h-12 shrink-0 items-center gap-2 border-b border-neutral-700 bg-neutral-800 px-3 pr-12">
-              {detailOpen && (
-                <Button
-                  type="text"
-                  aria-label={t('settings.back')}
-                  disabled={isLocked}
-                  icon={<ArrowLeftIcon size={16} />}
-                  onClick={() => (collection ? changeTab(collection) : setDetailOpen(false))}
-                />
-              )}
-              <span className="truncate font-medium">
-                {detailOpen ? pageTitle(currentTab) : t('settings.title')}
-              </span>
-            </div>
-          )}
-          <div
-            className={clsx(
-              mobile
-                ? detailOpen
-                  ? 'hidden'
-                  : 'min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2'
-                : 'flex h-full max-w-[260px] min-w-0 shrink-0 flex-col space-y-0.5 overflow-x-hidden overflow-y-auto rounded-l-lg bg-neutral-800/90 px-1 sm:w-1/5 md:w-1/4 md:px-2 [&>*]:shrink-0'
-            )}
-          >
-            <div className={mobile ? 'hidden' : 'hidden px-3 pt-10 text-xl sm:block'}>
-              {t('settings.title')}
-            </div>
-            <div className={mobile ? 'hidden' : 'h-10 sm:h-5'} />
-            {tabs
-              .filter(
-                (tab) =>
-                  tab.id !== 'about' &&
-                  !tab.hidden &&
-                  (() => {
-                    const group = settingsGroupOf(tab.id);
-                    return !group || expandedGroups.has(group);
-                  })()
-              )
-              .map((tab) => {
-                const child = settingsGroupOf(tab.id) !== undefined;
-                const expanded = isSettingsGroup(tab.id) ? expandedGroups.has(tab.id) : undefined;
-                const label = tabTitle(tab.id);
-                return (
-                  <Fragment key={tab.id}>
-                    <button
-                      type="button"
-                      disabled={isLocked}
-                      aria-label={label}
-                      aria-current={
-                        currentTab === tab.id || collection === tab.id ? 'page' : undefined
-                      }
-                      data-child={child || undefined}
-                      aria-expanded={expanded}
-                      className={clsx(
-                        styles.item,
-                        'flex items-center gap-2 rounded-lg p-2 text-left select-none sm:px-3',
-                        mobile && 'min-h-12',
-                        child ? 'ml-4 w-[calc(100%_-_1rem)]' : 'w-full'
-                      )}
-                      onClick={() => changeTab(tab.id)}
-                    >
-                      <div className="relative flex h-[18px] w-[18px] shrink-0 items-center justify-center">
-                        {tab.icon}
-                        {updatesAvailable &&
-                          (tab.id === 'system' || tab.id === 'system-updates') && <UpdateDot />}
-                      </div>
-                      <span
-                        className={mobile ? 'truncate text-sm' : 'hidden truncate text-sm sm:block'}
-                      >
-                        {label}
-                      </span>
-                      {expanded !== undefined && (
-                        <ChevronRightIcon
-                          size={12}
-                          className={clsx(
-                            'ml-auto shrink-0 transition-transform',
-                            !mobile && 'hidden sm:block',
-                            expanded && 'rotate-90'
-                          )}
-                        />
-                      )}
-                    </button>
-                  </Fragment>
-                );
-              })}
-            <div className={clsx('pt-6', !mobile && 'mt-auto!')}>
-              <SessionActions isAdmin={isAdmin} disabled={isLocked} mobile={mobile} />
-            </div>
-            <div className="px-3 pt-2 pb-4">
-              <button
-                type="button"
-                disabled={isLocked}
-                aria-label={tabTitle('about')}
-                aria-current={currentTab === 'about' ? 'page' : undefined}
-                className={clsx(
-                  styles.about,
-                  'inline-flex items-center gap-2 rounded py-2 text-xs text-neutral-400 hover:text-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400',
-                  mobile && 'min-h-11',
-                  currentTab === 'about' && 'text-neutral-100'
-                )}
-                onClick={() => changeTab('about')}
-              >
-                <InfoIcon size={14} />
-                {tabTitle('about')}
-              </button>
-            </div>
-          </div>
-
-          {(!mobile || detailOpen) && (
-            <div
-              className={clsx(
-                'box-border flex min-h-0 min-w-0 flex-1 flex-col rounded-r-lg bg-neutral-900/50',
-                !mobile && 'pt-14'
-              )}
-            >
-              {/* Keep the desktop close button above, outside the scrolling viewport. */}
-              <ScrollArea
-                viewportRef={scrollViewportRef}
-                className="min-h-0 flex-1 px-3"
-                viewportClassName="pr-3"
-              >
-                <div className="flex min-h-full w-full min-w-0 justify-center">
-                  <div
-                    className={clsx(
-                      'w-full min-w-0 pb-10',
-                      currentTab === 'dashboard' ? 'max-w-[820px]' : 'max-w-[600px]',
-                      mobile && 'pt-5'
-                    )}
-                  >
-                    <ErrorBoundary
-                      key={currentTab}
-                      fallbackRender={({ resetErrorBoundary }) => (
-                        <Alert
-                          type="error"
-                          showIcon
-                          message={t('error.title')}
-                          description={
-                            <div className="space-y-3">
-                              <p>{t('error.settingsRecovery')}</p>
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  onClick={() => {
-                                    retryPages.forEach((retry) => retry());
-                                    resetErrorBoundary();
-                                  }}
-                                >
-                                  {t('error.retry')}
-                                </Button>
-                                <Button onClick={() => window.location.reload()}>
-                                  {t('error.refresh')}
-                                </Button>
-                              </div>
-                            </div>
-                          }
-                        />
-                      )}
-                    >
-                      {!mobile && currentTab !== 'about' && (
-                        <>
-                          <div className="flex items-center gap-2">
-                            {collection && (
-                              <Button
-                                type="text"
-                                size="small"
-                                aria-label={t('settings.back')}
-                                disabled={isLocked}
-                                icon={<ArrowLeftIcon size={16} />}
-                                onClick={() => changeTab(collection)}
-                              />
-                            )}
-                            <h2 className="text-fg m-0 text-base font-medium">
-                              {pageTitle(currentTab)}
-                            </h2>
-                          </div>
-                          <Divider className="opacity-50" />
-                        </>
-                      )}
-                      <Suspense fallback={<PageLoading />}>
-                        {(tabs.find((tab) => tab.id === currentTab) ?? tabs[0]).component}
-                      </Suspense>
-                    </ErrorBoundary>
-                  </div>
-                </div>
-              </ScrollArea>
-            </div>
-          )}
-        </div>
+        {body}
       </Modal>
     </>
   );

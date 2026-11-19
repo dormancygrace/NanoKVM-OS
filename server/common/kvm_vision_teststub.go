@@ -43,6 +43,10 @@ func (k *KvmVision) ReadBGRPlanar(int, int) ([]byte, error) {
 	return nil, ErrPlanarPictureUnavailable
 }
 
+func (k *KvmVision) ReadBGRScaled(int, int) ([]byte, error) {
+	return nil, ErrPlanarPictureUnavailable
+}
+
 func (k *KvmVision) HasHDMISignal() bool {
 	return false
 }

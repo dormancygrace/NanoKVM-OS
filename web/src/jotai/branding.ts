@@ -11,6 +11,8 @@ export type Branding = {
   buttonColor?: string;
   customButtonColor?: boolean;
   bannerStyle?: 'default' | 'rainbow';
+  // What opens after the sign-in. Unknown until the device has answered.
+  startPage?: 'overview' | 'screen';
 };
 const DEFAULT_BUTTON_COLOR = '#45E9A0';
 export const brandingAtom = atom<Branding>({

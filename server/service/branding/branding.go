@@ -29,6 +29,9 @@ type Config struct {
 	LogoCustom      *bool  `json:"logoCustom,omitempty"`
 	FaviconCustom   *bool  `json:"faviconCustom,omitempty"`
 	ButtonColor     string `json:"buttonColor,omitempty"`
+	// StartPage is what opens after the sign-in; empty is the default of the
+	// image this device was installed from.
+	StartPage string `json:"startPage,omitempty"`
 }
 type Store struct {
 	Directory string
@@ -42,7 +45,31 @@ const (
 	DefaultButtonColor = "#45E9A0"
 	BannerStyleDefault = "default"
 	BannerStyleRainbow = "rainbow"
+	StartPageOverview  = "overview"
+	StartPageScreen    = "screen"
 )
+
+// imageMetadataPath records the image of the first installation; an update
+// does not replace it. Images that open the overview say so there: a device
+// installed from an earlier one keeps opening the remote screen.
+var imageMetadataPath = "/boot/image.json"
+
+func validStartPage(page string) bool {
+	return page == StartPageOverview || page == StartPageScreen
+}
+
+func (c Config) startPage() string {
+	if validStartPage(c.StartPage) {
+		return c.StartPage
+	}
+	var image struct {
+		StartPage string `json:"start_page"`
+	}
+	if b, e := os.ReadFile(imageMetadataPath); e == nil && json.Unmarshal(b, &image) == nil && validStartPage(image.StartPage) {
+		return image.StartPage
+	}
+	return StartPageScreen
+}
 
 func New() *Store { return &Store{Directory: "/etc/kvm/branding"} }
 func (s *Store) read() Config {
@@ -101,6 +128,7 @@ func (s *Store) status(c *gin.Context) {
 		"buttonColor":            buttonColor,
 		"customButtonColor":      customButtonColor,
 		"bannerStyle":            bannerStyle,
+		"startPage":              config.startPage(),
 		"title":                  strings.TrimSpace(string(title)),
 		// Compatibility fields keep an older frontend usable during an
 		// update without reintroducing the removed style selector.
@@ -349,6 +377,27 @@ func (s *Store) saveBannerStyle(style string) error {
 		return err
 	}
 	return os.Rename(temporary, path)
+}
+
+func (s *Store) SetStartPage(c *gin.Context) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var rsp proto.Response
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 1024)
+	var request struct {
+		Page string `json:"page"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || !validStartPage(request.Page) {
+		rsp.ErrRsp(c, -1, "Choose the overview or the screen")
+		return
+	}
+	config := s.read()
+	config.StartPage = request.Page
+	if err := s.save(config); err != nil {
+		rsp.ErrRsp(c, -1, "Could not save the start page")
+		return
+	}
+	s.status(c)
 }
 
 func (s *Store) SetBannerStyle(c *gin.Context) {

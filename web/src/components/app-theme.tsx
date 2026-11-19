@@ -17,6 +17,7 @@ export const AppTheme = ({ children }: PropsWithChildren) => {
     return {
       algorithm: theme === 'light' ? antdTheme.defaultAlgorithm : antdTheme.darkAlgorithm,
       token: {
+        fontFamily: 'var(--font-sans)',
         colorPrimary,
         colorSuccess: tokens.success,
         colorWarning: tokens.warning,

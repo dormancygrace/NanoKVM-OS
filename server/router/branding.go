@@ -21,4 +21,5 @@ func brandingRouter(r *gin.Engine) {
 	admin.POST("/button-color", service.SetButtonColor)
 	admin.DELETE("/button-color", service.DeleteButtonColor)
 	admin.POST("/banner-style", service.SetBannerStyle)
+	admin.POST("/start-page", service.SetStartPage)
 }

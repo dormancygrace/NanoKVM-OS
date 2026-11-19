@@ -2388,7 +2388,10 @@ static int set_capture_parked_locked(bool parked)
     }, [](bool enabled) { return cam->set_enabled(enabled); });
 }
 
-int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size)
+// scaled: a small picture of the whole screen whatever the input's size, for
+// people to look at. Otherwise the picture is the input's own size, for the
+// models, and the input is at most Full HD.
+static int read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size, bool scaled)
 {
     pthread_mutex_lock(&vi_mutex);
     // The same states the stream reader reports (kvmv_read_img): no cable,
@@ -2414,21 +2417,34 @@ int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t
     // input is at most Full HD, whose video buffers leave the models room.
     // The lease keeps the geometry from changing until the picture is taken.
     const nanokvm::GeometrySnapshot geometry = vi_geometry.snapshot();
-    if (uint32_t(geometry.width) * geometry.height > 1920u * 1080u || geometry.width > 1920
-        || geometry.height > 1920) {
+    if (!scaled && (uint32_t(geometry.width) * geometry.height > 1920u * 1080u || geometry.width > 1920
+        || geometry.height > 1920)) {
         pthread_mutex_unlock(&vi_mutex);
         return -14;
     }
+    // A scaled picture is never larger than the screen.
+    const bool fits = scaled ? width <= geometry.width && height <= geometry.height
+                             : (geometry.width & ~1) == width && (geometry.height & ~1) == height;
     nanokvm::GeometryGate::Lease lease;
-    if ((geometry.width & ~1) != width || (geometry.height & ~1) != height
-        || !(lease = vi_geometry.lease(geometry))) {
+    if (!fits || !(lease = vi_geometry.lease(geometry))) {
         pthread_mutex_unlock(&vi_mutex);
         return -13;
     }
-    const int result = mmf_read_bgr_planar(width, height, out, size, 500);
+    // The models read the screen as it is; a picture for people is marked.
+    const int result = mmf_read_bgr_planar(width, height, out, size, 500, scaled);
     lease.release();
     pthread_mutex_unlock(&vi_mutex);
     return result;
+}
+
+int kvmv_read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32_t size)
+{
+    return read_bgr_planar(width, height, out, size, false);
+}
+
+int kvmv_read_bgr_scaled(uint16_t width, uint16_t height, uint8_t *out, uint32_t size)
+{
+    return read_bgr_planar(width, height, out, size, true);
 }
 
 int kvmv_set_capture_parked(uint8_t parked)

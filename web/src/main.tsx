@@ -12,6 +12,7 @@ import { i18nReady } from './i18n';
 import { applyTheme, storedTheme } from './lib/theme.ts';
 import { router } from './router';
 
+import '@fontsource-variable/inter';
 import './assets/styles/index.css';
 
 // before the first paint, the loading spinner included

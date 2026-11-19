@@ -14,7 +14,7 @@ export const themeTokens = {
     info: '#38bdf8'
   },
   light: {
-    fgMuted: '#525252',
+    fgMuted: '#404040',
     success: '#15803d',
     warning: '#b45309',
     danger: '#dc2626',

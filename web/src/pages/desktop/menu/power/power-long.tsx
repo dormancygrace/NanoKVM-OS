@@ -12,12 +12,11 @@ import { reportGpioResult } from './report';
 const DEFAULT_POWER_LONG_DURATION_SECONDS = 5;
 
 type PowerLongProps = {
-  showConfirm: boolean;
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
 };
 
-export const PowerLong = ({ showConfirm, isLoading, setIsLoading }: PowerLongProps) => {
+export const PowerLong = ({ isLoading, setIsLoading }: PowerLongProps) => {
   const { t } = useTranslation();
   const dark = useAtomValue(themeAtom) === 'dark';
 
@@ -37,31 +36,20 @@ export const PowerLong = ({ showConfirm, isLoading, setIsLoading }: PowerLongPro
 
   return (
     <>
-      {showConfirm ? (
-        <Popconfirm
-          placement="bottomLeft"
-          title={t('power.powerConfirm')}
-          okText={t('power.okBtn')}
-          cancelText={t('power.cancelBtn')}
-          onConfirm={power}
-          color={dark ? '#404040' : undefined}
-        >
-          <div className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70">
-            <CirclePowerIcon size={16} />
-            <span>{t('power.powerLong')}</span>
-            <div className="flex h-full items-start text-xs text-neutral-500">{`${duration}s`}</div>
-          </div>
-        </Popconfirm>
-      ) : (
-        <div
-          className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70"
-          onClick={power}
-        >
+      <Popconfirm
+        placement="bottomLeft"
+        title={t('power.powerConfirm')}
+        okText={t('power.okBtn')}
+        cancelText={t('power.cancelBtn')}
+        onConfirm={power}
+        color={dark ? '#404040' : undefined}
+      >
+        <div className="flex cursor-pointer items-center space-x-2 rounded px-3 py-1.5 select-none hover:bg-neutral-700/70">
           <CirclePowerIcon size={16} />
           <span>{t('power.powerLong')}</span>
           <div className="flex h-full items-start text-xs text-neutral-500">{`${duration}s`}</div>
         </div>
-      )}
+      </Popconfirm>
 
       <div className="px-3">
         <Slider

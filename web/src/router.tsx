@@ -20,11 +20,28 @@ export const router = createHashRouter([
     ),
     children: [
       {
+        // the overview or the remote screen, as the device is set
         path: '',
+        lazy: async () => {
+          const { Home } = await import('./pages/home');
+          return { Component: Home };
+        }
+      },
+      {
+        path: 'screen',
         lazy: async () => {
           const { Desktop } = await import('./pages/desktop');
           return { Component: Desktop };
         }
+      },
+      {
+        // One page around its navigation: moving between the overview and
+        // the settings keeps it.
+        lazy: async () => {
+          const { Console } = await import('./pages/overview');
+          return { Component: Console };
+        },
+        children: [{ path: 'overview' }, { path: 'status' }, { path: 'settings/:tab?' }]
       },
       {
         element: (

@@ -121,7 +121,15 @@ async function read<T>(url: string): Promise<T> {
   return rsp.data as T;
 }
 
-export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => {
+// caption: the line saying that the values are live. The overview, whose
+// whole page they are, leaves it out.
+export const Dashboard = ({
+  navigate,
+  caption = true
+}: {
+  navigate: (tab: string) => void;
+  caption?: boolean;
+}) => {
   const { t, i18n } = useTranslation();
   const { account } = useAuth();
   const admin = account.role === 'admin';
@@ -357,16 +365,18 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
     );
   };
   return (
-    <div className="space-y-5 pb-6">
-      <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
-        <span className="text-fg-muted max-w-full text-xs wrap-break-word">
-          {t('dashboard.live')}
-        </span>
-      </div>
+    <div className="@container space-y-5 pb-6">
+      {caption && (
+        <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
+          <span className="text-fg-muted max-w-full text-xs wrap-break-word">
+            {t('dashboard.live')}
+          </span>
+        </div>
+      )}
       {(errors.length > 0 || extraFailed) && (
         <Alert type="warning" showIcon message={t('dashboard.stale')} />
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metric(
           'CPU',
           cpu === null ? '—' : `${cpu.toFixed(0)}%`,
@@ -380,13 +390,17 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           cpu ?? undefined,
           admin ? 'system-general' : undefined
         )}
-        {/* What programs can still get, page cache included, like the free space next to it. */}
+        {/* What programs can still get, page cache included, like the free space next
+            to it. The bars fill as the memory and the storage are used, like the
+            one of the processor. */}
         {metric(
           t('dashboard.freeRam'),
           bytes(memory?.availableBytes),
           <MemoryStickIcon size={16} />,
           memory ? t('dashboard.of', { total: bytes(memory.totalBytes) }) : undefined,
-          memory ? percent(memory.availableBytes, memory.totalBytes) : undefined,
+          memory
+            ? percent(memory.totalBytes - memory.availableBytes, memory.totalBytes)
+            : undefined,
           admin ? 'system-memory' : undefined
         )}
         {metric(
@@ -394,11 +408,12 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           bytes(disk?.free),
           <HardDriveIcon size={16} />,
           disk ? t('dashboard.of', { total: bytes(disk.total) }) : undefined,
-          disk ? percent(disk.free, disk.total) : undefined
+          disk ? percent(disk.total - disk.free, disk.total) : undefined
         )}
         {metric(t('dashboard.uptime'), uptime, <TimerIcon size={16} />)}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* One grid for every panel: when one is not shown the next takes its place. */}
+      <div className="grid gap-4 md:grid-cols-2 @5xl:grid-cols-3">
         {section(
           t('dashboard.device'),
           <dl className="text-sm">
@@ -412,57 +427,54 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           </dl>,
           admin ? 'device' : undefined
         )}
-        {section(
-          t('videoSettings.title'),
-          <dl className="text-sm">
-            {line(
-              t('dashboard.capture'),
-              t(
-                !ready
-                  ? 'capture.checking'
-                  : enabled
-                    ? 'videoSettings.captureOn'
-                    : 'videoSettings.captureOff'
-              )
-            )}
-            {line(
-              t('videoSettings.input'),
-              enabled ? size(video?.inputWidth, video?.inputHeight) : '—'
-            )}
-            {line(
-              t('videoSettings.output'),
-              enabled
-                ? size(outputWidth || video?.outputWidth, outputHeight || video?.outputHeight)
-                : '—'
-            )}
-            {line(
-              t('screen.codec'),
-              mode === 'mjpeg' ? 'MJPEG' : getEncoderCodec() === 'h265' ? 'H.265' : 'H.264'
-            )}
-            {line(
-              t('screen.video'),
-              mode === 'h264' ? 'WebRTC' : mode === 'direct' ? 'Direct' : 'MJPEG'
-            )}
-            {line(
-              t('dashboard.fps'),
-              video
-                ? t('videoSettings.fpsValue', {
-                    value: `${enabled ? video.measuredFps : 0} / ${video.fps}`
-                  })
-                : '—'
-            )}
-            {line(
-              t(mode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate'),
-              video
-                ? mode === 'mjpeg'
-                  ? `${video.quality}%`
-                  : t('videoSettings.mbps', { value: video.bitRate / 1000 })
-                : '—'
-            )}
-            {line(t('dashboard.sessions'), sessions)}
-          </dl>,
-          'video-general'
-        )}
+        {/* A panel shows what is in use: with the capture switched off there
+            is no video to describe. */}
+        {(!ready || enabled) &&
+          section(
+            t('videoSettings.title'),
+            <dl className="text-sm">
+              {line(
+                t('dashboard.capture'),
+                t(!ready ? 'capture.checking' : 'videoSettings.captureOn')
+              )}
+              {line(
+                t('videoSettings.input'),
+                enabled ? size(video?.inputWidth, video?.inputHeight) : '—'
+              )}
+              {line(
+                t('videoSettings.output'),
+                enabled
+                  ? size(outputWidth || video?.outputWidth, outputHeight || video?.outputHeight)
+                  : '—'
+              )}
+              {line(
+                t('screen.codec'),
+                mode === 'mjpeg' ? 'MJPEG' : getEncoderCodec() === 'h265' ? 'H.265' : 'H.264'
+              )}
+              {line(
+                t('screen.video'),
+                mode === 'h264' ? 'WebRTC' : mode === 'direct' ? 'Direct' : 'MJPEG'
+              )}
+              {line(
+                t('dashboard.fps'),
+                video
+                  ? t('videoSettings.fpsValue', {
+                      value: `${enabled ? video.measuredFps : 0} / ${video.fps}`
+                    })
+                  : '—'
+              )}
+              {line(
+                t(mode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate'),
+                video
+                  ? mode === 'mjpeg'
+                    ? `${video.quality}%`
+                    : t('videoSettings.mbps', { value: video.bitRate / 1000 })
+                  : '—'
+              )}
+              {line(t('dashboard.sessions'), sessions)}
+            </dl>,
+            'video-general'
+          )}
         {section(
           t('dashboard.memory'),
           <dl className="text-sm">
@@ -537,8 +549,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             )) ?? '—'}
           </div>
         )}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
         {sys?.interfaces
           .filter(
             (iface) =>
@@ -617,9 +627,12 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
               )}
             </div>
           )) ?? '—'}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
+        {/* and no VPN panel without an installed VPN */}
         {admin &&
+          vpnProviders.some((provider) => {
+            const data = extra[provider.id];
+            return !!data && summarizeVPN(data).installed;
+          }) &&
           section(
             'VPN',
             <div className="space-y-4">
@@ -650,10 +663,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                   </div>
                 );
               })}
-              {vpnProviders.every((provider) => extra[provider.id]) &&
-                !vpnProviders.some((provider) => summarizeVPN(extra[provider.id]!).installed) && (
-                  <div className="text-fg-muted text-xs">{t('dashboard.noVpn')}</div>
-                )}
             </div>,
             'vpn'
           )}

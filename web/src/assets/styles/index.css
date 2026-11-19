@@ -11,6 +11,11 @@
  * into it: bg-shade/30), bg-page (behind everything), bg-panel, and for icons
  * that show a state, active (on, running) and caution (trying again). */
 @theme static {
+  /* Inter comes with the interface (Latin, Cyrillic, Greek, Vietnamese); the
+   * scripts it lacks fall through to the fonts of the system. */
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
   --color-fg: #e5e5e5;
   --color-fg-muted: #a3a3a3;
   --color-fg-strong: #fff;
@@ -34,6 +39,14 @@ body {
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
+}
+
+/* The icon of a confirmation sits on the middle of the first line of its
+ * title. The letters of that line are below the middle of their line box, so
+ * the icon looked raised. Outside the layers: the styles of a static
+ * confirmation are not in the antd layer. */
+.ant-modal-confirm .ant-modal-confirm-body > .anticon {
+  margin-top: 2px;
 }
 
 @layer components {

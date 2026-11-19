@@ -288,7 +288,7 @@ static struct {
 	uint32_t chn_w, chn_h;
 	bool attached[MMF_WATERMARK_BLOCKS];
 	int attempts;
-} wm_out[MMF_VI_MAX_CHN];
+} wm_out[MMF_VI_MAX_CHN + 1]; // the last is the channel of single pictures
 static const int wm_attempts = 3;
 // Blocks missing on enabled outputs after the last sync.
 static std::atomic<int> wm_missing;
@@ -428,6 +428,23 @@ static int _wm_sync(void)
 	}
 	wm_missing = missing;
 	return missing ? -EIO : shown;
+}
+
+// The blocks on the channel of a single picture of width x height, for the
+// one picture: false when one of them could not be put on. Without a
+// watermark there is nothing to put on.
+static bool _wm_attach_picture(int ch, int width, int height)
+{
+	std::lock_guard<std::mutex> guard(wm_lock);
+	if (!wm_on) return true;
+	for (int i = 0; i < (int)wm_blocks.size(); ++i) {
+		const int result = _wm_attach_block_locked(ch, i, width, height);
+		if (result == CVI_SUCCESS) continue;
+		printf("[mmf] watermark block %d on a picture: %#x\n", i, result);
+		_wm_detach_locked(ch);
+		return false;
+	}
+	return true;
 }
 
 int mmf_watermark_missing(void)
@@ -3369,8 +3386,10 @@ int mmf_venc_push_vi(int ch, int vi_ch) {
  * up here, disabled as soon as it has delivered, and its pool destroyed.
  * Video read straight from the VI may have left the VI unbound from VPSS; it
  * is bound for the call and unbound again. The capture owner serializes calls.
+ * watermark: the picture is for people and carries the watermark, put on the
+ * channel for the call; -5 when it is set and could not be put on.
  */
-int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int timeout_ms)
+int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int timeout_ms, bool watermark)
 {
 	const int chn = MMF_PICTURE_CHN;
 	if (width < 16 || height < 16 || width > 1920 || height > 1920 || width % 2 || height % 2
@@ -3405,7 +3424,12 @@ int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int ti
 	const bool was_bound = priv.vi_source_bound;
 	int result = -1;
 	picture_pool_attached = CVI_VPSS_AttachVbPool(0, chn, pool) == CVI_SUCCESS;
-	if (picture_pool_attached && _mmf_vi_bind_vpss(true) == CVI_SUCCESS
+	// A picture for people carries the watermark the streams carry, or there
+	// is no picture.
+	const bool marked = !watermark || _wm_attach_picture(chn, width, height);
+	if (!marked) {
+		result = -5;
+	} else if (picture_pool_attached && _mmf_vi_bind_vpss(true) == CVI_SUCCESS
 		&& CVI_VPSS_EnableChn(0, chn) == CVI_SUCCESS) {
 		VIDEO_FRAME_INFO_S frame = {};
 		result = CVI_VPSS_GetChnFrame(0, chn, &frame, timeout_ms) == CVI_SUCCESS ? 0 : -3;
@@ -3442,6 +3466,7 @@ int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int ti
 	} else {
 		CVI_VPSS_DisableChn(0, chn);
 	}
+	if (watermark) _wm_detach(chn);
 	if (_mmf_release_picture_pool() != CVI_SUCCESS)
 		printf("[mmf] picture pool %d still busy; released by the next read\n", pool);
 	if (!was_bound) _mmf_vi_bind_vpss(false);

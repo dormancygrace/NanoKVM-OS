@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -259,12 +261,25 @@ func ApplyWatermark() error {
 	return applyWatermark(GetKvmVision())
 }
 
+// watermarkUnapplied: the saved watermark is not the one the native library
+// has, because giving it failed. Until it is given, or switched off, a
+// picture of the screen made for people would lack it.
+var watermarkUnapplied atomic.Bool
+
+// WatermarkUnapplied reports that the saved watermark could not be given to
+// the native library: pictures that must carry it are withheld.
+func WatermarkUnapplied() bool { return watermarkUnapplied.Load() }
+
 func applyWatermark(vision *KvmVision) error {
 	watermarkMutex.Lock()
 	defer watermarkMutex.Unlock()
+	// Until this returns without an error the library may have another
+	// watermark than the saved one, or none.
+	watermarkUnapplied.Store(true)
 	settings, pictures := loadWatermarkLocked()
 	if !settings.Enabled || len(settings.Blocks) == 0 {
 		vision.SetWatermark(nil, nil, 0)
+		watermarkUnapplied.Store(false)
 		return nil
 	}
 	var argb []uint32
@@ -283,7 +298,14 @@ func applyWatermark(vision *KvmVision) error {
 	if err := loadRegionDriver(); err != nil {
 		return err
 	}
-	if shown := vision.SetWatermark(argb, geometry, settings.Margin); shown < 0 {
+	shown := vision.SetWatermark(argb, geometry, settings.Margin)
+	// -EIO: the library has the watermark, and a block is missing on an
+	// output of a stream. A single picture puts the blocks on for itself and
+	// is refused when one fails, so it need not be withheld for that.
+	if shown >= 0 || shown == -int(syscall.EIO) {
+		watermarkUnapplied.Store(false)
+	}
+	if shown < 0 {
 		return fmt.Errorf("the native library refused the watermark (%d)", shown)
 	}
 	log.Infof("watermark on: %d blocks, margin %d", len(settings.Blocks), settings.Margin)

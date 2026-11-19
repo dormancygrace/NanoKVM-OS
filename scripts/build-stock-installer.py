@@ -218,6 +218,7 @@ exec /kvmapp/system/init.d/S95nanokvm restart
         (boot_files / 'hostname.prefix').write_text('kvm')
         (boot_files / 'image.json').write_text(json.dumps({
             'image_version': 'stock-migration', 'bundled_application_version': version,
+            'start_page': 'overview',
         }, indent=2) + '\n')
         for file in sorted(boot_files.iterdir()):
             os.utime(file, (315532800, 315532800))

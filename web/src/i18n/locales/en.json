@@ -169,6 +169,27 @@
     "openvpnUpConfirm": "Turn {{name}} on?",
     "openvpnUpDescription": "An OpenVPN profile can send all traffic through the tunnel (redirect-gateway). If it does, this page may lose its connection."
   },
+  "overview": {
+    "title": "Overview",
+    "sections": "Pages",
+    "navigation": "Main pages",
+    "status": "Status",
+    "search": "Search the settings",
+    "nothingFound": "Nothing found",
+    "host": {
+      "title": "Host",
+      "noImage": "Nothing mounted"
+    },
+    "screen": {
+      "title": "Remote console",
+      "open": "Open",
+      "openScreen": "Open the remote console",
+      "loading": "Getting a picture…",
+      "noSignal": "No video signal",
+      "unavailable": "No picture right now",
+      "stale": "The picture could not be renewed and may be out of date."
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "live": "Updates while this page is open",
@@ -461,7 +482,7 @@
     "storageUnavailable": "Image storage is not writable. Check free space and storage state."
   },
   "head": {
-    "desktop": "Remote desktop",
+    "desktop": "Remote console",
     "login": "Sign in",
     "changePassword": "Change password",
     "terminal": "Terminal",
@@ -900,8 +921,6 @@
   },
   "power": {
     "title": "Power",
-    "showConfirm": "Confirmation",
-    "showConfirmTip": "Power operations require an extra confirmation",
     "reset": "Reset",
     "powerShort": "Power (short press)",
     "powerLong": "Power (long press)",
@@ -1347,11 +1366,20 @@
       "languagePartialHint": "Partially translated. Missing texts are shown in English.",
       "webTitle": "Web title",
       "webTitleDesc": "Customize the web page title",
+      "startPage": {
+        "title": "Start page",
+        "description": "What opens after the sign-in: the overview of the device, or the remote console at once.",
+        "overview": "Overview",
+        "screen": "Remote console",
+        "failed": "Could not save the start page."
+      },
       "theme": "Theme",
       "themeDesc": "The colours of the interface. System follows the theme of this device. The picture of the remote computer is not affected.",
       "themeDark": "Dark",
       "themeLight": "Light",
       "themeSystem": "System",
+      "toLight": "Light theme",
+      "toDark": "Dark theme",
       "menuBar": {
         "mode": "Display mode",
         "modeDesc": "Auto hide: the bar appears when the mouse reaches the top edge.",

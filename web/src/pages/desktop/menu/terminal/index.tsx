@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Divider } from 'antd';
+import { Divider, type PopoverProps } from 'antd';
 import { SquareTerminalIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,7 +12,16 @@ import { Nanokvm } from './nanokvm';
 import { SerialPort } from './serial-port';
 import { Sessions } from './sessions';
 
-export const Terminal = () => {
+// label, className, placement: the button outside a toolbar (see MenuItem).
+export const Terminal = ({
+  label = false,
+  className,
+  placement
+}: {
+  label?: boolean;
+  className?: string;
+  placement?: PopoverProps['placement'];
+} = {}) => {
   const { t } = useTranslation();
   const [serialEnabled, setSerialEnabled] = useState(false);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
@@ -75,6 +84,9 @@ export const Terminal = () => {
       icon={<SquareTerminalIcon size={18} />}
       content={content}
       fresh
+      label={label}
+      className={className}
+      placement={placement}
       onOpenChange={(open) => {
         if (open) void refresh();
       }}

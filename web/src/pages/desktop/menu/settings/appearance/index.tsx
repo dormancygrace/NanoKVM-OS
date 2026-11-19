@@ -10,6 +10,7 @@ import { KeyboardLedStatusSetting } from './keyboard-led-status.tsx';
 import { Language } from './language.tsx';
 import { MenuIcons } from './menu-icons.tsx';
 import { MenuMode } from './menu-mode.tsx';
+import { StartPage } from './start-page.tsx';
 import { Theme } from './theme.tsx';
 import { WebTitle } from './web-title.tsx';
 
@@ -38,6 +39,7 @@ export const Appearance = () => {
           title={t('settings.appearance.device')}
           description={t('settings.appearance.deviceDesc')}
         >
+          <StartPage />
           <WebTitle />
           <ButtonColor />
           <Branding />

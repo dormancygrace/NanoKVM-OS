@@ -182,7 +182,7 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
   ];
 
   return (
-    <div className={clsx('bg-page text-fg flex h-dvh', wide ? 'flex-row' : 'flex-col')}>
+    <div className={clsx('bg-page text-fg fixed inset-0 flex', wide ? 'flex-row' : 'flex-col')}>
       <Head title={view === 'settings' ? t('settings.title') : t('overview.title')} />
       {wide ? (
         <Sidebar

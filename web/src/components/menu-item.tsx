@@ -244,6 +244,11 @@ type MenuItemProps = {
   mobilePopoverClassName?: string;
   onOpenChange?: (open: boolean) => void;
   onIntent?: () => void;
+  // Outside a toolbar: the title is shown beside the icon, and className
+  // gives the trigger its size and shape.
+  label?: boolean;
+  // where the popover opens, when not below the trigger
+  placement?: PopoverProps['placement'];
 };
 export const MenuItem = ({
   title,
@@ -255,7 +260,9 @@ export const MenuItem = ({
   mobilePlacement,
   mobilePopoverClassName,
   onOpenChange,
-  onIntent
+  onIntent,
+  label = false,
+  placement: fixedPlacement
 }: MenuItemProps) => {
   const isBigScreen = useMediaQuery('(min-width: 640px)');
   const setCount = useSetAtom(submenuOpenCountAtom);
@@ -313,21 +320,23 @@ export const MenuItem = ({
     setCount((count) => (next ? count + 1 : Math.max(0, count - 1)));
     onOpenChangeRef.current?.(next);
   };
-  const popoverPlacement = placement
-    ? placement === 'right'
-      ? 'leftTop'
-      : 'rightTop'
-    : isBigScreen
-      ? 'bottomLeft'
-      : 'bottom';
+  const popoverPlacement = fixedPlacement
+    ? fixedPlacement
+    : placement
+      ? placement === 'right'
+        ? 'leftTop'
+        : 'rightTop'
+      : isBigScreen
+        ? 'bottomLeft'
+        : 'bottom';
   const tooltipPlacement = placement ? (placement === 'right' ? 'left' : 'right') : 'bottom';
   const triggerNode = (
     <MenuTooltip
       title={title}
       placement={tooltipPlacement}
       overlayClassName={overlay}
-      blocked={isOpen}
-      open={disabled ? undefined : !isOpen && isTooltipOpen}
+      blocked={isOpen || label}
+      open={disabled ? undefined : !label && !isOpen && isTooltipOpen}
       onOpenChange={disabled ? undefined : (next) => setIsTooltipOpen(next && !isOpenRef.current)}
     >
       <div
@@ -345,14 +354,19 @@ export const MenuItem = ({
         }}
         aria-disabled={disabled}
         className={clsx(
-          'flex h-[30px] w-[30px] items-center justify-center rounded text-neutral-300',
+          label
+            ? 'flex items-center gap-3 text-sm'
+            : 'flex h-[30px] w-[30px] items-center justify-center rounded text-neutral-300',
           disabled
             ? 'cursor-not-allowed text-neutral-600 opacity-45'
-            : 'hover:text-fg-strong cursor-pointer hover:bg-neutral-700/80',
+            : label
+              ? 'cursor-pointer hover:bg-neutral-700/50'
+              : 'hover:text-fg-strong cursor-pointer hover:bg-neutral-700/80',
           className
         )}
       >
         {icon}
+        {label && <span className="truncate">{title}</span>}
       </div>
     </MenuTooltip>
   );

@@ -19,9 +19,13 @@ import { Tips } from './tips.tsx';
 
 type ImageProps = {
   tooltipPlacement?: 'bottom' | 'left' | 'right';
+  // Outside a toolbar: the title is shown beside the icon, and className
+  // gives the button its size and shape.
+  label?: boolean;
+  className?: string;
 };
 
-export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
+export const Image = ({ tooltipPlacement = 'bottom', label = false, className }: ImageProps) => {
   const { t } = useTranslation();
   const setSubmenuOpenCount = useSetAtom(submenuOpenCountAtom);
   const dismissMobileMenu = useDismissMobileMenu();
@@ -121,8 +125,8 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
       <MenuTooltip
         title={t('image.title')}
         placement={tooltipPlacement}
-        blocked={isModalOpen}
-        open={!isModalOpen && isTooltipOpen}
+        blocked={isModalOpen || label}
+        open={!label && !isModalOpen && isTooltipOpen}
         onOpenChange={(open) => setIsTooltipOpen(open && !openRef.current)}
       >
         <div
@@ -131,15 +135,23 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
           aria-disabled={disabled}
           tabIndex={disabled ? -1 : 0}
           className={clsx(
-            'flex h-[30px] w-[30px] items-center justify-center rounded',
+            label
+              ? 'flex items-center gap-3 text-sm'
+              : 'flex h-[30px] w-[30px] items-center justify-center rounded',
             disabled
               ? 'cursor-not-allowed text-neutral-600 opacity-45'
-              : [
-                  'cursor-pointer hover:bg-neutral-700',
-                  isMounted || remoteConnected || netbootEnabled
-                    ? 'text-blue-500'
-                    : 'hover:text-fg-strong text-neutral-300'
-                ]
+              : label
+                ? [
+                    'cursor-pointer hover:bg-neutral-700/50',
+                    (isMounted || remoteConnected || netbootEnabled) && 'text-blue-500'
+                  ]
+                : [
+                    'cursor-pointer hover:bg-neutral-700',
+                    isMounted || remoteConnected || netbootEnabled
+                      ? 'text-blue-500'
+                      : 'hover:text-fg-strong text-neutral-300'
+                  ],
+            className
           )}
           onClick={(event) => {
             releasePointerMenuFocus(event);
@@ -153,6 +165,7 @@ export const Image = ({ tooltipPlacement = 'bottom' }: ImageProps) => {
           }}
         >
           <DiscIcon size={18} />
+          {label && <span className="truncate">{t('image.title')}</span>}
         </div>
       </MenuTooltip>
 

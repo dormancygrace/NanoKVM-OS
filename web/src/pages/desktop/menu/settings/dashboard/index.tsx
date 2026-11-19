@@ -365,7 +365,7 @@ export const Dashboard = ({
     );
   };
   return (
-    <div className="space-y-5 pb-6">
+    <div className="@container space-y-5 pb-6">
       {caption && (
         <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
           <span className="text-fg-muted max-w-full text-xs wrap-break-word">
@@ -376,7 +376,7 @@ export const Dashboard = ({
       {(errors.length > 0 || extraFailed) && (
         <Alert type="warning" showIcon message={t('dashboard.stale')} />
       )}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {metric(
           'CPU',
           cpu === null ? '—' : `${cpu.toFixed(0)}%`,
@@ -409,7 +409,7 @@ export const Dashboard = ({
         {metric(t('dashboard.uptime'), uptime, <TimerIcon size={16} />)}
       </div>
       {/* One grid for every panel: when one is not shown the next takes its place. */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 @5xl:grid-cols-3">
         {section(
           t('dashboard.device'),
           <dl className="text-sm">

@@ -1,13 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Spin } from 'antd';
 import { useAtom } from 'jotai';
+import { Navigate } from 'react-router-dom';
 
 import { http } from '@/lib/http';
 import type { Branding } from '@/jotai/branding';
 import { brandingAtom } from '@/jotai/branding';
 
 const Desktop = lazy(() => import('../desktop').then((module) => ({ default: module.Desktop })));
-const Overview = lazy(() => import('../overview').then((module) => ({ default: module.Overview })));
 
 const Loading = () => (
   <div className="flex h-screen items-center justify-center">
@@ -40,9 +40,10 @@ export const Home = () => {
   }, [known, setBranding]);
 
   if (!known && !failed) return <Loading />;
+  if (branding.startPage === 'overview') return <Navigate to="/overview" replace />;
   return (
     <Suspense fallback={<Loading />}>
-      {branding.startPage === 'overview' ? <Overview /> : <Desktop />}
+      <Desktop />
     </Suspense>
   );
 };

@@ -35,18 +35,13 @@ export const router = createHashRouter([
         }
       },
       {
-        path: 'settings/:tab?',
+        // One page around its navigation: moving between the overview and
+        // the settings keeps it.
         lazy: async () => {
-          const { SettingsPage } = await import('./pages/overview/settings.tsx');
-          return { Component: SettingsPage };
-        }
-      },
-      {
-        path: 'overview',
-        lazy: async () => {
-          const { Overview } = await import('./pages/overview');
-          return { Component: Overview };
-        }
+          const { Console } = await import('./pages/overview');
+          return { Component: Console };
+        },
+        children: [{ path: 'overview' }, { path: 'status' }, { path: 'settings/:tab?' }]
       },
       {
         element: (

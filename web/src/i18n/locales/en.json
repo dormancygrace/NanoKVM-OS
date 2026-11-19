@@ -171,10 +171,21 @@
   },
   "overview": {
     "title": "Overview",
-    "sections": "Settings sections",
+    "sections": "Pages",
+    "navigation": "Main pages",
+    "status": "Status",
+    "search": "Search the settings",
+    "nothingFound": "Nothing found",
+    "host": {
+      "title": "Host",
+      "on": "Powered on",
+      "off": "Powered off",
+      "noImage": "Nothing mounted"
+    },
     "screen": {
       "title": "Remote screen",
       "open": "Open",
+      "openScreen": "Open the remote screen",
       "loading": "Getting a picture…",
       "noSignal": "No video signal",
       "blocked": "No preview at 3840 × 2160",

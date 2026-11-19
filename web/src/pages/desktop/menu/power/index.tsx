@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Divider, Switch, Tooltip } from 'antd';
+import { Divider, Switch, Tooltip, type PopoverProps } from 'antd';
 import clsx from 'clsx';
 import { useAtomValue } from 'jotai';
 import { HardDriveIcon, LoaderCircleIcon, PowerIcon } from 'lucide-react';
@@ -15,7 +15,19 @@ import { PowerLong } from './power-long.tsx';
 import { PowerShort } from './power-short.tsx';
 import { Reset } from './reset.tsx';
 
-export const Power = ({ vertical = false }: { vertical?: boolean }) => {
+// label, className, placement: the button outside a toolbar, with its title
+// beside the icon (see MenuItem); the disk LED is then shown elsewhere.
+export const Power = ({
+  vertical = false,
+  label = false,
+  className,
+  placement
+}: {
+  vertical?: boolean;
+  label?: boolean;
+  className?: string;
+  placement?: PopoverProps['placement'];
+}) => {
   const { t } = useTranslation();
 
   const [isPowerOn, setIsPowerOn] = useState(false);
@@ -82,6 +94,18 @@ export const Power = ({ vertical = false }: { vertical?: boolean }) => {
       </div>
     </div>
   );
+
+  if (label)
+    return (
+      <MenuItem
+        title={t('power.title')}
+        icon={icon}
+        content={content}
+        label
+        className={className}
+        placement={placement}
+      />
+    );
 
   return (
     <div className={clsx('flex shrink-0 items-center', vertical && 'flex-col')}>

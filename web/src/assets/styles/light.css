@@ -11,7 +11,7 @@
  *   and what is drawn over it. Interface code uses fg-strong, tint and shade.
  *
  * .theme-dark gives a part of the page the dark neutral scale back: what
- * stands on the video's black, and the on-screen keyboard with its own look. */
+ * stands on the video's black. */
 :root[data-theme='light'] {
   --color-fg: #262626;
   --color-fg-muted: #525252;

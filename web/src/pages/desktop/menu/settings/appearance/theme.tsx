@@ -12,9 +12,9 @@ export const Theme = () => {
   const [theme, setTheme] = useAtom(themeSettingAtom);
 
   const options: { value: ThemeSetting; label: string }[] = [
+    { value: 'system', label: t('settings.appearance.themeSystem') },
     { value: 'dark', label: t('settings.appearance.themeDark') },
-    { value: 'light', label: t('settings.appearance.themeLight') },
-    { value: 'system', label: t('settings.appearance.themeSystem') }
+    { value: 'light', label: t('settings.appearance.themeLight') }
   ];
 
   function handleChange(value: ThemeSetting) {

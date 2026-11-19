@@ -1,8 +1,28 @@
+/* The keyboard's own colours, dark and light. */
+.keyboardSheet {
+  --keyboard-sheet: #1f1f1f;
+  --keyboard-bed: #141414;
+  --keyboard-key: #383838;
+  --keyboard-key-down: #4a4a4a;
+  --keyboard-key-edge: #0a0a0a;
+  --keyboard-text: #e5e5e5;
+  background: var(--keyboard-sheet);
+}
+
+:root[data-theme='light'] .keyboardSheet {
+  --keyboard-sheet: #fff;
+  --keyboard-bed: #e5e5e5;
+  --keyboard-key: #fff;
+  --keyboard-key-down: #efefef;
+  --keyboard-key-edge: #b5b5b5;
+  --keyboard-text: #000;
+}
+
 .keyboardContainer {
   /* Key drags are remote input, not browser pan/zoom gestures. */
   touch-action: none;
   display: flex;
-  background-color: #e5e5e5;
+  background-color: var(--keyboard-bed);
   justify-content: center;
   margin: 0 auto;
   border-radius: 0 5px;
@@ -16,6 +36,16 @@
   width: 640px;
   min-width: 640px;
   background: none;
+}
+
+.keyboardSheet .simple-keyboard .hg-button {
+  border-bottom-color: var(--keyboard-key-edge);
+  background: var(--keyboard-key);
+  color: var(--keyboard-text);
+}
+
+.keyboardSheet .simple-keyboard .hg-button.hg-activeButton {
+  background: var(--keyboard-key-down);
 }
 
 .simple-keyboard-main.simple-keyboard .hg-button {
@@ -83,7 +113,7 @@
   width: 350px;
 }
 
-.simple-keyboard .hg-highlight {
+.keyboardSheet .simple-keyboard .hg-button.hg-highlight {
   background: rgb(37 99 235);
   border-bottom: 1px solid #2563eb;
   box-shadow:

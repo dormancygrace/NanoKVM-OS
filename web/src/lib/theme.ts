@@ -7,10 +7,10 @@ export type ThemeSetting = Theme | 'system';
 
 const systemLight = '(prefers-color-scheme: light)';
 
-// Dark unless something else was chosen.
+// The device's theme unless one was chosen.
 export function storedThemeSetting(): ThemeSetting {
   const value = storage.getTheme();
-  return value === 'light' || value === 'system' ? value : 'dark';
+  return value === 'light' || value === 'dark' ? value : 'system';
 }
 
 export function systemTheme(): Theme {

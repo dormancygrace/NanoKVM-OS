@@ -390,13 +390,17 @@ export const Dashboard = ({
           cpu ?? undefined,
           admin ? 'system-general' : undefined
         )}
-        {/* What programs can still get, page cache included, like the free space next to it. */}
+        {/* What programs can still get, page cache included, like the free space next
+            to it. The bars fill as the memory and the storage are used, like the
+            one of the processor. */}
         {metric(
           t('dashboard.freeRam'),
           bytes(memory?.availableBytes),
           <MemoryStickIcon size={16} />,
           memory ? t('dashboard.of', { total: bytes(memory.totalBytes) }) : undefined,
-          memory ? percent(memory.availableBytes, memory.totalBytes) : undefined,
+          memory
+            ? percent(memory.totalBytes - memory.availableBytes, memory.totalBytes)
+            : undefined,
           admin ? 'system-memory' : undefined
         )}
         {metric(
@@ -404,7 +408,7 @@ export const Dashboard = ({
           bytes(disk?.free),
           <HardDriveIcon size={16} />,
           disk ? t('dashboard.of', { total: bytes(disk.total) }) : undefined,
-          disk ? percent(disk.free, disk.total) : undefined
+          disk ? percent(disk.total - disk.free, disk.total) : undefined
         )}
         {metric(t('dashboard.uptime'), uptime, <TimerIcon size={16} />)}
       </div>

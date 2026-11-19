@@ -181,9 +181,9 @@
       "noImage": "Nothing mounted"
     },
     "screen": {
-      "title": "Remote screen",
+      "title": "Remote console",
       "open": "Open",
-      "openScreen": "Open the remote screen",
+      "openScreen": "Open the remote console",
       "loading": "Getting a picture…",
       "noSignal": "No video signal",
       "blocked": "No preview at 3840 × 2160",
@@ -1370,9 +1370,9 @@
       "webTitleDesc": "Customize the web page title",
       "startPage": {
         "title": "Start page",
-        "description": "What opens after the sign-in: the overview of the device, or the remote screen at once.",
+        "description": "What opens after the sign-in: the overview of the device, or the remote console at once.",
         "overview": "Overview",
-        "screen": "Remote screen",
+        "screen": "Remote console",
         "failed": "Could not save the start page."
       },
       "theme": "Theme",

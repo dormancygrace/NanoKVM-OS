@@ -82,8 +82,9 @@ export const ScreenPreview = () => {
     <Panel className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-fg text-sm font-medium">{tr('title')}</span>
+        {/* A narrow window has a button of its own under the panel. */}
         {!off && (
-          <Link to="/screen">
+          <Link to="/screen" className="hidden md:block">
             <Button type="primary" size="small" icon={<MonitorIcon size={14} />}>
               {tr('open')}
             </Button>

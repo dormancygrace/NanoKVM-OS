@@ -1,5 +1,10 @@
 # Overview page
 
+The **remote console** is the page with the video of the computer's screen and
+the control of its keyboard, mouse, power and media: what a server's management
+controller calls its virtual or remote console. This page names it so; its
+address is `/#/screen`.
+
 A NanoKVM is not always watched: it also runs services, reports the state of the
 computer it is attached to, and waits. The overview is a start page for that
 use. It shows the state of the device, and the remote screen is one click away.
@@ -10,7 +15,7 @@ Every page but the remote screen has the same navigation.
 
 On a wide window it is at the left:
 
-- **Overview** and **Remote screen**;
+- **Overview** and **Remote console**;
 - **Terminal** (an administrator's), **Images** (with the virtual disk in the
   USB composition) and **Event log**, a shortcut to System > Event log;
 - every group and page of the settings as one tree;
@@ -42,7 +47,7 @@ one.
 
 ## What the overview shows
 
-- **Remote screen**: a small still picture of what the computer shows, renewed
+- **Remote console**: a small still picture of what the computer shows, renewed
   every few seconds, with an **Open** button. A click on the picture or the
   button opens the remote screen with video and control.
 - **Host**: the power and disk LEDs of the computer (with ATX power control)
@@ -58,7 +63,7 @@ screenshot, at most once in five seconds however many browsers have the page
 open, and only while a page is visible.
 
 A panel is there for what is in use. With the capture switched off the
-**Remote screen** and **Video** panels are not shown, and the other panels
+**Remote console** and **Video** panels are not shown, and the other panels
 move into their place. The **Capture** switch turns it on and off; the
 overview does not switch the capture on by itself. The VPN panel is shown with
 an installed VPN, and a network interface that is switched off has no panel.
@@ -103,7 +108,7 @@ Over the remote screen the settings stay the dialog they were.
 for everyone who opens the device:
 
 - **Overview**: the page above.
-- **Remote screen**: the video at once, with the menu bar over it.
+- **Remote console**: the video at once, with the menu bar over it.
 
 A device installed from an image that has the overview starts with it. A
 device that was installed earlier and updated keeps opening the remote screen

@@ -35,6 +35,13 @@ export const router = createHashRouter([
         }
       },
       {
+        path: 'settings/:tab?',
+        lazy: async () => {
+          const { SettingsPage } = await import('./pages/overview/settings.tsx');
+          return { Component: SettingsPage };
+        }
+      },
+      {
         path: 'overview',
         lazy: async () => {
           const { Overview } = await import('./pages/overview');

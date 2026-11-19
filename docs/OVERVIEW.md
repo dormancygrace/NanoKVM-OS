@@ -7,7 +7,8 @@ use. It shows the state of the device, and the remote screen is one click away.
 ## What it shows
 
 - **The bar**: the device name, the sections of the settings, the terminal,
-  the power buttons (with ATX control), the settings and the sign-out.
+  the power buttons (with ATX control), the theme button, the settings and the
+  sign-out.
 - **The panels of Settings > Dashboard**: processor, memory, storage, the
   device, video, network interfaces, VPN and the rest. They update while the
   page is open.
@@ -27,6 +28,16 @@ switch the capture on by itself. A 3840 × 2160 input has no still picture
 
 From the remote screen, the **Overview** button of the menu bar leads back.
 
+## Settings as pages
+
+Under the bar the settings are pages, not a dialog: the same navigation on the
+left and the same pages, each with its own address (`/#/settings/network-wifi`),
+so the browser's Back and a bookmark work. **Overview** at the top of the
+navigation returns to the overview. An address that names no page opens
+System > Device.
+
+Over the remote screen the settings stay the dialog they were.
+
 ## Start page
 
 **Settings > Appearance > Start page** chooses what opens after the sign-in,
@@ -42,8 +53,8 @@ installation and is not replaced by updates, carries `"start_page"` for new
 images. The choice is saved with the other appearance settings and is part of
 a settings backup.
 
-Both pages have their own address whatever the setting: `/#/overview` and
-`/#/screen`.
+The pages have their own addresses whatever the setting: `/#/overview`,
+`/#/screen` and `/#/settings/<page>`.
 
 ## API
 

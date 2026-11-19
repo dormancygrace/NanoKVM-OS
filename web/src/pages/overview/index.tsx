@@ -31,7 +31,7 @@ import { SessionActions } from '@/pages/desktop/menu/settings/session-actions.ts
 import { resolveSettingsTab, settingsGroupOf } from '@/pages/desktop/menu/settings/tabs.ts';
 
 import { CaptureSwitch, HostActions, HostCard, HostState } from './host.tsx';
-import { settingsGroupPath, settingsPath, wayOf } from './paths.ts';
+import { cameFrom, cameFromOf, settingsGroupPath, settingsPath, wayOf } from './paths.ts';
 import { ScreenPreview } from './screen-preview.tsx';
 import { SearchField, SearchResults, SettingsHome } from './settings-home.tsx';
 import { Sidebar } from './sidebar.tsx';
@@ -100,7 +100,7 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
   const { account } = useAuth();
   const admin = account.role === 'admin';
   const navigate = useNavigate();
-  const { pathname, search } = useLocation();
+  const { pathname, search, state } = useLocation();
   const [params] = useSearchParams();
   const wide = useMediaQuery('(min-width: 768px)');
   const branding = useAtomValue(brandingAtom);
@@ -138,20 +138,24 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
     frame.open(id);
   }
 
-  // One step up from a settings page or a group: the list a collection item
-  // came from, the pages of its group, the settings.
-  const back = !page
-    ? group
-      ? () => navigate('/settings')
-      : undefined
-    : frame.collection
-      ? () => frame.open(frame.collection!)
-      : wide
-        ? undefined
-        : () => {
-            const parent = settingsGroupOf(frame.current);
-            navigate(parent ? settingsGroupPath(parent) : '/settings');
-          };
+  // Back from a settings page or a group. A page opened from the overview or
+  // the status returns there. Otherwise one step up: the list a collection
+  // item came from, the pages of its group, the settings.
+  const from = page && !wide ? cameFromOf(state) : undefined;
+  const back = from
+    ? () => navigate(-1)
+    : !page
+      ? group
+        ? () => navigate('/settings')
+        : undefined
+      : frame.collection
+        ? () => frame.open(frame.collection!)
+        : wide
+          ? undefined
+          : () => {
+              const parent = settingsGroupOf(frame.current);
+              navigate(parent ? settingsGroupPath(parent) : '/settings');
+            };
   const title =
     view === 'settings'
       ? page
@@ -328,7 +332,14 @@ export const Console = () => {
     navigate(settingsPath(resolveSettingsTab(request)));
   }, [request, locked, setRequest, navigate]);
 
-  const onTab = useCallback((next: string) => navigate(settingsPath(next)), [navigate]);
+  // A page opened from the overview or the status remembers it, for Back.
+  const { pathname } = useLocation();
+  const outside = pathname.startsWith('/settings') ? undefined : pathname;
+  const onTab = useCallback(
+    (next: string) =>
+      navigate(settingsPath(next), outside ? { state: cameFrom(outside) } : undefined),
+    [navigate, outside]
+  );
   const onClose = useCallback(() => navigate('/overview'), [navigate]);
   const onOpenScreen = useCallback(() => navigate('/screen'), [navigate]);
 

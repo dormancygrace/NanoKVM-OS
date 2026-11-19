@@ -19,3 +19,11 @@ export const wayOf = (locked: boolean) =>
         className: 'pointer-events-none opacity-50'
       }
     : { props: {}, className: '' };
+
+// What a link to a settings page carries when it leads there from another
+// page of the frame: Back on that settings page then returns to it.
+export const cameFrom = (path: string) => ({ from: path });
+export const cameFromOf = (state: unknown) =>
+  typeof state === 'object' && state !== null && 'from' in state && typeof state.from === 'string'
+    ? state.from
+    : undefined;

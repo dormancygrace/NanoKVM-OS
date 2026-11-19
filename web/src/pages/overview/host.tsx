@@ -18,7 +18,7 @@ import { Image } from '@/pages/desktop/menu/image';
 import { Power } from '@/pages/desktop/menu/power';
 import { Terminal } from '@/pages/desktop/menu/terminal';
 
-import { settingsPath, wayOf } from './paths.ts';
+import { cameFrom, settingsPath, wayOf } from './paths.ts';
 
 type Leds = { pwr: boolean; hdd: boolean } | null;
 
@@ -154,12 +154,13 @@ export const HostActions = ({ admin, locked }: { admin: boolean; locked: boolean
   const way = wayOf(locked);
   return (
     <div className="grid w-full grid-cols-2 gap-2">
-      {atx && <Power label className={tile} placement="bottom" />}
+      {atx && <Power label className={tile} placement="bottomLeft" />}
       <Image label className={tile} />
-      {admin && <Terminal label className={tile} placement="bottom" />}
+      {admin && <Terminal label className={tile} placement="bottomLeft" />}
       {admin && (
         <Link
           to={settingsPath('system-events')}
+          state={cameFrom('/overview')}
           {...way.props}
           className={clsx('flex items-center gap-3 text-sm no-underline', tile, way.className)}
         >

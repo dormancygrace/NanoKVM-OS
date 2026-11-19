@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { MoonIcon, SunIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +22,15 @@ export const ThemeToggle = () => {
       <button
         type="button"
         aria-label={label}
-        className="nanokvm-button-base hover:text-fg-strong flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-full text-neutral-300 hover:bg-neutral-700/80"
+        // The colours of where it leads: night violet with a pale moon on a
+        // light page, a warm sun on a dark one. Fixed colours: the button looks
+        // the same whatever the theme does to the palette.
+        className={clsx(
+          'nanokvm-button-base flex size-9 cursor-pointer items-center justify-center rounded-full shadow-lg shadow-black/25 transition-colors',
+          next === 'dark'
+            ? 'bg-[#3b2a7a] text-[#ede9fe] hover:bg-[#4c3799]'
+            : 'bg-[#2a2a2a] text-[#fbbf24] outline outline-1 outline-[#525252] hover:bg-[#383838]'
+        )}
         onClick={() => {
           setSetting(next);
           storage.setTheme(next);

@@ -3,7 +3,10 @@
  * - Every colour scale in use is mirrored (50 <-> 950, 100 <-> 900, ...), so a
  *   class written for the dark theme (text-neutral-300 on bg-neutral-800,
  *   text-red-300 on bg-red-500/10) reads the same way on a light background.
- *   The values are Tailwind's own. A colour family that is not listed here
+ *   The values are Tailwind's own. The text half of the neutral scale
+ *   (100-500) is one step darker than its mirror: dark text on a light
+ *   background looks thinner than light text on a dark one, and a grey that
+ *   reads well there is hard to read here. A colour family that is not listed here
  *   keeps its dark-theme look: add it when it is first used.
  * - The semantic colours of index.css get light values (lib/theme-tokens.ts
  *   holds the same ones for antd).
@@ -13,8 +16,8 @@
  * .theme-dark gives a part of the page the dark neutral scale back: what
  * stands on the video's black. */
 :root[data-theme='light'] {
-  --color-fg: #262626;
-  --color-fg-muted: #525252;
+  --color-fg: #171717;
+  --color-fg-muted: #404040;
   --color-fg-strong: #0a0a0a;
   --color-line: rgb(212 212 212 / 0.7);
   --color-surface: rgb(229 229 229 / 0.4);
@@ -31,11 +34,11 @@
   --color-caution: #b45309;
 
   --color-neutral-50: oklch(14.5% 0 none);
-  --color-neutral-100: oklch(20.5% 0 none);
-  --color-neutral-200: oklch(26.9% 0 none);
-  --color-neutral-300: oklch(37.1% 0 none);
-  --color-neutral-400: oklch(43.9% 0 none);
-  --color-neutral-500: oklch(55.6% 0 none);
+  --color-neutral-100: oklch(14.5% 0 none);
+  --color-neutral-200: oklch(20.5% 0 none);
+  --color-neutral-300: oklch(26.9% 0 none);
+  --color-neutral-400: oklch(37.1% 0 none);
+  --color-neutral-500: oklch(43.9% 0 none);
   --color-neutral-600: oklch(70.8% 0 none);
   --color-neutral-700: oklch(87% 0 none);
   --color-neutral-800: oklch(92.2% 0 none);

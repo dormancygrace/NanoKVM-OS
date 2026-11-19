@@ -425,8 +425,6 @@
   },
   "power": {
     "title": "Napájení",
-    "showConfirm": "Potvrzování",
-    "showConfirmTip": "Operace s napájením vyžaduje výslovné potvrzení",
     "reset": "Resetovat",
     "powerShort": "Napájení (krátký stisk)",
     "powerLong": "Napájení (dlouhý stisk)",

@@ -823,8 +823,6 @@
   },
   "power": {
     "title": "電源",
-    "showConfirm": "確認メッセージ",
-    "showConfirmTip": "電源操作の確認メッセージを表示する",
     "reset": "リセット",
     "powerShort": "電源（クリック）",
     "powerLong": "電源（長押し）",

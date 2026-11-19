@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Bekapcsolás",
-    "showConfirm": "Megerősítés",
-    "showConfirmTip": "Az áramellátási műveletekhez külön megerősítés szükséges",
     "reset": "Újraindítás",
     "powerShort": "Bekapcsolás (rövid kattintás)",
     "powerLong": "Bekapcsolás (hosszú kattintás)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} elrejtve",
         "showAll": "Összes megjelenítése"
       },
-      "buttonColor": {},
       "browser": "Ebben a böngészőben",
       "browserDesc": "Csak ebben a böngészőben tárolódik; más böngészőknek és felhasználóknak saját van.",
       "device": "Mindenkinek ezen az eszközön",

@@ -823,8 +823,6 @@
   },
   "power": {
     "title": "Power",
-    "showConfirm": "Confirmation",
-    "showConfirmTip": "Les opérations électriques nécessitent une confirmation supplémentaire",
     "reset": "Réinitialiser",
     "powerShort": "Power (appui court)",
     "powerLong": "Power (appui long)",

@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Nguồn",
-    "showConfirm": "Xác nhận",
-    "showConfirmTip": "Hoạt động cấp nguồn yêu cầu xác nhận bổ sung",
     "reset": "Đặt lại",
     "powerShort": "Nguồn (nhấp ngắn)",
     "powerLong": "Nguồn (nhấp dài)",
@@ -357,7 +355,6 @@
         "hiddenCount": "đã ẩn {{count}}",
         "showAll": "Hiện tất cả"
       },
-      "buttonColor": {},
       "browser": "Trong trình duyệt này",
       "browserDesc": "Chỉ lưu trong trình duyệt này; trình duyệt và người dùng khác có cài đặt riêng.",
       "device": "Cho mọi người trên thiết bị này",

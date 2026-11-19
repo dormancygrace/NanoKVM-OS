@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Güç",
-    "showConfirm": "Doğrulama",
-    "showConfirmTip": "Güç ile ilgili işlemler fazladan doğrulama gerektirir",
     "reset": "Sıfırla",
     "powerShort": "Güç tuşu (bas-çek)",
     "powerLong": "Güç tuşu (uzun bas)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} gizli",
         "showAll": "Tümünü göster"
       },
-      "buttonColor": {},
       "browser": "Bu tarayıcıda",
       "browserDesc": "Yalnızca bu tarayıcıda saklanır; diğer tarayıcılar ve kullanıcıların kendi ayarları vardır.",
       "device": "Bu cihazdaki herkes için",

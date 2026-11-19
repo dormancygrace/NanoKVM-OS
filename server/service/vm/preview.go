@@ -77,9 +77,10 @@ var (
 	previewRead  = func(width, height int) ([]byte, error) {
 		return common.GetKvmVision().ReadBGRScaled(width, height)
 	}
-	previewInput   = common.CaptureInputSize
-	previewSignal  = func() bool { return getHdmiSignal() }
-	previewViewers = func() int { return hdmiState().ViewerCount }
+	previewInput    = common.CaptureInputSize
+	previewSignal   = func() bool { return getHdmiSignal() }
+	previewUnmarked = common.WatermarkUnapplied
+	previewViewers  = func() int { return hdmiState().ViewerCount }
 )
 
 // ScreenPreview is GET /api/vm/screen/preview.
@@ -99,6 +100,12 @@ func screenPreviewNow(ctx context.Context) screenPreview {
 	}
 	if isHdmiDisabled() {
 		return screenPreview{State: previewDisabled}
+	}
+	// A watermark is saved and the library does not have it: a picture now
+	// would be without it.
+	if previewUnmarked() {
+		preview.last = screenPreview{}
+		return screenPreview{State: previewUnavailable}
 	}
 	maxAge := previewMaxAge
 	if preview.last.State != previewOK {

@@ -99,6 +99,10 @@ func (s *Service) SetWatermark(c *gin.Context) {
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
+	// The overview's picture with the old watermark is not shown again:
+	// neither the cached one nor one being taken while the new one goes on.
+	previewCaptureSwitched()
+	defer previewCaptureSwitched()
 	if err := common.ApplyWatermark(); err != nil {
 		log.Errorf("watermark not applied: %v", err)
 		rsp.ErrRsp(c, -3, "saved, but not applied: "+err.Error())

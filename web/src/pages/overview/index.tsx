@@ -28,7 +28,11 @@ import { Power } from '@/pages/desktop/menu/power';
 import { Settings, type SettingsFrame } from '@/pages/desktop/menu/settings';
 import { Dashboard } from '@/pages/desktop/menu/settings/dashboard';
 import { SessionActions } from '@/pages/desktop/menu/settings/session-actions.tsx';
-import { resolveSettingsTab, settingsGroupOf } from '@/pages/desktop/menu/settings/tabs.ts';
+import {
+  isSettingsGroup,
+  resolveSettingsTab,
+  settingsGroupOf
+} from '@/pages/desktop/menu/settings/tabs.ts';
 
 import { CaptureSwitch, HostActions, HostCard, HostState } from './host.tsx';
 import { cameFrom, cameFromOf, settingsGroupPath, settingsPath, wayOf } from './paths.ts';
@@ -337,6 +341,12 @@ export const Console = () => {
   // A page opened from the overview or the status remembers it, for Back.
   const { pathname } = useLocation();
   const outside = pathname.startsWith('/settings') ? undefined : pathname;
+  // An address that names a group with no page of its own (Services,
+  // Software) is the list of its pages.
+  const namedGroup = tab !== undefined && isSettingsGroup(resolveSettingsTab(tab));
+  useEffect(() => {
+    if (namedGroup) navigate(settingsGroupPath(resolveSettingsTab(tab!)), { replace: true });
+  }, [namedGroup, tab, navigate]);
   const onTab = useCallback(
     (next: string) =>
       navigate(settingsPath(next), outside ? { state: cameFrom(outside) } : undefined),

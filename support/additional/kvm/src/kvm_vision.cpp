@@ -2430,7 +2430,8 @@ static int read_bgr_planar(uint16_t width, uint16_t height, uint8_t *out, uint32
         pthread_mutex_unlock(&vi_mutex);
         return -13;
     }
-    const int result = mmf_read_bgr_planar(width, height, out, size, 500);
+    // The models read the screen as it is; a picture for people is marked.
+    const int result = mmf_read_bgr_planar(width, height, out, size, 500, scaled);
     lease.release();
     pthread_mutex_unlock(&vi_mutex);
     return result;

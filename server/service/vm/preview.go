@@ -26,7 +26,8 @@ import (
 // The picture comes from the VPSS channel that serves pictures of the
 // screen (ReadBGRScaled), scaled there and made a JPEG here. The outputs a
 // video session reads and its encoder are not touched, so it is taken next
-// to a session as well.
+// to a session as well. It carries the watermark the streams carry; when
+// that cannot be put on there is no picture.
 const (
 	previewMaxWidth  = 640
 	previewMaxHeight = 360
@@ -67,7 +68,8 @@ var preview struct {
 // picture from before the last one is of a screen that may be gone.
 var previewCapture atomic.Uint64
 
-// previewCaptureSwitched is called when the capture is switched on or off.
+// previewCaptureSwitched is called when the capture is switched on or off,
+// and when the watermark changes: a picture with the old one is not shown.
 func previewCaptureSwitched() { previewCapture.Add(1) }
 
 var (
@@ -132,6 +134,10 @@ func takeScreenPreview(ctx context.Context) screenPreview {
 		attempts = 1
 	}
 	for attempt := 0; attempt < attempts && ctx.Err() == nil; attempt++ {
+		// a viewer that came while the last try waited
+		if attempt > 0 && previewViewers() > 0 {
+			break
+		}
 		// read again every time: a new input size makes the last one stale
 		width, height := previewSize(previewInput())
 		planes, err := previewRead(width, height)

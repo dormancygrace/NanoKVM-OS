@@ -160,7 +160,7 @@ int mmf_watermark_missing(void);
 // 8-bit B, G and R planes (width*height each), the TPU models' input layout,
 // from VPSS channel 2. 0, -2 without a running capture, -3 when no picture
 // came within timeout_ms, or -1.
-int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int timeout_ms);
+int mmf_read_bgr_planar(int width, int height, uint8_t *out, size_t size, int timeout_ms, bool watermark);
 // At most max_fps on one VPSS output (0: no own limit), such as MJPEG's own
 // output next to a video stream; applied with the rate of the others.
 int mmf_vpss_set_chn_max_rate(int ch, int max_fps);

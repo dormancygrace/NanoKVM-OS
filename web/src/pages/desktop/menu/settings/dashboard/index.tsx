@@ -412,57 +412,54 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           </dl>,
           admin ? 'device' : undefined
         )}
-        {section(
-          t('videoSettings.title'),
-          <dl className="text-sm">
-            {line(
-              t('dashboard.capture'),
-              t(
-                !ready
-                  ? 'capture.checking'
-                  : enabled
-                    ? 'videoSettings.captureOn'
-                    : 'videoSettings.captureOff'
-              )
-            )}
-            {line(
-              t('videoSettings.input'),
-              enabled ? size(video?.inputWidth, video?.inputHeight) : '—'
-            )}
-            {line(
-              t('videoSettings.output'),
-              enabled
-                ? size(outputWidth || video?.outputWidth, outputHeight || video?.outputHeight)
-                : '—'
-            )}
-            {line(
-              t('screen.codec'),
-              mode === 'mjpeg' ? 'MJPEG' : getEncoderCodec() === 'h265' ? 'H.265' : 'H.264'
-            )}
-            {line(
-              t('screen.video'),
-              mode === 'h264' ? 'WebRTC' : mode === 'direct' ? 'Direct' : 'MJPEG'
-            )}
-            {line(
-              t('dashboard.fps'),
-              video
-                ? t('videoSettings.fpsValue', {
-                    value: `${enabled ? video.measuredFps : 0} / ${video.fps}`
-                  })
-                : '—'
-            )}
-            {line(
-              t(mode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate'),
-              video
-                ? mode === 'mjpeg'
-                  ? `${video.quality}%`
-                  : t('videoSettings.mbps', { value: video.bitRate / 1000 })
-                : '—'
-            )}
-            {line(t('dashboard.sessions'), sessions)}
-          </dl>,
-          'video-general'
-        )}
+        {/* A panel shows what is in use: with the capture switched off there
+            is no video to describe. */}
+        {(!ready || enabled) &&
+          section(
+            t('videoSettings.title'),
+            <dl className="text-sm">
+              {line(
+                t('dashboard.capture'),
+                t(!ready ? 'capture.checking' : 'videoSettings.captureOn')
+              )}
+              {line(
+                t('videoSettings.input'),
+                enabled ? size(video?.inputWidth, video?.inputHeight) : '—'
+              )}
+              {line(
+                t('videoSettings.output'),
+                enabled
+                  ? size(outputWidth || video?.outputWidth, outputHeight || video?.outputHeight)
+                  : '—'
+              )}
+              {line(
+                t('screen.codec'),
+                mode === 'mjpeg' ? 'MJPEG' : getEncoderCodec() === 'h265' ? 'H.265' : 'H.264'
+              )}
+              {line(
+                t('screen.video'),
+                mode === 'h264' ? 'WebRTC' : mode === 'direct' ? 'Direct' : 'MJPEG'
+              )}
+              {line(
+                t('dashboard.fps'),
+                video
+                  ? t('videoSettings.fpsValue', {
+                      value: `${enabled ? video.measuredFps : 0} / ${video.fps}`
+                    })
+                  : '—'
+              )}
+              {line(
+                t(mode === 'mjpeg' ? 'screen.quality' : 'videoSettings.bitrate'),
+                video
+                  ? mode === 'mjpeg'
+                    ? `${video.quality}%`
+                    : t('videoSettings.mbps', { value: video.bitRate / 1000 })
+                  : '—'
+              )}
+              {line(t('dashboard.sessions'), sessions)}
+            </dl>,
+            'video-general'
+          )}
         {section(
           t('dashboard.memory'),
           <dl className="text-sm">
@@ -619,7 +616,12 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
           )) ?? '—'}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
+        {/* and no VPN panel without an installed VPN */}
         {admin &&
+          vpnProviders.some((provider) => {
+            const data = extra[provider.id];
+            return !!data && summarizeVPN(data).installed;
+          }) &&
           section(
             'VPN',
             <div className="space-y-4">
@@ -650,10 +652,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
                   </div>
                 );
               })}
-              {vpnProviders.every((provider) => extra[provider.id]) &&
-                !vpnProviders.some((provider) => summarizeVPN(extra[provider.id]!).installed) && (
-                  <div className="text-fg-muted text-xs">{t('dashboard.noVpn')}</div>
-                )}
             </div>,
             'vpn'
           )}

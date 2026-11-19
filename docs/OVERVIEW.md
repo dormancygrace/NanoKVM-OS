@@ -21,10 +21,14 @@ and is not counted in the active video sessions. The picture is taken like a
 screenshot, at most once in five seconds however many browsers have the page
 open, and only while a page is visible.
 
-When the capture is switched off, the picture is replaced by that state, and
-an administrator gets the **Enable capture** button. The overview does not
-switch the capture on by itself. A 3840 × 2160 input has no still picture
-(MJPEG is not available at that size); the screen opens as usual.
+A panel is there for what is in use. With the capture switched off the
+**Remote screen** and **Video** panels are not shown, and they come back when
+it is switched on (Settings > Video); the overview does not switch the capture
+on by itself. The VPN panel is shown with an installed VPN, and a network
+interface that is switched off has no panel.
+
+A 3840 × 2160 input has no still picture (MJPEG is not available at that
+size); the screen opens as usual.
 
 While someone has the remote screen open, the picture is still renewed when
 the JPEG has an output of its own (MJPEG 4:2:2, frame detection off, the

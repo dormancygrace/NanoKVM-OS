@@ -484,7 +484,7 @@
     "storageUnavailable": "Image storage is not writable. Check free space and storage state."
   },
   "head": {
-    "desktop": "Remote desktop",
+    "desktop": "Remote console",
     "login": "Sign in",
     "changePassword": "Change password",
     "terminal": "Terminal",

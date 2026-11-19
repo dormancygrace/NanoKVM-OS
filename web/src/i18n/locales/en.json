@@ -1617,8 +1617,8 @@
         },
         "power": {
           "none": "This board does not power the USB port: use a hub with its own power supply, or a device that has one.",
-          "board": "The port is powered from the board’s 5 V supply, without a current limit or protection.",
-          "shared": "The only USB-C port of this board is also its power input. As a host, power the board through the 5 V pins of its header; the port then powers the device from the same supply, without a current limit or protection."
+          "board": "The port is powered from the board’s 5V supply, without a current limit or protection.",
+          "shared": "The only USB-C port of this board is also its power input. As a host, power the board through the 5V pins of its header; the port then powers the device from the same supply, without a current limit or protection."
         }
       },
       "compositionMenu": "Composition",

@@ -5,6 +5,7 @@ import (
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/service/extensions/acme"
 	"NanoKVM-Server/service/extensions/netbird"
+	"NanoKVM-Server/service/extensions/netsvc"
 	"NanoKVM-Server/service/extensions/openvpn"
 	"NanoKVM-Server/service/extensions/tailscale"
 	"NanoKVM-Server/service/extensions/vpn"
@@ -30,6 +31,19 @@ func extensionsRouter(r *gin.Engine) {
 	api.GET("/wireguard/status", wg.GetStatus)
 	api.POST("/wireguard/import", wg.Import)
 	api.POST("/wireguard/profile", wg.Change)
+
+	// Settings > Services: LLDP, SNMP and UPS, each installed on request.
+	for name, handlers := range map[string][5]gin.HandlerFunc{
+		"lldp": {netsvc.LLDPStatus, netsvc.LLDPInstall, netsvc.LLDPUninstall, netsvc.LLDPEnabled, netsvc.LLDPSettings},
+		"snmp": {netsvc.SNMPStatus, netsvc.SNMPInstall, netsvc.SNMPUninstall, netsvc.SNMPEnabled, netsvc.SNMPSettings},
+		"ups":  {netsvc.UPSStatus, netsvc.UPSInstall, netsvc.UPSUninstall, netsvc.UPSEnabled, netsvc.UPSSettings},
+	} {
+		api.GET("/"+name+"/status", handlers[0])
+		api.POST("/"+name+"/install", handlers[1])
+		api.POST("/"+name+"/uninstall", handlers[2])
+		api.PUT("/"+name+"/enabled", handlers[3])
+		api.PUT("/"+name+"/settings", handlers[4])
+	}
 
 	ts := tailscale.NewService()
 

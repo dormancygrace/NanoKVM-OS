@@ -35,6 +35,7 @@
 
 - [Redfish and IPMI](BMC.md)
 - [Computer sensors](HOST-SENSORS.md)
+- [LLDP, SNMP and UPS](NETWORK-SERVICES.md)
 - [ATX LED display](LEDS.md)
 - [NanoKVM shutdown with network restart](SAFE-POWEROFF.md)
 - [Event log](EVENTS.md) and [logs](LOGS.md)

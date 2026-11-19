@@ -275,6 +275,9 @@ export type SettingsPageHost = {
   onClose: () => void;
   // to the remote screen, where the chat lives
   onOpenScreen: () => void;
+  // A page is at work (an installation, a connection) and must stay: the
+  // host keeps every way of leaving it closed until it is done.
+  onLock: (locked: boolean) => void;
 };
 
 // The tab a settings page opens without one in its address, or with one that
@@ -577,6 +580,11 @@ export const Settings = ({
     setCurrentTab(tab);
     setDetailOpen(pageTab !== undefined);
   }, [pageTab, onPageTab]);
+  const onPageLock = page?.onLock;
+  useEffect(() => {
+    onPageLock?.(isLocked);
+    return () => onPageLock?.(false);
+  }, [isLocked, onPageLock]);
   const shownTab = useRef(currentTab);
   useEffect(() => {
     if (shownTab.current === currentTab) return;

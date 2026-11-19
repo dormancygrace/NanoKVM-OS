@@ -1,5 +1,6 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, type MouseEvent, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/auth.ts';
+import clsx from 'clsx';
 import { useAtom, useAtomValue } from 'jotai';
 import { SettingsIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -31,8 +32,17 @@ const sections = [
 ];
 
 // The bar and what is under it: the overview, or a settings page. tab is the
-// settings page shown, for the bar to mark its section.
-export const OverviewShell = ({ tab, children }: { tab?: string; children: ReactNode }) => {
+// settings page shown, for the bar to mark its section. locked: that page is
+// at work and must stay, so the bar leads nowhere until it is done.
+export const OverviewShell = ({
+  tab,
+  locked = false,
+  children
+}: {
+  tab?: string;
+  locked?: boolean;
+  children: ReactNode;
+}) => {
   const { t } = useTranslation();
   const { account } = useAuth();
   const admin = account.role === 'admin';
@@ -57,11 +67,22 @@ export const OverviewShell = ({ tab, children }: { tab?: string; children: React
 
   // A link to a settings page from anywhere (a panel, a notice) opens it as a
   // page here; over the remote screen the same request opens the dialog.
+  // While the page is locked the request waits, as it does for the dialog.
   useEffect(() => {
-    if (!request) return;
+    if (!request || locked) return;
     setRequest(null);
     navigate(settingsPath(resolveSettingsTab(request)));
-  }, [request, setRequest, navigate]);
+  }, [request, locked, setRequest, navigate]);
+
+  // What leads away from the page, switched off while it is locked.
+  const way = locked
+    ? ({
+        'aria-disabled': true,
+        tabIndex: -1,
+        onClick: (event: MouseEvent) => event.preventDefault()
+      } as const)
+    : {};
+  const wayClass = locked ? 'pointer-events-none opacity-50' : '';
 
   const settingsLabel = t('settings.title');
 
@@ -69,7 +90,11 @@ export const OverviewShell = ({ tab, children }: { tab?: string; children: React
     <div className="bg-page text-fg flex h-dvh flex-col">
       <header className="border-line shrink-0 border-b bg-neutral-900">
         <div className="flex h-14 items-center gap-3 px-4">
-          <Link to="/overview" className="flex min-w-0 items-center gap-3 no-underline">
+          <Link
+            to="/overview"
+            {...way}
+            className={clsx('flex min-w-0 items-center gap-3 no-underline', wayClass)}
+          >
             <img src={brandingFavicon(branding)} alt="" className="size-8 shrink-0" />
             <span className="text-fg-strong truncate text-lg font-semibold">
               {webTitle || 'NanoKVM OS'}
@@ -85,7 +110,11 @@ export const OverviewShell = ({ tab, children }: { tab?: string; children: React
                   key={item.id}
                   to={settingsPath(item.tab)}
                   aria-current={section === item.id ? 'page' : undefined}
-                  className="text-fg hover:text-fg-strong aria-[current=page]:text-fg-strong rounded px-2.5 py-1.5 text-sm whitespace-nowrap no-underline hover:bg-neutral-700/70 aria-[current=page]:bg-neutral-700/70"
+                  {...way}
+                  className={clsx(
+                    'text-fg hover:text-fg-strong aria-[current=page]:text-fg-strong rounded px-2.5 py-1.5 text-sm whitespace-nowrap no-underline hover:bg-neutral-700/70 aria-[current=page]:bg-neutral-700/70',
+                    wayClass
+                  )}
                 >
                   {t(item.title)}
                 </Link>
@@ -100,12 +129,18 @@ export const OverviewShell = ({ tab, children }: { tab?: string; children: React
               <Link
                 to="/settings"
                 aria-label={settingsLabel}
-                className="hover:text-fg-strong flex h-[30px] w-[30px] items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80"
+                {...way}
+                className={clsx(
+                  'hover:text-fg-strong flex h-[30px] w-[30px] items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80',
+                  wayClass
+                )}
               >
                 <SettingsIcon size={18} />
               </Link>
             </MenuTooltip>
-            <Logout />
+            <div inert={locked} className={wayClass}>
+              <Logout />
+            </div>
           </div>
         </div>
       </header>

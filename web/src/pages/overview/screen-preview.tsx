@@ -33,14 +33,19 @@ export const ScreenPreview = () => {
     if (!ready || !enabled) return;
     let active = true;
     let retry: number | undefined;
+    // Only a visible page asks: a picture wakes the capture. The poll below
+    // asks again when the page becomes visible.
     const read = () => {
       window.clearTimeout(retry);
+      if (document.hidden) return;
       getScreenPreview()
         .then((rsp) => {
           if (!active || rsp.code !== 0) return;
           setPreview(rsp.data);
           // no picture yet (the capture was just switched on): ask again soon
-          if (rsp.data.state !== 'ok' && !document.hidden) retry = window.setTimeout(read, soon);
+          if (rsp.data.state !== 'ok' && rsp.data.state !== 'in-use') {
+            retry = window.setTimeout(read, soon);
+          }
         })
         .catch(() => {});
     };
@@ -68,7 +73,9 @@ export const ScreenPreview = () => {
                 ? 'noSignal'
                 : preview.state === 'blocked'
                   ? 'blocked'
-                  : 'unavailable'
+                  : preview.state === 'in-use'
+                    ? 'inUse'
+                    : 'unavailable'
             );
 
   return (
@@ -123,7 +130,11 @@ export const ScreenPreview = () => {
           {t('capture.failed')}
         </span>
       )}
-      {!off && <span className="text-fg-muted text-xs">{tr('hint')}</span>}
+      {!off && (
+        <span className="text-fg-muted text-xs">
+          {tr(picture && preview?.held ? 'held' : 'hint')}
+        </span>
+      )}
     </Panel>
   );
 };

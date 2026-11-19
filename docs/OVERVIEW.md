@@ -26,6 +26,15 @@ an administrator gets the **Enable capture** button. The overview does not
 switch the capture on by itself. A 3840 × 2160 input has no still picture
 (MJPEG is not available at that size); the screen opens as usual.
 
+While someone has the remote screen open, no new picture is taken: a still of
+its own size would make the capture set up the video encoder again under that
+session. The overview keeps the last picture and says that it is not renewed,
+or, without an earlier one, that the screen is open in a video session.
+
+With frame detection on, a screen that does not change gives no new frame: the
+last picture is what it shows, and it stays. "No video signal" is shown only
+when the device reports no signal.
+
 From the remote screen, the **Overview** button of the menu bar leads back.
 
 ## Settings as pages
@@ -35,6 +44,11 @@ left and the same pages, each with its own address (`/#/settings/network-wifi`),
 so the browser's Back and a bookmark work. **Overview** at the top of the
 navigation returns to the overview. An address that names no page opens
 System > Device.
+
+A page that is at work (an installation, a connection being made) locks the
+navigation, as it does in the dialog: the bar, links from elsewhere and the
+browser's Back do not leave it until it is done. An address typed into the
+browser cannot be held back.
 
 Over the remote screen the settings stay the dialog they were.
 
@@ -62,4 +76,4 @@ The pages have their own addresses whatever the setting: `/#/overview`,
 | --- | --- | --- |
 | `GET /api/branding` | anyone | includes `startPage`: `overview` or `screen` |
 | `POST /api/branding/start-page` `{"page": "overview"}` | administrator | saves the start page |
-| `GET /api/vm/screen/preview` | signed in | `state` (`ok`, `disabled`, `no-signal`, `blocked`, `unavailable`) and, with `ok`, a JPEG of at most 640 × 360 as base64 in `jpeg` |
+| `GET /api/vm/screen/preview` | signed in | `state` (`ok`, `disabled`, `no-signal`, `blocked`, `in-use`, `unavailable`) and, with `ok`, a JPEG of at most 640 × 360 as base64 in `jpeg`; `held` when it is an earlier picture kept while a video session is open |

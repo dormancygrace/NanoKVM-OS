@@ -16,6 +16,10 @@ import (
 // taken at most once per previewMaxAge however many browsers ask, through a
 // capture lease as a screenshot is: it starts no stream and counts as no
 // viewer, and it does not switch on a capture that was switched off.
+//
+// A still of its own size makes the capture set its output up again, and
+// with it the encoder of a video session. So while anyone watches the video
+// no picture is taken: the last one is shown, marked as held.
 const (
 	previewMaxWidth  = 640
 	previewMaxHeight = 360
@@ -27,14 +31,17 @@ const (
 	previewTimeout  = 4 * time.Second
 	previewAttempts = 10
 	previewRetry    = 100 * time.Millisecond
+	// ReadMjpeg: with frame detection on, the picture did not change
+	previewUnchanged = 5
 )
 
-// Preview states other than a picture.
+// Preview states.
 const (
 	previewOK          = "ok"
 	previewDisabled    = "disabled"    // the capture is switched off
 	previewNoSignal    = "no-signal"   // nothing on the HDMI input
 	previewBlocked     = "blocked"     // a 3840x2160 input has no JPEG
+	previewInUse       = "in-use"      // a video session is open and there is no earlier picture
 	previewUnavailable = "unavailable" // the capture did not give a frame
 )
 
@@ -43,12 +50,18 @@ type screenPreview struct {
 	JPEG   string `json:"jpeg,omitempty"` // base64
 	Width  int    `json:"width,omitempty"`
 	Height int    `json:"height,omitempty"`
+	// Held: the picture is an earlier one, not renewed while a video session
+	// is open.
+	Held bool `json:"held,omitempty"`
 }
 
 var preview struct {
 	sync.Mutex
 	last screenPreview
 	at   time.Time
+	// the last picture of this capture: what an unchanged screen still
+	// shows, and what is held while a video session is open
+	picture screenPreview
 }
 
 var (
@@ -61,31 +74,65 @@ var (
 		screen := common.GetScreen()
 		return screen.Width, screen.Height
 	}
+	previewViewers = func() int { return hdmiState().ViewerCount }
+	previewSignal  = func() bool { return getHdmiSignal() }
+	// previewPauseDetect switches frame detection off for a read that has
+	// to give a picture, and returns what puts the saved choice back.
+	previewPauseDetect = func() func() {
+		if !common.FrameDetectEnabled() {
+			return func() {}
+		}
+		vision := common.GetKvmVision()
+		vision.SetFrameDetect(0)
+		return func() {
+			vision.SetFrameDetect(common.FrameDetectFrames(common.FrameDetectEnabled()))
+		}
+	}
 )
 
 // ScreenPreview is GET /api/vm/screen/preview.
 func (s *Service) ScreenPreview(c *gin.Context) {
 	var rsp proto.Response
 	c.Header("Cache-Control", "no-store")
-	if isHdmiDisabled() {
-		rsp.OkRspWithData(c, screenPreview{State: previewDisabled})
-		return
-	}
+	rsp.OkRspWithData(c, screenPreviewNow(c.Request.Context()))
+}
+
+func screenPreviewNow(ctx context.Context) screenPreview {
 	preview.Lock()
 	defer preview.Unlock()
+	if isHdmiDisabled() {
+		preview.picture = screenPreview{}
+		preview.last = screenPreview{}
+		return screenPreview{State: previewDisabled}
+	}
+	if previewViewers() > 0 {
+		return heldScreenPreview()
+	}
 	maxAge := previewMaxAge
 	if preview.last.State != previewOK {
 		maxAge = previewRetryAge
 	}
 	if preview.last.State == "" || time.Since(preview.at) >= maxAge {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), previewTimeout)
+		ctx, cancel := context.WithTimeout(ctx, previewTimeout)
 		preview.last = takeScreenPreview(ctx)
 		cancel()
 		preview.at = time.Now()
 	}
-	rsp.OkRspWithData(c, preview.last)
+	return preview.last
 }
 
+// heldScreenPreview is the answer while a video session is open. preview is
+// locked.
+func heldScreenPreview() screenPreview {
+	if preview.picture.State != previewOK {
+		return screenPreview{State: previewInUse}
+	}
+	held := preview.picture
+	held.Held = true
+	return held
+}
+
+// takeScreenPreview reads one picture. preview is locked.
 func takeScreenPreview(ctx context.Context) screenPreview {
 	width, height := previewSize(previewScreen())
 	release, claimFresh, err := previewLease(ctx)
@@ -93,33 +140,56 @@ func takeScreenPreview(ctx context.Context) screenPreview {
 		return screenPreview{State: previewUnavailable}
 	}
 	defer release()
-	state := previewUnavailable
+	// a viewer that joined while the lease was waited for
+	if previewViewers() > 0 {
+		return heldScreenPreview()
+	}
+	restoreDetect := func() {}
+	defer func() { restoreDetect() }()
+	paused := false
 	for attempt := 0; attempt < previewAttempts && ctx.Err() == nil; attempt++ {
 		data, result := previewRead(width, height, previewQuality)
 		switch {
 		case result == common.MjpegBlockedResult:
+			preview.picture = screenPreview{}
 			return screenPreview{State: previewBlocked}
-		case result >= 0 && result != 5 && len(data) > 0:
+		case result == previewUnchanged:
+			// the screen is what the last picture shows
+			if preview.picture.State == previewOK {
+				return preview.picture
+			}
+			// no picture to show yet: read one without the detection
+			if !paused {
+				paused = true
+				restoreDetect = previewPauseDetect()
+				continue
+			}
+		case result >= 0 && len(data) > 0:
 			// the first frame after a wake is the one from before it
 			if claimFresh != nil && claimFresh() {
 				claimFresh = nil
 				continue
 			}
-			return screenPreview{
+			preview.picture = screenPreview{
 				State:  previewOK,
 				JPEG:   base64.StdEncoding.EncodeToString(data),
 				Width:  int(width),
 				Height: int(height),
 			}
-		case result == 5:
-			state = previewNoSignal
+			return preview.picture
 		}
 		select {
 		case <-ctx.Done():
 		case <-time.After(previewRetry):
 		}
 	}
-	return screenPreview{State: state}
+	// no frame: without a signal that is the reason, and the last picture is
+	// of a screen that is gone
+	if !previewSignal() {
+		preview.picture = screenPreview{}
+		return screenPreview{State: previewNoSignal}
+	}
+	return screenPreview{State: previewUnavailable}
 }
 
 // previewSize fits the stream size into the preview bounds, keeping its

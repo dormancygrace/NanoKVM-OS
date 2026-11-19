@@ -13,6 +13,7 @@ import { brandingAtom, brandingFavicon } from '@/jotai/branding';
 import { settingsRequestAtom, webTitleAtom } from '@/jotai/settings.ts';
 import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 import { ThemeToggle } from '@/components/theme-toggle.tsx';
+import { Capture } from '@/pages/desktop/menu/capture.tsx';
 import { Logout } from '@/pages/desktop/menu/logout';
 import { Power } from '@/pages/desktop/menu/power';
 import { resolveSettingsTab, settingsParentOf } from '@/pages/desktop/menu/settings/tabs.ts';
@@ -122,6 +123,7 @@ export const OverviewShell = ({
             </nav>
           )}
           <div className="ml-auto flex shrink-0 items-center gap-1">
+            {admin && <Capture />}
             {admin && <Terminal />}
             {atxEnabled && <Power />}
             <ThemeToggle />

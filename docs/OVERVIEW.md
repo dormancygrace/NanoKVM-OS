@@ -6,9 +6,9 @@ use. It shows the state of the device, and the remote screen is one click away.
 
 ## What it shows
 
-- **The bar**: the device name, the sections of the settings, the terminal,
-  the power buttons (with ATX control), the theme button, the settings and the
-  sign-out.
+- **The bar**: the device name, the sections of the settings, the capture
+  switch, the terminal, the power buttons (with ATX control), the theme button,
+  the settings and the sign-out.
 - **The panels of Settings > Dashboard**: processor, memory, storage, the
   device, video, network interfaces, VPN and the rest. They update while the
   page is open.
@@ -22,9 +22,9 @@ screenshot, at most once in five seconds however many browsers have the page
 open, and only while a page is visible.
 
 A panel is there for what is in use. With the capture switched off the
-**Remote screen** and **Video** panels are not shown, and they come back when
-it is switched on (Settings > Video); the overview does not switch the capture
-on by itself. The VPN panel is shown with an installed VPN, and a network
+**Remote screen** and **Video** panels are not shown, and the other panels
+move into their place. The capture switch of the bar (an administrator's)
+turns it on and off; the overview does not switch the capture on by itself. The VPN panel is shown with an installed VPN, and a network
 interface that is switched off has no panel.
 
 A 3840 × 2160 input has no still picture (MJPEG is not available at that

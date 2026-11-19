@@ -398,6 +398,7 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
         )}
         {metric(t('dashboard.uptime'), uptime, <TimerIcon size={16} />)}
       </div>
+      {/* One grid for every panel: when one is not shown the next takes its place. */}
       <div className="grid gap-4 md:grid-cols-2">
         {section(
           t('dashboard.device'),
@@ -534,8 +535,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
             )) ?? '—'}
           </div>
         )}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
         {sys?.interfaces
           .filter(
             (iface) =>
@@ -614,8 +613,6 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
               )}
             </div>
           )) ?? '—'}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
         {/* and no VPN panel without an installed VPN */}
         {admin &&
           vpnProviders.some((provider) => {

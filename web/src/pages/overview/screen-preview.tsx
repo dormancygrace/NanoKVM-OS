@@ -96,7 +96,7 @@ export const ScreenPreview = () => {
         aria-disabled={off}
         tabIndex={off ? -1 : undefined}
         className={
-          'relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-black ' +
+          'relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-black no-underline ' +
           (off ? 'pointer-events-none' : 'group')
         }
       >

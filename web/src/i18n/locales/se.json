@@ -1088,7 +1088,6 @@
       "deleteConfirmOk": "Ta bort",
       "deleteConfirmCancel": "Avbryt",
       "messageCount_one": "{{count}} meddelande",
-      "messageCount_two": "",
       "messageCount_other": "{{count}} meddelanden"
     },
     "config": {

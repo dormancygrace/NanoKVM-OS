@@ -3,20 +3,21 @@ import { useAtom } from 'jotai';
 import { useTranslation } from 'react-i18next';
 
 import * as storage from '@/lib/localstorage.ts';
-import type { Theme as ThemeName } from '@/lib/theme-tokens.ts';
-import { themeAtom } from '@/jotai/settings.ts';
+import type { ThemeSetting } from '@/lib/theme.ts';
+import { themeSettingAtom } from '@/jotai/settings.ts';
 import { SettingRow } from '@/components/ui/settings.tsx';
 
 export const Theme = () => {
   const { t } = useTranslation();
-  const [theme, setTheme] = useAtom(themeAtom);
+  const [theme, setTheme] = useAtom(themeSettingAtom);
 
-  const options: { value: ThemeName; label: string }[] = [
+  const options: { value: ThemeSetting; label: string }[] = [
     { value: 'dark', label: t('settings.appearance.themeDark') },
-    { value: 'light', label: t('settings.appearance.themeLight') }
+    { value: 'light', label: t('settings.appearance.themeLight') },
+    { value: 'system', label: t('settings.appearance.themeSystem') }
   ];
 
-  function handleChange(value: ThemeName) {
+  function handleChange(value: ThemeSetting) {
     setTheme(value);
     storage.setTheme(value);
   }

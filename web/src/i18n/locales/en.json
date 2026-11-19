@@ -1348,9 +1348,10 @@
       "webTitle": "Web title",
       "webTitleDesc": "Customize the web page title",
       "theme": "Theme",
-      "themeDesc": "The colours of the interface. The picture of the remote computer is not affected.",
+      "themeDesc": "The colours of the interface. System follows the theme of this device. The picture of the remote computer is not affected.",
       "themeDark": "Dark",
       "themeLight": "Light",
+      "themeSystem": "System",
       "menuBar": {
         "mode": "Display mode",
         "modeDesc": "Auto hide: the bar appears when the mouse reaches the top edge.",

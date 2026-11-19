@@ -130,11 +130,7 @@ export const ScreenPreview = () => {
           {t('capture.failed')}
         </span>
       )}
-      {!off && (
-        <span className="text-fg-muted text-xs">
-          {tr(picture && preview?.held ? 'held' : 'hint')}
-        </span>
-      )}
+      {picture && preview?.held && <span className="text-fg-muted text-xs">{tr('held')}</span>}
     </Panel>
   );
 };

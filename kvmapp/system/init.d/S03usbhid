@@ -19,12 +19,16 @@ usb_mode() {
     fi
 }
 
-# The controller's role: device, or host (the kernel's role switch).
+# The controller's role: device, or host (the kernel's role switch). A kernel
+# without the switch is a device already; the host role needs the switch.
 set_usb_role() {
+    _switched=
     for _role in /sys/class/usb_role/*/role; do
         [ -w "$_role" ] || continue
         echo "$1" > "$_role" || return 1
+        _switched=1
     done
+    [ "$1" != host ] || [ -n "$_switched" ]
 }
 
 set_hid_wakeup(){
@@ -70,7 +74,10 @@ start_usb_dev(){
         fi
         stop_usb_dev || return 1
         if [ "$_mode" = host ]; then
-            set_usb_role host || return 1
+            set_usb_role host || {
+                echo "USB mode: host is not available, the kernel has no USB role switch" >&2
+                return 1
+            }
         else
             set_usb_role device || return 1
         fi

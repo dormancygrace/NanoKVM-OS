@@ -14,6 +14,7 @@ import clsx from 'clsx';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   ArrowLeftIcon,
+  BatteryChargingIcon,
   BellIcon,
   BluetoothIcon,
   BotIcon,
@@ -161,6 +162,15 @@ const BmcSettingsPage = lazyPage(() =>
 const ScheduledTasks = lazyPage(() =>
   import('./schedule').then((module) => ({ default: module.ScheduledTasks }))
 );
+const LldpPage = lazyPage(() =>
+  import('./services/lldp').then((module) => ({ default: module.LldpPage }))
+);
+const SnmpPage = lazyPage(() =>
+  import('./services/snmp').then((module) => ({ default: module.SnmpPage }))
+);
+const UpsPage = lazyPage(() =>
+  import('./services/ups').then((module) => ({ default: module.UpsPage }))
+);
 const Software = lazyPage(() =>
   import('./software').then((module) => ({ default: module.Software }))
 );
@@ -188,6 +198,7 @@ const UpdateDot = () => (
 
 // The icon names menu entries can use.
 const menuIcons: Record<string, ReactNode> = {
+  battery: <BatteryChargingIcon size={16} />,
   bell: <BellIcon size={16} />,
   bluetooth: <BluetoothIcon size={16} />,
   bot: <BotIcon size={16} />,
@@ -350,6 +361,9 @@ export const Settings = ({
         ) : undefined,
         'services-notifications': <Notifications />,
         'services-schedule': <ScheduledTasks />,
+        'services-lldp': <LldpPage setIsLocked={setIsLocked} />,
+        'services-snmp': <SnmpPage setIsLocked={setIsLocked} />,
+        'services-ups': <UpsPage setIsLocked={setIsLocked} />,
         system: null,
         'system-general': <System />,
         'system-users': <Account />,

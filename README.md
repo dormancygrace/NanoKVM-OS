@@ -149,6 +149,7 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 | **Scripts** | Shell and Python scripts on the device, run on demand or once per boot, with startup status and bounded logs. Startup scripts survive application service restarts without running twice; Python is installed separately. See [Scripts](docs/SCRIPTS.md) |
 | **Redfish and IPMI** | Host power on/off and reset through the ATX connection for data-centre tools, each on its own switch with one BMC account. See [Redfish and IPMI](docs/BMC.md) |
 | **Notifications** | Host power, HDMI signal, sign-in security, host watchdog and crash-screen events, sent by email, Telegram, Slack, Microsoft Teams, Google Chat, Discord, ntfy, Gotify, Pushover, Matrix, webhook or syslog |
+| **[LLDP, SNMP and UPS](docs/NETWORK-SERVICES.md)** | Optional services under Settings → Services, each installed on request: LLDP/CDP announcements with a neighbour list, a read-only SNMP v2c agent, and Network UPS Tools sharing a UPS attached to the NanoKVM. |
 | **Scheduled tasks** | Scripts or shell commands on a schedule, from simple repeats to cron expressions. See [Scheduled tasks](docs/SCHEDULE.md) |
 | **Event log** | Host power, HDMI signal, crash screens, sign-ins, button presses and image mounts, with who did what. See [Event log](docs/EVENTS.md) |
 | **Appearance** | Menu layout/icons, colours, language, web title, bundled branding choices and custom logo/favicon uploads |

@@ -89,6 +89,14 @@ export const builtinMenu = [
     icon: 'clock',
     title: { key: 'settings.schedule.title' }
   },
+  { id: 'services-lldp', order: 50, icon: 'network', title: { text: 'LLDP' } },
+  { id: 'services-snmp', order: 60, icon: 'radio-tower', title: { text: 'SNMP' } },
+  {
+    id: 'services-ups',
+    order: 70,
+    icon: 'battery',
+    title: { key: 'settings.netServices.ups.title' }
+  },
 
   { id: 'system', order: 70, icon: 'shield', title: { key: 'settings.system.title' } },
   { id: 'system-general', order: 10, icon: 'settings', title: { key: 'settings.system.device' } },

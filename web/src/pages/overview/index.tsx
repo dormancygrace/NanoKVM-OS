@@ -250,7 +250,7 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
               )}
             </div>
           )}
-          {page && <div className="w-full max-w-[600px]">{frame.content}</div>}
+          {page && <div className="mx-auto w-full max-w-[600px]">{frame.content}</div>}
         </main>
       </div>
       {!wide && (

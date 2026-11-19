@@ -823,8 +823,6 @@
   },
   "power": {
     "title": "电源",
-    "showConfirm": "显示确认框",
-    "showConfirmTip": "电源操作需要二次确认",
     "reset": "重启",
     "powerShort": "电源（短按）",
     "powerLong": "电源（长按）",

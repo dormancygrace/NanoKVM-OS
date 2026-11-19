@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Alimentació",
-    "showConfirm": "Confirmació",
-    "showConfirmTip": "Les operacions d'alimentació requereixen confirmació",
     "reset": "Reinicia",
     "powerShort": "Clic curt",
     "powerLong": "Clic llarg",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} amagats",
         "showAll": "Mostra-ho tot"
       },
-      "buttonColor": {},
       "browser": "En aquest navegador",
       "browserDesc": "Es desa només en aquest navegador; altres navegadors i usuaris tenen els seus.",
       "device": "Per a tothom en aquest dispositiu",

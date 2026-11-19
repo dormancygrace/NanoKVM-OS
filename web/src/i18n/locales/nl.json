@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Aan/uit",
-    "showConfirm": "Bevestiging",
-    "showConfirmTip": "Stroombedieningen vereisen een extra bevestiging",
     "reset": "Resetten",
     "powerShort": "Aan/uit (kort indrukken)",
     "powerLong": "Aan/uit (lang indrukken)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} verborgen",
         "showAll": "Alles tonen"
       },
-      "buttonColor": {},
       "browser": "In deze browser",
       "browserDesc": "Alleen in deze browser bewaard; andere browsers en gebruikers hebben hun eigen.",
       "device": "Voor iedereen op dit apparaat",

@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Energia",
-    "showConfirm": "Confirmação",
-    "showConfirmTip": "Operações de energia requerem uma confirmação extra",
     "reset": "Redefinir",
     "powerShort": "Energia (clique curto)",
     "powerLong": "Energia (clique longo)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} ocultos",
         "showAll": "Mostrar todos"
       },
-      "buttonColor": {},
       "browser": "Neste navegador",
       "browserDesc": "Guardado só neste navegador; outros navegadores e usuários têm os seus.",
       "device": "Para todos neste dispositivo",

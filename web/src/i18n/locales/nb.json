@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "På-knapp",
-    "showConfirm": "Bekreftelse",
-    "showConfirmTip": "Strømdrift krever en ekstra bekreftelse",
     "reset": "Reset-knapp",
     "powerShort": "På-knapp (kort trykk)",
     "powerLong": "På-knapp (langt trykk)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} skjult",
         "showAll": "Vis alle"
       },
-      "buttonColor": {},
       "browser": "I denne nettleseren",
       "browserDesc": "Lagres bare i denne nettleseren; andre nettlesere og brukere har sine egne.",
       "device": "For alle på denne enheten",

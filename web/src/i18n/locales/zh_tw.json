@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "電源控制",
-    "showConfirm": "顯示確認框",
-    "showConfirmTip": "電源操作需要二次確認",
     "reset": "重新啟動",
     "powerShort": "電源 (短按)",
     "powerLong": "電源 (長按)",
@@ -357,7 +355,6 @@
         "hiddenCount": "已隱藏 {{count}} 個",
         "showAll": "全部顯示"
       },
-      "buttonColor": {},
       "browser": "在此瀏覽器中",
       "browserDesc": "僅儲存在此瀏覽器中；其他瀏覽器和使用者各有自己的設定。",
       "device": "對此裝置的所有人",

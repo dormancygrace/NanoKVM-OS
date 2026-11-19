@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Daya",
-    "showConfirm": "Konfirmasi",
-    "showConfirmTip": "Pengoperasian listrik memerlukan konfirmasi tambahan",
     "reset": "Mulai Ulang",
     "powerShort": "Data (tekan sebentar)",
     "powerLong": "Power (tekan lama)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} disembunyikan",
         "showAll": "Tampilkan semua"
       },
-      "buttonColor": {},
       "browser": "Di browser ini",
       "browserDesc": "Disimpan hanya di browser ini; browser dan pengguna lain punya pengaturan sendiri.",
       "device": "Untuk semua di perangkat ini",

@@ -823,8 +823,6 @@
   },
   "power": {
     "title": "Power",
-    "showConfirm": "Bestätigung",
-    "showConfirmTip": "Diese Aktionen benötigen eine zusätzliche Bestätigung",
     "reset": "Zurücksetzen",
     "powerShort": "Power (Kurzer Klick)",
     "powerLong": "Power (Langer Klick)",

@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Accensione",
-    "showConfirm": "Conferma",
-    "showConfirmTip": "Le operazioni di alimentazione richiedono una conferma aggiuntiva",
     "reset": "Reimposta",
     "powerShort": "Accensione (clic breve)",
     "powerLong": "Accensione (clic lungo)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} nascosti",
         "showAll": "Mostra tutto"
       },
-      "buttonColor": {},
       "browser": "In questo browser",
       "browserDesc": "Salvato solo in questo browser; altri browser e utenti hanno le proprie impostazioni.",
       "device": "Per tutti su questo dispositivo",

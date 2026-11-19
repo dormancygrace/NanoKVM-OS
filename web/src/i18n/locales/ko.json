@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "전원",
-    "showConfirm": "확인",
-    "showConfirmTip": "전원 작업에는 추가 확인이 필요합니다",
     "reset": "리셋",
     "powerShort": "전원 (짧게 누르기)",
     "powerLong": "전원 (길게 누르기)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}}개 숨김",
         "showAll": "모두 표시"
       },
-      "buttonColor": {},
       "browser": "이 브라우저",
       "browserDesc": "이 브라우저에만 저장되며, 다른 브라우저와 사용자는 각자의 설정을 가집니다.",
       "device": "이 장치의 모든 사용자",

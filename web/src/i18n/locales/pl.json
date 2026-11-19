@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Zasilanie",
-    "showConfirm": "Potwierdzenie",
-    "showConfirmTip": "Operacje zasilania wymagają dodatkowego potwierdzenia",
     "reset": "Resetuj",
     "powerShort": "Zasilanie (krótkie kliknięcie)",
     "powerLong": "Zasilanie (długie kliknięcie)",
@@ -357,7 +355,6 @@
         "hiddenCount": "ukryte: {{count}}",
         "showAll": "Pokaż wszystkie"
       },
-      "buttonColor": {},
       "browser": "W tej przeglądarce",
       "browserDesc": "Zapisane tylko w tej przeglądarce; inne przeglądarki i użytkownicy mają własne.",
       "device": "Dla wszystkich na tym urządzeniu",

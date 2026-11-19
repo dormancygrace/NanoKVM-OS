@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Ström",
-    "showConfirm": "Bekräftelse",
-    "showConfirmTip": "Strömätgärder kräver extra bekräftelse",
     "reset": "Starta om",
     "powerShort": "Ström (kort tryck)",
     "powerLong": "Ström (långt tryck)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} dolda",
         "showAll": "Visa alla"
       },
-      "buttonColor": {},
       "browser": "I den här webbläsaren",
       "browserDesc": "Sparas bara i den här webbläsaren; andra webbläsare och användare har sina egna.",
       "device": "För alla på den här enheten",

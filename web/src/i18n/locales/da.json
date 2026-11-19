@@ -285,8 +285,6 @@
   },
   "power": {
     "title": "Tænd/sluk-knap",
-    "showConfirm": "Bekræftelse",
-    "showConfirmTip": "Strømdrift kræver en ekstra bekræftelse",
     "reset": "Nulstillingsknap",
     "powerShort": "Tænd/sluk-knap (kort tryk)",
     "powerLong": "Tænd/sluk-knap (langt tryk)",
@@ -357,7 +355,6 @@
         "hiddenCount": "{{count}} skjult",
         "showAll": "Vis alle"
       },
-      "buttonColor": {},
       "browser": "I denne browser",
       "browserDesc": "Gemmes kun i denne browser; andre browsere og brugere har deres egne.",
       "device": "For alle på denne enhed",

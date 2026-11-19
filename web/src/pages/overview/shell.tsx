@@ -126,7 +126,6 @@ export const OverviewShell = ({
             {admin && <Capture />}
             {admin && <Terminal />}
             {atxEnabled && <Power />}
-            <ThemeToggle />
             <MenuTooltip title={settingsLabel}>
               <Link
                 to="/settings"
@@ -147,6 +146,10 @@ export const OverviewShell = ({
         </div>
       </header>
       <div className="min-h-0 flex-1">{children}</div>
+      {/* Out of the way of the controls of the bar: the lower corner. */}
+      <div className="border-line fixed right-4 bottom-4 z-10 rounded-full border bg-neutral-800 p-1 shadow-lg shadow-black/20">
+        <ThemeToggle />
+      </div>
     </div>
   );
 };

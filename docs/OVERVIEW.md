@@ -7,8 +7,9 @@ use. It shows the state of the device, and the remote screen is one click away.
 ## What it shows
 
 - **The bar**: the device name, the sections of the settings, the capture
-  switch, the terminal, the power buttons (with ATX control), the theme button,
-  the settings and the sign-out.
+  switch, the terminal, the power buttons (with ATX control), the settings and
+  the sign-out. The button in the lower right corner switches between the
+  light and the dark theme.
 - **The panels of Settings > Dashboard**: processor, memory, storage, the
   device, video, network interfaces, VPN and the rest. They update while the
   page is open.

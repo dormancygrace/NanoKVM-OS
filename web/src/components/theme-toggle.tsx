@@ -21,7 +21,7 @@ export const ThemeToggle = () => {
       <button
         type="button"
         aria-label={label}
-        className="nanokvm-button-base hover:text-fg-strong flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 hover:bg-neutral-700/80"
+        className="nanokvm-button-base hover:text-fg-strong flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-full text-neutral-300 hover:bg-neutral-700/80"
         onClick={() => {
           setSetting(next);
           storage.setTheme(next);

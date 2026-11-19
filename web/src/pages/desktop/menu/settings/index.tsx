@@ -275,6 +275,8 @@ export type SettingsPageHost = {
   onClose: () => void;
   // to the remote screen, where the chat lives
   onOpenScreen: () => void;
+  // The address names a page this account or this device does not have.
+  onUnavailable: () => void;
   // A page is at work (an installation, a connection) and must stay: the
   // host keeps every way of leaving it closed until it is done.
   onLock: (locked: boolean) => void;
@@ -349,6 +351,7 @@ export const Settings = ({
   const [currentTab, setCurrentTab] = useState(() => (page ? pageTabOf(page.tab) : 'dashboard'));
   // Network > Bluetooth is listed only where the Wi-Fi chip has Bluetooth.
   const [hasBluetooth, setHasBluetooth] = useState(false);
+  const [bluetoothKnown, setBluetoothKnown] = useState(false);
   // Network > Wi-Fi is left out only once the device reports no adapter:
   // until then (and when the request fails) it stays, so a link to it works.
   const [hasWifi, setHasWifi] = useState(true);
@@ -363,7 +366,10 @@ export const Settings = ({
       .then((rsp) => {
         if (active && rsp.code === 0) setHasBluetooth(!!rsp.data?.available);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (active) setBluetoothKnown(true);
+      });
     getWiFi()
       .then((rsp) => {
         if (active && rsp.code === 0) setHasWifi(rsp.data?.supported !== false);
@@ -388,7 +394,7 @@ export const Settings = ({
   });
   const [rustDeskStatus] = useAtom(rustDeskStatusAtom);
   const [inventory, setInventory] = useAtom(addonInventoryAtom);
-  const [, setInventoryError] = useState(false);
+  const [inventoryError, setInventoryError] = useState(false);
   const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
   const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
   const setBmcTab = useSetAtom(bmcTabAtom);
@@ -615,6 +621,19 @@ export const Settings = ({
     if (group) setExpandedGroups((groups) => new Set(groups).add(group));
     setCurrentTab(tab);
   }, [pageTab, onPageTab]);
+  // The address names a page that is not among the entries. Some entries
+  // come late (Bluetooth, the pages of add-ons), so an administrator's
+  // address is judged once the device has answered about them; the other
+  // accounts have nothing to wait for.
+  const pageKnown = !isAdmin || (bluetoothKnown && (!!inventory || inventoryError));
+  const pageMissing =
+    pageTab !== undefined &&
+    currentTab === pageTabOf(pageTab) &&
+    !tabs.some((tab) => tab.id === currentTab);
+  const onPageUnavailable = page?.onUnavailable;
+  useEffect(() => {
+    if (pageMissing && pageKnown) onPageUnavailable?.();
+  }, [pageMissing, pageKnown, onPageUnavailable]);
   const onPageLock = page?.onLock;
   useEffect(() => {
     onPageLock?.(isLocked);
@@ -800,7 +819,10 @@ export const Settings = ({
         </>
       )}
       <Suspense fallback={<PageLoading />}>
-        {(tabs.find((tab) => tab.id === currentTab) ?? tabs[0]).component}
+        {/* As a page the address says what is open: a page that is not there
+            is not replaced by another under its name. */}
+        {tabs.find((tab) => tab.id === currentTab)?.component ??
+          (page ? <PageLoading /> : tabs[0].component)}
       </Suspense>
     </ErrorBoundary>
   );

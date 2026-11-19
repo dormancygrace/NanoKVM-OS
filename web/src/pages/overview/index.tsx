@@ -70,7 +70,9 @@ const Overview = ({
               <ScreenPreview />
             </div>
           )}
-          {!wide && !captureOff && (
+          {/* Also with the capture off: the console says so, and someone who
+              may not switch it on still gets there. */}
+          {!wide && (
             <Link to="/screen" className="w-full">
               <Button type="primary" size="large" block icon={<MonitorIcon size={18} />}>
                 {t('overview.screen.openScreen')}
@@ -342,6 +344,7 @@ export const Console = () => {
   );
   const onClose = useCallback(() => navigate('/overview'), [navigate]);
   const onOpenScreen = useCallback(() => navigate('/screen'), [navigate]);
+  const onUnavailable = useCallback(() => navigate('/settings', { replace: true }), [navigate]);
 
   return (
     <Settings
@@ -350,6 +353,7 @@ export const Console = () => {
         onTab,
         onClose,
         onOpenScreen,
+        onUnavailable,
         onLock: setLocked,
         render: (frame) => <Layout frame={frame} tab={tab} />
       }}

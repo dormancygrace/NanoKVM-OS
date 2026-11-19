@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/base64"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"NanoKVM-Server/common"
+	"NanoKVM-Server/internal/videogate"
 	"NanoKVM-Server/proto"
 )
 
@@ -17,14 +19,14 @@ import (
 // capture lease as a screenshot is: it starts no stream and counts as no
 // viewer, and it does not switch on a capture that was switched off.
 //
-// Next to a video session it depends on where the JPEG comes from. With an
-// output of its own (4:2:2, no frame detection) a still costs the viewer a
-// few frames of the second it is taken in: at 2560x1440 and 60 fps a reader
-// got 56-57 frames in those seconds and 59-61 in the others. On the output
-// it shares with the video (4:2:0, or frame detection on) a still of another
-// size makes the capture set that output up again, and with it the encoder
-// of the session: there no picture is taken while anyone watches, and the
-// last one is shown, marked as held.
+// A still of its own size can make the capture set an output up again, and
+// with it the encoder of a video session. Which outputs a session and a
+// still share depends on the codec, the chroma the capture really uses and
+// the sizes, so no picture is taken while anyone watches: the last one is
+// shown, marked as held. The preview is background work behind the video
+// gate. It does not start while video holds the gate, and a viewer that
+// arrives while it reads ends it and waits for that before it wakes the
+// capture or sets up an encoder.
 const (
 	previewMaxWidth  = 640
 	previewMaxHeight = 360
@@ -67,7 +69,16 @@ var preview struct {
 	// the last picture of this capture: what an unchanged screen still
 	// shows, and what is held while a video session is open
 	picture screenPreview
+	// the switching of the capture last and picture belong to
+	capture uint64
 }
+
+// previewCapture counts the times the capture was switched on or off. A
+// picture from before the last one is of a screen that may be gone.
+var previewCapture atomic.Uint64
+
+// previewCaptureSwitched is called when the capture is switched on or off.
+func previewCaptureSwitched() { previewCapture.Add(1) }
 
 var (
 	previewLease = AcquireHdmiCaptureLeaseForRead
@@ -80,12 +91,8 @@ var (
 		return screen.Width, screen.Height
 	}
 	previewViewers = func() int { return hdmiState().ViewerCount }
-	// previewShared: the JPEG is read from the output the video uses.
-	previewShared = func() bool {
-		common.CheckScreen()
-		return common.GetScreen().MjpegChroma != 422 || common.FrameDetectEnabled()
-	}
-	previewSignal = func() bool { return getHdmiSignal() }
+	previewBegin   = videogate.Begin
+	previewSignal  = func() bool { return getHdmiSignal() }
 	// previewPauseDetect switches frame detection off for a read that has
 	// to give a picture, and returns what puts the saved choice back.
 	previewPauseDetect = func() func() {
@@ -110,29 +117,53 @@ func (s *Service) ScreenPreview(c *gin.Context) {
 func screenPreviewNow(ctx context.Context) screenPreview {
 	preview.Lock()
 	defer preview.Unlock()
-	if isHdmiDisabled() {
+	capture := previewCapture.Load()
+	if preview.capture != capture {
+		preview.capture = capture
 		preview.picture = screenPreview{}
 		preview.last = screenPreview{}
+	}
+	if isHdmiDisabled() {
 		return screenPreview{State: previewDisabled}
 	}
-	if previewViewers() > 0 && previewShared() {
+	if previewViewers() > 0 {
 		return heldScreenPreview()
 	}
 	maxAge := previewMaxAge
 	if preview.last.State != previewOK {
 		maxAge = previewRetryAge
 	}
-	if preview.last.State == "" || time.Since(preview.at) >= maxAge {
-		ctx, cancel := context.WithTimeout(ctx, previewTimeout)
-		preview.last = takeScreenPreview(ctx)
-		cancel()
-		preview.at = time.Now()
+	if preview.last.State != "" && time.Since(preview.at) < maxAge {
+		return preview.last
 	}
+	work, end, ok := previewBegin(ctx)
+	if !ok {
+		// A video session is starting, or other background work has the
+		// capture: the picture there is, for now.
+		if previewViewers() > 0 {
+			return heldScreenPreview()
+		}
+		if preview.picture.State == previewOK {
+			return preview.picture
+		}
+		return screenPreview{State: previewUnavailable}
+	}
+	read, cancel := context.WithTimeout(work, previewTimeout)
+	taken := takeScreenPreview(read)
+	cancel()
+	// ended by video that took the gate: what it read is not kept
+	yielded := work.Err() != nil
+	end()
+	if yielded || previewCapture.Load() != capture {
+		return heldScreenPreview()
+	}
+	preview.last = taken
+	preview.at = time.Now()
 	return preview.last
 }
 
-// heldScreenPreview is the answer while a video session is open on the
-// output a still would disturb. preview is locked.
+// heldScreenPreview is the answer while a video session is open. preview is
+// locked.
 func heldScreenPreview() screenPreview {
 	if preview.picture.State != previewOK {
 		return screenPreview{State: previewInUse}
@@ -150,14 +181,15 @@ func takeScreenPreview(ctx context.Context) screenPreview {
 		return screenPreview{State: previewUnavailable}
 	}
 	defer release()
-	// a viewer that joined while the lease was waited for
-	if previewViewers() > 0 && previewShared() {
-		return heldScreenPreview()
-	}
 	restoreDetect := func() {}
 	defer func() { restoreDetect() }()
 	paused := false
-	for attempt := 0; attempt < previewAttempts && ctx.Err() == nil; attempt++ {
+	for attempt := 0; attempt < previewAttempts; attempt++ {
+		// Before every read: video that takes the gate cancels ctx and waits
+		// for this to return.
+		if ctx.Err() != nil {
+			return screenPreview{State: previewUnavailable}
+		}
 		data, result := previewRead(width, height, previewQuality)
 		switch {
 		case result == common.MjpegBlockedResult:

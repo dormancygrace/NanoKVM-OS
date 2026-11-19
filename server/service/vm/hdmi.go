@@ -120,6 +120,7 @@ func EnableHdmiCapture() {
 	defer hdmiMutex.Unlock()
 
 	setHDMI(true)
+	previewCaptureSwitched()
 	hdmiDemand.MarkWarming(time.Now().Add(hdmiCaptureWarmupDuration))
 	hdmiStoppedForIdle = false
 	hdmiIdleGeneration++
@@ -134,6 +135,7 @@ func DisableHdmiCapture() {
 	defer hdmiMutex.Unlock()
 
 	setHDMI(false)
+	previewCaptureSwitched()
 	hdmiDemand.ClearReadyAt()
 	hdmiStoppedForIdle = false
 	hdmiIdleGeneration++

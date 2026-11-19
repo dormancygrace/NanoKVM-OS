@@ -28,6 +28,8 @@ export const ScreenPreview = () => {
   const busy = useAtomValue(captureBusyAtom);
   const [preview, setPreview] = useState<Preview>();
   const [error, setError] = useState(false);
+  // the last request for a picture failed: the one shown may be out of date
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     if (!ready || !enabled) return;
@@ -40,14 +42,21 @@ export const ScreenPreview = () => {
       if (document.hidden) return;
       getScreenPreview()
         .then((rsp) => {
-          if (!active || rsp.code !== 0) return;
+          if (!active) return;
+          if (rsp.code !== 0) {
+            setStale(true);
+            return;
+          }
+          setStale(false);
           setPreview(rsp.data);
           // no picture yet (the capture was just switched on): ask again soon
           if (rsp.data.state !== 'ok' && rsp.data.state !== 'in-use') {
             retry = window.setTimeout(read, soon);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          if (active) setStale(true);
+        });
     };
     read();
     const stop = pollWhileVisible(read, interval);
@@ -65,7 +74,7 @@ export const ScreenPreview = () => {
     : off
       ? t('capture.off')
       : !preview
-        ? tr('loading')
+        ? tr(stale ? 'unavailable' : 'loading')
         : preview.state === 'ok'
           ? ''
           : tr(
@@ -131,7 +140,11 @@ export const ScreenPreview = () => {
           {t('capture.failed')}
         </span>
       )}
-      {picture && preview?.held && <span className="text-fg-muted text-xs">{tr('held')}</span>}
+      {picture && (stale || preview?.held) && (
+        <span role="status" className="text-fg-muted text-xs">
+          {tr(stale ? 'stale' : 'held')}
+        </span>
+      )}
     </Panel>
   );
 };

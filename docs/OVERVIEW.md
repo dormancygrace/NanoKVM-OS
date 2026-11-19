@@ -71,15 +71,13 @@ an installed VPN, and a network interface that is switched off has no panel.
 A 3840 × 2160 input has no still picture (MJPEG is not available at that
 size); the screen opens as usual.
 
-While someone has the remote screen open, the picture is still renewed when
-the JPEG has an output of its own (MJPEG 4:2:2, frame detection off, the
-defaults): the viewer loses a few frames in the second a picture is taken
-(at 2560 × 1440 and 60 fps, 56 to 57 frames instead of 59 to 61). With MJPEG
-4:2:0 or frame detection on, the JPEG shares its output with the video, and a
-still of another size would make the capture set up the video encoder again
-under that session: there no new picture is taken, and the overview keeps the
-last one and says that it is not renewed, or, without an earlier one, that the
-screen is open in a video session.
+While someone has the remote console open, or a video session is starting, no
+new picture is taken: a still of its own size can make the capture set an
+output up again, and with it the video encoder of that session. The overview
+keeps the last picture and says that it is not renewed, or, without an earlier
+one, that the screen is open in a video session. A picture that could not be
+renewed for another reason (the device does not answer) is marked as possibly
+out of date.
 
 With frame detection on, a screen that does not change gives no new frame: the
 last picture is what it shows, and it stays. "No video signal" is shown only

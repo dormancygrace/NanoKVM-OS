@@ -34,7 +34,7 @@ export const Overview = () => {
           )}
         >
           <div className="min-w-0">
-            <Dashboard navigate={openSettings} />
+            <Dashboard navigate={openSettings} caption={false} />
           </div>
           {!captureOff && (
             <aside className="order-first lg:order-none">

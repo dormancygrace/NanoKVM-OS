@@ -121,7 +121,15 @@ async function read<T>(url: string): Promise<T> {
   return rsp.data as T;
 }
 
-export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => {
+// caption: the line saying that the values are live. The overview, whose
+// whole page they are, leaves it out.
+export const Dashboard = ({
+  navigate,
+  caption = true
+}: {
+  navigate: (tab: string) => void;
+  caption?: boolean;
+}) => {
   const { t, i18n } = useTranslation();
   const { account } = useAuth();
   const admin = account.role === 'admin';
@@ -358,11 +366,13 @@ export const Dashboard = ({ navigate }: { navigate: (tab: string) => void }) => 
   };
   return (
     <div className="space-y-5 pb-6">
-      <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
-        <span className="text-fg-muted max-w-full text-xs wrap-break-word">
-          {t('dashboard.live')}
-        </span>
-      </div>
+      {caption && (
+        <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
+          <span className="text-fg-muted max-w-full text-xs wrap-break-word">
+            {t('dashboard.live')}
+          </span>
+        </div>
+      )}
       {(errors.length > 0 || extraFailed) && (
         <Alert type="warning" showIcon message={t('dashboard.stale')} />
       )}

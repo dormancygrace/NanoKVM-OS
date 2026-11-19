@@ -1,35 +1,36 @@
 package vm
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 )
 
-// A change between host and off that stops after its first write must not
-// leave the gadget role, which would bind the composition at the next boot.
-// The stop is forced here: the flag of the old role is a directory with an
-// entry, which can be neither removed nor replaced, so the second write and
-// the way back both fail.
-func TestUSBRoleChangeCutShortStaysUnbound(t *testing.T) {
-	for _, c := range []struct{ oldFlag, role string }{
-		{usbHostFlag, usbRoleOff},
-		{usbOffFlag, usbRoleHost},
+// A change between host and off can stop after any of its writes. What is
+// on disk then must not be the gadget role, which would bind the composition
+// at the next boot.
+func TestUSBRoleChangeNeverPassesThroughGadget(t *testing.T) {
+	for _, c := range []struct{ from, to string }{
+		{usbRoleHost, usbRoleOff},
+		{usbRoleOff, usbRoleHost},
 	} {
 		dir := t.TempDir()
-		if err := os.MkdirAll(filepath.Join(dir, c.oldFlag, "keep"), 0o755); err != nil {
-			t.Fatal(err)
+		apply := func(flag usbFlagWrite) {
+			t.Helper()
+			if err := writeUSBFile(filepath.Join(dir, flag.name), usbFileSnapshot{exists: flag.exists, mode: 0o644}); err != nil {
+				t.Fatal(err)
+			}
 		}
-		store := usbRoleStore{
-			dir:    dir,
-			run:    func(string) error { return nil },
-			verify: func(string) error { return nil },
+		for _, flag := range usbRoleWrites(c.from) {
+			apply(flag)
 		}
-		if err := store.set(c.role); err == nil {
-			t.Fatalf("%s to %s: the change was expected to fail", c.oldFlag, c.role)
+		for step, flag := range usbRoleWrites(c.to) {
+			apply(flag)
+			if got := usbRoleFlags(dir); got == usbRoleGadget {
+				t.Fatalf("%s to %s: gadget after write %d", c.from, c.to, step+1)
+			}
 		}
-		if got := usbRoleFlags(dir); got == usbRoleGadget {
-			t.Fatalf("%s to %s: the flags left on disk select the gadget role", c.oldFlag, c.role)
+		if got := usbRoleFlags(dir); got != c.to {
+			t.Fatalf("%s to %s: ended as %s", c.from, c.to, got)
 		}
 	}
 }

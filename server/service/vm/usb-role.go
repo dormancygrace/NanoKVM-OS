@@ -49,6 +49,25 @@ func usbRoleFlags(dir string) string {
 	return usbRoleGadget
 }
 
+type usbFlagWrite struct {
+	name   string
+	exists bool
+}
+
+// usbRoleWrites is what selecting role does to the two flags, in order. The
+// flag of the new role is written before the other one is removed. A change
+// between host and off that is cut short then leaves both, and never
+// neither: the port stays unbound, where no flag would be the gadget role
+// with its keyboard and disk at the next boot.
+func usbRoleWrites(role string) []usbFlagWrite {
+	host := usbFlagWrite{usbHostFlag, role == usbRoleHost}
+	off := usbFlagWrite{usbOffFlag, role == usbRoleOff}
+	if off.exists {
+		return []usbFlagWrite{off, host}
+	}
+	return []usbFlagWrite{host, off}
+}
+
 type usbRoleStore struct {
 	dir     string
 	run     func(action string) error
@@ -71,18 +90,9 @@ func (store usbRoleStore) set(role string) error {
 			return err
 		}
 	}
-	// The flag of the new role is written before the other one is removed.
-	// A change between host and off that is cut short then leaves both, and
-	// never neither: the port stays unbound, where no flag would be the
-	// gadget role with its keyboard and disk at the next boot.
 	write := func(role string) error {
-		flags := []string{usbHostFlag, usbOffFlag}
-		if role == usbRoleOff {
-			flags = []string{usbOffFlag, usbHostFlag}
-		}
-		for _, name := range flags {
-			want := name == usbHostFlag && role == usbRoleHost || name == usbOffFlag && role == usbRoleOff
-			if err := writeUSBFile(filepath.Join(store.dir, name), usbFileSnapshot{exists: want, mode: 0o644}); err != nil {
+		for _, flag := range usbRoleWrites(role) {
+			if err := writeUSBFile(filepath.Join(store.dir, flag.name), usbFileSnapshot{exists: flag.exists, mode: 0o644}); err != nil {
 				return err
 			}
 		}

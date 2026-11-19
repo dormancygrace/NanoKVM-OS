@@ -21,7 +21,7 @@ require (
 	github.com/pion/srtp/v3 v3.1.3
 	github.com/pion/transport/v5 v5.1.5
 	github.com/pion/webrtc/v4 v4.2.26
-	github.com/rs/cors/wrapper/gin v0.0.0-20261101222852-7ca5fe28f7d5
+	github.com/rs/cors/wrapper/gin v0.0.0-20261119124737-ae205904e3ce
 	github.com/sirupsen/logrus v1.10.2
 	golang.org/x/crypto v0.59.0
 	golang.org/x/net v0.62.0

@@ -50,7 +50,7 @@ export const ScreenPreview = () => {
           setStale(false);
           setPreview(rsp.data);
           // no picture yet (the capture was just switched on): ask again soon
-          if (rsp.data.state !== 'ok' && rsp.data.state !== 'in-use') {
+          if (rsp.data.state !== 'ok') {
             retry = window.setTimeout(read, soon);
           }
         })
@@ -77,15 +77,7 @@ export const ScreenPreview = () => {
         ? tr(stale ? 'unavailable' : 'loading')
         : preview.state === 'ok'
           ? ''
-          : tr(
-              preview.state === 'no-signal'
-                ? 'noSignal'
-                : preview.state === 'blocked'
-                  ? 'blocked'
-                  : preview.state === 'in-use'
-                    ? 'inUse'
-                    : 'unavailable'
-            );
+          : tr(preview.state === 'no-signal' ? 'noSignal' : 'unavailable');
 
   return (
     <Panel className="flex flex-col gap-3">
@@ -140,9 +132,9 @@ export const ScreenPreview = () => {
           {t('capture.failed')}
         </span>
       )}
-      {picture && (stale || preview?.held) && (
+      {picture && stale && (
         <span role="status" className="text-fg-muted text-xs">
-          {tr(stale ? 'stale' : 'held')}
+          {tr('stale')}
         </span>
       )}
     </Panel>

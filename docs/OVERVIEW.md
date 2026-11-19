@@ -58,8 +58,7 @@ one.
   page is open.
 
 The overview takes no part in the video: it starts no stream, takes no input
-and is not counted in the active video sessions. The picture is taken like a
-screenshot, at most once in five seconds however many browsers have the page
+and is not counted in the active video sessions. The picture is taken at most once in five seconds however many browsers have the page
 open, and only while a page is visible.
 
 A panel is there for what is in use. With the capture switched off the
@@ -68,20 +67,10 @@ move into their place. The **Capture** switch turns it on and off; the
 overview does not switch the capture on by itself. The VPN panel is shown with
 an installed VPN, and a network interface that is switched off has no panel.
 
-A 3840 × 2160 input has no still picture (MJPEG is not available at that
-size); the screen opens as usual.
-
-While someone has the remote console open, or a video session is starting, no
-new picture is taken: a still of its own size can make the capture set an
-output up again, and with it the video encoder of that session. The overview
-keeps the last picture and says that it is not renewed, or, without an earlier
-one, that the screen is open in a video session. A picture that could not be
-renewed for another reason (the device does not answer) is marked as possibly
-out of date.
-
-With frame detection on, a screen that does not change gives no new frame: the
-last picture is what it shows, and it stays. "No video signal" is shown only
-when the device reports no signal.
+The picture is renewed next to a video session as well. It is taken from a
+scaler channel of its own, set up for the one picture: the outputs the video
+reads and its encoder are not touched. A picture that could not be renewed
+(the device does not answer) is marked as possibly out of date.
 
 From the remote screen, the **Overview** button of the menu bar leads back.
 
@@ -125,4 +114,4 @@ there), `/#/screen` and `/#/settings/<page>`.
 | --- | --- | --- |
 | `GET /api/branding` | anyone | includes `startPage`: `overview` or `screen` |
 | `POST /api/branding/start-page` `{"page": "overview"}` | administrator | saves the start page |
-| `GET /api/vm/screen/preview` | signed in | `state` (`ok`, `disabled`, `no-signal`, `blocked`, `in-use`, `unavailable`) and, with `ok`, a JPEG of at most 640 × 360 as base64 in `jpeg`; `held` when it is an earlier picture kept while a video session is open |
+| `GET /api/vm/screen/preview` | signed in | `state` (`ok`, `disabled`, `no-signal`, `unavailable`) and, with `ok`, a JPEG of at most 640 × 360 as base64 in `jpeg` |

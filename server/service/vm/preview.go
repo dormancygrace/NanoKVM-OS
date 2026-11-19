@@ -1,8 +1,13 @@
 package vm
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"NanoKVM-Server/common"
-	"NanoKVM-Server/internal/videogate"
 	"NanoKVM-Server/proto"
 )
 
@@ -19,14 +23,10 @@ import (
 // capture lease as a screenshot is: it starts no stream and counts as no
 // viewer, and it does not switch on a capture that was switched off.
 //
-// A still of its own size can make the capture set an output up again, and
-// with it the encoder of a video session. Which outputs a session and a
-// still share depends on the codec, the chroma the capture really uses and
-// the sizes, so no picture is taken while anyone watches: the last one is
-// shown, marked as held. The preview is background work behind the video
-// gate. It does not start while video holds the gate, and a viewer that
-// arrives while it reads ends it and waits for that before it wakes the
-// capture or sets up an encoder.
+// The picture comes from the VPSS channel that serves pictures of the
+// screen (ReadBGRScaled), scaled there and made a JPEG here. The outputs a
+// video session reads and its encoder are not touched, so it is taken next
+// to a session as well.
 const (
 	previewMaxWidth  = 640
 	previewMaxHeight = 360
@@ -36,10 +36,8 @@ const (
 	// just switched on has one in a moment
 	previewRetryAge = time.Second
 	previewTimeout  = 4 * time.Second
-	previewAttempts = 10
-	previewRetry    = 100 * time.Millisecond
-	// ReadMjpeg: with frame detection on, the picture did not change
-	previewUnchanged = 5
+	previewAttempts = 6
+	previewRetry    = 200 * time.Millisecond
 )
 
 // Preview states.
@@ -47,9 +45,7 @@ const (
 	previewOK          = "ok"
 	previewDisabled    = "disabled"    // the capture is switched off
 	previewNoSignal    = "no-signal"   // nothing on the HDMI input
-	previewBlocked     = "blocked"     // a 3840x2160 input has no JPEG
-	previewInUse       = "in-use"      // a video session is open and there is no earlier picture
-	previewUnavailable = "unavailable" // the capture did not give a frame
+	previewUnavailable = "unavailable" // the capture did not give a picture
 )
 
 type screenPreview struct {
@@ -57,19 +53,13 @@ type screenPreview struct {
 	JPEG   string `json:"jpeg,omitempty"` // base64
 	Width  int    `json:"width,omitempty"`
 	Height int    `json:"height,omitempty"`
-	// Held: the picture is an earlier one, not renewed while a video session
-	// is open.
-	Held bool `json:"held,omitempty"`
 }
 
 var preview struct {
 	sync.Mutex
 	last screenPreview
 	at   time.Time
-	// the last picture of this capture: what an unchanged screen still
-	// shows, and what is held while a video session is open
-	picture screenPreview
-	// the switching of the capture last and picture belong to
+	// the switching of the capture that last belongs to
 	capture uint64
 }
 
@@ -82,29 +72,10 @@ func previewCaptureSwitched() { previewCapture.Add(1) }
 
 var (
 	previewLease = AcquireHdmiCaptureLeaseForRead
-	previewRead  = func(width, height, quality uint16) ([]byte, int) {
-		return common.GetKvmVision().ReadMjpeg(width, height, quality)
+	previewRead  = func(width, height int) ([]byte, error) {
+		return common.GetKvmVision().ReadBGRScaled(width, height)
 	}
-	previewScreen = func() (uint16, uint16) {
-		common.CheckScreen()
-		screen := common.GetScreen()
-		return screen.Width, screen.Height
-	}
-	previewViewers = func() int { return hdmiState().ViewerCount }
-	previewBegin   = videogate.Begin
-	previewSignal  = func() bool { return getHdmiSignal() }
-	// previewPauseDetect switches frame detection off for a read that has
-	// to give a picture, and returns what puts the saved choice back.
-	previewPauseDetect = func() func() {
-		if !common.FrameDetectEnabled() {
-			return func() {}
-		}
-		vision := common.GetKvmVision()
-		vision.SetFrameDetect(0)
-		return func() {
-			vision.SetFrameDetect(common.FrameDetectFrames(common.FrameDetectEnabled()))
-		}
-	}
+	previewInput = common.CaptureInputSize
 )
 
 // ScreenPreview is GET /api/vm/screen/preview.
@@ -120,14 +91,10 @@ func screenPreviewNow(ctx context.Context) screenPreview {
 	capture := previewCapture.Load()
 	if preview.capture != capture {
 		preview.capture = capture
-		preview.picture = screenPreview{}
 		preview.last = screenPreview{}
 	}
 	if isHdmiDisabled() {
 		return screenPreview{State: previewDisabled}
-	}
-	if previewViewers() > 0 {
-		return heldScreenPreview()
 	}
 	maxAge := previewMaxAge
 	if preview.last.State != previewOK {
@@ -136,108 +103,97 @@ func screenPreviewNow(ctx context.Context) screenPreview {
 	if preview.last.State != "" && time.Since(preview.at) < maxAge {
 		return preview.last
 	}
-	work, end, ok := previewBegin(ctx)
-	if !ok {
-		// A video session is starting, or other background work has the
-		// capture: the picture there is, for now.
-		if previewViewers() > 0 {
-			return heldScreenPreview()
-		}
-		if preview.picture.State == previewOK {
-			return preview.picture
-		}
-		return screenPreview{State: previewUnavailable}
-	}
-	read, cancel := context.WithTimeout(work, previewTimeout)
-	taken := takeScreenPreview(read)
+	ctx, cancel := context.WithTimeout(ctx, previewTimeout)
+	taken := takeScreenPreview(ctx)
 	cancel()
-	// ended by video that took the gate: what it read is not kept
-	yielded := work.Err() != nil
-	end()
-	if yielded || previewCapture.Load() != capture {
-		return heldScreenPreview()
+	// switched while it was read: the picture may be of the screen before
+	if previewCapture.Load() != capture {
+		return screenPreview{State: previewUnavailable}
 	}
 	preview.last = taken
 	preview.at = time.Now()
 	return preview.last
 }
 
-// heldScreenPreview is the answer while a video session is open. preview is
-// locked.
-func heldScreenPreview() screenPreview {
-	if preview.picture.State != previewOK {
-		return screenPreview{State: previewInUse}
-	}
-	held := preview.picture
-	held.Held = true
-	return held
-}
-
 // takeScreenPreview reads one picture. preview is locked.
 func takeScreenPreview(ctx context.Context) screenPreview {
-	width, height := previewSize(previewScreen())
 	release, claimFresh, err := previewLease(ctx)
 	if err != nil {
 		return screenPreview{State: previewUnavailable}
 	}
 	defer release()
-	restoreDetect := func() {}
-	defer func() { restoreDetect() }()
-	paused := false
-	for attempt := 0; attempt < previewAttempts; attempt++ {
-		// Before every read: video that takes the gate cancels ctx and waits
-		// for this to return.
-		if ctx.Err() != nil {
-			return screenPreview{State: previewUnavailable}
-		}
-		data, result := previewRead(width, height, previewQuality)
+	for attempt := 0; attempt < previewAttempts && ctx.Err() == nil; attempt++ {
+		// read again every time: a new input size makes the last one stale
+		width, height := previewSize(previewInput())
+		planes, err := previewRead(width, height)
 		switch {
-		case result == common.MjpegBlockedResult:
-			preview.picture = screenPreview{}
-			return screenPreview{State: previewBlocked}
-		case result == previewUnchanged:
-			// the screen is what the last picture shows
-			if preview.picture.State == previewOK {
-				return preview.picture
-			}
-			// no picture to show yet: read one without the detection
-			if !paused {
-				paused = true
-				restoreDetect = previewPauseDetect()
-				continue
-			}
-		case result >= 0 && len(data) > 0:
-			// the first frame after a wake is the one from before it
+		case err == nil:
+			// the first picture after a wake is the one from before it
 			if claimFresh != nil && claimFresh() {
 				claimFresh = nil
 				continue
 			}
-			preview.picture = screenPreview{
+			data, err := previewJPEG(planes, width, height)
+			if err != nil {
+				return screenPreview{State: previewUnavailable}
+			}
+			return screenPreview{
 				State:  previewOK,
 				JPEG:   base64.StdEncoding.EncodeToString(data),
-				Width:  int(width),
-				Height: int(height),
+				Width:  width,
+				Height: height,
 			}
-			return preview.picture
+		case errors.Is(err, common.ErrPlanarPictureNoSignal):
+			return screenPreview{State: previewNoSignal}
+		case errors.Is(err, common.ErrPlanarPictureTimeout),
+			errors.Is(err, common.ErrPlanarCaptureNotReady),
+			errors.Is(err, common.ErrPlanarInputChanged):
+			// worth another try
+		default:
+			return screenPreview{State: previewUnavailable}
 		}
 		select {
 		case <-ctx.Done():
 		case <-time.After(previewRetry):
 		}
 	}
-	// no frame: without a signal that is the reason, and the last picture is
-	// of a screen that is gone
-	if !previewSignal() {
-		preview.picture = screenPreview{}
-		return screenPreview{State: previewNoSignal}
-	}
 	return screenPreview{State: previewUnavailable}
 }
 
-// previewSize fits the stream size into the preview bounds, keeping its
-// shape, with even sides as the encoder wants them.
-func previewSize(width, height uint16) (uint16, uint16) {
-	w, h := int(width), int(height)
+// previewJPEG makes a JPEG of B, G and R planes. The colour is halved both
+// ways (4:2:0), each sample the mean of its four pixels.
+func previewJPEG(planes []byte, width, height int) ([]byte, error) {
+	n := width * height
+	if width < 2 || height < 2 || width%2 != 0 || height%2 != 0 || len(planes) < 3*n {
+		return nil, errors.New("not a picture")
+	}
+	b, g, r := planes[:n], planes[n:2*n], planes[2*n:3*n]
+	img := image.NewYCbCr(image.Rect(0, 0, width, height), image.YCbCrSubsampleRatio420)
+	for y := 0; y < height; y += 2 {
+		for x := 0; x < width; x += 2 {
+			var sr, sg, sb int
+			for _, at := range [4]int{y*width + x, y*width + x + 1, (y+1)*width + x, (y+1)*width + x + 1} {
+				luma, _, _ := color.RGBToYCbCr(r[at], g[at], b[at])
+				img.Y[at/width*img.YStride+at%width] = luma
+				sr, sg, sb = sr+int(r[at]), sg+int(g[at]), sb+int(b[at])
+			}
+			_, cb, cr := color.RGBToYCbCr(uint8((sr+2)/4), uint8((sg+2)/4), uint8((sb+2)/4))
+			at := y/2*img.CStride + x/2
+			img.Cb[at], img.Cr[at] = cb, cr
+		}
+	}
+	var out bytes.Buffer
+	if err := jpeg.Encode(&out, img, &jpeg.Options{Quality: previewQuality}); err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
+}
+
+// previewSize fits the input size into the preview bounds, keeping its
+// shape, with even sides as VPSS and the JPEG want them. A picture is never
+// larger than the input.
+func previewSize(width, height int) (int, int) {
+	w, h := width, height
 	if w <= 0 || h <= 0 {
 		return previewMaxWidth, previewMaxHeight
 	}
@@ -249,12 +205,5 @@ func previewSize(width, height uint16) (uint16, uint16) {
 		w = w * previewMaxHeight / h
 		h = previewMaxHeight
 	}
-	w, h = w&^1, h&^1
-	if w < 2 {
-		w = 2
-	}
-	if h < 2 {
-		h = 2
-	}
-	return uint16(w), uint16(h)
+	return max(w&^1, 16), max(h&^1, 16)
 }

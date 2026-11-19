@@ -186,10 +186,7 @@
       "openScreen": "Open the remote console",
       "loading": "Getting a picture…",
       "noSignal": "No video signal",
-      "blocked": "No preview at 3840 × 2160",
       "unavailable": "No picture right now",
-      "inUse": "The screen is open in a video session",
-      "held": "The screen is open in a video session: this picture is from before it and is not renewed.",
       "stale": "The picture could not be renewed and may be out of date."
     }
   },

@@ -47,6 +47,11 @@ package common
             (int (*)(unsigned short, unsigned short, unsigned char *, unsigned int))dlsym(RTLD_DEFAULT, "kvmv_read_bgr_planar");
         return fn ? fn(width, height, out, size) : -9;
     }
+    static int read_bgr_scaled(unsigned short width, unsigned short height, unsigned char *out, unsigned int size) {
+        int (*fn)(unsigned short, unsigned short, unsigned char *, unsigned int) =
+            (int (*)(unsigned short, unsigned short, unsigned char *, unsigned int))dlsym(RTLD_DEFAULT, "kvmv_read_bgr_scaled");
+        return fn ? fn(width, height, out, size) : -9;
+    }
 */
 import "C"
 import (
@@ -307,13 +312,33 @@ func (k *KvmVision) SetCaptureParked(parked bool) int {
 // height (even, at most 1920 wide) as B, G and R planes, the TPU models' input
 // layout. The capture must run: hold a capture lease while reading.
 func (k *KvmVision) ReadBGRPlanar(width, height int) ([]byte, error) {
+	return k.readBGR(width, height, false)
+}
+
+// ReadBGRScaled returns the whole screen scaled down by VPSS to width x
+// height (even, no larger than the input) in the same layout, whatever the
+// input's size. It comes from a VPSS channel of its own: the outputs of the
+// video and their encoders are not touched. Hold a capture lease while
+// reading.
+func (k *KvmVision) ReadBGRScaled(width, height int) ([]byte, error) {
+	return k.readBGR(width, height, true)
+}
+
+func (k *KvmVision) readBGR(width, height int, scaled bool) ([]byte, error) {
 	k.mutex.RLock()
 	defer k.mutex.RUnlock()
 	if k.closed {
 		return nil, ErrPlanarPictureUnavailable
 	}
 	out := make([]byte, width*height*3)
-	switch result := C.read_bgr_planar(C.ushort(width), C.ushort(height), (*C.uchar)(unsafe.Pointer(&out[0])), C.uint(len(out))); result {
+	data, size := (*C.uchar)(unsafe.Pointer(&out[0])), C.uint(len(out))
+	var result C.int
+	if scaled {
+		result = C.read_bgr_scaled(C.ushort(width), C.ushort(height), data, size)
+	} else {
+		result = C.read_bgr_planar(C.ushort(width), C.ushort(height), data, size)
+	}
+	switch result {
 	case 0:
 		return out, nil
 	case -9:

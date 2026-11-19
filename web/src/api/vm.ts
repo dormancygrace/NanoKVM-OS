@@ -332,10 +332,8 @@ export function setHostname(hostname: string) {
 
 // get WebTitle
 export type ScreenPreview = {
-  state: 'ok' | 'disabled' | 'no-signal' | 'blocked' | 'in-use' | 'unavailable';
+  state: 'ok' | 'disabled' | 'no-signal' | 'unavailable';
   jpeg?: string; // base64
-  // an earlier picture, not renewed while a video session is open
-  held?: boolean;
   width?: number;
   height?: number;
 };

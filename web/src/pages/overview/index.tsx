@@ -56,21 +56,21 @@ export const Overview = () => {
     <div className="bg-page text-fg h-dvh overflow-y-auto">
       <Head title={t('overview.title')} />
       <header className="border-line sticky top-0 z-10 border-b bg-neutral-900">
-        <div className="mx-auto flex h-12 max-w-[1280px] items-center gap-3 px-4">
-          <img src={brandingFavicon(branding)} alt="" className="size-6 shrink-0" />
-          <span className="text-fg-strong truncate text-sm font-semibold">
+        <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-3 px-4">
+          <img src={brandingFavicon(branding)} alt="" className="size-8 shrink-0" />
+          <span className="text-fg-strong truncate text-lg font-semibold">
             {webTitle || 'NanoKVM OS'}
           </span>
           {admin && (
             <nav
               aria-label={t('overview.sections')}
-              className="ml-3 hidden min-w-0 items-center gap-1 overflow-x-auto md:flex"
+              className="ml-4 hidden min-w-0 items-center gap-1 overflow-x-auto md:flex"
             >
               {sections.map((section) => (
                 <button
                   key={section.tab}
                   type="button"
-                  className="nanokvm-button-base text-fg-muted hover:text-fg-strong cursor-pointer rounded px-2 py-1 text-sm whitespace-nowrap hover:bg-neutral-700/70"
+                  className="nanokvm-button-base text-fg hover:text-fg-strong cursor-pointer rounded px-2.5 py-1.5 text-sm whitespace-nowrap hover:bg-neutral-700/70"
                   onClick={() => openSettings(section.tab)}
                 >
                   {t(section.title)}

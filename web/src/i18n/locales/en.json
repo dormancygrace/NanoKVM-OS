@@ -191,6 +191,18 @@
     }
   },
   "dashboard": {
+    "recentEvents": "Recent events",
+    "ups": {
+      "state": "State",
+      "online": "On mains",
+      "onBattery": "On battery",
+      "lowBattery": "Battery low",
+      "charge": "Charge",
+      "runtime": "Runtime",
+      "minutes": "{{count}} min",
+      "load": "Load",
+      "model": "Model"
+    },
     "title": "Dashboard",
     "live": "Updates while this page is open",
     "stale": "Some information could not be refreshed. Showing the last available values.",

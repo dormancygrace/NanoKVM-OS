@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import type { LldpStatus, ServiceStatus, UpsStatus } from '@/api/extensions/netsvc.ts';
 import type { MemoryStatus } from '@/api/vm';
 import { formatDeviceTime, type DateTimeConfig } from '@/lib/date-time';
 import { getEncoderCodec } from '@/lib/encoder';
@@ -107,7 +108,29 @@ type Extras = {
   openvpn?: { available: boolean; profiles: Profile[] };
   tailscale?: { state: string; ip: string; name: string };
   netbird?: { state: string; ip: string; name: string };
+  ups?: UpsStatus;
+  lldp?: LldpStatus;
+  snmp?: ServiceStatus;
+  journal?: { entries: JournalEntry[] };
 };
+type JournalEntry = {
+  seq: number;
+  time: string;
+  severity: 'info' | 'warning' | 'critical';
+  title: string;
+};
+const journalTones = { info: 'neutral', warning: 'warning', critical: 'danger' } as const;
+// how many of the newest events the panel shows
+const recentEvents = 5;
+// The services of Settings > Services that are installed on request.
+const netServices = ['lldp', 'snmp', 'ups'] as const;
+// What a UPS says about itself (ups.status of Network UPS Tools): the first
+// of these flags it reports names its state.
+const upsStates = [
+  ['LB', 'lowBattery', 'danger'],
+  ['OB', 'onBattery', 'warning'],
+  ['OL', 'online', 'success']
+] as const;
 const bytes = (value?: number | null) => {
   if (value == null) return '—';
   const unit = value >= 1073741824 ? 'GiB' : 'MiB';
@@ -205,7 +228,14 @@ export const Dashboard = ({
             ['openvpn', '/api/extensions/openvpn/status'],
             ['tailscale', '/api/extensions/tailscale/status'],
             ['netbird', '/api/extensions/netbird/status'],
-            ['wireguard', '/api/extensions/wireguard/status']
+            ['wireguard', '/api/extensions/wireguard/status'],
+            ['ups', '/api/extensions/ups/status'],
+            ['lldp', '/api/extensions/lldp/status'],
+            ['snmp', '/api/extensions/snmp/status'],
+            [
+              'journal',
+              `/api/vm/journal?limit=${recentEvents}&lang=${encodeURIComponent(i18n.language)}`
+            ]
           );
         const results = await Promise.allSettled(
           paths.map(async ([key, url]) => [key, await read(url)] as const)
@@ -227,7 +257,7 @@ export const Dashboard = ({
       disposed = true;
       window.clearTimeout(timer);
     };
-  }, [admin]);
+  }, [admin, i18n.language]);
 
   const wireguardNames = new Map(
     extra.wireguard?.profiles.map((profile) => [profile.id, profile.name])
@@ -244,6 +274,20 @@ export const Dashboard = ({
           minutes: Math.floor((sys.uptime % 3600) / 60)
         });
   const size = (w?: number, h?: number) => (w && h ? `${w} × ${h}` : '—');
+  // A panel is there for what is in use: a UPS that is read, the services
+  // that are installed, events once there are any.
+  const upsValues =
+    extra.ups?.running && Object.keys(extra.ups.values).length > 0 ? extra.ups.values : undefined;
+  const upsFlags = upsValues?.['ups.status']?.split(' ') ?? [];
+  const upsState = upsStates.find(([flag]) => upsFlags.includes(flag));
+  const installedServices = netServices.filter((name) => extra[name]?.installed);
+  const events = extra.journal?.entries.slice(0, recentEvents) ?? [];
+  // The time of an event; with its date when it is a day or more old.
+  const eventTime = (time: string) => {
+    const at = new Date(time).getTime();
+    const old = !!sys && sys.now - at >= 24 * 3600 * 1000;
+    return formatDeviceTime(at, extra.time!.config, i18n.language, old);
+  };
   const state = (key: string) => t(`dashboard.states.${key}`, { defaultValue: key });
   const line = (label: string, value: ReactNode) => (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-1 py-1 sm:flex sm:flex-wrap sm:justify-between">
@@ -665,6 +709,90 @@ export const Dashboard = ({
               })}
             </div>,
             'vpn'
+          )}
+        {/* The UPS, once its driver reads one. */}
+        {upsValues &&
+          section(
+            t('settings.netServices.ups.title'),
+            <dl className="text-sm">
+              {line(
+                t('dashboard.ups.state'),
+                upsState ? (
+                  <StatusBadge tone={upsState[2]}>{t(`dashboard.ups.${upsState[1]}`)}</StatusBadge>
+                ) : (
+                  upsValues['ups.status']
+                )
+              )}
+              {upsValues['battery.charge'] &&
+                line(t('dashboard.ups.charge'), `${upsValues['battery.charge']} %`)}
+              {Number(upsValues['battery.runtime']) > 0 &&
+                line(
+                  t('dashboard.ups.runtime'),
+                  t('dashboard.ups.minutes', {
+                    count: Math.round(Number(upsValues['battery.runtime']) / 60)
+                  })
+                )}
+              {upsValues['ups.load'] && line(t('dashboard.ups.load'), `${upsValues['ups.load']} %`)}
+              {upsValues['device.model'] &&
+                line(t('dashboard.ups.model'), upsValues['device.model'])}
+            </dl>,
+            'services-ups'
+          )}
+        {/* The installed services, each a way to its page. */}
+        {installedServices.length > 0 &&
+          section(
+            t('settings.services.title'),
+            <div className="space-y-2 text-sm">
+              {installedServices.map((name) => {
+                const status = extra[name]!;
+                const neighbor = name === 'lldp' ? extra.lldp?.neighbors[0] : undefined;
+                return (
+                  <div key={name}>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        className="text-fg hover:text-info border-0! bg-transparent! !p-0 font-medium"
+                        onClick={() => navigate(`services-${name}`)}
+                      >
+                        {t(`settings.netServices.${name}.title`)}
+                      </button>
+                      <StatusBadge tone={status.running ? 'success' : 'neutral'}>
+                        {t(
+                          status.running
+                            ? 'settings.netServices.running'
+                            : 'settings.netServices.notRunning'
+                        )}
+                      </StatusBadge>
+                    </div>
+                    {neighbor && (
+                      <div className="text-fg-muted mt-1 text-xs break-words">
+                        {neighbor.name || t('settings.netServices.lldp.unnamed')}
+                        {neighbor.port
+                          ? ` · ${t('settings.netServices.lldp.port', { port: neighbor.port })}`
+                          : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        {events.length > 0 &&
+          section(
+            t('dashboard.recentEvents'),
+            <ul className="m-0 list-none space-y-2 p-0 text-sm">
+              {events.map((entry) => (
+                <li key={entry.seq} className="flex items-baseline justify-between gap-3">
+                  <StatusBadge tone={journalTones[entry.severity] ?? 'neutral'}>
+                    {entry.title}
+                  </StatusBadge>
+                  <span className="text-fg-muted shrink-0 text-xs">
+                    {extra.time ? eventTime(entry.time) : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>,
+            'system-events'
           )}
         {section(
           t('dateTime.title'),

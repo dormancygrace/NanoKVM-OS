@@ -62,9 +62,10 @@ func InstallCommunity(names ...string) error {
 
 // InstallOnly installs packages of the NanoKVM repositories and changes no
 // installed package: it refreshes the indexes, simulates the transaction and
-// refuses it when apk would upgrade, downgrade, replace or remove anything
-// else. A package that needs a later NanoKVM OS (nanokvm-os>=VERSION) would
-// otherwise upgrade the whole OS as a side effect of an install.
+// refuses it when apk would do anything but install names, so callers name
+// every package the installation brings. A package that needs a later
+// NanoKVM OS (nanokvm-os>=VERSION) would otherwise upgrade the whole OS as a
+// side effect of an install.
 func InstallOnly(names ...string) error {
 	if len(names) == 0 {
 		return errors.New("no APK package to install")
@@ -89,7 +90,7 @@ func InstallOnly(names ...string) error {
 		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
 	if changed := otherChanges(string(output), names); len(changed) > 0 {
-		return fmt.Errorf("installing %s would change installed packages (%s); update NanoKVM OS first",
+		return fmt.Errorf("installing %s would change other packages (%s); update NanoKVM OS first",
 			strings.Join(names, ", "), strings.Join(changed, ", "))
 	}
 	if output, runErr = apkrun.Command(ctx, "/sbin/apk", append([]string{"add", "--"}, names...)...).CombinedOutput(); runErr != nil {
@@ -98,21 +99,26 @@ func InstallOnly(names ...string) error {
 	return nil
 }
 
-// otherChanges: the packages outside names that an `apk add --simulate`
-// transcript upgrades, downgrades, replaces or removes, from lines such as
-// "(2/5) Upgrading nanokvm-base (4.2.0-r0 -> 4.3.0-r0)".
+// apkStep is a numbered change of an apk transcript, "(2/5) Upgrading
+// nanokvm-base (4.2.0-r0 -> 4.3.0-r0)"; apk pads the counter in long
+// transactions, "( 2/12)". It captures the verb and what follows it.
+var apkStep = regexp.MustCompile(`^\(\s*[0-9]+/[0-9]+\)\s+(\S+)\s*(.*)$`)
+
+// otherChanges: every numbered change of an `apk add --simulate` transcript
+// that is not the installation of one of names, as "verb package". Whatever
+// apk would do besides that is refused, also a verb this does not know: a
+// package that needs a later OS upgrades, replaces or removes others, and
+// the wording differs between apk-tools releases.
 func otherChanges(simulation string, names []string) []string {
 	var changed []string
 	for _, line := range strings.Split(simulation, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) < 3 || !strings.HasPrefix(fields[0], "(") {
+		m := apkStep.FindStringSubmatch(strings.TrimSpace(line))
+		if m == nil {
 			continue
 		}
-		switch fields[1] {
-		case "Upgrading", "Downgrading", "Replacing", "Purging", "Removing":
-			if !slices.Contains(names, fields[2]) {
-				changed = append(changed, fields[2])
-			}
+		name, _, _ := strings.Cut(m[2], " ")
+		if m[1] != "Installing" || !slices.Contains(names, name) {
+			changed = append(changed, strings.TrimSpace(m[1]+" "+name))
 		}
 	}
 	return changed
@@ -167,6 +173,16 @@ func Keep(name string) error {
 }
 
 var worldPath = "/etc/apk/world"
+
+// Selected reports whether the APK world names the package: whether it was
+// chosen, not only installed as another package's dependency.
+func Selected(name string) (bool, error) {
+	world, err := os.ReadFile(worldPath)
+	if err != nil {
+		return false, err
+	}
+	return selected(world, name), nil
+}
 
 // selected reports whether the world names the package, with or without a
 // version constraint, a repository tag or a file pin.

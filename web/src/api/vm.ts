@@ -104,12 +104,14 @@ export function setScreenTextEnabled(enabled: boolean) {
 }
 
 // Downloads or removes the models of a language: a download from the NanoKVM
-// add-on repository can take minutes on a slow link.
+// add-on repository can take minutes on a slow link. The server gives apk up
+// to 30 minutes; the page waits a little longer, so that it hears the
+// server's answer instead of giving up first.
 export function setScreenTextLanguage(language: string, installed: boolean) {
   return http.post<ScreenTextSettings>(
     '/api/vm/screen/text/language',
     { language, installed },
-    { timeout: 600000 }
+    { timeout: 35 * 60 * 1000 }
   );
 }
 

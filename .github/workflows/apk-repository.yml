@@ -113,6 +113,14 @@ jobs:
                 apk --root "$root" --arch riscv64 add --initdb --no-scripts
                 apk --root "$root" --arch riscv64 update
                 apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"
+                # A device without the add-on line (before nanokvm-base 3.5.0)
+                # reads only this index and Alpine main: the add-ons that
+                # nanokvm-release depends on must resolve from it alone.
+                # --simulate reads Alpine's index only from the cache: update first.
+                cp /usr/share/apk/keys/riscv64/*.pub "$root/etc/apk/keys/"
+                os_only="--repositories-file=/dev/null --repository=$repo/Packages.pending.adb --repository=https://dl-cdn.alpinelinux.org/alpine/$branch/main"
+                apk --root "$root" --arch riscv64 $os_only update
+                apk --root "$root" --arch riscv64 $os_only add --simulate nanokvm-release > /dev/null
                 # On a line of its own: a failure inside a for list would not stop the check.
                 addons=$(cd /scripts && python3 -c "import addon_packages; print(*addon_packages.ADDONS)")
                 base=$(cd /scripts && python3 -c "import addon_packages; print(*addon_packages.BASE)")

@@ -5,9 +5,10 @@ The newest eligible published OS release supplies each channel's core packages
 and legacy index. Stable excludes prereleases; beta includes stable and beta.
 Independent stable add-on releases form a repository of their own, one for
 both channels, whose v3 index Pages signs; they do not change the OS version
-or the latest SD image. The v3 OS indexes, which Pages makes and signs anew,
-also offer the add-on packages that nanokvm-release depends on
-(addon_packages.BASE).
+or the latest SD image. The OS folders also hold the retained versions of the
+add-on packages that nanokvm-release depends on (addon_packages.BASE), and
+the v3 OS indexes, which Pages makes and signs anew, offer the newest of each
+that the channel's OS packages satisfy (index-apk-repo.py).
 Newest means the highest vX.Y.Z (releases with other tags, from before that
 scheme, rank below, by publication time): a minor release published from its
 draft after a patch release must not replace the patch's indexes.
@@ -188,9 +189,10 @@ def checksums(text):
     return sums
 
 
-def index_packages(apkindex):
-    """{file name: size} from a v2 index. Its first gzip member, the signature,
-    is a tar without an end marker, so the members read as one tar stream."""
+def index_records(apkindex):
+    """The package records ({field letter: value}) of a v2 index. Its first
+    gzip member, the signature, is a tar without an end marker, so the members
+    read as one tar stream."""
     with tarfile.open(fileobj=io.BytesIO(gzip.decompress(apkindex)), mode='r|') as tar:
         for member in tar:
             if member.name == 'APKINDEX':
@@ -198,14 +200,19 @@ def index_packages(apkindex):
                 break
         else:
             raise ValueError('APKINDEX.tar.gz has no APKINDEX')
-    packages = {}
+    records = []
     for record in text.split('\n\n'):
         fields = dict(line.split(':', 1) for line in record.splitlines() if ':' in line)
         if 'P' in fields:
-            packages[f"{fields['P']}-{fields['V']}.apk"] = int(fields['S'])
-    if not packages:
+            records.append(fields)
+    if not records:
         raise ValueError('APKINDEX names no packages')
-    return packages
+    return records
+
+
+def index_packages(apkindex):
+    """{file name: size} from a v2 index."""
+    return {f"{r['P']}-{r['V']}.apk": int(r['S']) for r in index_records(apkindex)}
 
 
 def checked(release, name, sums, fetch=fetch, size=None):
@@ -296,17 +303,15 @@ def assemble(output, published, keep, branch, keys, fetch=fetch, channel='stable
             raise ValueError(f'No release carries {name}')
         (repo / name).write_bytes(checked(source, name, sums[source['tag_name']], fetch, size))
     # The packages nanokvm-release depends on that are published on their own
-    # are in this index as well, byte for byte as in the add-on repository: a
-    # device from before the add-on repository line (nanokvm-base 3.5.0) must
-    # resolve them to update at all. The newest version of each is enough for
-    # that and keeps the site small; other add-ons are only in that repository.
-    latest = {}
-    for name in base or {}:
-        match = ADDON_TAG.fullmatch(name.removesuffix('.apk'))
-        version = (tuple(map(int, match[2].split('.'))), int(match[3]))
-        if match[1] in addon_packages.BASE and (match[1] not in latest or version > latest[match[1]][0]):
-            latest[match[1]] = (version, name)
-    base = {name: base[name] for _, name in latest.values()}
+    # are here as well, byte for byte as in the add-on repository: a device
+    # from before the add-on repository line (nanokvm-base 3.5.0) must resolve
+    # them to update at all. Every retained version is copied (Pages keeps
+    # three of each), so a device whose index is a little old still finds the
+    # file it names; index-apk-repo.py indexes only the newest one this
+    # channel's OS packages can satisfy (nanokvm-os>=, bridge capabilities).
+    # Other add-ons are only in the add-on repository.
+    base = {name: item for name, item in (base or {}).items()
+            if (match := ADDON_TAG.fullmatch(name.removesuffix('.apk'))) and match[1] in addon_packages.BASE}
     for name, item in sorted(base.items()):
         (repo / name).write_bytes(addon_packages.checked(name, item, fetch, item['size']))
     (repo / 'addons.json').write_text(json.dumps({'packages': dict(sorted(base.items()))}, indent=2) + '\n')

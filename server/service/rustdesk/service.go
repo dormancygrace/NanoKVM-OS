@@ -378,6 +378,34 @@ func (s *Service) AcceptWebRTC() {
 	}()
 }
 
+// runlevelLink is the service's link in the default runlevel: Configure adds
+// it when RustDesk turns on and removes it when it turns off.
+var runlevelLink = "/etc/runlevels/default/" + Package
+
+// SwitchOffStale turns RustDesk off in its configuration, and nothing else,
+// when the configuration says on but is left from an add-on that was removed:
+// selected is false (the package was never chosen, see the caller), or the
+// service has no runlevel link, which the add-on's removal deleted. It runs
+// before anything reads the configuration (Monitor, AcceptWebRTC), which
+// would otherwise open the bridge and start the daemon with its old ID.
+func SwitchOffStale(selected bool) error {
+	if _, err := os.Stat(ConfigFile); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	c, err := readConfig()
+	if err != nil || !c.Enabled {
+		return err
+	}
+	if _, err = os.Lstat(runlevelLink); err == nil && selected {
+		return nil
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	c.Enabled = false
+	log.Infof("RustDesk: switched off the setting of the removed add-on")
+	return writeConfig(c)
+}
+
 func (s *Service) supportsAudioSettings() bool {
 	data, err := os.ReadFile(s.upstreamFile)
 	if err != nil {

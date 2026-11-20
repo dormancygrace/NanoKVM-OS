@@ -141,8 +141,9 @@ The repository has two indexes of the same abuild packages in `riscv64/`:
 - `Packages.adb`, the apk-tools v3 index, the same core packages on Pages.
 
 Add-ons have a repository of their own (below). Pages makes the v3 index anew
-and adds the newest version of the add-ons `nanokvm-release` depends on
-(`BASE` in `scripts/addon_packages.py`); the v2 index has core packages only.
+and adds, of each add-on `nanokvm-release` depends on (`BASE` in
+`scripts/addon_packages.py`), the newest version the channel's OS packages
+satisfy; the v2 index has core packages only.
 
 From v3.4.0 both indexes and every newly built core APK are signed only with
 ECDSA. APK v2 retains the historical `.SIGN.RSA256.<public-key-name>` marker:
@@ -172,7 +173,7 @@ Add-ons are in a repository of their own, one for both channels:
 `https://dormancygrace.github.io/NanoKVM-OS/addons/v3.24/riscv64/Packages.adb`.
 Devices read it from `/etc/apk/repositories.d/nanokvm-addons.list`, a file of
 `nanokvm-base` (from 3.5.0), so the update channel, which rewrites the OS line
-of `/etc/apk/repositories`, leaves it alone. It holds the newest six releases
+of `/etc/apk/repositories`, leaves it alone. It holds the newest three releases
 of each add-on in `ADDONS` (`scripts/addon_packages.py`) and only a v3 index.
 An add-on states the first OS release it works with as `nanokvm-os>=VERSION`
 (firmware/alpine/packages/README.md).
@@ -181,8 +182,10 @@ An add-on states the first OS release it works with as `nanokvm-os>=VERSION`
 model (`BASE`) by name, so the image and every device have them, off until
 switched on; they keep their own versions and releases. The image build reads
 the add-on repository next to its own packages, and devices resolve them from
-it. Devices below 3.5.0 have no add-on line: the OS v3 indexes offer the
-newest version of each of the three too, so that such a device can update;
+it. Devices below 3.5.0 have no add-on line: the OS folders hold the
+retained versions of the three too, and their v3 indexes offer the newest
+one that the channel's OS release satisfies (its `nanokvm-os` minimum and
+the server capabilities it needs), so that such a device can update;
 other add-ons reach it after that update.
 
 ### Publishing a release
@@ -229,7 +232,7 @@ Stable excludes every prerelease (and beta tags even if mislabelled on GitHub).
 Beta selects the highest stable or beta version; the final release outranks its
 betas. Before the first beta it mirrors Stable. Each feed retains packages
 referenced by its six newest eligible releases. Neither includes add-ons
-other than the newest of `BASE`: both channels read the one add-on repository. The root latest-image badge stays stable; the
+other than those of `BASE`: both channels read the one add-on repository. The root latest-image badge stays stable; the
 `beta/latest-image/` page can also point to beta images.
 
 Release assembly compares package contents against the newest tested manifest

@@ -156,9 +156,16 @@ const screenTextDetectorPackage = "nanokvm-model-ocr"
 
 func screenTextPackage(lang string) string { return screenTextDetectorPackage + "-" + lang }
 
+// screenTextLanguageMutex: one language change at a time. Removing the last
+// language decides from the installed models whether the detector goes too;
+// two removals side by side would each see the other language and both
+// leave it. Not screenTextMutex: a download must not hold up reading.
+var screenTextLanguageMutex sync.Mutex
+
 // SetScreenTextLanguage installs or removes the models of one language
-// ({"language":"latin","installed":true}). Removing the last language also
-// removes the detector, which nothing else uses.
+// ({"language":"latin","installed":true}). Installing names the detector
+// too, as apkpkg.InstallOnly installs nothing it is not given; removing the
+// last language also removes the detector, which nothing else uses.
 func (s *Service) SetScreenTextLanguage(c *gin.Context) {
 	var rsp proto.Response
 	var req struct {
@@ -169,9 +176,11 @@ func (s *Service) SetScreenTextLanguage(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "a language and installed are required")
 		return
 	}
+	screenTextLanguageMutex.Lock()
+	defer screenTextLanguageMutex.Unlock()
 	var err error
 	if *req.Installed {
-		err = apkpkg.InstallOnly(screenTextPackage(req.Language))
+		err = apkpkg.InstallOnly(screenTextPackage(req.Language), screenTextDetectorPackage)
 	} else {
 		names := []string{screenTextPackage(req.Language)}
 		if !slices.ContainsFunc(screenTextLanguages, func(lang string) bool {

@@ -168,6 +168,25 @@ func reconcileHostSensors() {
 	}
 }
 
+// SwitchOffStaleHostSensors removes the mode, which is off then, when it is
+// left from the add-on nanokvm-host-sensors that was removed: selected is
+// false (the package was never chosen, see the caller). Called before
+// StartHostSensors, which would otherwise take the USB serial port, write the
+// helper disk or watch the computer for a mode nobody chose on this system.
+func SwitchOffStaleHostSensors(selected bool) error {
+	if selected {
+		return nil
+	}
+	if err := os.Remove(hostSensorsFile); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	log.Infof("host sensors: switched off the setting of the removed add-on")
+	return nil
+}
+
 // StartHostSensors applies the saved mode at the server's start and then
 // looks again every few seconds: a package update of the agents rebuilds the
 // helper disk without a server restart. A change of the mode applies at once

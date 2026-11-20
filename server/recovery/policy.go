@@ -21,7 +21,7 @@ var settings = strings.Fields(`
  etc/kvm/monitor_portrait_resolution etc/kvm/monitor_edid_sha256 etc/kvm/monitor_identity
  etc/kvm/shortcuts.json etc/kvm/server.yaml etc/kvm/ssh_stop etc/kvm/mdns_disabled
  etc/kvm/hevc_vi_direct etc/kvm/watermark.json etc/kvm/hdmi_disable etc/kvm/hdmi_idle_timeout etc/kvm/atx etc/kvm/screen-text-off
- etc/kvm/mcp.json etc/kvm/ai-control.mode etc/kvm/autostart.list
+ etc/kvm/mcp.json etc/kvm/ai-control.mode etc/kvm/autostart.list etc/kvm/host-sensors
  etc/kvm/wifi.ssid etc/kvm/wifi.pass etc/kvm/wifi.disabled etc/kvm/wifi.band_preference etc/kvm/wifi.country
  etc/kvm/wifi.ap.enabled etc/kvm/wifi.ap.ssid etc/kvm/wifi.ap.pass etc/kvm/wifi.ap.band etc/kvm/wifi.ap.channel
  etc/kvm/wifi.ap.hidden etc/kvm/wifi.ap.subnet etc/kvm/wifi.ap.internet etc/kvm/wifi.ap.dns

@@ -9,7 +9,9 @@ import (
 	"NanoKVM-Server/middleware"
 	"NanoKVM-Server/recovery"
 	"NanoKVM-Server/service/controlmode"
+	"NanoKVM-Server/service/extensions/apkpkg"
 	"NanoKVM-Server/service/picoclaw"
+	"NanoKVM-Server/service/rustdesk"
 	"NanoKVM-Server/service/storage"
 	"NanoKVM-Server/service/vm"
 
@@ -93,7 +95,46 @@ func web(r *gin.Engine) {
 	r.Use(staticFiles(webPath))
 }
 
+// addonSettingsChecked records that switchOffRemovedAddons has run once.
+var addonSettingsChecked = "/etc/kvm/addon-settings-checked"
+
+// switchOffRemovedAddons runs once, at the first start of a system on which
+// RustDesk and the computer sensors are part of every NanoKVM OS. Before,
+// they were add-ons, and removing one stopped it but left its setting on.
+// The APK world tells whether the user had installed it: apk writes there
+// what is installed by name, never a package that comes in as a dependency
+// of nanokvm-release. A package the world does not name was not installed
+// before this system brought it, so a setting it has is left from a removed
+// add-on and is switched off. The routers below read these settings.
+func switchOffRemovedAddons() {
+	if _, err := os.Stat(addonSettingsChecked); err == nil {
+		return
+	}
+	rustdeskChosen, err := apkpkg.Selected(rustdesk.Package)
+	if err != nil {
+		log.Errorf("removed add-on settings: %v", err)
+		return
+	}
+	sensorsChosen, err := apkpkg.Selected("nanokvm-host-sensors")
+	if err != nil {
+		log.Errorf("removed add-on settings: %v", err)
+		return
+	}
+	if err = rustdesk.SwitchOffStale(rustdeskChosen); err != nil {
+		log.Errorf("removed add-on settings: RustDesk: %v", err)
+		return
+	}
+	if err = vm.SwitchOffStaleHostSensors(sensorsChosen); err != nil {
+		log.Errorf("removed add-on settings: host sensors: %v", err)
+		return
+	}
+	if err = os.WriteFile(addonSettingsChecked, nil, 0o644); err != nil {
+		log.Errorf("removed add-on settings: %v", err)
+	}
+}
+
 func server(r *gin.Engine) {
+	switchOffRemovedAddons()
 	control := controlmode.GetManager()
 	picoclawService := picoclaw.NewService(control)
 	storageService := storage.NewService()

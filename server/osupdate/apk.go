@@ -71,19 +71,49 @@ func readInstalledDB() (map[string]string, []string, error) {
 	return maps.Clone(c.versions), slices.Clone(c.releaseCore), nil
 }
 
-// MissingPackages lists the named packages that are not installed.
-func MissingPackages(names ...string) ([]string, error) {
-	installed, _, err := readInstalledDB()
+// PackageState sorts the named packages into those that are not installed and
+// those apk recorded as broken. A package whose files could not be extracted
+// or whose install script failed stays in the installed database, with "f"
+// (files) or "s" (script) on its f: line, until `apk fix` installs it again:
+// these are the flags on which apk fails the transaction and which `apk fix`
+// repairs. "x" (extended attributes) and "S" (checksum kind) do not count.
+func PackageState(names ...string) (missing, broken []string, err error) {
+	data, err := os.ReadFile(installedDBPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var missing []string
+	healthy := installedHealth(string(data))
 	for _, name := range names {
-		if _, ok := installed[name]; !ok {
+		ok, installed := healthy[name]
+		switch {
+		case !installed:
 			missing = append(missing, name)
+		case !ok:
+			broken = append(broken, name)
 		}
 	}
-	return missing, nil
+	return missing, broken, nil
+}
+
+// installedHealth maps every installed package to whether apk installed it
+// completely.
+func installedHealth(data string) map[string]bool {
+	healthy := map[string]bool{}
+	name := ""
+	for _, line := range strings.Split(data, "\n") {
+		switch {
+		case line == "":
+			name = ""
+		case strings.HasPrefix(line, "P:"):
+			name = line[2:]
+			healthy[name] = true
+		case strings.HasPrefix(line, "f:") && name != "":
+			if strings.ContainsAny(line[2:], "fs") {
+				healthy[name] = false
+			}
+		}
+	}
+	return healthy
 }
 
 func parseInstalledDB(data string) (map[string]string, []string) {

@@ -3,8 +3,11 @@ package apkpkg
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"NanoKVM-Server/osupdate"
@@ -20,8 +23,9 @@ import (
 // updated from a release without them gets them here instead.
 var basePackages = []string{"lldpd", "lldpd-openrc", "net-snmp", "net-snmp-openrc", "nut", "nut-openrc", "openvpn"}
 
-// baseMarker records that every base package was installed once. A package
-// removed on the Software page after that stays removed.
+// baseMarker records that every base package was installed once, complete and
+// selected in the APK world. A package removed on the Software page after
+// that stays removed.
 const baseMarker = "/etc/kvm/base-packages"
 
 // The first attempt waits for the start to settle; a failed one is repeated
@@ -64,19 +68,66 @@ func EnsureBasePackages(ctx context.Context) {
 	}
 }
 
+// installBase writes the marker only when every base package is installed,
+// complete and selected, as read back after the transaction: a failed
+// extraction or install script can leave a package recorded but broken, and
+// that is repaired on the next attempt.
 func installBase() error {
-	missing, err := osupdate.MissingPackages(basePackages...)
+	fix, add, err := baseWork()
 	if err != nil {
 		return err
 	}
-	if len(missing) > 0 {
-		if err = installCommunity(true, missing); err != nil {
+	if len(fix)+len(add) > 0 {
+		if err = installCommunity(true, fix, add); err != nil {
 			return err
 		}
-		log.Infof("base packages installed: %v", missing)
+		if fix, add, err = baseWork(); err != nil {
+			return err
+		}
+		if len(fix)+len(add) > 0 {
+			return fmt.Errorf("not installed completely: %s", strings.Join(append(fix, add...), ", "))
+		}
+		log.Infof("base packages installed")
 	}
 	if err = os.MkdirAll(filepath.Dir(baseMarker), 0o755); err != nil {
 		return err
 	}
 	return os.WriteFile(baseMarker, nil, 0o644)
+}
+
+func baseWork() (fix, add []string, err error) {
+	missing, broken, err := osupdate.PackageState(basePackages...)
+	if err != nil {
+		return nil, nil, err
+	}
+	world, err := os.ReadFile(worldPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	fix, add = basePlan(missing, broken, world)
+	return fix, add, nil
+}
+
+// basePlan: the base packages to reinstall with `apk fix` and those to select
+// with `apk add`. A package installed only as a dependency of another one is
+// not in the world, and apk would remove it with that one; `apk add` of an
+// installed package only adds it to the world. A package the world already
+// names, with a version constraint, a repository tag or a file pin, keeps
+// that entry: when it is not installed, `apk fix` installs it as the world
+// asks. A package the world excludes (!name) stays out.
+func basePlan(missing, broken []string, world []byte) (fix, add []string) {
+	worldEntries := strings.Fields(string(world))
+	for _, name := range basePackages {
+		if slices.Contains(worldEntries, "!"+name) {
+			continue
+		}
+		chosen := selected(world, name)
+		if !chosen {
+			add = append(add, name)
+		}
+		if slices.Contains(broken, name) || chosen && slices.Contains(missing, name) {
+			fix = append(fix, name)
+		}
+	}
+	return fix, add
 }

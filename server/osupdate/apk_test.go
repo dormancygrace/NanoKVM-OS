@@ -40,3 +40,25 @@ func TestPendingUpgradesRefreshesInstalledVersion(t *testing.T) {
 		t.Fatalf("pending: %s", got)
 	}
 }
+
+// A failed extraction or install script leaves the package recorded with
+// "f" or "s" on its f: line; a retry must see it as broken, not installed.
+func TestPackageStateReportsRecordedButBroken(t *testing.T) {
+	db := "C:Q1a=\nP:script\nV:1.0-r0\nf:s\n\n" +
+		"C:Q1b=\nP:files\nV:1.0-r0\nf:fS\n\n" +
+		"C:Q1c=\nP:complete\nV:1.0-r0\nf:S\n\n" +
+		"C:Q1d=\nP:plain\nV:1.0-r0\n"
+	if err := os.WriteFile(installedDBPath, []byte(db), 0600); err != nil {
+		t.Fatal(err)
+	}
+	missing, broken, err := PackageState("script", "files", "complete", "plain", "absent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(missing, ","); got != "absent" {
+		t.Fatalf("missing: %s", got)
+	}
+	if got := strings.Join(broken, ","); got != "script,files" {
+		t.Fatalf("broken: %s", got)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,17 +33,18 @@ func Run(action, name string) error {
 // installed together, after refreshing the indexes, under the same lock as
 // other package operations.
 func InstallCommunity(names ...string) error {
-	return installCommunity(false, names)
+	return installCommunity(false, nil, names)
 }
 
-// installCommunity is InstallCommunity; with alone, it refuses a transaction
-// that would upgrade, downgrade, replace or remove an installed package, so
-// that the install never carries part of an OS update.
-func installCommunity(alone bool, names []string) error {
-	if len(names) == 0 {
+// installCommunity is InstallCommunity that first reinstalls the fix packages
+// (`apk fix`). With alone, it refuses a transaction that would upgrade,
+// downgrade, replace or remove an installed package, so that the install
+// never carries part of an OS update; reinstalling a fix package is allowed.
+func installCommunity(alone bool, fix, names []string) error {
+	if len(fix)+len(names) == 0 {
 		return errors.New("no APK package to install")
 	}
-	for _, name := range names {
+	for _, name := range append(slices.Clone(fix), names...) {
 		if !packageName.MatchString(name) {
 			return errors.New("invalid APK package name")
 		}
@@ -60,38 +62,50 @@ func installCommunity(alone bool, names []string) error {
 	if output, runErr := apkrun.Command(ctx, "/sbin/apk", "update").CombinedOutput(); runErr != nil {
 		return fmt.Errorf("apk update failed: %s", tail(output))
 	}
-	add := append([]string{"add", "--"}, names...)
-	if alone {
-		output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{"add", "--simulate", "--"}, names...)...).CombinedOutput()
+	for _, step := range []struct {
+		applet string
+		names  []string
+	}{{"fix", fix}, {"add", names}} {
+		if len(step.names) == 0 {
+			continue
+		}
+		if alone {
+			output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{step.applet, "--simulate", "--"}, step.names...)...).CombinedOutput()
+			if runErr != nil {
+				return fmt.Errorf("apk %s failed: %s", step.applet, tail(output))
+			}
+			if changed := changedPackages(string(output), fix); len(changed) > 0 {
+				return fmt.Errorf("installing %s %w (%s)",
+					strings.Join(step.names, ", "), errChangesInstalled, strings.Join(changed, ", "))
+			}
+		}
+		output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{step.applet, "--"}, step.names...)...).CombinedOutput()
 		if runErr != nil {
-			return fmt.Errorf("apk add failed: %s", tail(output))
+			return fmt.Errorf("apk %s failed: %s", step.applet, tail(output))
 		}
-		if changed := changedPackages(string(output)); len(changed) > 0 {
-			return fmt.Errorf("installing %s %w (%s)",
-				strings.Join(names, ", "), errChangesInstalled, strings.Join(changed, ", "))
-		}
-	}
-	if output, runErr := apkrun.Command(ctx, "/sbin/apk", add...).CombinedOutput(); runErr != nil {
-		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
 	return nil
 }
 
 var errChangesInstalled = errors.New("would change installed packages")
 
-// changedPackages lists the packages of an apk simulation that are not new:
+// changedPackages lists the packages of an apk simulation that are neither
+// new nor a reinstall of a package to fix:
 // "(2/5) Upgrading busybox (1.37.0-r18 -> 1.37.0-r19)". apk pads the step
 // number to the width of the total: "( 2/12) Upgrading ...".
-func changedPackages(simulation string) []string {
+func changedPackages(simulation string, fix []string) []string {
 	var changed []string
 	for _, line := range strings.Split(simulation, "\n") {
 		step := strings.Index(line, ") ")
 		if !strings.HasPrefix(line, "(") || step < 0 {
 			continue
 		}
-		if fields := strings.Fields(line[step+2:]); len(fields) >= 2 && fields[0] != "Installing" {
-			changed = append(changed, fields[1])
+		fields := strings.Fields(line[step+2:])
+		if len(fields) < 2 || fields[0] == "Installing" ||
+			fields[0] == "Reinstalling" && slices.Contains(fix, fields[1]) {
+			continue
 		}
+		changed = append(changed, fields[1])
 	}
 	return changed
 }

@@ -134,11 +134,16 @@ resolves an update with the repository list it has before the update, so
 to `nanokvm-release`. On a device updated from a release without them, the
 post-upgrade script of `nanokvm-base` adds the `community` line, and the
 server installs the packages that are missing a few minutes after it starts,
-in the background, retrying until it succeeds. It refuses an installation
+in the background, retrying until it succeeds. A package already installed
+only as a dependency of another one is added to the APK world, so it stays
+when that one is removed; a world entry with a version constraint or a
+repository tag stays as it is, and a package the world excludes (`!name`)
+stays out. A package that apk recorded as broken (a failed extraction or
+install script) is reinstalled with `apk fix`. It refuses an installation
 that would change an installed package (that waits for the next OS update)
-and adds no service to a runlevel. Once all of them are installed, the server
-leaves the set alone: a package removed later on the Software page stays
-removed.
+and adds no service to a runlevel. Once all of them are installed, complete
+and selected, the server leaves the set alone: a package removed later on the
+Software page stays removed.
 
 ## Package publication and retention
 

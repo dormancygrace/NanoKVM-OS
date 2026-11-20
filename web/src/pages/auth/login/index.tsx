@@ -1,4 +1,4 @@
-import { ReactElement, useEffect, useRef, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { Button, Form, Input } from 'antd';
 import { useAtomValue } from 'jotai';
 import { KeyRoundIcon, LockIcon, UserIcon } from 'lucide-react';
@@ -21,7 +21,6 @@ export const Login = (): ReactElement => {
 
   const [isLoading, setIsloading] = useState(false);
   const [msg, setMsg] = useState('');
-  const logoRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     api
@@ -104,13 +103,6 @@ export const Login = (): ReactElement => {
       .finally(() => setIsloading(false));
   }
 
-  function spinLogo() {
-    const logo = logoRef.current;
-    if (!logo) return;
-    logo.classList.add('animate-spin');
-    setTimeout(() => logo.classList.remove('animate-spin'), 1000);
-  }
-
   return (
     <>
       <Head title={t('head.login')} />
@@ -159,17 +151,14 @@ export const Login = (): ReactElement => {
         ) : (
           <Form style={{ minWidth: 300, maxWidth: 500 }} onFinish={login}>
             <div className="flex flex-col items-center justify-center pb-4">
-              <button type="button" className="nanokvm-button-base max-w-full" onClick={spinLogo}>
-                <img
-                  ref={logoRef}
-                  id="logo"
-                  src={brandingLogo(branding, theme)}
-                  width={300}
-                  height={branding.customLogoAvailable ? 100 : 180}
-                  alt={branding.customLogoAvailable ? 'Logo' : 'NanoKVM OS'}
-                  className="block max-w-full object-contain"
-                />
-              </button>
+              <img
+                id="logo"
+                src={brandingLogo(branding, theme)}
+                width={300}
+                height={branding.customLogoAvailable ? 100 : 180}
+                alt={branding.customLogoAvailable ? 'Logo' : 'NanoKVM OS'}
+                className="block max-w-full object-contain"
+              />
             </div>
             <Form.Item
               name="username"

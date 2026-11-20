@@ -79,7 +79,13 @@ export function MenuTooltip({
 
   const side =
     placement ??
-    (context.mobilePlacement ? (context.mobilePlacement === 'right' ? 'left' : 'right') : 'bottom');
+    (context.mobilePlacement
+      ? context.mobilePlacement === 'bottom'
+        ? 'top'
+        : context.mobilePlacement === 'right'
+          ? 'left'
+          : 'right'
+      : 'bottom');
   const classNames = { root: overlayClassName ?? context.mobilePopoverClassName };
 
   if (!touch) {

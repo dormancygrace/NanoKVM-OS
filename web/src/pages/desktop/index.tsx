@@ -27,6 +27,7 @@ import {
 import { usbInputAtom } from '@/jotai/usb-input.ts';
 import { useDeviceTime } from '@/hooks/useDeviceTime.ts';
 import { useMediaQuery } from '@/hooks/useMediaQuery.ts';
+import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { Head } from '@/components/head.tsx';
 
 import { CaptureStatusOverlay, useCaptureStatus } from './capture-status';
@@ -121,6 +122,8 @@ export const Desktop = () => {
   // Load the device time format once for every displayed device time.
   useDeviceTime();
   const isBigScreen = useMediaQuery('(min-width: 850px)');
+  // An upright phone has the menu as a bar along the bottom (menu/index.tsx).
+  const phoneBar = useResponsiveDevice().isMobilePortrait;
   // The PicoClaw sidebar renders once, into a node of its own that the side
   // panel or the full-screen overlay adopts. Moving between them (a resize
   // across the breakpoint) or the video area remounting (a host resolution
@@ -423,7 +426,10 @@ export const Desktop = () => {
   }
 
   return (
-    <div className="h-dvh w-full overflow-hidden bg-neutral-950">
+    <div
+      className="h-dvh w-full overflow-hidden bg-black"
+      style={phoneBar ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' } : undefined}
+    >
       <Head title={t('head.desktop')} />
       {notifierHolder}
 

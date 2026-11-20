@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext } from 'react';
 
 export type MobileMenuItemContextValue = {
-  mobilePlacement?: 'left' | 'right';
+  mobilePlacement?: 'left' | 'right' | 'bottom';
   mobilePopoverClassName?: string;
   dismissMenuKey?: number;
   onRequestMobileMenuDismiss?: () => void;

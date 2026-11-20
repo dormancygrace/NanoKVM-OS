@@ -3,13 +3,12 @@ import { useAuth } from '@/contexts/auth.ts';
 import { Button, Divider } from 'antd';
 import clsx from 'clsx';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { ChevronDownIcon, ChevronUpIcon, GripVerticalIcon } from 'lucide-react';
+import { ChevronDownIcon, GripVerticalIcon } from 'lucide-react';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { useTranslation } from 'react-i18next';
 
 import { getRuntimeStatus } from '@/api/picoclaw.ts';
 import { subscribeLiveStatus } from '@/lib/live-status.ts';
-import { clampMobileMenuTop, MobileMenuEdge } from '@/lib/mobile-layout.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { atxEnabledAtom, atxLocalChange } from '@/jotai/atx.ts';
 import { isKeyboardOpenAtom } from '@/jotai/keyboard.ts';
@@ -23,7 +22,6 @@ import {
 } from '@/jotai/settings.ts';
 import { useMenuBounds } from '@/hooks/useMenuBounds.ts';
 import { useMenuVisibility } from '@/hooks/useMenuVisibility.ts';
-import { useMobileMenuPlacement } from '@/hooks/useMobileMenuPlacement.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { useUsbAudio } from '@/hooks/useUsbAudio.ts';
 import { useUsbInput } from '@/hooks/useUsbInput.ts';
@@ -67,9 +65,6 @@ function lazyItem(key: string, item: ReactNode, placeholder: ReactNode = <Toolba
   );
 }
 
-const mobileRailToggleButtonClass =
-  'flex! size-[40px]! min-w-[40px]! touch-manipulation items-center! justify-center! !p-0 text-neutral-300 transition-colors hover:!bg-neutral-700/80 hover:!text-fg-strong active:!bg-neutral-600/70';
-
 const mobileMenuPopoverClassName = 'nanokvm-mobile-menu-popover';
 
 type MenuVariant = 'desktop' | 'mobile';
@@ -112,7 +107,6 @@ export const Menu = () => {
   }, [picoclawStatus?.installed, setPicoclawOpen]);
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
   const isKeyboardOpen = useAtomValue(isKeyboardOpenAtom);
-  const mobileRailRef = useRef<HTMLDivElement | null>(null);
 
   const menuDisabledItems = useAtomValue(menuDisabledItemsAtom);
   // The power button needs ATX power control on (System > Device). The shared
@@ -131,8 +125,6 @@ export const Menu = () => {
   const menuCloseSignal = useAtomValue(menuCloseSignalAtom);
   const isKeyboardLedStatusVisible = useAtomValue(keyboardLedStatusVisibleAtom);
   const isHostLedStatusVisible = useAtomValue(hostLedStatusVisibleAtom);
-  const [isMobileRailCollapsed, setIsMobileRailCollapsed] = useState(false);
-  const [mobileRailOffset, setMobileRailOffset] = useState({ x: 0, y: 0 });
   const [dismissMenuKey, setDismissMenuKey] = useState(0);
 
   const {
@@ -149,12 +141,11 @@ export const Menu = () => {
   const menuBounds = useMenuBounds(nodeRef, isMenuExpanded, !isMobileRailActive);
   const isTouchLandscapeMenu =
     responsiveDevice.isTouchLikeDevice && responsiveDevice.isLandscapeViewport;
-  const { placement, updatePlacement } = useMobileMenuPlacement();
   const showKeyboardLedStatus = usbInput.keyboard && isKeyboardLedStatusVisible;
   // The host's LEDs come from the ATX header, as the power button does.
   const showHostLedStatus = atxEnabled && isHostLedStatusVisible;
-  // The two panels sit on opposite sides of the menu. In the mobile rail the
-  // locks are at its top and the host LEDs at its bottom; neither scrolls.
+  // The two panels sit on opposite sides of the menu, at the ends of the
+  // phone's bottom bar too.
 
   useEffect(() => {
     if (menuCloseSignal > 0) {
@@ -162,17 +153,9 @@ export const Menu = () => {
     }
   }, [menuCloseSignal, setIsMenuExpanded]);
 
-  useEffect(() => {
-    if (!isMenuExpanded) setIsMobileRailCollapsed(true);
-  }, [isMenuExpanded]);
-
   function onDragStop(_e: DraggableEvent, data: DraggableData) {
     if (data.x === 0 && data.y === 0) return;
     handleMoved();
-  }
-
-  function onMobileDrag(_e: DraggableEvent, data: DraggableData) {
-    setMobileRailOffset({ x: data.x, y: data.y });
   }
 
   const dismissMenus = useCallback(() => {
@@ -187,28 +170,13 @@ export const Menu = () => {
     dismissMenus();
   }
 
-  function onMobileDragStop(_e: DraggableEvent, data: DraggableData) {
-    setMobileRailOffset({ x: 0, y: 0 });
-    if (data.x === 0 && data.y === 0) return;
-
-    const railRect = mobileRailRef.current?.getBoundingClientRect();
-    const railWidth = railRect?.width ?? 0;
-    const railHeight = railRect?.height ?? 480;
-    const left =
-      railRect?.left ?? (placement.edge === 'left' ? 0 : window.innerWidth - railWidth) + data.x;
-    const top = railRect?.top ?? placement.top + data.y;
-    const edge: MobileMenuEdge = left + railWidth / 2 < window.innerWidth / 2 ? 'left' : 'right';
-
-    updatePlacement(edge, clampMobileMenuTop(top, window.innerHeight, railHeight));
-  }
-
   function isEnabled(item: string) {
     return !menuDisabledItems.includes(item);
   }
 
   function renderDivider(variant: MenuVariant, key: string) {
     if (variant === 'mobile') {
-      return <div key={key} className="my-1 h-px w-7 shrink-0 bg-neutral-600/60" />;
+      return <div key={key} className="mx-1 h-6 w-px shrink-0 bg-neutral-600/60" />;
     }
 
     return <Divider key={key} type="vertical" />;
@@ -216,8 +184,7 @@ export const Menu = () => {
 
   function renderMenuItems(variant: MenuVariant): ReactNode[] {
     const items: ReactNode[] = [];
-    const tooltipPlacement =
-      variant === 'mobile' ? (placement.edge === 'right' ? 'left' : 'right') : 'bottom';
+    const tooltipPlacement = variant === 'mobile' ? 'top' : 'bottom';
 
     // Only join non-empty groups, including when appearance settings hide tools.
     const groups: ReactNode[][] = [
@@ -263,12 +230,7 @@ export const Menu = () => {
           ? [<Power key="power" vertical={variant === 'mobile'} />]
           : [])
       ],
-      variant === 'mobile'
-        ? [
-            <OverviewLink key="overview" />,
-            <Settings key="settings" tooltipPlacement={tooltipPlacement} />
-          ]
-        : []
+      variant === 'mobile' ? [<Settings key="settings" tooltipPlacement={tooltipPlacement} />] : []
     ];
 
     groups
@@ -284,100 +246,45 @@ export const Menu = () => {
   }
 
   if (isMobileRailActive) {
-    const sideClass = placement.edge === 'left' ? 'left-2' : 'right-2';
-
+    // A phone held upright: the bar along the bottom edge, under the screen
+    // (the console page leaves it the room). Its menus open upwards as sheets.
+    // It keeps the dark look of the console in either theme.
     return (
-      <Draggable
-        key="mobile-menu"
-        nodeRef={mobileRailRef}
-        handle="strong"
-        position={mobileRailOffset}
-        onStart={onMenuDragStart}
-        onDrag={onMobileDrag}
-        onStop={onMobileDragStop}
+      <div
+        className="theme-dark fixed inset-x-0 bottom-0 transition-opacity duration-300"
+        style={{
+          zIndex: isKeyboardOpen ? 998 : 1000,
+          opacity: isInitialized ? 1 : 0,
+          paddingBottom: 'env(safe-area-inset-bottom)'
+        }}
       >
-        <div
-          ref={mobileRailRef}
-          className={clsx(
-            'fixed z-1000 transition-opacity duration-300',
-            sideClass,
-            isInitialized ? 'opacity-100' : 'opacity-0'
-          )}
-          style={{ top: placement.top, zIndex: isKeyboardOpen ? 998 : 1000 }}
+        <MobileMenuItemProvider
+          mobilePlacement="bottom"
+          mobilePopoverClassName={mobileMenuPopoverClassName}
+          dismissMenuKey={dismissMenuKey}
+          onRequestMobileMenuDismiss={dismissMenus}
         >
-          <MobileMenuItemProvider
-            mobilePlacement={placement.edge}
-            mobilePopoverClassName={mobileMenuPopoverClassName}
-            dismissMenuKey={dismissMenuKey}
-            onRequestMobileMenuDismiss={dismissMenus}
-          >
-            {/* The rail as a whole ends 16 px above the bottom of the screen: the
-                fixed blocks take their height, the item list what is left. */}
-            <div
-              className="nanokvm-touch-toolbar flex w-[48px] flex-col overflow-hidden rounded-[24px] bg-neutral-800/90 shadow-lg shadow-black/30 outline outline-1 outline-neutral-700/80 backdrop-blur"
-              style={{ maxHeight: `calc(100dvh - ${placement.top}px - 16px)` }}
-            >
-              {/* Above both states of the rail, so the locks show while it is collapsed. */}
-              {showKeyboardLedStatus && (
-                <div className="flex h-9 shrink-0 justify-center pt-2">
-                  <KeyboardLedStatus />
-                </div>
-              )}
-              {/* The handle stays where it is while the items scroll under it. */}
-              <div className="flex shrink-0 flex-col items-center px-1 pt-1">
-                <strong>
-                  <div className="flex size-[40px] cursor-move items-center justify-center rounded-full text-neutral-500 select-none">
-                    <GripVerticalIcon size={18} />
-                  </div>
-                </strong>
-                {!isMobileRailCollapsed && renderDivider('mobile', 'divider-handle')}
+          <div className="nanokvm-touch-toolbar nanokvm-phone-bar border-line flex h-14 items-center gap-1 border-t bg-neutral-900 px-1.5">
+            {showKeyboardLedStatus && (
+              <div className="flex h-9 shrink-0">
+                <KeyboardLedStatus />
               </div>
-              {/* Collapsing hides the items but keeps them mounted: a browser ISO,
-                  a recording or an open dialog belongs to its item. */}
-              {isMobileRailCollapsed && (
-                <div className="flex shrink-0 flex-col items-center px-1 pb-1">
-                  <Button
-                    type="text"
-                    className={clsx(mobileRailToggleButtonClass, 'rounded-full')}
-                    onClick={() => setIsMobileRailCollapsed(false)}
-                    aria-label={t('menu.expand')}
-                    icon={<ChevronDownIcon size={18} aria-hidden="true" />}
-                  />
-                </div>
-              )}
-              <div
-                className={clsx(
-                  'min-h-0 [scrollbar-width:none] flex-col items-center overflow-x-hidden overflow-y-auto px-1 pb-1 *:shrink-0 [&::-webkit-scrollbar]:hidden',
-                  isMobileRailCollapsed ? 'hidden' : 'flex'
-                )}
-              >
-                {renderMenuItems('mobile')}
-
-                {isEnabled('collapse') && (
-                  <>
-                    {renderDivider('mobile', 'divider-collapse')}
-                    <Button
-                      type="text"
-                      className={clsx(mobileRailToggleButtonClass, 'shrink-0 rounded')}
-                      onClick={() => setIsMobileRailCollapsed(true)}
-                      aria-label={t('menu.collapse')}
-                      icon={<ChevronUpIcon size={18} aria-hidden="true" />}
-                    />
-                  </>
-                )}
-              </div>
-              {showHostLedStatus && (
-                <div className="flex shrink-0 flex-col items-center pb-2">
-                  {renderDivider('mobile', 'divider-host-leds')}
-                  <div className="mt-1 flex h-[18px]">
-                    <HostLedStatus />
-                  </div>
-                </div>
-              )}
+            )}
+            <OverviewLink />
+            {/* The items scroll sideways when they do not fit; all of them stay
+                mounted: a browser ISO, a recording or an open dialog belongs
+                to its item. */}
+            <div className="flex min-w-0 flex-1 [scrollbar-width:none] items-center overflow-x-auto overflow-y-hidden *:shrink-0 [&::-webkit-scrollbar]:hidden">
+              {renderMenuItems('mobile')}
             </div>
-          </MobileMenuItemProvider>
-        </div>
-      </Draggable>
+            {showHostLedStatus && (
+              <div className="flex h-9 shrink-0">
+                <HostLedStatus />
+              </div>
+            )}
+          </div>
+        </MobileMenuItemProvider>
+      </div>
     );
   }
 

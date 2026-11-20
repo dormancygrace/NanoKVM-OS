@@ -183,7 +183,8 @@ func discoveryQuery(name string, kind dnsmessage.Type) []byte {
 // local to their link: two devices of one name on two links are two devices,
 // so the records of one link are never combined with those of another.
 type discoveryLink struct {
-	conn    *net.UDPConn
+	conn    *ipv4.PacketConn
+	ifIndex int
 	answers *discoveryAnswers
 	// local: this device's addresses on the interface.
 	local []string
@@ -284,16 +285,21 @@ func browsePeers(ctx context.Context) []Peer {
 			continue
 		}
 		link := iface
-		if err := ipv4.NewPacketConn(conn).SetMulticastInterface(&link); err != nil {
+		packet := ipv4.NewPacketConn(conn)
+		if err := packet.SetMulticastInterface(&link); err != nil {
 			conn.Close()
 			continue
 		}
-		links = append(links, discoveryLink{conn: conn, answers: newDiscoveryAnswers(), local: local})
+		if err := packet.SetControlMessage(ipv4.FlagInterface, true); err != nil {
+			conn.Close()
+			continue
+		}
+		links = append(links, discoveryLink{conn: packet, ifIndex: iface.Index, answers: newDiscoveryAnswers(), local: local})
 	}
 	ask := func(link discoveryLink, questions [][]byte) {
 		for _, question := range questions {
 			if question != nil {
-				_, _ = link.conn.WriteToUDP(question, mdnsGroup)
+				_, _ = link.conn.WriteTo(question, nil, mdnsGroup)
 			}
 		}
 	}
@@ -309,17 +315,20 @@ func browsePeers(ctx context.Context) []Peer {
 		done := make(chan received, 64)
 		for i, link := range links {
 			_ = link.conn.SetReadDeadline(deadline)
-			go func(i int, conn *net.UDPConn) {
+			go func(i int, link discoveryLink) {
 				buffer := make([]byte, 9000)
 				for {
-					n, _, err := conn.ReadFromUDP(buffer)
+					n, control, _, err := link.conn.ReadFrom(buffer)
 					if err != nil {
 						done <- received{link: i}
 						return
 					}
+					if control == nil || control.IfIndex != link.ifIndex {
+						continue
+					}
 					done <- received{link: i, message: append([]byte(nil), buffer[:n]...)}
 				}
-			}(i, link.conn)
+			}(i, link)
 		}
 		for open := len(links); open > 0; {
 			got := <-done

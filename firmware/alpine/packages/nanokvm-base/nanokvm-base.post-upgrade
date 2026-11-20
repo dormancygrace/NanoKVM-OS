@@ -101,6 +101,30 @@ if [ -f /etc/fstab ] && awk "$nanokvm_fstab_entry { found = 1 } END { exit !foun
 fi
 unset nanokvm_fstab_entry
 # fstab end
+# Once per system (after 4.2.1), so a runlevel the user changed later stays:
+# modules leaves boot while the module lists name only the built-in af_packet
+# and ipv6 (the test /etc/rc.conf.d/nanokvm-boot.conf makes for procfs, which
+# wants modules again once a list names another); the persistent cron spool
+# moved from nanokvm-policy to nanokvm-policy-late, which starts now, with
+# the new S49persistent-cron, when what it needs and follows is already up;
+# otherwise it starts at the next boot.
+# The marker is written only after both steps succeed.
+boot_order_marker=/var/lib/nanokvm/boot-order-4.2.1
+if [ ! -e "$boot_order_marker" ] && [ -x /etc/init.d/nanokvm-policy-late ] &&
+    { [ ! -e /etc/runlevels/boot/modules ] ||
+        sed 's/#.*//' /etc/modules /etc/modules-load.d/*.conf /lib/modules-load.d/*.conf \
+            /usr/lib/modules-load.d/*.conf /run/modules-load.d/*.conf 2>/dev/null |
+            grep -qvxE '[[:space:]]*(af_packet|ipv6)?[[:space:]]*' ||
+        rc-update del modules boot; } &&
+    rc-update add nanokvm-policy-late default; then
+    mkdir -p "${boot_order_marker%/*}" && : > "$boot_order_marker" ||
+        echo "Could not write $boot_order_marker; the boot order is checked again at the next upgrade." >&2
+    if [ -e /run/openrc/softlevel ] && rc-service nanokvm-board status >/dev/null 2>&1 &&
+        rc-service nanokvm-app status >/dev/null 2>&1; then
+        rc-service nanokvm-policy-late start || echo "Deferred NanoKVM policy did not start; it starts at the next boot." >&2
+    fi
+fi
+unset boot_order_marker
 if [ -x /etc/init.d/nanokvm-usb-internet ]; then
     rc-update add nanokvm-usb-internet default
     if [ -e /run/openrc/softlevel ] && rc-service nanokvm-usb status >/dev/null 2>&1; then

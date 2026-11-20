@@ -10,11 +10,16 @@ start() {
     ebegin "Applying NanoKVM runtime policy"
     local script
     # Before the application: the MSS clamp (it acts on SYN only, so it must
-    # precede the first connections), memory, and the CryptoDMA modules the
-    # server probes.
+    # precede the first connections), swap for the server's start, and the
+    # CryptoDMA modules the server probes. The cron spool is set up here only
+    # while it does not reach /etc/kvm/cron/crontabs (old jobs to move, or no
+    # spool yet); nanokvm-policy-late keeps that directory's owner and mode
+    # once the server listens.
     # Queueing is the kernel's default qdisc (sysctl.d/10-nanokvm-qdisc.conf).
-    for script in S34mssclamp S38memory S49persistent-cron S94hwcrypto; do
+    for script in S34mssclamp S38memory S94hwcrypto; do
         /usr/libexec/nanokvm/legacy/"$script" start || ewarn "Could not apply $script"
     done
+    [ /var/spool/cron/crontabs -ef /etc/kvm/cron/crontabs ] ||
+        /usr/libexec/nanokvm/legacy/S49persistent-cron start || ewarn "Could not apply S49persistent-cron"
     eend 0
 }

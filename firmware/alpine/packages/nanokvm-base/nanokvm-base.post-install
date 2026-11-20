@@ -10,15 +10,18 @@ for service in devfs dmesg procfs sysfs; do
 done
 # NanoKVM services load their drivers explicitly; the kernel set the clock
 # from the RTC (osclock provides "clock" instead of hwclock), and
-# nanokvm-clock keeps it from starting in 1970.
-for service in loopback hostname localmount modules osclock nanokvm-clock sysctl udev udev-trigger; do
+# nanokvm-clock keeps it from starting in 1970. modules runs when procfs
+# wants it (/etc/rc.conf.d/nanokvm-boot.conf).
+for service in loopback hostname localmount osclock nanokvm-clock sysctl udev udev-trigger; do
     [ ! -x "/etc/init.d/$service" ] || rc-update add "$service" boot
 done
 for service in nanokvm-storage nanokvm-modules nanokvm-board \
-	       nanokvm-network nanokvm-usb-internet nanokvm-usb nanokvm-policy nanokvm-ssh nanokvm-app bootmisc nanokvm-rescue nanokvm-watchdog chronyd crond nanokvm-mdns; do
+	       nanokvm-network nanokvm-usb-internet nanokvm-usb nanokvm-policy nanokvm-ssh nanokvm-app nanokvm-policy-late bootmisc nanokvm-rescue nanokvm-watchdog chronyd crond nanokvm-mdns; do
 	[ ! -x "/etc/init.d/$service" ] || rc-update add "$service" default
 done
 [ ! -x /etc/init.d/mount-ro ] || rc-update add mount-ro shutdown
+# A clean install already has the 4.2.1 boot order (nanokvm-base.post-upgrade).
+mkdir -p /var/lib/nanokvm && : > /var/lib/nanokvm/boot-order-4.2.1
 # OpenRC builds its dependency tree from all init scripts at every boot (about
 # 2 s) unless savecache kept it at shutdown; it rebuilds the tree by itself
 # when a script or a setting changed since.

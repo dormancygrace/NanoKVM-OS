@@ -1,0 +1,17 @@
+#!/sbin/openrc-run
+# shellcheck shell=sh disable=SC2034
+description="NanoKVM policy the server does not need at start"
+depend() {
+    need nanokvm-storage nanokvm-board
+    after nanokvm-app
+    before crond
+}
+start() {
+    ebegin "Applying deferred NanoKVM policy"
+    # nanokvm-app returns once the server listens. nanokvm-policy has made the
+    # cron spool reach /etc/kvm/cron/crontabs, and S49persistent-cron keeps a
+    # link that does, so a crontab(1) write meanwhile still lands there; this
+    # keeps the directory's owner and mode.
+    /usr/libexec/nanokvm/legacy/S49persistent-cron start || ewarn "Could not apply S49persistent-cron"
+    eend 0
+}

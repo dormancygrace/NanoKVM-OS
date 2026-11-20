@@ -57,6 +57,7 @@ func main() {
 	go acme.RunRenewal(ctx)
 	go osupdate.RunNoticeSchedule(ctx)
 	go vm.ReconcileMdnsAfterBoot(ctx)
+	network.PublishDiscovery()
 	journalStart()
 	defer func() { stopMemory(); dispose() }()
 

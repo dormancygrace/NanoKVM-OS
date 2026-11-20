@@ -203,6 +203,7 @@
       "load": "Load",
       "model": "Model"
     },
+    "peers": "Other NanoKVMs",
     "title": "Dashboard",
     "live": "Updates while this page is open",
     "stale": "Some information could not be refreshed. Showing the last available values.",

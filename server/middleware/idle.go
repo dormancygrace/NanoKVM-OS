@@ -53,8 +53,8 @@ var idle = struct {
 	since time.Time
 	// deadBefore: a sign-in made at or before it that has no clock (made no
 	// request since the server started) ran out of a limit that has been
-	// changed since. Clocks are kept until their tokens expire, also with no
-	// limit, so that "no clock" means "no request".
+	// changed since. A clock from an active policy is retained when the limit
+	// is disabled so a sign-in that was still active stays valid.
 	deadBefore time.Time
 	clocks     map[string]*idleClock
 }{clocks: map[string]*idleClock{}, since: time.Now()}
@@ -203,18 +203,12 @@ func idleStateOf(key string, issued, until time.Time, touch bool, now time.Time)
 	if clock != nil && clock.over {
 		return false, 0
 	}
-	// A sign-in without a clock made no request since the server started;
-	// one made before deadBefore ran out of an earlier limit. The issue
-	// time is in whole seconds: one second more decides for the user.
-	if clock == nil && !issued.IsZero() && !issued.Add(time.Second).After(idle.deadBefore) {
-		idle.clocks[key] = &idleClock{over: true, tokenUntil: until}
+	// For a sign-in without an active-policy clock, use the same issue
+	// timestamp here as in the first-use deadline below.
+	if clock == nil && !issued.IsZero() && !issued.After(idle.deadBefore) {
 		return false, 0
 	}
 	if idle.limit == 0 {
-		if clock == nil {
-			// Seen: from now on it is not one that made no request.
-			idle.clocks[key] = &idleClock{last: now, tokenUntil: until}
-		}
 		return true, 0
 	}
 	if clock == nil {

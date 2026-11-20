@@ -54,10 +54,8 @@ func (s *Service) Install(c *gin.Context) {
 			return
 		}
 	}
-	if err := NewCli().Start(); err != nil {
-		rsp.ErrRsp(c, -1, "Tailscale was installed but could not start: "+err.Error())
-		return
-	}
+	// Installed, not started: the page offers to start it, and starting
+	// is what adds it to the boot runlevel.
 	rsp.OkRsp(c)
 }
 

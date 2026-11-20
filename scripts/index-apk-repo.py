@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Validate assembled packages and create the unsigned Pages v3 index.
 
-Only current OS packages enter an OS index, only the pinned add-ons the
-add-on index (--addons). Old core files stay downloadable for cached indexes,
-but cannot be selected anew.
+Only current OS packages and the pinned add-ons nanokvm-release depends on
+enter an OS index, only the pinned add-ons the add-on index (--addons). Old
+core files stay downloadable for cached indexes, but cannot be selected anew.
 The signing job adds the ECDSA production signature after this read-only-key job.
 """
 import argparse

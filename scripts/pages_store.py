@@ -315,7 +315,7 @@ class Store:
         # The stable feed keeps its three releases; beta keeps just its head.
         for channel, directory, keep in [('stable', output, 3), ('beta', output / 'beta', 1)]:
             a.assemble(directory, releases, keep, branch, a.ROOT / 'firmware/alpine/keys',
-                       fetch=lambda url: payloads[url], channel=channel)
+                       fetch=lambda url: payloads[url], channel=channel, base=pins)
         for directory, include_beta in [(output, False), (output / 'beta', True)]:
             shutil.rmtree(directory / 'latest-image')
             a.image_badge(directory, sorted(public.values(), key=a.order, reverse=True), include_beta)

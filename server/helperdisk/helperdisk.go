@@ -2,9 +2,9 @@
 // FAT disk the NanoKVM shows to the computer next to the virtual drive, with
 // the programs to run there. The image with the serial console helper alone
 // is made when NanoKVM OS is built (scripts/build-serial-console-disk.py);
-// an add-on that brings a program for the computer, such as the computer
-// sensors agent, cannot be in that one, so the disk is put together here from
-// what is installed. Same layout as the build's: no partition table, FAT12,
+// a package published apart from the OS build, such as the computer sensors
+// agent, cannot be in that one, so the disk is put together here from what is
+// installed. Same layout as the build's: no partition table, FAT12,
 // files in the root directory (long names as VFAT entries), fixed timestamps,
 // so the same files give the same bytes.
 package helperdisk

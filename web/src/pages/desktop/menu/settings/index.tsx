@@ -51,17 +51,13 @@ import {
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
-import { getAddonInventory } from '@/api/addons';
 import { getWiFi } from '@/api/network.ts';
 import { getVirtualDevice } from '@/api/virtual-device.ts';
 import { getBluetoothState } from '@/api/vm.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { retryableLazy } from '@/lib/retryable-lazy.ts';
-import { pollWhileVisible } from '@/lib/visible-poll.ts';
-import { addonInventoryAtom } from '@/jotai/addons';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
-import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
-import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
+import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
 import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { updateNoticeAtom } from '@/jotai/updates.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
@@ -144,9 +140,6 @@ const Events = lazyPage(() =>
 );
 const Diagnostics = lazyPage(() =>
   import('./system/diagnostics').then((module) => ({ default: module.Diagnostics }))
-);
-const Addons = lazyPage(() =>
-  import('./software/addons').then((module) => ({ default: module.Addons }))
 );
 const RustDeskControls = lazyPage(() =>
   import('./extensions/rustdesk').then((module) => ({ default: module.RustDeskControls }))
@@ -384,10 +377,6 @@ export const Settings = ({
     const group = page?.tab !== undefined ? settingsGroupOf(currentTab) : undefined;
     return new Set(group ? [group] : []);
   });
-  const [rustDeskStatus] = useAtom(rustDeskStatusAtom);
-  const [inventory, setInventory] = useAtom(addonInventoryAtom);
-  const [inventoryError, setInventoryError] = useState(false);
-  const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
   const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
@@ -395,7 +384,7 @@ export const Settings = ({
   const setSubmenuOpenCount = useSetAtom(submenuOpenCountAtom);
 
   // What each menu entry opens. An entry without a page here (not an admin,
-  // no Wi-Fi adapter or Bluetooth chip, add-on not installed) is not shown; a group (null)
+  // no Wi-Fi adapter or Bluetooth chip) is not shown; a group (null)
   // shows only with something inside.
   // Typed object literals: a misspelt id is a type error, also here.
   const adminPages: Partial<Record<BuiltinMenuId, ReactNode>> = isAdmin
@@ -417,10 +406,8 @@ export const Settings = ({
         'vpn-netbird': <Netbird setIsLocked={setIsLocked} />,
         services: null,
         'services-bmc': <BmcSettingsPage />,
-        'services-rustdesk': inventory?.rustdesk.installed ? <RustDeskControls /> : undefined,
-        'services-host-sensors': inventory?.hostSensors?.installed ? (
-          <HostSensorsPage />
-        ) : undefined,
+        'services-rustdesk': <RustDeskControls />,
+        'services-host-sensors': <HostSensorsPage />,
         'services-notifications': <Notifications />,
         'services-schedule': <ScheduledTasks />,
         'services-lldp': <LldpPage setIsLocked={setIsLocked} />,
@@ -437,19 +424,10 @@ export const Settings = ({
         'system-events': <Events />,
         'system-diagnostics': <Diagnostics />,
         ai: null,
-        'ai-screen-text': (
-          <ScreenTextSettingsPage onOpenAddons={() => changeTab('software-addons')} />
-        ),
+        'ai-screen-text': <ScreenTextSettingsPage />,
         'ai-picoclaw': <PicoclawSettingsPage onOpenChat={openChat} />,
         'ai-mcp': <MCP />,
         software: null,
-        'software-addons': (
-          <Addons
-            onOpenRustDesk={() => changeTab('services-rustdesk')}
-            onOpenAcme={() => changeTab('system-security')}
-            onOpen={openChat}
-          />
-        ),
         'software-packages': <Software />
       }
     : {};
@@ -478,76 +456,10 @@ export const Settings = ({
     }));
 
   useEffect(() => {
-    if (!isAdmin) return;
-    let active = true;
-    let pending = false;
-    const refresh = async () => {
-      if (pending) return;
-      pending = true;
-      try {
-        const response = await getAddonInventory();
-        if (!active) return;
-        if (response.code !== 0) throw new Error(response.msg);
-        setInventory(response.data);
-        setInventoryError(false);
-      } catch {
-        if (active) setInventoryError(true);
-      } finally {
-        pending = false;
-      }
-    };
-    // Start before the modal opens, and refresh installation facts while open.
-    void refresh();
-    const stop = open ? pollWhileVisible(() => void refresh(), 15000) : undefined;
-    return () => {
-      active = false;
-      stop?.();
-    };
-  }, [isAdmin, open, setInventory]);
-
-  useEffect(() => {
-    if (rustDeskStatus) {
-      setInventory(
-        (current) =>
-          current && {
-            ...current,
-            rustdesk: { installed: rustDeskStatus.installed }
-          }
-      );
-    }
-  }, [rustDeskStatus, setInventory]);
-
-  useEffect(() => {
-    if (picoclawStatus) {
-      setInventory(
-        (current) =>
-          current && {
-            ...current,
-            picoclaw: { installed: picoclawStatus.installed }
-          }
-      );
-    }
-  }, [picoclawStatus, setInventory]);
-
-  useEffect(() => {
     if (!hasWifi && currentTab === 'network-wifi') {
       setCurrentTab('network-general');
     }
   }, [currentTab, hasWifi]);
-
-  useEffect(() => {
-    if (currentTab === 'services-rustdesk' && inventory?.rustdesk.installed === false) {
-      setCurrentTab('software-addons');
-      setDetailOpen(true);
-    }
-  }, [currentTab, inventory?.rustdesk.installed]);
-
-  useEffect(() => {
-    if (currentTab === 'services-host-sensors' && inventory?.hostSensors?.installed === false) {
-      setCurrentTab('software-addons');
-      setDetailOpen(true);
-    }
-  }, [currentTab, inventory?.hostSensors?.installed]);
 
   useEffect(() => {
     scrollViewportRef.current?.scrollTo({ top: 0, left: 0 });
@@ -575,11 +487,10 @@ export const Settings = ({
     if (group) setExpandedGroups((groups) => new Set(groups).add(group));
     setCurrentTab(tab);
   }, [pageTab, onPageTab]);
-  // The address names a page that is not among the entries. Some entries
-  // come late (Bluetooth, the pages of add-ons), so an administrator's
-  // address is judged once the device has answered about them; the other
-  // accounts have nothing to wait for.
-  const pageKnown = !isAdmin || (bluetoothKnown && (!!inventory || inventoryError));
+  // The address names a page that is not among the entries. The Bluetooth
+  // page comes late, so an administrator's address is judged once the device
+  // has answered about it; the other accounts have nothing to wait for.
+  const pageKnown = !isAdmin || bluetoothKnown;
   const pageMissing =
     pageTab !== undefined &&
     currentTab === pageTabOf(pageTab) &&

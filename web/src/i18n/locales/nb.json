@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "Lagre"
       },
-      "addons": {
-        "title": "Tillegg",
-        "packages": "Pakker",
-        "install": "Installer"
-      },
       "title": "Programvare",
+      "packages": "Pakker",
       "available": "Tilgjengelige pakker",
       "updatesTab": "Oppdateringer",
       "search": "Søk",
@@ -749,10 +745,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Ikke installert",
       "stopped": "Stoppet",
-      "install": "Installer",
-      "remove": "Fjern",
       "save": "Lagre innstillinger",
       "server": "Server",
       "passwordMode": "Passord",
@@ -806,8 +799,7 @@
       "eventHint": {
         "power": "verten ble slått på eller av; krever ATX-kontroll med strøm-LED tilkoblet.",
         "hdmi": "bildet ble borte eller kom tilbake, også når verten slår av skjermen; oppdages mens videoopptaket kjører.",
-        "security": "en adresse blokkert etter mislykkede innlogginger, for mange IPMI-påloggingsforsøk, en innlogging fra en ny adresse.",
-        "screen": "en blåskjerm eller en kernel panic, gjenkjent av TPU-tillegget; teksten leses når ingen ser på videoen, og et skjermbilde sendes med."
+        "security": "en adresse blokkert etter mislykkede innlogginger, for mange IPMI-påloggingsforsøk, en innlogging fra en ny adresse."
       },
       "field": {
         "token": "Token",

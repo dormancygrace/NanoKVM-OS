@@ -853,33 +853,8 @@
         "saved": "Planification de l'actualisation des index enregistrée",
         "failed": "Impossible de charger ou d'enregistrer la planification de l'actualisation des index"
       },
-      "addons": {
-        "title": "Modules complémentaires",
-        "packages": "Paquets",
-        "open": "Ouvrir PicoClaw",
-        "source": "Versions officielles",
-        "picoclawDescription": "Assistant IA avec contrôle à distance facultatif. Installe la dernière version stable depuis le site officiel de PicoClaw.",
-        "install": "Installer",
-        "update": "Mettre à jour vers {{version}}",
-        "remove": "Supprimer",
-        "removeTitle": "Supprimer {{name}} ?",
-        "removeConfirm": "Le module est désinstallé ; ses paramètres sont conservés.",
-        "version": "Version {{version}}",
-        "installedVersion": "Installée : {{version}}",
-        "details": "Détails",
-        "notOffered": "Le dépôt ne propose plus ce module.",
-        "needsOs": "Nécessite NanoKVM OS {{version}} ou plus récent (installé : {{installed}}). Mettez d'abord NanoKVM OS à jour.",
-        "listChecked": "Liste des modules du dépôt : {{date}}",
-        "listNever": "La liste des modules n'est pas encore chargée.",
-        "listChecking": "Vérification du dépôt…",
-        "checkNow": "Vérifier maintenant",
-        "dailyOff": "La vérification quotidienne des mises à jour est désactivée : la liste ne change que lorsque vous vérifiez.",
-        "listFailed": "La dernière vérification a échoué.",
-        "failed": "La requête a échoué.",
-        "installedSection": "Installés",
-        "availableSection": "Disponibles"
-      },
       "title": "Logiciels",
+      "packages": "Paquets",
       "description": "Gérez les paquets des dépôts Alpine configurés. Les modifications de paquets utilisent la même base de données APK et les mêmes services que SSH.",
       "refresh": "Actualiser les index",
       "upgrade": "Tout mettre à niveau",
@@ -2153,16 +2128,10 @@
       }
     },
     "rustdesk": {
-      "checkUpdates": "Rechercher des mises à jour",
-      "absent": "Non installé",
       "running": "En cours d'exécution",
       "stopped": "Arrêté",
       "registered": "Enregistré",
       "registering": "En attente du serveur d'ID",
-      "install": "Installer",
-      "remove": "Supprimer",
-      "upgrade": "Mettre à jour vers {{version}}",
-      "addonVersion": "Version du module",
       "rustdeskVersion": "Base du protocole RustDesk",
       "unknownVersion": "Inconnue",
       "save": "Enregistrer les paramètres",
@@ -2190,7 +2159,6 @@
       "webrtc": "WebRTC",
       "webrtcOn": "Accepté quand le client le propose, quel que soit le transport vidéo.",
       "transportHint": "RustDesk accepte les connexions WebRTC quel que soit le transport de Paramètres > Vidéo ; un client qui ne propose pas WebRTC se connecte en TCP et par le relais. WebRTC utilise les serveurs STUN et TURN du flux vidéo et peut réduire la fréquence d'images sur le NanoKVM. Le client RustDesk 1.5 n'essaie pas TCP dans un tour qui propose WebRTC : pour une connexion par ID en TCP, désactivez WebRTC dans le client.",
-      "open": "Ouvrir la gestion",
       "settings": "RustDesk",
       "keepPassword": "Laissez vide pour conserver le mot de passe actuel",
       "inputDefaults": "Activer l'accès à distance bascule l'USB sur la composition RustDesk (clavier, les deux modes de souris, disque virtuel et, avec le son, audio USB) ; le désactiver rétablit la précédente, sauf si elle a été modifiée entre-temps.",
@@ -2202,15 +2170,11 @@
       "audioHint": "Active automatiquement l'audio USB. Sélectionnez NanoKVM comme sortie son sur l'ordinateur connecté.",
       "audioMuted": "La transmission du son via RustDesk est désactivée.",
       "clients": "Nombre maximal de spectateurs",
-      "unavailable": "RustDesk n'est pas disponible dans les dépôts APK configurés. Ajoutez le dépôt contenant nanokvm-rustdesk, ou installez son APK via Paquets.",
       "explain": "Connectez un client RustDesk à cet ID pour afficher le HDMI et contrôler le clavier et la souris USB.",
       "video": "La vidéo utilise automatiquement le codec sélectionné dans les paramètres vidéo du NanoKVM. H.265 nécessite la prise en charge par le client. Reconnectez-vous après avoir changé le codec de l'appareil. La prise de contrôle depuis le navigateur libère la saisie RustDesk.",
-      "deletion": "Supprimer le paquet ? Les paramètres du serveur, le mot de passe et l'ID de l'appareil sont conservés.",
       "failed": "La requête a échoué",
       "saved": "Paramètres enregistrés",
       "passwordUpdated": "Mot de passe mis à jour",
-      "description": "Accès à distance à l'ordinateur connecté au NanoKVM, via RustDesk.",
-      "done": "Opération sur le paquet terminée",
       "id": "ID RustDesk",
       "source": "Source et licence",
       "passwordRequired": "Saisissez un mot de passe de 8 à 64 octets",
@@ -2359,8 +2323,6 @@
       "title": "IA",
       "screenText": {
         "title": "Reconnaissance de texte",
-        "notInstalled": "La reconnaissance de texte nécessite le module de modèle d’une langue.",
-        "openAddons": "Modules",
         "enabled": "Reconnaissance de texte",
         "enabledDescription": "Activé, un bouton au-dessus de l'écran en lit le texte, et MCP et PicoClaw peuvent aussi le lire. Désactivé, aucun d'eux ne le peut.",
         "switchFailed": "Le réglage n'a pas pu être enregistré"
@@ -2462,8 +2424,7 @@
       "eventHint": {
         "power": "l'hôte a été allumé ou éteint ; nécessite le contrôle ATX avec la LED d'alimentation branchée.",
         "hdmi": "l'image a été perdue ou est revenue, y compris quand l'hôte éteint son écran ; détecté pendant la capture vidéo.",
-        "security": "une adresse bloquée après des connexions échouées, trop de tentatives de connexion IPMI, une connexion depuis une nouvelle adresse.",
-        "screen": "un écran bleu ou un kernel panic, reconnus par le module TPU ; le texte est lu quand personne ne regarde la vidéo et envoyé avec une capture."
+        "security": "une adresse bloquée après des connexions échouées, trop de tentatives de connexion IPMI, une connexion depuis une nouvelle adresse."
       },
       "field": {
         "token": "Jeton",
@@ -2642,7 +2603,6 @@
       "diskStale": "L’agent apparaîtra sur le disque d’aide après la reconnexion des périphériques USB",
       "diskMissing": "Pas de disque d’aide : il faut le disque virtuel dans la composition USB et une reconnexion des périphériques USB",
       "agentVersion": "agent {{version}}",
-      "agentUpdate": "Le module apporte l’agent {{version}} : pour mettre à jour, relancez sur l’ordinateur l’installation des capteurs depuis le disque d’aide.",
       "serialConsole": "L’ordinateur a sa console de connexion sur ce port (l’assistant de console série la configure) : les capteurs ne peuvent pas l’utiliser. Choisissez Réseau USB."
     }
   },

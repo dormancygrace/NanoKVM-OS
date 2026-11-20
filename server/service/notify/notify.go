@@ -27,7 +27,7 @@ const (
 	KindPower    Kind = "power"
 	KindHDMI     Kind = "hdmi"
 	KindSecurity Kind = "security"
-	// KindScreen: a crash seen on the host's screen (the TPU add-on).
+	// KindScreen: a crash seen on the host's screen (the TPU classifier).
 	KindScreen Kind = "screen"
 	// KindTest is the page's Test button; it ignores the channel's kinds.
 	KindTest Kind = "test"

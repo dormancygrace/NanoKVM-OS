@@ -23,6 +23,7 @@ import (
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/internal/atomicfile"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/extensions/apkpkg"
 )
 
 // The TPU programs (nanokvm-tpu, tpu/) are in bin; the models, which
@@ -123,20 +124,69 @@ func ScreenTextAvailable() bool {
 	return ScreenTextEnabled() && ScreenTextInstalled()
 }
 
-// GetScreenTextSettings: the switch and which languages have their models
-// installed.
-func (s *Service) GetScreenTextSettings(c *gin.Context) {
-	var rsp proto.Response
+// screenTextLanguageInstalled: the models of the language are there.
+func screenTextLanguageInstalled(lang string) bool {
+	_, err := screenTextArgs(screenTextRoot+"/models/", lang)
+	return err == nil
+}
+
+// screenTextSettings: the switch, whether text recognition can read, and
+// which languages have their models installed.
+func screenTextSettings() gin.H {
 	type language struct {
 		Name      string `json:"name"`
 		Installed bool   `json:"installed"`
 	}
 	languages := make([]language, 0, len(screenTextLanguages))
 	for _, lang := range screenTextLanguages {
-		_, err := screenTextArgs(screenTextRoot+"/models/", lang)
-		languages = append(languages, language{Name: lang, Installed: err == nil})
+		languages = append(languages, language{Name: lang, Installed: screenTextLanguageInstalled(lang)})
 	}
-	rsp.OkRspWithData(c, gin.H{"enabled": ScreenTextEnabled(), "languages": languages})
+	return gin.H{"enabled": ScreenTextEnabled(), "installed": ScreenTextInstalled(), "languages": languages}
+}
+
+func (s *Service) GetScreenTextSettings(c *gin.Context) {
+	var rsp proto.Response
+	rsp.OkRspWithData(c, screenTextSettings())
+}
+
+// The models are packages of the add-on repository, downloaded on request:
+// the detector, which every language needs and each language package depends
+// on, and one recognizer package per language.
+const screenTextDetectorPackage = "nanokvm-model-ocr"
+
+func screenTextPackage(lang string) string { return screenTextDetectorPackage + "-" + lang }
+
+// SetScreenTextLanguage installs or removes the models of one language
+// ({"language":"latin","installed":true}). Removing the last language also
+// removes the detector, which nothing else uses.
+func (s *Service) SetScreenTextLanguage(c *gin.Context) {
+	var rsp proto.Response
+	var req struct {
+		Language  string `json:"language"`
+		Installed *bool  `json:"installed"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Installed == nil || !slices.Contains(screenTextLanguages, req.Language) {
+		rsp.ErrRsp(c, -1, "a language and installed are required")
+		return
+	}
+	var err error
+	if *req.Installed {
+		err = apkpkg.InstallOnly(screenTextPackage(req.Language))
+	} else {
+		names := []string{screenTextPackage(req.Language)}
+		if !slices.ContainsFunc(screenTextLanguages, func(lang string) bool {
+			return lang != req.Language && screenTextLanguageInstalled(lang)
+		}) {
+			names = append(names, screenTextDetectorPackage)
+		}
+		err = apkpkg.Remove(names...)
+	}
+	if err != nil {
+		log.Errorf("screen text: %s models: %v", req.Language, err)
+		rsp.ErrRsp(c, -2, err.Error())
+		return
+	}
+	rsp.OkRspWithData(c, screenTextSettings())
 }
 
 // SetScreenTextSettings turns text recognition on or off ({"enabled":bool}).

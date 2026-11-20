@@ -30,7 +30,7 @@ const RuntimeDir = "/run/nanokvm-rustdesk"
 const Binary = "/usr/bin/nanokvm-rustdesk"
 
 // Bridge has no network listener. Socket mode and SO_PEERCRED restrict access
-// to the local root-owned add-on service.
+// to the local root-owned RustDesk daemon.
 type Bridge struct {
 	mu                 sync.Mutex
 	media              net.Listener
@@ -207,14 +207,15 @@ func (b *Bridge) Stop() {
 	}
 }
 
-// Monitor supports terminal apk add/del without restarting the KVM app.
+// Monitor keeps the bridge's sockets open while RustDesk is on, and closed
+// while it is off: every NanoKVM has the daemon, few use it.
 func (b *Bridge) Monitor(ctx context.Context) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
-		if _, err := os.Stat(Binary); err == nil {
+		if c, err := readConfig(); err == nil && c.Enabled {
 			_ = b.Start()
-		} else if errors.Is(err, os.ErrNotExist) {
+		} else if err == nil {
 			b.Stop()
 		}
 		b.expire()

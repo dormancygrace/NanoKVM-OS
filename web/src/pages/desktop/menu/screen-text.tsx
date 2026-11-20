@@ -4,35 +4,34 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { ScanTextIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { getAddonInventory } from '@/api/addons';
-import { addonInventoryAtom } from '@/jotai/addons.ts';
-import { isHdmiEnabledAtom, screenTextOpenAtom } from '@/jotai/screen.ts';
+import { getScreenTextSettings } from '@/api/vm.ts';
+import { isHdmiEnabledAtom, screenTextOpenAtom, screenTextSettingsAtom } from '@/jotai/screen.ts';
 import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 
-// Reads the text on the screen with the TPU add-on; shown once the add-on is
-// installed, unless text recognition is off (Settings > AI).
+// Reads the text on the screen with the TPU; shown once the models of a
+// language are installed, unless text recognition is off (Settings > AI).
 export const ScreenText = () => {
   const { t } = useTranslation();
   const captureEnabled = useAtomValue(isHdmiEnabledAtom);
-  const [inventory, setInventory] = useAtom(addonInventoryAtom);
+  const [settings, setSettings] = useAtom(screenTextSettingsAtom);
   const setOpen = useSetAtom(screenTextOpenAtom);
 
   useEffect(() => {
-    if (inventory) return;
+    if (settings) return;
     let active = true;
-    getAddonInventory()
+    getScreenTextSettings()
       .then((response) => {
-        if (active && response.code === 0) setInventory(response.data);
+        if (active && response.code === 0) setSettings(response.data);
       })
       .catch(() => {
-        /* Without the inventory the button stays hidden. */
+        /* Without the settings the button stays hidden. */
       });
     return () => {
       active = false;
     };
-  }, [inventory, setInventory]);
+  }, [settings, setSettings]);
 
-  if (!inventory?.tpu?.installed || inventory.tpu.enabled === false) return null;
+  if (!settings?.installed || !settings.enabled) return null;
 
   const title = captureEnabled ? t('screenText.read') : t('screenText.captureDisabled');
   return (

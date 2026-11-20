@@ -4,8 +4,10 @@
 The newest eligible published OS release supplies each channel's core packages
 and legacy index. Stable excludes prereleases; beta includes stable and beta.
 Independent stable add-on releases form a repository of their own, one for
-both channels, whose v3 index Pages signs; they do not change the OS indexes,
-the OS version or the latest SD image.
+both channels, whose v3 index Pages signs; they do not change the OS version
+or the latest SD image. The v3 OS indexes, which Pages makes and signs anew,
+also offer the add-on packages that nanokvm-release depends on
+(addon_packages.BASE).
 Newest means the highest vX.Y.Z (releases with other tags, from before that
 scheme, rank below, by publication time): a minor release published from its
 draft after a patch release must not replace the patch's indexes.
@@ -16,7 +18,8 @@ release's SHA256SUMS and the size its index records.
 
 The result, below OUTPUT:
   alpine/vX.Y/riscv64/   *.apk, APKINDEX.tar.gz (v2 index), Packages.adb (v3),
-                         packages.json (the version and content of each package)
+                         packages.json (the version and content of each package),
+                         addons.json (the pins of the BASE add-on packages)
   beta/                  the same layout for the opt-in beta channel
   addons/vX.Y/riscv64/   the add-on APKs and addons.json (their pins); devices
                          read it from /etc/apk/repositories.d/nanokvm-addons.list
@@ -260,7 +263,9 @@ def image_badge(output, published, include_beta=False):
 ''')
 
 
-def assemble(output, published, keep, branch, keys, fetch=fetch, channel='stable'):
+def assemble(output, published, keep, branch, keys, fetch=fetch, channel='stable', base=None):
+    """base: the pins of the add-on repository's packages that nanokvm-release
+    depends on (addon_packages.BASE), which the OS index offers too."""
     published = [r for r in published if channel == 'beta' or not is_beta(r)]
     if not published:
         raise ValueError('No published release carries Packages.adb')
@@ -290,8 +295,21 @@ def assemble(output, published, keep, branch, keys, fetch=fetch, channel='stable
         if source is None:
             raise ValueError(f'No release carries {name}')
         (repo / name).write_bytes(checked(source, name, sums[source['tag_name']], fetch, size))
-    # The OS repository pins no add-on: they are in the add-on repository.
-    (repo / 'addons.json').write_text(json.dumps({'packages': {}}, indent=2) + '\n')
+    # The packages nanokvm-release depends on that are published on their own
+    # are in this index as well, byte for byte as in the add-on repository: a
+    # device from before the add-on repository line (nanokvm-base 3.5.0) must
+    # resolve them to update at all. The newest version of each is enough for
+    # that and keeps the site small; other add-ons are only in that repository.
+    latest = {}
+    for name in base or {}:
+        match = ADDON_TAG.fullmatch(name.removesuffix('.apk'))
+        version = (tuple(map(int, match[2].split('.'))), int(match[3]))
+        if match[1] in addon_packages.BASE and (match[1] not in latest or version > latest[match[1]][0]):
+            latest[match[1]] = (version, name)
+    base = {name: base[name] for _, name in latest.values()}
+    for name, item in sorted(base.items()):
+        (repo / name).write_bytes(addon_packages.checked(name, item, fetch, item['size']))
+    (repo / 'addons.json').write_text(json.dumps({'packages': dict(sorted(base.items()))}, indent=2) + '\n')
     (output / 'keys').mkdir()
     key_links = []
     for key in sorted(Path(keys).glob('*.pub')):

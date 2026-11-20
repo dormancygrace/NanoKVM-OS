@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "Simpan"
       },
-      "addons": {
-        "title": "Pengaya",
-        "packages": "Paket",
-        "install": "Instal"
-      },
       "title": "Perangkat lunak",
+      "packages": "Paket",
       "available": "Paket tersedia",
       "updatesTab": "Pembaruan",
       "search": "Cari",
@@ -747,10 +743,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Belum terinstal",
       "stopped": "Berhenti",
-      "install": "Instal",
-      "remove": "Hapus",
       "save": "Simpan pengaturan",
       "server": "Server",
       "passwordMode": "Kata sandi",
@@ -804,8 +797,7 @@
       "eventHint": {
         "power": "host dinyalakan atau dimatikan; memerlukan kontrol ATX dengan LED daya terhubung.",
         "hdmi": "gambar hilang atau kembali, juga saat host mematikan layarnya; terdeteksi selama penangkapan video berjalan.",
-        "security": "alamat diblokir setelah login gagal, terlalu banyak percobaan login IPMI, login dari alamat baru.",
-        "screen": "layar biru atau kernel panic, dikenali oleh add-on TPU; teks dibaca saat tidak ada yang menonton video, dan tangkapan layar dikirim bersamanya."
+        "security": "alamat diblokir setelah login gagal, terlalu banyak percobaan login IPMI, login dari alamat baru."
       },
       "field": {
         "token": "Token",

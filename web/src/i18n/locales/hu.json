@@ -653,12 +653,8 @@
       "indexSchedule": {
         "save": "Mentés"
       },
-      "addons": {
-        "title": "Kiegészítők",
-        "packages": "Csomagok",
-        "install": "Telepítés"
-      },
       "title": "Szoftverek",
+      "packages": "Csomagok",
       "available": "Elérhető csomagok",
       "updatesTab": "Frissítések",
       "search": "Keresés",
@@ -774,10 +770,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Nincs telepítve",
       "stopped": "Leállítva",
-      "install": "Telepítés",
-      "remove": "Eltávolítás",
       "save": "Beállítások mentése",
       "server": "Kiszolgáló",
       "passwordMode": "Jelszó",
@@ -831,8 +824,7 @@
       "eventHint": {
         "power": "a gazdagépet be- vagy kikapcsolták; ATX-vezérlést igényel, csatlakoztatott bekapcsolás-LED-del.",
         "hdmi": "a kép elveszett vagy visszatért, akkor is, ha a gazdagép kikapcsolja a kijelzőjét; a videórögzítés futása alatt észlelhető.",
-        "security": "sikertelen bejelentkezések után blokkolt cím, túl sok IPMI-bejelentkezési kísérlet, bejelentkezés új címről.",
-        "screen": "kék képernyő vagy kernel panic, amelyet a TPU-bővítmény ismer fel; a szöveget akkor olvassa ki, amikor senki sem nézi a videót, és képernyőképpel együtt küldi el."
+        "security": "sikertelen bejelentkezések után blokkolt cím, túl sok IPMI-bejelentkezési kísérlet, bejelentkezés új címről."
       },
       "field": {
         "token": "Token",

@@ -158,7 +158,7 @@ func registerTools(server *protocol.Server, executor *toolExecutor, remote *Remo
 	protocol.AddTool(server, &protocol.Tool{Name: scrollMouseToolName, Description: "Scroll the remote mouse wheel", InputSchema: scrollMouseSchema()}, scrollMouseHandler(executor, remote))
 	protocol.AddTool(server, &protocol.Tool{Name: screenshotToolName, Description: "Capture a JPEG screenshot from the remote display", InputSchema: screenshotSchema()}, screenshotHandler(executor, snapshotter))
 	protocol.AddTool(server, &protocol.Tool{Name: hostStatusToolName, Description: "The host's state without a screenshot: power (whether the NanoKVM can press its buttons, and on/off when a power LED is wired), whether the HDMI input has a signal, and the Caps/Num/Scroll Lock LEDs. Changes nothing", InputSchema: hostStatusSchema()}, hostStatusHandler(host))
-	// Without a reader (add-on missing, or text recognition off) there is no
+	// Without a reader (no language installed, or text recognition off) there is no
 	// screen_text to offer.
 	if textReader != nil {
 		protocol.AddTool(server, &protocol.Tool{Name: screenTextToolName, Description: "Read the text on the remote display (OCR on the NanoKVM's TPU, inputs up to 1920x1080): lines in reading order, and their pieces with boxes in the mouse tools' normalized coordinates. Takes 3-15 s", InputSchema: screenTextSchema(textReader)}, screenTextHandler(textReader))

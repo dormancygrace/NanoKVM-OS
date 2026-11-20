@@ -87,9 +87,11 @@ export function getScreenText(
   });
 }
 
-type ScreenTextSettings = {
+export type ScreenTextSettings = {
   // Text recognition is on: the toolbar button, MCP and PicoClaw read.
   enabled: boolean;
+  // The models of at least one language are installed, so it can read.
+  installed: boolean;
   languages: { name: string; installed: boolean }[];
 };
 
@@ -99,6 +101,16 @@ export function getScreenTextSettings() {
 
 export function setScreenTextEnabled(enabled: boolean) {
   return http.post<{ enabled: boolean }>('/api/vm/screen/text/settings', { enabled });
+}
+
+// Downloads or removes the models of a language: a download from the NanoKVM
+// add-on repository can take minutes on a slow link.
+export function setScreenTextLanguage(language: string, installed: boolean) {
+  return http.post<ScreenTextSettings>(
+    '/api/vm/screen/text/language',
+    { language, installed },
+    { timeout: 600000 }
+  );
 }
 
 // update screen arguments

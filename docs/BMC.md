@@ -35,7 +35,7 @@ While IPMI runs, its tab also shows the IPMI status: the UDP port, open sessions
 
 ## The host's sensors through Redfish
 
-A BMC reads a board's sensors itself; the NanoKVM gets them from the agent of the Computer sensors add-on, which runs in the host's system. While that feature is on (Services > Computer sensors), Redfish passes the readings on, without a switch of its own; with it off, these resources do not exist.
+A BMC reads a board's sensors itself; the NanoKVM gets them from the Computer sensors agent, which runs in the host's system. While that feature is on (Services > Computer sensors), Redfish passes the readings on, without a switch of its own; with it off, these resources do not exist.
 
 | Resource | Holds |
 | --- | --- |

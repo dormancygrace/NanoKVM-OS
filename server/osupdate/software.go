@@ -148,7 +148,7 @@ func checkRemovable(name string) error {
 // Ask APK's solver to resolve the installed system roots, including virtual
 // dependencies and version constraints. Never consult a newer repository.
 func requiredSystemPackages() (map[string]bool, error) {
-	installed, _, err := readInstalledDB()
+	installed, err := installedVersions()
 	if err != nil {
 		return nil, err
 	}

@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "Salvar"
       },
-      "addons": {
-        "title": "Complementos",
-        "packages": "Pacotes",
-        "install": "Instalar"
-      },
       "title": "Software",
+      "packages": "Pacotes",
       "available": "Pacotes disponíveis",
       "updatesTab": "Atualizações",
       "search": "Pesquisar",
@@ -750,10 +746,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Não instalado",
       "stopped": "Parado",
-      "install": "Instalar",
-      "remove": "Remover",
       "save": "Salvar configurações",
       "server": "Servidor",
       "passwordMode": "Senha",
@@ -807,8 +800,7 @@
       "eventHint": {
         "power": "o host foi ligado ou desligado; requer controle ATX com o LED de energia conectado.",
         "hdmi": "a imagem foi perdida ou voltou, também quando o host desliga a tela; detectado enquanto a captura de vídeo está ativa.",
-        "security": "um endereço bloqueado após logins malsucedidos, tentativas de login IPMI em excesso, um login a partir de um novo endereço.",
-        "screen": "uma tela azul ou um kernel panic, reconhecidos pelo complemento TPU; o texto é lido quando ninguém está assistindo ao vídeo, e uma captura de tela é enviada junto."
+        "security": "um endereço bloqueado após logins malsucedidos, tentativas de login IPMI em excesso, um login a partir de um novo endereço."
       },
       "field": {
         "token": "Token",

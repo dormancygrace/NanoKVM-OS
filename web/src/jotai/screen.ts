@@ -1,5 +1,6 @@
 import { atom } from 'jotai';
 
+import type { ScreenTextSettings } from '@/api/vm.ts';
 import { ControlRegionMode, InputRegion, Resolution } from '@/types';
 import type { ScreenshotSource } from '@/lib/screenshot.ts';
 
@@ -37,7 +38,12 @@ export const controlRegionModeAtom = atom<ControlRegionMode>('off');
 // show the live input-region selection overlay
 export const inputRegionSelectingAtom = atom(false);
 
-// show the overlay that reads text on the screen (TPU add-on)
+// show the overlay that reads text on the screen (TPU)
 export const screenTextOpenAtom = atom(false);
+
+// Settings > AI > Text recognition as the device last answered: the toolbar
+// button shows while a language is installed and recognition is on, and
+// follows the page's changes at once. null until loaded.
+export const screenTextSettingsAtom = atom<ScreenTextSettings | null>(null);
 
 export const streamFpsAtom = atom(60);

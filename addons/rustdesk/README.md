@@ -63,20 +63,20 @@ shape, and the target's cursor follows it with the delay of the video.
 
 ## Package and settings
 
-nanokvm-rustdesk is an optional riscv64 package, absent from the base image list.
+nanokvm-rustdesk is a riscv64 package built apart from the OS packages; nanokvm-release depends on it.
 It depends on bridge capability version 2 (the control channel described under
 "Remote access USB defaults") and WebRTC, audio, auto-codec and USB-defaults
 capability version 1 supplied by the updated nanokvm-app, plus OpenRC. Upgrade the application before
 this package. Installation alone leaves it stopped. Upgrade restarts only a service
 that was running; removal stops it and removes its runlevel entry.
 
-Software > Add-ons contains package installation, removal and upgrade when an
-upgrade candidate is available, plus a link to management. Settings > Extensions
-lists installed RustDesk and PicoClaw,
-including stopped services. RustDesk has one management screen with its ID,
-temporary password, service switch and password mode. Server and viewer
-settings are under Advanced settings. PicoClaw opens its existing control panel.
-English and Russian labels are provided.
+The package is part of every NanoKVM OS: `nanokvm-release` depends on it, and
+it updates with the other packages. It stays off until switched on in
+Services > RustDesk; until then the daemon does not run and the server keeps
+no bridge socket open. RustDesk has one management screen with its versions,
+ID, temporary password, service switch and password mode. Server and viewer
+settings are under Advanced settings. English and Russian labels are
+provided.
 
 The private /etc/nanokvm-rustdesk directory contains config.json, the stable ID,
 UUID and signing key. User state survives package removal and reinstallation.
@@ -140,8 +140,8 @@ main, without rebuilding the add-on.
 Pages keeps the current version and two previous versions of each add-on.
 Its installed source link opens the Git tree of the version's tag, which
 stays. Existing legacy RustDesk Releases keep their source assets so their
-installed source links remain valid. Users update through Software → Add-ons;
-APK checks compatibility with their installed OS. OS publication does not pin
+installed source links remain valid. Devices update it with the other
+packages; APK checks compatibility with their installed OS. OS publication does not pin
 or roll back independent add-ons. See [publication and retention](../../docs/UPDATES.md#package-publication-and-retention).
 
 ## Build and source

@@ -17,7 +17,6 @@ export type RustDeskConfig = {
   max_clients: number;
 };
 export type RustDeskStatus = {
-  installed: boolean;
   supports_transport_settings?: boolean;
   supports_audio?: boolean;
   supports_audio_settings?: boolean;
@@ -26,8 +25,6 @@ export type RustDeskStatus = {
   version?: string;
   rustdesk_version?: string;
   source_url?: string;
-  update_version?: string;
-  available: boolean;
   running: boolean;
   config: RustDeskConfig;
   has_password: boolean;
@@ -36,15 +33,14 @@ export type RustDeskStatus = {
   runtime?: { registered: boolean; sessions: number };
 };
 export const getRustDeskStatus = (signal?: AbortSignal) =>
-  http.request<RustDeskStatus>({ method: 'get', url: '/api/addons/rustdesk/status', signal });
+  http.request<RustDeskStatus>({ method: 'get', url: '/api/rustdesk/status', signal });
 export const configureRustDesk = (data: RustDeskConfig) =>
   http.request<null>({
     method: 'put',
-    url: '/api/addons/rustdesk/config',
+    url: '/api/rustdesk/config',
     data,
     timeout: 190000,
     sensitive: true
   });
-export const rustDeskPackageAction = (
-  action: 'install' | 'upgrade' | 'remove' | 'check' | 'regenerate-password'
-) => http.post<null>('/api/addons/rustdesk/' + action, undefined, { timeout: 190000 });
+export const regenerateRustDeskPassword = () =>
+  http.post<null>('/api/rustdesk/regenerate-password', undefined, { timeout: 190000 });

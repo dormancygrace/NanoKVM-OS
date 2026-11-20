@@ -33,29 +33,21 @@ var (
 // errAPKDBBusy means apk holds its database lock.
 var errAPKDBBusy = errors.New("apk database is in use")
 
-func installedVersions() (map[string]string, error) {
-	versions, _, err := readInstalledDB()
-	return versions, err
-}
-
 var installedDBCache struct {
 	sync.Mutex
-	path        string
-	mtime       time.Time
-	size        int64
-	versions    map[string]string
-	releaseCore []string
+	path     string
+	mtime    time.Time
+	size     int64
+	versions map[string]string
 }
 
-// readInstalledDB: the version of every installed package and the NanoKVM
-// packages the installed nanokvm-release depends on, with the NanoKVM names
-// those packages provide: nanokvm-base provides nanokvm-ipmi, which the add-on
-// repository still offers for releases without it. The Add-ons page asks
-// for both every few seconds, so the file is parsed once per change.
-func readInstalledDB() (map[string]string, []string, error) {
+// installedVersions: the version of every installed package. The update
+// notice asks for it on every menu poll, so the file is parsed once per
+// change.
+func installedVersions() (map[string]string, error) {
 	info, err := os.Stat(installedDBPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	c := &installedDBCache
 	c.Lock()
@@ -63,18 +55,16 @@ func readInstalledDB() (map[string]string, []string, error) {
 	if c.versions == nil || c.path != installedDBPath || !info.ModTime().Equal(c.mtime) || info.Size() != c.size {
 		data, err := os.ReadFile(installedDBPath)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		c.versions, c.releaseCore = parseInstalledDB(string(data))
+		c.versions = parseInstalledDB(string(data))
 		c.path, c.mtime, c.size = installedDBPath, info.ModTime(), info.Size()
 	}
-	return maps.Clone(c.versions), slices.Clone(c.releaseCore), nil
+	return maps.Clone(c.versions), nil
 }
 
-func parseInstalledDB(data string) (map[string]string, []string) {
+func parseInstalledDB(data string) map[string]string {
 	versions := map[string]string{}
-	provided := map[string][]string{}
-	var releaseCore []string
 	name := ""
 	for _, line := range strings.Split(data, "\n") {
 		switch {
@@ -84,30 +74,9 @@ func parseInstalledDB(data string) (map[string]string, []string) {
 			name = line[2:]
 		case strings.HasPrefix(line, "V:") && name != "":
 			versions[name] = line[2:]
-		case strings.HasPrefix(line, "p:") && name != "":
-			for _, p := range strings.Fields(line[2:]) {
-				if p := dependencyName(p); strings.HasPrefix(p, "nanokvm-") {
-					provided[name] = append(provided[name], p)
-				}
-			}
-		case strings.HasPrefix(line, "D:") && name == "nanokvm-release":
-			for _, dep := range strings.Fields(line[2:]) {
-				if strings.HasPrefix(dep, "!") {
-					continue // a conflict, not a dependency
-				}
-				if dep := dependencyName(dep); dep == "nanokvm" || strings.HasPrefix(dep, "nanokvm-") {
-					releaseCore = append(releaseCore, dep)
-				}
-			}
 		}
 	}
-	// Without an installed release there is no OS package set to extend.
-	if len(releaseCore) > 0 {
-		for _, pkg := range append([]string{"nanokvm-release"}, releaseCore...) {
-			releaseCore = append(releaseCore, provided[pkg]...)
-		}
-	}
-	return versions, releaseCore
+	return versions
 }
 
 type APKStatus struct {
@@ -248,12 +217,9 @@ const apkStepNumber = `^\((?:\s*[0-9]+/[0-9]+|\?)\)\s+`
 // "( 3/12) Installing nut@community (2.8.2-r0)". The action is one of the
 // messages apk-tools has, some of them several words; a package from a tagged
 // repository carries the tag after its name.
-var (
-	apkStepLine = regexp.MustCompile(apkStepNumber)
-	apkStep     = regexp.MustCompile(apkStepNumber +
-		`(Installing|Purging|Reinstalling|\[APK unavailable, skipped\] Reinstalling|` +
-		`Updating pinning|Downgrading|Replacing|Upgrading)\s+([^\s@]+)(?:@\S+)?\s+\((.*)\)$`)
-)
+var apkStep = regexp.MustCompile(apkStepNumber +
+	`(Installing|Purging|Reinstalling|\[APK unavailable, skipped\] Reinstalling|` +
+	`Updating pinning|Downgrading|Replacing|Upgrading)\s+([^\s@]+)(?:@\S+)?\s+\((.*)\)$`)
 
 // parseAPKStep is the action, package name without its repository tag and
 // parenthesised detail (the version, or "old -> new") of a transaction step

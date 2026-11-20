@@ -88,7 +88,7 @@ var mcpToolDefinitions = []map[string]interface{}{
 	},
 	{
 		"name": "kvm_screen_text",
-		"description": "Read the text on the downstream remote host's screen (OCR on the NanoKVM's TPU; needs the TPU add-on, " +
+		"description": "Read the text on the downstream remote host's screen (OCR on the NanoKVM's TPU; needs text recognition models, " +
 			"inputs up to 1920x1080; takes 3-15 s). Returns the lines in reading order and their pieces with boxes in " +
 			"normalized [0,1] coordinates, as kvm_actions uses: click the middle of a box to click that text.",
 		"inputSchema": map[string]interface{}{

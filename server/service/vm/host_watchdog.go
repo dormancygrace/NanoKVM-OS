@@ -49,7 +49,7 @@ var hostWatchdog struct {
 // hostWatchdogSigns reads what the NanoKVM sees of the host now.
 func hostWatchdogSigns(config hostwatchdog.Config, now time.Time) hostwatchdog.Signs {
 	signs := hostwatchdog.Signs{Now: now}
-	signs.Watching = config.Action != hostwatchdog.Off && HostSensorsInstalled() && hostSensorsMode() == hostSensorsNetwork
+	signs.Watching = config.Action != hostwatchdog.Off && hostSensorsMode() == hostSensorsNetwork
 	if !signs.Watching {
 		return signs
 	}

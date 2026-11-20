@@ -111,8 +111,6 @@ func server(r *gin.Engine) {
 	wsRouter(r)
 	downloadRouter(r)
 	extensionsRouter(r)
-	addonsRouter(r)
-	addonCatalogRouter(r)
 	bmcRouter(r, storageService)
 	notifyRouter(r)
 	rustdeskRouter(r)

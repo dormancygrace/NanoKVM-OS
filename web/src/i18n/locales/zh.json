@@ -853,33 +853,8 @@
         "saved": "索引刷新计划已保存",
         "failed": "无法加载或保存索引刷新计划"
       },
-      "addons": {
-        "title": "附加组件",
-        "packages": "软件包",
-        "open": "打开 PicoClaw",
-        "source": "官方发行版",
-        "picoclawDescription": "可选远程控制功能的 AI 助手。从 PicoClaw 官网安装最新稳定版。",
-        "install": "安装",
-        "update": "更新到 {{version}}",
-        "remove": "删除",
-        "removeTitle": "删除 {{name}}？",
-        "removeConfirm": "将卸载该附加组件，其设置会保留。",
-        "version": "版本 {{version}}",
-        "installedVersion": "已安装 {{version}}",
-        "details": "详情",
-        "notOffered": "仓库已不再提供此附加组件。",
-        "needsOs": "需要 NanoKVM OS {{version}} 或更高版本（已安装：{{installed}}）。请先更新 NanoKVM OS。",
-        "listChecked": "来自仓库的附加组件列表：{{date}}",
-        "listNever": "附加组件列表尚未加载。",
-        "listChecking": "正在检查仓库…",
-        "checkNow": "立即检查",
-        "dailyOff": "每日更新检查已关闭：列表只在您检查时更新。",
-        "listFailed": "上次检查失败。",
-        "failed": "请求失败。",
-        "installedSection": "已安装",
-        "availableSection": "可安装"
-      },
       "title": "软件",
+      "packages": "软件包",
       "description": "管理来自已配置 Alpine 软件源的软件包。软件包变更与 SSH 使用相同的 APK 数据库和服务。",
       "refresh": "刷新索引",
       "upgrade": "全部升级",
@@ -2153,16 +2128,10 @@
       }
     },
     "rustdesk": {
-      "checkUpdates": "检查更新",
-      "absent": "未安装",
       "running": "运行中",
       "stopped": "已停止",
       "registered": "已注册",
       "registering": "正在等待 ID 服务器",
-      "install": "安装",
-      "remove": "移除",
-      "upgrade": "更新到 {{version}}",
-      "addonVersion": "附加组件版本",
       "rustdeskVersion": "RustDesk 协议基础版本",
       "unknownVersion": "未知",
       "save": "保存设置",
@@ -2190,7 +2159,6 @@
       "webrtc": "WebRTC",
       "webrtcOn": "只要客户端提供就接受，与视频传输方式无关。",
       "transportHint": "无论“设置 > 视频”中的传输方式是什么，RustDesk 都接受 WebRTC 连接；不提供 WebRTC 的客户端通过 TCP 和中继连接。WebRTC 使用视频流的 STUN 和 TURN 服务器，可能降低 NanoKVM 的帧率。RustDesk 1.5 客户端在提供 WebRTC 的轮次中不会尝试 TCP：若要通过 ID 以 TCP 连接，请在客户端中关闭 WebRTC。",
-      "open": "打开管理",
       "settings": "RustDesk",
       "keepPassword": "留空则保留当前密码",
       "inputDefaults": "开启远程访问会将 USB 切换为 RustDesk 组成（键盘、两种鼠标模式、虚拟磁盘，开启声音时还有 USB 音频）；关闭后会恢复之前的组成，除非期间已被更改。",
@@ -2202,15 +2170,11 @@
       "audioHint": "自动启用 USB 音频。请在所连接的电脑上选择 NanoKVM 作为声音输出。",
       "audioMuted": "已禁用通过 RustDesk 传输声音。",
       "clients": "最大观看者数",
-      "unavailable": "已配置的 APK 软件源中没有 RustDesk。请添加包含 nanokvm-rustdesk 的软件源，或通过“软件包”安装其 APK。",
       "explain": "使用 RustDesk 客户端连接此 ID，即可查看 HDMI 画面并控制 USB 键盘和鼠标。",
       "video": "视频会自动使用 NanoKVM 视频设置中所选的编解码器。H.265 需要客户端支持。更改设备编解码器后请重新连接。浏览器接管控制时会释放 RustDesk 的输入。",
-      "deletion": "移除该软件包？服务器设置、密码和设备 ID 会保留。",
       "failed": "请求失败",
       "saved": "设置已保存",
       "passwordUpdated": "密码已更新",
-      "description": "使用 RustDesk 远程访问连接到 NanoKVM 的电脑。",
-      "done": "软件包操作已完成",
       "id": "RustDesk ID",
       "source": "源代码与许可证",
       "passwordRequired": "请输入 8 到 64 字节的密码",
@@ -2359,8 +2323,6 @@
       "title": "AI",
       "screenText": {
         "title": "文字识别",
-        "notInstalled": "文字识别需要某种语言的模型扩展。",
-        "openAddons": "扩展",
         "enabled": "文字识别",
         "enabledDescription": "开启后，屏幕上方的按钮可以读取屏幕上的文字，MCP 和 PicoClaw 也可以读取。关闭后，它们都无法读取。",
         "switchFailed": "无法保存设置"
@@ -2462,8 +2424,7 @@
       "eventHint": {
         "power": "主机被开启或关闭；需要启用 ATX 控制并连接电源指示灯。",
         "hdmi": "画面丢失或恢复，包括主机关闭显示器时；仅在视频采集运行时检测。",
-        "security": "登录失败后被封锁的地址、IPMI 登录尝试过多、从新地址登录。",
-        "screen": "由 TPU 附加组件识别的蓝屏或内核崩溃；无人观看视频时读取屏幕文字，并随截图一起发送。"
+        "security": "登录失败后被封锁的地址、IPMI 登录尝试过多、从新地址登录。"
       },
       "field": {
         "token": "令牌",
@@ -2642,7 +2603,6 @@
       "diskStale": "USB 设备重新连接后，代理将出现在辅助磁盘上",
       "diskMissing": "没有辅助磁盘：需要在 USB 组合中启用虚拟磁盘并重新连接 USB 设备",
       "agentVersion": "代理 {{version}}",
-      "agentUpdate": "扩展包含代理 {{version}}：请在计算机上再次运行辅助磁盘中的传感器安装程序进行更新。",
       "serialConsole": "计算机在此端口上运行登录控制台（由串口控制台助手设置），传感器无法使用它。请选择 USB 网络。"
     }
   },

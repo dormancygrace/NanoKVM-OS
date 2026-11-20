@@ -25,8 +25,8 @@ import (
 
 // The screen watcher looks at the host's screen for a crash: a Windows stop
 // screen or a kernel panic. A thumbnail every interval; once the screen has
-// changed and then held still, the TPU classifier (nanokvm-screen, with its
-// model add-on) says what it shows. A stop screen or a text console is then read by the
+// changed and then held still, the TPU classifier (nanokvm-screen, with the
+// model of nanokvm-model-screen) says what it shows. A stop screen or a text console is then read by the
 // OCR, when nobody watches the video (its models take the memory a viewer's
 // video needs). Crash text produces a notification with the lines read and a
 // screenshot; a high-confidence stop screen can be reported without OCR when

@@ -1,4 +1,4 @@
-// Text read from the screen by the TPU add-on (GET /api/vm/screen/text):
+// Text read from the screen by the TPU (GET /api/vm/screen/text):
 // boxes of words in the pixels of the captured picture.
 
 export type ScreenTextBox = {
@@ -17,20 +17,12 @@ export type ScreenTextResult = {
   total_ms: number;
 };
 
-// The recognizers of the add-on; the first is the server's default.
+// The recognizers, one model package each; the first is the server's default.
 export const screenTextLanguages = ['latin', 'chinese', 'cyrillic'] as const;
 export type ScreenTextLanguage = (typeof screenTextLanguages)[number];
 
 function isScreenTextLanguage(value: unknown): value is ScreenTextLanguage {
   return screenTextLanguages.includes(value as ScreenTextLanguage);
-}
-
-// The switch of Settings > AI > Text recognition from its GET reply. A server
-// from before the switch answers {language, languages}: there text
-// recognition is always on and cannot be turned off.
-export function screenTextSwitch(data: { enabled?: unknown } | null | undefined) {
-  if (typeof data?.enabled === 'boolean') return { enabled: data.enabled, switchable: true };
-  return { enabled: true, switchable: false };
 }
 
 // The reading dialog keeps the last language picked in this browser; a first

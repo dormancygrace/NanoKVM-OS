@@ -1,4 +1,4 @@
-# Software package indexes and optional add-ons
+# Software package indexes and packages released on their own
 
 Software > Packages can refresh APK indexes automatically once per day. The setting is off by default. Enable the checkbox, select a time, and save. Times use the device timezone, shown beside the field; the browser timezone is irrelevant.
 
@@ -10,23 +10,25 @@ The root-only `nkos-update refresh-indexes` helper checks the setting, takes the
 
 `GET /api/os/update/software/index-schedule` returns the schedule and device timezone. The administrator-only `PUT` accepts an `enabled` boolean and a strict `HH:MM` time. The API uses `crontab` to install the updated file and notify the daemon.
 
-## Add-ons
+## Packages released on their own
 
-RustDesk is a separate optional `nanokvm-rustdesk` APK. It is absent from the standard image and the core release archive. Software > Add-ons can refresh repository indexes with **Check for updates**, display the available package revision, and install the update on request. The package repository must publish the newer APK and its signed index; changing the application version alone does not update an installed add-on.
+RustDesk (`nanokvm-rustdesk`), the computer sensors (`nanokvm-host-sensors`)
+and the screen model (`nanokvm-model-screen`) are part of every NanoKVM OS:
+`nanokvm-release` depends on them, so the image and every update install
+them. Each stays off until switched on on its page. They are built and
+published by their own workflows, with versions of their own, into the add-on
+repository; an OS release neither rebuilds nor republishes them, and their new
+versions arrive with the next package update.
 
-Before the repository index is signed, every add-on is checked: it may declare only its own files, dependencies and lifecycle scripts. An add-on that has install-if, provides, replaces, triggers or a conflicting dependency is refused. So an add-on can neither install itself on devices that did not choose it nor take the place of a core package.
+The text recognition models (`nanokvm-model-ocr` and one package per
+language) are downloaded on request: AI > Text recognition installs or removes
+a language. The server refreshes the indexes and simulates the installation
+first, and refuses it when it would upgrade, downgrade, replace or remove any
+installed package: a model that needs a later NanoKVM OS would otherwise
+update the whole OS as a side effect.
 
-The acme.sh card in Software > Add-ons uses the same optional installer as Network settings. Its settings shortcut opens the existing HTTPS/ACME controls; it does not install anything or change certificates by itself.
-
-## Explicit RustDesk upgrades
-
-The Update button uses `apk add --upgrade nanokvm-rustdesk`. Older
-installations may have an exact version or local-file constraint in APK's
-world file. Plain `apk upgrade nanokvm-rustdesk` keeps that constraint and
-can exit successfully without installing the offered update. The add command
-replaces only this add-on's world constraint as part of APK's transaction.
-
-The server reads the installed version before and after the transaction and
-checks that APK considers the new version newer. An unchanged version,
-unreadable result or failed transaction is an error, retained on the Add-ons
-card until the next action instead of cleared by status polling.
+Before the add-on repository index is signed, every package in it is checked:
+it may declare only its own files, dependencies and lifecycle scripts. A
+package that has install-if, provides, replaces, triggers or a conflicting
+dependency is refused. So it can neither install itself on devices that did
+not choose it nor take the place of a core package.

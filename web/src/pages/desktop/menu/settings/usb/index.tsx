@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Collapse, message, Select, Switch, Tag, Tooltip } from 'antd';
+import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/virtual-device.ts';
@@ -270,11 +271,15 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
     !modePending &&
     (mode === 'gadget' || (!withMode && role === 'gadget'));
   const showHost = part === 'composition' && mode === 'host' && !modePending && withMode;
+  // the quick menu: descriptions as help tips, so the menu fits without scrolling
+  const compact = !withMode;
   const notGadget = part === 'composition' && !withMode && Boolean(status) && role !== 'gadget';
   const showIdentity = part === 'identity';
 
+  const describe = (text: string) => (compact ? { help: text } : { description: text });
+
   return (
-    <div className="space-y-6">
+    <div className={compact ? 'space-y-4' : 'space-y-6'}>
       {loadFailed && <Alert type="error" showIcon message={t('settings.usb.loadFailed')} />}
       {showMode && (
         <UsbMode
@@ -302,19 +307,19 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
               <>
                 <SettingRow
                   label={t('settings.usb.presetLabel')}
-                  description={
+                  {...describe(
                     selection === 'custom'
                       ? t('settings.usb.customDescription')
                       : selection === 'disabled'
                         ? t('settings.usb.empty')
                         : t(`settings.usb.presets.${selection}.description`)
-                  }
+                  )}
                   htmlFor="usb-preset"
                   stacked
                 >
                   <Select
                     id="usb-preset"
-                    aria-describedby="usb-preset-description"
+                    aria-describedby={compact ? undefined : 'usb-preset-description'}
                     className="w-full"
                     value={selection}
                     loading={!status && !error}
@@ -343,8 +348,13 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
                       key: 'manual',
                       label: t('settings.usb.manual'),
                       children: (
-                        <div className="space-y-4">
-                          <Panel className="flex items-center justify-between gap-3 text-xs">
+                        <div className={compact ? 'space-y-2.5' : 'space-y-4'}>
+                          <Panel
+                            className={clsx(
+                              'flex items-center justify-between gap-3 text-xs',
+                              compact && 'py-2!'
+                            )}
+                          >
                             <span className="text-fg-muted">{t('settings.usb.budgetTitle')}</span>
                             <span
                               className={`font-mono ${withinBudget ? 'text-fg' : 'text-warning'}`}
@@ -365,7 +375,7 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
                                     {t(`settings.usb.devices.${name}.title`)}
                                   </span>
                                 }
-                                description={t(`settings.usb.devices.${name}.description`)}
+                                {...describe(t(`settings.usb.devices.${name}.description`))}
                               >
                                 <div className="flex items-center gap-2">
                                   <Tag
@@ -393,7 +403,7 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
                           })}
                           <SettingRow
                             label={t('settings.usb.compatibilityProfile.title')}
-                            description={t('settings.usb.compatibilityProfile.description')}
+                            {...describe(t('settings.usb.compatibilityProfile.description'))}
                           >
                             <Switch
                               aria-label={t('settings.usb.compatibilityProfile.title')}
@@ -446,6 +456,7 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
             <div className="flex items-center gap-3">
               <Button
                 type="primary"
+                title={compact ? t('settings.usb.reconnectNotice') : undefined}
                 loading={loading}
                 disabled={!dirty || !withinBudget || !identityOk || !status?.revision}
                 onClick={apply}
@@ -466,7 +477,9 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
                 {t(error ? 'settings.usb.reload' : 'settings.usb.cancel')}
               </Button>
             </div>
-            <p className="text-fg-muted m-0 text-xs">{t('settings.usb.reconnectNotice')}</p>
+            {!compact && (
+              <p className="text-fg-muted m-0 text-xs">{t('settings.usb.reconnectNotice')}</p>
+            )}
           </div>
           {showComposition && status && enabled && (
             <UserDisk

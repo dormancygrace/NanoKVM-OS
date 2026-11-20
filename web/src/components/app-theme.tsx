@@ -40,6 +40,11 @@ export const AppTheme = ({ children }: PropsWithChildren) => {
   // The Tailwind colours follow the attribute on the root element.
   useLayoutEffect(() => applyTheme(theme), [theme]);
 
+  // The accent for plain CSS: antd keeps its own in JavaScript.
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty('--color-accent', colorPrimary);
+  }, [colorPrimary]);
+
   // Static message, Modal.confirm and notification calls render outside this
   // provider; give them the same theme and colours.
   useEffect(() => {

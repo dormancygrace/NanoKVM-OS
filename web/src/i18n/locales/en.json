@@ -633,6 +633,10 @@
     }
   },
   "keyboard": {
+    "ctrlAltDel": {
+      "title": "Ctrl+Alt+Del button",
+      "send": "Send Ctrl+Alt+Del"
+    },
     "more": "Keyboard options",
     "title": "Keyboard",
     "paste": "Paste",

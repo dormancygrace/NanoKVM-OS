@@ -2,11 +2,10 @@ import { useAuth } from '@/contexts/auth.ts';
 import { Button, Switch } from 'antd';
 import { useAtom } from 'jotai';
 import {
+  CommandIcon,
   DiscIcon,
-  DownloadIcon,
   FileJsonIcon,
   KeyboardIcon,
-  LogOutIcon,
   MaximizeIcon,
   MouseIcon,
   NetworkIcon,
@@ -30,22 +29,20 @@ export const MenuIcons = () => {
 
   const items = [
     { key: 'keyboard', icon: <KeyboardIcon size={16} /> },
+    { key: 'ctrl-alt-del', icon: <CommandIcon size={16} />, label: 'keyboard.ctrlAltDel.title' },
     { key: 'mouse', icon: <MouseIcon size={16} /> },
     { key: 'image', icon: <DiscIcon size={16} /> },
-    { key: 'download', icon: <DownloadIcon size={16} /> },
     { key: 'terminal', icon: <TerminalSquareIcon size={16} /> },
     { key: 'script', icon: <FileJsonIcon size={16} /> },
     { key: 'wol', icon: <NetworkIcon size={16} /> },
     { key: 'picoclaw', icon: <Robot size={16} /> },
     { key: 'recorder', icon: <VideoIcon size={16} /> },
     { key: 'power', icon: <PowerIcon size={16} /> },
-    { key: 'logout', icon: <LogOutIcon size={16} />, label: 'settings.account.logoutBtn' },
     { key: 'fullscreen', icon: <MaximizeIcon size={16} />, label: 'fullscreen.toggle' },
     { key: 'collapse', icon: <XIcon size={16} />, label: 'menu.collapse' }
   ].filter(
     (item) =>
-      account.role === 'admin' ||
-      !['image', 'download', 'terminal', 'script', 'picoclaw'].includes(item.key)
+      account.role === 'admin' || !['image', 'terminal', 'script', 'picoclaw'].includes(item.key)
   );
 
   function updateItems(key: string) {

@@ -15,6 +15,10 @@ import (
 // Never rewrite mirrors, tagged overlays or unrelated Alpine repositories.
 var channelRepository = regexp.MustCompile(`^https://dormancygrace\.github\.io/NanoKVM-OS/(beta/)?alpine/(v[0-9]+\.[0-9]+)/riscv64(?:/Packages\.adb)?/?$`)
 
+// updateLock is Lock, which the channel tests replace: Lock needs the
+// device's update state directory.
+var updateLock = Lock
+
 type ChannelStatus struct {
 	Channel           string `json:"channel"`
 	Available         bool   `json:"available"`
@@ -70,7 +74,7 @@ func SetChannel(channel string) error {
 	if channel != "stable" && channel != "beta" {
 		return errors.New("invalid update channel")
 	}
-	lock, err := Lock()
+	lock, err := updateLock()
 	if err != nil {
 		return err
 	}

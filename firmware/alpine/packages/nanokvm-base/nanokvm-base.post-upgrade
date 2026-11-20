@@ -30,22 +30,30 @@ community_add=$(awk '
 if [ -n "$community_add" ]; then
     community_after=${community_add%% *}
     community_url=${community_add#* }
+    # A symlinked list is updated at its target, which keeps its owner and
+    # mode: a private mirror's list may be readable by root only. The copy is
+    # private (mktemp) until it takes the target's place. The messages name
+    # the file, not the URL, which can hold a private mirror's credentials.
     # BusyBox awk exits 0 when a write fails (a full disk): the copy replaces
     # the list only when it is the list with exactly the one line added.
-    if community_tmp=$(mktemp "$repositories.XXXXXX"); then
+    if community_list=$(readlink -f "$repositories") && community_tmp=$(mktemp "$community_list.XXXXXX"); then
         if awk -v n="$community_after" -v url="$community_url" '{ print } NR == n { print url }' \
-            "$repositories" > "$community_tmp" &&
-            [ "$(awk 'END { print NR }' "$community_tmp")" = "$(($(awk 'END { print NR }' "$repositories") + 1))" ] &&
+            "$community_list" > "$community_tmp" &&
+            [ "$(awk 'END { print NR }' "$community_tmp")" = "$(($(awk 'END { print NR }' "$community_list") + 1))" ] &&
             [ "$(awk -v n="$((community_after + 1))" 'NR == n' "$community_tmp")" = "$community_url" ] &&
-            [ "$(awk -v n="$((community_after + 1))" 'NR != n' "$community_tmp")" = "$(awk 1 "$repositories")" ] &&
-            chmod 0644 "$community_tmp" && mv "$community_tmp" "$repositories"; then
-            echo "Alpine community repository: added $community_url" >&2
+            [ "$(awk -v n="$((community_after + 1))" 'NR != n' "$community_tmp")" = "$(awk 1 "$community_list")" ] &&
+            chown "$(stat -c %u:%g "$community_list")" "$community_tmp" &&
+            chmod "$(stat -c %a "$community_list")" "$community_tmp" &&
+            mv "$community_tmp" "$community_list"; then
+            echo "Alpine community repository: added to $repositories" >&2
         else
             rm -f "$community_tmp"
-            echo "Could not add $community_url to $repositories; the next upgrade tries again." >&2
+            echo "Could not add the Alpine community repository to $repositories; the next upgrade tries again." >&2
         fi
+    else
+        echo "Could not add the Alpine community repository to $repositories; the next upgrade tries again." >&2
     fi
-    unset community_after community_url community_tmp
+    unset community_after community_url community_list community_tmp
 fi
 unset repositories community_add
 if [ -x /usr/libexec/nanokvm/console-policy ]; then

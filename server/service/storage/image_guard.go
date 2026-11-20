@@ -35,6 +35,14 @@ func changeImage(path string, change func() error) error {
 	return change()
 }
 
+// CheckImageUnused checks the current USB state without reserving the path.
+func CheckImageUnused(path string) error {
+	h := hid.GetHid()
+	h.Lock()
+	defer h.Unlock()
+	return imageUnused(path)
+}
+
 // InstallImage publishes an upload/download only while its destination is not
 // referenced by any LUN or a boot marker that a composition apply can reattach.
 // The caller has synced the bytes of tempPath.

@@ -6,7 +6,13 @@ import { useSetAtom } from 'jotai';
 import { DownloadIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { cancelDownloadImage, downloadImage, imageEnabled, statusImage } from '@/api/download.ts';
+import {
+  cancelDownloadImage,
+  checkImageUpload,
+  downloadImage,
+  imageEnabled,
+  statusImage
+} from '@/api/download.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { readTransferProgress, transferBytes } from '@/lib/download-progress';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
@@ -30,6 +36,7 @@ export const DownloadImage = () => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isRemoteDownloading, setIsRemoteDownloading] = useState(false);
   const [diskEnabled, setDiskEnabled] = useState<boolean | null>(null);
+  const [checkingFile, setCheckingFile] = useState(false);
   const [diskCheckFailed, setDiskCheckFailed] = useState(false);
   const [popoverKey, setPopoverKey] = useState(0);
 
@@ -264,6 +271,23 @@ export const DownloadImage = () => {
       });
   }
 
+  async function checkAndUpload(file: File | null) {
+    if (!file || checkingFile) return;
+    const generation = downloadRequestGeneration.current;
+    setCheckingFile(true);
+    try {
+      await checkImageUpload(file);
+      if (generation === downloadRequestGeneration.current) upload(file);
+    } catch (error) {
+      if (generation !== downloadRequestGeneration.current) return;
+      stopStatusPolling();
+      setStatus('failed');
+      setLog(error instanceof Error ? error.message : t('download.failed'));
+    } finally {
+      if (generation === downloadRequestGeneration.current) setCheckingFile(false);
+    }
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
     if (!file || !/\.(iso|img)$/i.test(file.name)) {
@@ -378,7 +402,7 @@ export const DownloadImage = () => {
         </Button>
       )}
       {diskEnabled === true && (
-        <div className="space-y-2">
+        <fieldset disabled={checkingFile} className="min-w-0 space-y-2">
           <div>
             <div className="mb-1 text-neutral-500">{t('download.input')}</div>
             <div className="flex items-center gap-1">
@@ -428,7 +452,7 @@ export const DownloadImage = () => {
                     : 'cursor-pointer hover:bg-neutral-500'
                 )}
                 onDrop={(e) => {
-                  if (status === 'in_progress') return; // deaktiviert
+                  if (checkingFile || status === 'in_progress') return; // deaktiviert
                   e.preventDefault();
                   setIsDragging(false);
                   const file = e.dataTransfer.files?.[0] ?? null;
@@ -442,17 +466,17 @@ export const DownloadImage = () => {
                   setSelectedFile(file);
                 }}
                 onDragOver={(e) => {
-                  if (status === 'in_progress') return; // deaktiviert
+                  if (checkingFile || status === 'in_progress') return; // deaktiviert
                   e.preventDefault();
                   setIsDragging(true); // Datei wird über den Bereich gezogen
                 }}
                 onDragLeave={(e) => {
-                  if (status === 'in_progress') return; // deaktiviert
+                  if (checkingFile || status === 'in_progress') return; // deaktiviert
                   e.preventDefault();
                   setIsDragging(false); // Maus verlässt Bereich
                 }}
                 onClick={() => {
-                  if (status === 'in_progress') return; // deaktiviert
+                  if (checkingFile || status === 'in_progress') return; // deaktiviert
                   document.getElementById('file-upload')?.click();
                 }}
               >
@@ -472,14 +496,15 @@ export const DownloadImage = () => {
               <Button
                 type="primary"
                 className="h-10 w-16 shrink-0 border-2 px-0"
-                onClick={() => upload(selectedFile)}
+                loading={checkingFile}
+                onClick={() => checkAndUpload(selectedFile)}
                 disabled={status === 'in_progress' || !selectedFile}
               >
                 {t('download.ok')}
               </Button>
             </div>
           </div>
-        </div>
+        </fieldset>
       )}
       {transferring && (
         <div className="mt-4 space-y-2">

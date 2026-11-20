@@ -7,6 +7,7 @@ import { ClipboardIcon, ClipboardPasteIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { paste } from '@/api/hid';
+import * as storage from '@/lib/localstorage.ts';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 
 type InputStatus = '' | 'error';
@@ -19,7 +20,11 @@ export const Paste = () => {
   const [inputValue, setInputValue] = useState('');
   const [isClipboardSupported, setIsClipboardSupported] = useState(false);
   const [isReadingClipboard, setIsReadingClipboard] = useState(false);
-  const [langue, setLangue] = useState('en');
+  const [langue, setLangue] = useState(() => {
+    const saved = storage.getPasteLayout();
+    return ['en', 'de', 'fr', 'ru', 'es'].includes(saved) ? saved : 'en';
+  });
+  const [speed, setSpeed] = useState(storage.getPasteSpeed);
   const [status, setStatus] = useState<InputStatus>('');
   const [errMsg, setErrMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -136,7 +141,7 @@ export const Paste = () => {
 
     const textToSend = langue === 'ru' ? translateRuToEnWithPunctuation(inputValue) : inputValue;
 
-    paste(textToSend, langue)
+    paste(textToSend, langue, speed)
       .then((rsp) => {
         if (rsp.code !== 0) {
           setErrMsg(rsp.msg);
@@ -247,10 +252,29 @@ export const Paste = () => {
           )}
 
           <Select
+            aria-label={t('keyboard.pasteLayout')}
             value={langue}
             variant="filled"
-            onChange={(value) => setLangue(value)}
+            onChange={(value) => {
+              setLangue(value);
+              storage.setPasteLayout(value);
+              setStatus(isValidForLanguage(inputValue, value) ? '' : 'error');
+            }}
             options={languages}
+          ></Select>
+          <Select
+            aria-label={t('keyboard.pasteSpeed')}
+            value={speed}
+            variant="filled"
+            popupMatchSelectWidth={false}
+            onChange={(value) => {
+              setSpeed(value);
+              storage.setPasteSpeed(value);
+            }}
+            options={[
+              { value: 'normal', label: t('keyboard.pasteSpeedNormal') },
+              { value: 'slow', label: t('keyboard.pasteSpeedSlow') }
+            ]}
           ></Select>
         </div>
 

@@ -3,6 +3,7 @@ package hid
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,6 +25,8 @@ type Char struct {
 type PasteReq struct {
 	Content string `form:"content" validate:"required"`
 	Langue  string `form:"langue"`
+	// Speed is "normal" (the default) or "slow".
+	Speed string `form:"speed"`
 }
 
 const (
@@ -31,6 +34,21 @@ const (
 	maxPasteDuration     = 25 * time.Second
 	maxPasteContentRunes = int(maxPasteDuration / defaultPasteDelay)
 )
+
+// pasteSpeed is how a paste presses its keys: how long a key stays down, the
+// pause after it, and the longest the whole paste may take.
+type pasteSpeed struct {
+	hold, gap, limit time.Duration
+}
+
+// Normal is as fast as a running system takes it. Slow is for what reads
+// the keyboard itself and drops keys that come too close or are let go too
+// soon: a firmware setup, a boot loader, a console over a slow link.
+var pasteSpeeds = map[string]pasteSpeed{
+	"":       {gap: defaultPasteDelay, limit: maxPasteDuration},
+	"normal": {gap: defaultPasteDelay, limit: maxPasteDuration},
+	"slow":   {hold: 30 * time.Millisecond, gap: 100 * time.Millisecond, limit: 50 * time.Second},
+}
 
 func LangueSwitch(base map[rune]Char, lang string) map[rune]Char {
 	// if no language is specified → return base map
@@ -191,6 +209,12 @@ func (s *Service) Paste(c *gin.Context) {
 		return
 	}
 
+	speed, ok := pasteSpeeds[req.Speed]
+	if !ok {
+		rsp.ErrRsp(c, -1, "invalid arguments")
+		return
+	}
+
 	// Reject oversized input before the rune slice multiplies its size.
 	if len(req.Content) > maxPasteContentRunes*utf8.UTFMax {
 		rsp.ErrRsp(c, -2, "content too long")
@@ -225,8 +249,9 @@ func (s *Service) Paste(c *gin.Context) {
 			typeableKeys++
 		}
 	}
-	if time.Duration(typeableKeys)*defaultPasteDelay > maxPasteDuration {
-		rsp.ErrRsp(c, -2, "paste duration exceeds 25s")
+	if time.Duration(typeableKeys)*(speed.hold+speed.gap) > speed.limit {
+		rsp.ErrRsp(c, -2, fmt.Sprintf("the text is too long for this speed: at most %d characters",
+			int(speed.limit/(speed.hold+speed.gap))))
 		return
 	}
 
@@ -265,30 +290,31 @@ func (s *Service) Paste(c *gin.Context) {
 		})
 	}
 
+	// One key: down, held for the speed's time, up, then the pause.
+	pressKey := func(key Char) error {
+		keyDown := []byte{byte(key.Modifiers), 0x00, byte(key.Code), 0x00, 0x00, 0x00, 0x00, 0x00}
+		if err := writeKeyboardReport(keyDown); err != nil {
+			return err
+		}
+		if speed.hold > 0 {
+			if err := sleepPasteContext(c.Request.Context(), speed.hold); err != nil {
+				return err
+			}
+		}
+		if err := writeKeyboardReport(keyUp); err != nil {
+			return err
+		}
+		return sleepPasteContext(c.Request.Context(), speed.gap)
+	}
 	for _, char := range contentRunes {
 		if err := context.Cause(c.Request.Context()); err != nil {
 			break
 		}
-		key := charMapLocal[char]
-		keyDown := []byte{byte(key.Modifiers), 0x00, byte(key.Code), 0x00, 0x00, 0x00, 0x00, 0x00}
-		if err = writeKeyboardReport(keyDown); err != nil {
-			break
-		}
-		if err = writeKeyboardReport(keyUp); err != nil {
-			break
-		}
-		if err = sleepPasteContext(c.Request.Context(), defaultPasteDelay); err != nil {
+		if err = pressKey(charMapLocal[char]); err != nil {
 			break
 		}
 		if followKey, ok := followMap[char]; ok {
-			followKeyDown := []byte{byte(followKey.Modifiers), 0x00, byte(followKey.Code), 0x00, 0x00, 0x00, 0x00, 0x00}
-			if err = writeKeyboardReport(followKeyDown); err != nil {
-				break
-			}
-			if err = writeKeyboardReport(keyUp); err != nil {
-				break
-			}
-			if err = sleepPasteContext(c.Request.Context(), defaultPasteDelay); err != nil {
+			if err = pressKey(followKey); err != nil {
 				break
 			}
 		}

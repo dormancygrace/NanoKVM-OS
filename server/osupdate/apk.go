@@ -238,17 +238,37 @@ func upgradeSelections() (skip, bounded []string) {
 	return skip, bounded
 }
 
-// APK's transaction output is also consumed by addonCoreChanges. Only upgrades
-// of the bounded packages are added; installations, removals and holds are not.
-var apkPlannedUpgrade = regexp.MustCompile(`^\([0-9]+/[0-9]+\) Upgrading ([^ ]+) \(([^ ]+) -> ([^ )]+)\)$`)
+// apkStep is one step of an apk transaction: "(2/5) Upgrading nanokvm-base
+// (3.5.0-r0 -> 3.6.0-r0)". apk-tools 3 pads the step number to the width of
+// the total, "( 2/12) Installing ...", so the number is matched with the
+// spaces it may carry.
+var apkStep = regexp.MustCompile(`^\(\s*[0-9]+/[0-9]+\)\s+(\S+)\s+(\S+)(?:\s+\((.*)\))?$`)
 
+// parseAPKStep is the action, package name and parenthesised detail (the
+// version, or "old -> new") of a transaction step line; ok is false for any
+// other line.
+func parseAPKStep(line string) (action, name, detail string, ok bool) {
+	m := apkStep.FindStringSubmatch(strings.TrimSpace(line))
+	if m == nil {
+		return "", "", "", false
+	}
+	return m[1], m[2], m[3], true
+}
+
+// Only upgrades of the bounded packages are added; installations, removals
+// and holds are not.
 func boundedUpgrades(plan string, bounded []string) string {
 	var lines []string
 	for _, line := range strings.Split(plan, "\n") {
-		m := apkPlannedUpgrade.FindStringSubmatch(strings.TrimSpace(line))
-		if m != nil && slices.Contains(bounded, m[1]) {
-			lines = append(lines, m[1]+"-"+m[2]+" < "+m[3])
+		action, name, detail, ok := parseAPKStep(line)
+		if !ok || action != "Upgrading" || !slices.Contains(bounded, name) {
+			continue
 		}
+		from, to, found := strings.Cut(detail, " -> ")
+		if !found || strings.ContainsAny(from+to, " ()") {
+			continue
+		}
+		lines = append(lines, name+"-"+from+" < "+to)
 	}
 	return strings.Join(lines, "\n")
 }

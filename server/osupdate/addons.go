@@ -289,17 +289,13 @@ func CoreChanges(simulation, addon string) []string {
 	core := addonCorePackages(stored.Core)
 	var changed []string
 	for _, line := range strings.Split(simulation, "\n") {
-		fields := strings.Fields(line)
-		// "(2/5) Upgrading nanokvm-base (3.5.0-r0 -> 3.6.0-r0)"
-		if len(fields) < 3 || !strings.HasPrefix(fields[0], "(") {
+		// Every step but a new installation changes what is there: any
+		// other action on an OS package counts, including ones this code
+		// does not name.
+		action, name, _, ok := parseAPKStep(line)
+		if !ok || action == "Installing" {
 			continue
 		}
-		switch fields[1] {
-		case "Upgrading", "Downgrading", "Replacing", "Purging", "Removing":
-		default:
-			continue
-		}
-		name := fields[2]
 		if name != addon && (core[name] || strings.HasPrefix(name, "nanokvm-")) {
 			changed = append(changed, name)
 		}

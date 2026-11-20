@@ -122,8 +122,14 @@ export const Desktop = () => {
   // Load the device time format once for every displayed device time.
   useDeviceTime();
   const isBigScreen = useMediaQuery('(min-width: 850px)');
-  // An upright phone has the menu as a bar along the bottom (menu/index.tsx).
-  const phoneBar = useResponsiveDevice().isMobilePortrait;
+  // A phone has the menu as a bar along the bottom, or along the right edge
+  // when turned sideways (menu/index.tsx); the screen ends before it.
+  const device = useResponsiveDevice();
+  const phoneBarRoom = device.isMobilePortrait
+    ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }
+    : device.isPhoneLandscape
+      ? { paddingRight: 'calc(56px + env(safe-area-inset-right))' }
+      : undefined;
   // The PicoClaw sidebar renders once, into a node of its own that the side
   // panel or the full-screen overlay adopts. Moving between them (a resize
   // across the breakpoint) or the video area remounting (a host resolution
@@ -426,10 +432,7 @@ export const Desktop = () => {
   }
 
   return (
-    <div
-      className="box-border h-dvh w-full overflow-hidden bg-black"
-      style={phoneBar ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' } : undefined}
-    >
+    <div className="box-border h-dvh w-full overflow-hidden bg-black" style={phoneBarRoom}>
       <Head title={t('head.desktop')} />
       {notifierHolder}
 

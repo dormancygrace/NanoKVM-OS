@@ -363,6 +363,9 @@ export const H264Webrtc = ({
         return;
       }
       stall.opened(openMs);
+      if (videoPaused) {
+        sendMsg('video-pause', '');
+      }
 
       heartbeatTimer = setInterval(() => {
         sendMsg('heartbeat', '');

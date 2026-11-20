@@ -30,10 +30,10 @@ type session struct {
 	store  *authn.Store
 	cancel context.CancelFunc
 	// idleKey and tokenUntil name the sign-in for the inactivity limit. Only
-	// a websocket is closed by it: a transfer that is under way finishes.
+	// a stream is ended by it: a transfer that is under way finishes.
 	idleKey    string
 	tokenUntil time.Time
-	websocket  bool
+	stream     bool
 }
 
 // sessionRegistry holds the running sessions, and while there are any, one
@@ -117,7 +117,7 @@ func (r *sessionRegistry) recheck() {
 	valid := make(map[tokenKey]bool)
 	now := time.Now()
 	for _, entry := range sessions {
-		if entry.websocket && entry.idleKey != "" {
+		if entry.stream && entry.idleKey != "" {
 			if alive, _ := idleStateOf(entry.idleKey, entry.tokenUntil, false, now); !alive {
 				entry.cancel()
 				continue

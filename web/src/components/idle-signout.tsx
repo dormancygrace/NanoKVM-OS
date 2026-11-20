@@ -97,7 +97,7 @@ export const IdleSignout = () => {
     // a closed connection): when the period was out, say that this is why
     // the sign-in form opens.
     const onExpired = () => {
-      if (limit > 0 && Date.now() >= deadline - 1000) {
+      if (limit > 0 && Date.now() >= deadline - 5000) {
         // One notice, however many requests were refused.
         message.info({ content: t('auth.idleSignedOut'), duration: 10, key: 'idle-signout' });
       }

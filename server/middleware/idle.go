@@ -206,3 +206,11 @@ func ClearSessionCookie(c *gin.Context) {
 		c.SetCookie(name, "", -1, "/", "", secure, true)
 	}
 }
+
+// isStream reports a request that goes on for as long as its page is open: a
+// websocket, the MJPEG video, server-sent events. The rest (an upload, a
+// download) ends by itself.
+func isStream(c *gin.Context) bool {
+	return c.IsWebsocket() || c.Request.URL.Path == "/api/stream/mjpeg" ||
+		strings.Contains(c.GetHeader("Accept"), "text/event-stream")
+}

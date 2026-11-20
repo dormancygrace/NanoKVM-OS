@@ -87,7 +87,7 @@ func CheckToken() gin.HandlerFunc {
 			username: principal.Username, tokenVersion: token.TokenVersion,
 			store: authn.DefaultStore, cancel: cancel,
 			idleKey: sessionKeyOf(token), tokenUntil: token.ExpiresAt.Time,
-			websocket: c.IsWebsocket(),
+			stream: isStream(c),
 		})
 		defer func() { unregister(); cancel() }()
 

@@ -12,8 +12,8 @@ A program that sends its token in an `Authorization` header has no page: each of
 
 ## What happens
 
-In the last minute the page shows the time left; any input keeps the sign-in. When the time is out NanoKVM refuses the sign-in's requests, closes its video, audio, input and terminal connections and removes its cookie, and the page opens the sign-in form. A transfer that is under way, an image upload for one, finishes. Other sign-ins of the same account are not touched, and the ended one stays ended.
+In the last minute the page shows the time left; any input keeps the sign-in. When the time is out NanoKVM refuses the sign-in's requests, ends its video, audio, input, terminal and event connections and removes its cookie, and the page opens the sign-in form. A transfer that is under way, an image upload for one, finishes. Other sign-ins of the same account are not touched, and the ended one stays ended.
 
-NanoKVM keeps the clocks, not the browser, so a closed tab or a sleeping laptop is signed out as well. The clocks are in memory: after a restart of NanoKVM every sign-in starts a new period. Changing the limit starts the periods again too.
+NanoKVM keeps the clocks, not the browser, so a closed tab or a sleeping laptop is signed out as well. The clocks are in memory: after a restart of NanoKVM every sign-in starts a new period, an ended one too if the browser still has its cookie. Changing the limit starts the periods again too.
 
 The limit is in `/etc/kvm/idle-signout`, in seconds; without the file there is none. Redfish, IPMI and the MCP key have their own sign-ins and are not affected.

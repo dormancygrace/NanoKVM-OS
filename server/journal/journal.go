@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -174,10 +175,8 @@ func (j *Journal) Entries(limit int) []Entry {
 	if limit <= 0 || limit > len(j.entries) {
 		limit = len(j.entries)
 	}
-	out := make([]Entry, 0, limit)
-	for i := len(j.entries) - 1; i >= len(j.entries)-limit; i-- {
-		out = append(out, j.entries[i])
-	}
+	out := append([]Entry{}, j.entries[len(j.entries)-limit:]...)
+	slices.Reverse(out)
 	return out
 }
 

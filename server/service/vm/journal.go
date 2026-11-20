@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +23,12 @@ func (s *Service) GetJournal(c *gin.Context) {
 		Body     string    `json:"body"`
 	}
 	entries := []entry{}
-	for _, e := range journal.Default.Entries(0) {
+	// limit: only the newest ones, for a page that shows a few
+	limit, err := strconv.Atoi(c.Query("limit"))
+	if err != nil || limit < 0 {
+		limit = 0
+	}
+	for _, e := range journal.Default.Entries(limit) {
 		title, body := notify.Describe(c.Query("lang"), e)
 		entries = append(entries, entry{Seq: e.Seq, Time: e.Time, Kind: e.Kind, Severity: e.Severity, Title: title, Body: body})
 	}

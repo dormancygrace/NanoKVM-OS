@@ -56,6 +56,14 @@ one.
 - **The panels of Settings > Dashboard**: processor, memory, storage, the
   device, video, network interfaces, VPN and the rest. They update while the
   page is open.
+- **UPS** (an administrator's), once the UPS service reads a UPS: whether it
+  runs on mains or on battery, the charge, the runtime, the load and the
+  model.
+- **Services** (an administrator's): LLDP, SNMP and UPS, those that are
+  installed, each with whether it runs and a way to its page; under LLDP the
+  first neighbour that announced itself and its port.
+- **Recent events** (an administrator's): the five newest entries of the
+  event log, with a way to the whole log.
 
 The overview takes no part in the video: it starts no stream, takes no input
 and is not counted in the active video sessions. The picture is taken at most once in five seconds however many browsers have the page

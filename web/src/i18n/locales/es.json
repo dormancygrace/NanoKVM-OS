@@ -839,16 +839,6 @@
       "description": "Detiene el vídeo, el teclado, los discos virtuales, SSH y los complementos. Espere la confirmación antes de desconectar la alimentación de NanoKVM. Si la alimentación sigue conectada, use la página de reinicio para volver a iniciar NanoKVM OS. El ordenador conectado permanece encendido.",
       "magic": "Permitir también un paquete mágico Wake-on-LAN. Cualquier persona que pueda acceder al servicio de escucha puede reiniciar NanoKVM sin contraseña."
     },
-    "addonPage": {
-      "failed": "No se pudieron leer los valores del complemento",
-      "notRunning": "El servicio del complemento no se está ejecutando",
-      "refused": "El complemento lo rechazó",
-      "saved": "Guardado",
-      "save": "Guardar",
-      "status": "Estado",
-      "yes": "Sí",
-      "no": "No"
-    },
     "vpn": {
       "title": "VPN",
       "description": "Conecta el NanoKVM a una red privada. Selecciona una VPN para configurarla."
@@ -2309,12 +2299,6 @@
     },
     "bmc": {
       "title": "Redfish e IPMI",
-      "description": "Control de energía del equipo para herramientas de centros de datos, mediante la conexión ATX: Redfish (fence_redfish, Ansible) forma parte de NanoKVM OS, IPMI por LAN (ipmitool, fence_ipmilan) viene con un complemento.",
-      "install": "Instalar",
-      "remove": "Quitar",
-      "open": "Ajustes",
-      "removeTitle": "¿Quitar el complemento IPMI?",
-      "removeConfirm": "IPMI se detiene. Redfish y los ajustes se conservan.",
       "running": "En ejecución",
       "stopped": "Detenido",
       "redfish": "Redfish",
@@ -2324,8 +2308,6 @@
       "ipmiWarning": "IPMI guarda la contraseña tal cual, y cualquiera que alcance el puerto IPMI puede obtener un hash de ella para adivinarla sin conexión. Use una contraseña larga que no use en ningún otro sitio y abra el puerto solo a redes de confianza.",
       "account": "Cuenta BMC",
       "accountHint": "Independiente de las cuentas web; la usan ambos protocolos.",
-      "accountHintRedfish": "Independiente de las cuentas web; la usa Redfish, e IPMI cuando su complemento esté instalado.",
-      "sharedOff": "La cuenta BMC y las opciones de energía aparecen cuando Redfish está activado o el complemento IPMI está instalado.",
       "username": "Nombre de usuario",
       "usernameRule": "1-16 letras, dígitos, '.', '_' o '-'",
       "password": "Contraseña",
@@ -2343,9 +2325,6 @@
       "failed": "La solicitud ha fallado.",
       "redfishEnable": "Activar Redfish",
       "ipmiEnable": "Activar IPMI",
-      "ipmiNotInstalled": "IPMI viene con el complemento IPMI, que no está instalado.",
-      "ipmiInstall": "Instalar el complemento IPMI",
-      "ipmiAddonDescription": "IPMI por LAN para el control de energía del equipo (ipmitool, fence_ipmilan). Sus ajustes están en Servicios > Redfish e IPMI.",
       "holdDefault": "5 (menú de energía)",
       "advanced": "Avanzado",
       "accountFirst": "Configure la cuenta BMC abajo y pulse Guardar: Redfish e IPMI solo se activan con una contraseña."

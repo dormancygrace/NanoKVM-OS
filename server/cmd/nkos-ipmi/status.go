@@ -12,35 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"NanoKVM-IPMI/internal/ipmi"
+	"NanoKVM-Server/internal/ipmi"
 )
-
-// statusSocket is the add-on's API, named in its manifest
-// (/usr/share/nanokvm/addons.d/ipmi.json); the server proxies
-// /api/addon/ipmi/... to it for administrators, and reads GET /events for
-// its notifications.
-const statusSocket = "/run/nanokvm/addons/ipmi.sock"
-
-// status is GET /status of the settings page.
-type status struct {
-	State         string `json:"state"`
-	Port          int    `json:"port"`
-	Sessions      int    `json:"sessions"`
-	LockedOut     int    `json:"lockedOut"`
-	LastCommand   string `json:"lastCommand"`
-	LastCommandAt string `json:"lastCommandAt"`
-}
-
-func statusOf(stats ipmi.Stats, port int) status {
-	s := status{
-		State: "listening", Port: port, Sessions: stats.Sessions,
-		LockedOut: stats.LockedOut, LastCommand: stats.LastCommand,
-	}
-	if !stats.LastCommandAt.IsZero() {
-		s.LastCommandAt = stats.LastCommandAt.Local().Format("2006-01-02 15:04:05")
-	}
-	return s
-}
 
 // events is GET /events?after=N: the logins and lockouts after sequence
 // number N, for the server's security notifications. Epoch changes when the
@@ -51,11 +24,14 @@ type events struct {
 	Events []ipmi.Event `json:"events"`
 }
 
+// statusHandler serves the server's two questions: GET /status for the
+// BMC settings page and GET /events for the security notifications.
 func statusHandler(server *ipmi.Server, port int, epoch string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": statusOf(server.Stats(), port)})
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 0,
+			"data": ipmi.Status{Port: port, Stats: server.Stats()}})
 	})
 	mux.HandleFunc("GET /events", func(w http.ResponseWriter, r *http.Request) {
 		after, _ := strconv.ParseUint(r.URL.Query().Get("after"), 10, 64)
@@ -74,8 +50,8 @@ func newEpoch() string {
 	return hex.EncodeToString(b[:])
 }
 
-// serveStatus listens on path, readable by root only: the server, which
-// checked the administrator, is the only client.
+// serveStatus listens on path, readable by root only: the server is the only
+// client.
 func serveStatus(path string, server *ipmi.Server, port int) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err

@@ -143,6 +143,12 @@ subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -bu
                 '-o', str(out/'nkos-standby'), './cmd/nkos-standby'],
                cwd=repo/'server', env=helper_env, check=True)
 files.append(out/'nkos-standby')
+# The IPMI daemon: a process of its own, so that a fault in parsing untrusted
+# UDP packets cannot stop the server.
+subprocess.run([go, 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -buildid=',
+                '-o', str(out/'nkos-ipmi'), './cmd/nkos-ipmi'],
+               cwd=repo/'server', env=helper_env, check=True)
+files.append(out/'nkos-ipmi')
 manifest = {'custom_runtime_expected': custom_runtime_expected,
             'custom_runtime_present': custom_runtime_present,
             'websocket_c906_present': websocket_mask_present,

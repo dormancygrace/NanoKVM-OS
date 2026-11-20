@@ -839,16 +839,6 @@
       "description": "Stoppt Video, Tastatur, virtuelle Laufwerke, SSH und Erweiterungen. Warten Sie auf die Bestätigung, bevor Sie die Stromversorgung von NanoKVM trennen. Bleibt die Stromversorgung angeschlossen, können Sie NanoKVM OS über die Neustartseite wieder starten. Der angeschlossene Computer bleibt eingeschaltet.",
       "magic": "Auch ein Wake-on-LAN-Magic-Packet zulassen. Jeder, der den Empfangsdienst erreichen kann, kann NanoKVM ohne Passwort neu starten."
     },
-    "addonPage": {
-      "failed": "Die Werte des Add-ons konnten nicht gelesen werden",
-      "notRunning": "Der Dienst des Add-ons läuft nicht",
-      "refused": "Das Add-on hat abgelehnt",
-      "saved": "Gespeichert",
-      "save": "Speichern",
-      "status": "Status",
-      "yes": "Ja",
-      "no": "Nein"
-    },
     "vpn": {
       "title": "VPN",
       "description": "Verbinden Sie den NanoKVM mit einem privaten Netzwerk. Wählen Sie ein VPN aus, um es einzurichten."
@@ -2309,12 +2299,6 @@
     },
     "bmc": {
       "title": "Redfish und IPMI",
-      "description": "Stromsteuerung des Hosts für Rechenzentrumswerkzeuge über den ATX-Anschluss: Redfish (fence_redfish, Ansible) gehört zu NanoKVM OS, IPMI über LAN (ipmitool, fence_ipmilan) kommt mit einer Erweiterung.",
-      "install": "Installieren",
-      "remove": "Entfernen",
-      "open": "Einstellungen",
-      "removeTitle": "IPMI-Erweiterung entfernen?",
-      "removeConfirm": "IPMI wird beendet. Redfish und die Einstellungen bleiben erhalten.",
       "running": "Läuft",
       "stopped": "Angehalten",
       "redfish": "Redfish",
@@ -2324,8 +2308,6 @@
       "ipmiWarning": "IPMI speichert das Passwort im Klartext, und wer den IPMI-Port erreicht, kann einen Hash davon abrufen und offline erraten. Verwenden Sie ein langes Passwort, das Sie nirgends sonst nutzen, und öffnen Sie den Port nur für vertrauenswürdige Netze.",
       "account": "BMC-Konto",
       "accountHint": "Getrennt von den Web-Konten; beide Protokolle verwenden es.",
-      "accountHintRedfish": "Getrennt von den Web-Konten; Redfish verwendet es, IPMI sobald sein Add-on installiert ist.",
-      "sharedOff": "Das BMC-Konto und die Stromoptionen erscheinen, wenn Redfish eingeschaltet oder das IPMI-Add-on installiert ist.",
       "username": "Benutzername",
       "usernameRule": "1–16 Buchstaben, Ziffern, '.', '_' oder '-'",
       "password": "Passwort",
@@ -2343,9 +2325,6 @@
       "failed": "Die Anfrage ist fehlgeschlagen.",
       "redfishEnable": "Redfish aktivieren",
       "ipmiEnable": "IPMI aktivieren",
-      "ipmiNotInstalled": "IPMI kommt mit der IPMI-Erweiterung, die nicht installiert ist.",
-      "ipmiInstall": "IPMI-Erweiterung installieren",
-      "ipmiAddonDescription": "IPMI über LAN zur Stromsteuerung des Hosts (ipmitool, fence_ipmilan). Die Einstellungen finden Sie unter Dienste > Redfish und IPMI.",
       "holdDefault": "5 (Strommenü)",
       "advanced": "Erweitert",
       "accountFirst": "Legen Sie unten das BMC-Konto fest und klicken Sie auf Speichern: Redfish und IPMI lassen sich nur mit Passwort einschalten."

@@ -3,14 +3,26 @@ import { http } from '@/lib/http';
 export type BmcStatus = {
   redfish: boolean;
   ipmi: boolean;
-  ipmiInstalled: boolean;
   ipmiRunning: boolean;
+  // What the running IPMI daemon reports; absent while it does not run.
+  ipmiDaemon?: IpmiDaemonStatus;
   username: string;
   passwordSet: boolean;
   ipmiPort: number;
   holdSeconds: number;
   powerLedConnected: boolean;
   virtualMedia: boolean;
+};
+
+export type IpmiDaemonStatus = {
+  port: number;
+  sessions: number;
+  // Clients refused for too many logins.
+  lockedOut: number;
+  // The last power command accepted ("power on", ...); empty before the first.
+  lastCommand: string;
+  // RFC 3339; absent before the first power command.
+  lastCommandAt?: string;
 };
 
 export type BmcSettings = {
@@ -35,5 +47,3 @@ export const configureBmc = (data: BmcSettings) =>
     timeout: 30000,
     sensitive: true
   });
-export const ipmiPackageAction = (action: 'install' | 'uninstall') =>
-  http.post('/api/bmc/ipmi/' + action, undefined, { timeout: 190000 });

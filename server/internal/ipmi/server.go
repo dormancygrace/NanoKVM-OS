@@ -4,7 +4,7 @@
 // unauthenticated or unencrypted cipher suites are not served.
 //
 // RMCP+ hands a hash of the user's password to anyone who asks to log in
-// (RAKP message 2), which an attacker can brute-force offline: the add-on
+// (RAKP message 2), which an attacker can brute-force offline: NanoKVM OS
 // keeps IPMI off unless the user turns it on.
 package ipmi
 
@@ -135,15 +135,24 @@ type Server struct {
 	eventSeq uint64
 }
 
-// Stats is what the add-on's settings page shows.
+// Stats is what the BMC settings page shows of the running daemon.
 type Stats struct {
 	// Sessions is the number of established, unexpired IPMI sessions.
 	Sessions int `json:"sessions"`
 	// LockedOut is the number of clients refused for too many logins.
 	LockedOut int `json:"lockedOut"`
 	// LastCommand is the last power command accepted ("power on", ...).
-	LastCommand   string    `json:"lastCommand"`
-	LastCommandAt time.Time `json:"lastCommandAt"`
+	LastCommand string `json:"lastCommand"`
+	// LastCommandAt is absent before the first power command.
+	LastCommandAt time.Time `json:"lastCommandAt,omitzero"`
+}
+
+// Status is GET /status of the daemon's socket (pkg/bmc.IPMISocket), which
+// the server's BMC service reads for the settings page.
+type Status struct {
+	// Port is the UDP port the daemon listens on.
+	Port int `json:"port"`
+	Stats
 }
 
 // Stats reports the server's sessions and its last power command.

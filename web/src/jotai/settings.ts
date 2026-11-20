@@ -43,6 +43,5 @@ export const hostLedStatusVisibleAtom = atom(true);
 
 export const settingsRequestAtom = atom<string | null>(null);
 
-// The open tab of Services > Redfish and IPMI: kept while the desktop is
-// open, and set by links that lead to one tab (Software > Add-ons > IPMI).
+// The open tab of Services > Redfish and IPMI, kept while the desktop is open.
 export const bmcTabAtom = atom('redfish');

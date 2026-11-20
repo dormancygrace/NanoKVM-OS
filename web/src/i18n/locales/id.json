@@ -932,16 +932,6 @@
         "authError": "Login tidak lagi berfungsi: {{error}}",
         "changed": "Layanan, ID klien, atau tenant berubah selama proses masuk. Masuk lagi."
       }
-    },
-    "addonPage": {
-      "failed": "Tidak dapat membaca nilai add-on",
-      "notRunning": "Layanan add-on tidak berjalan",
-      "refused": "Add-on menolaknya",
-      "saved": "Tersimpan",
-      "save": "Simpan",
-      "status": "Status",
-      "yes": "Ya",
-      "no": "Tidak"
     }
   },
   "picoclaw": {

@@ -122,7 +122,7 @@ def releases(repository, fetch=fetch, channel='stable'):
 
 
 # The add-on release tags, NAME-VERSION-rN for the add-ons of
-# addon_packages.ADDONS; PicoClaw/acme.sh retain their own upstream/Alpine
+# addon_packages.ADDONS and RETIRED; PicoClaw/acme.sh retain their own upstream/Alpine
 # update mechanisms.
 ADDON_TAG = addon_packages.TAG
 

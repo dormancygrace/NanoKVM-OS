@@ -15,13 +15,19 @@ import subprocess
 # workflow, the others by the add-on workflow (addon.yml). Pages indexes
 # them without an OS release. No published release pins one from the
 # archived NanoKVM-OS-packages repository.
-ADDONS = ('nanokvm-rustdesk', 'nanokvm-ipmi', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
+ADDONS = ('nanokvm-rustdesk', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
           'nanokvm-model-ocr-cyrillic', 'nanokvm-model-ocr-chinese', 'nanokvm-model-screen',
           'nanokvm-host-sensors')
+# Packages that an OS package provides and replaces, and that are no longer
+# built. Pages keeps serving their last releases: a device on a release whose
+# OS packages lack them installs them from there, and a rollback to such a
+# release needs them when its world names them. A device whose OS provides
+# the name does not list it as an add-on (server/osupdate/addons.go).
+RETIRED = ('nanokvm-ipmi',)
 RELEASES = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/'
-SOURCES = tuple(RELEASES + name + '-' for name in ADDONS)
+SOURCES = tuple(RELEASES + name + '-' for name in ADDONS + RETIRED)
 # A release tag, which is also the APK's name without .apk.
-TAG = re.compile('(' + '|'.join(map(re.escape, ADDONS)) + r')-(\d+\.\d+\.\d+)-r(\d+)')
+TAG = re.compile('(' + '|'.join(map(re.escape, ADDONS + RETIRED)) + r')-(\d+\.\d+\.\d+)-r(\d+)')
 
 
 MODEL_ADDONS = tuple(name for name in ADDONS if name.startswith('nanokvm-model-'))
@@ -39,8 +45,6 @@ def selected_builds(paths, changed_pins=()):
     for path in paths:
         if path in common:
             selected.update(BUILD_ADDONS)
-        elif path.startswith(('addons/ipmi/', 'firmware/cpu/sysmon-runtime/', 'server/pkg/bmc/')) or path in {'server/go.mod', 'server/go.sum'}:
-            selected.add('nanokvm-ipmi')
         elif path.startswith('addons/host-sensors/'):
             selected.add('nanokvm-host-sensors')
         elif path.startswith('addons/model-'):
@@ -59,8 +63,6 @@ def selected_builds(paths, changed_pins=()):
             selected.update(MODEL_ADDONS)
     if 'tpu-runtime' in changed_pins:
         selected.update(MODEL_ADDONS)
-    if 'go' in changed_pins:
-        selected.add('nanokvm-ipmi')
     return sorted(selected)
 
 

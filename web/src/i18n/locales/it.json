@@ -933,16 +933,6 @@
         "authError": "L'accesso non funziona più: {{error}}",
         "changed": "Il servizio, l'ID client o il tenant sono cambiati durante l'accesso. Accedi di nuovo."
       }
-    },
-    "addonPage": {
-      "failed": "Impossibile leggere i valori del componente aggiuntivo",
-      "notRunning": "Il servizio del componente aggiuntivo non è in esecuzione",
-      "refused": "Il componente aggiuntivo l'ha rifiutato",
-      "saved": "Salvato",
-      "save": "Salva",
-      "status": "Stato",
-      "yes": "Sì",
-      "no": "No"
     }
   },
   "picoclaw": {

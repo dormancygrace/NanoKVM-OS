@@ -962,16 +962,6 @@
       "description": "Stops video, keyboard, virtual disks, SSH and add-ons. Wait for confirmation before disconnecting NanoKVM power. If power stays connected, use the restart page to start NanoKVM OS again. The connected computer stays on.",
       "magic": "Also allow a Wake-on-LAN magic packet. Anyone who can reach the listener can restart NanoKVM without a password."
     },
-    "addonPage": {
-      "failed": "Could not read the add-on's values",
-      "notRunning": "The add-on's service is not running",
-      "refused": "The add-on refused it",
-      "saved": "Saved",
-      "save": "Save",
-      "status": "Status",
-      "yes": "Yes",
-      "no": "No"
-    },
     "vpn": {
       "title": "VPN",
       "description": "Connect NanoKVM to a private network. Select a VPN to set it up."
@@ -2505,12 +2495,7 @@
     },
     "bmc": {
       "title": "Redfish and IPMI",
-      "description": "Power control of the host for data centre tools, through the ATX connection: Redfish (fence_redfish, Ansible) is part of NanoKVM OS, IPMI over LAN (ipmitool, fence_ipmilan) comes with an add-on.",
-      "install": "Install",
-      "remove": "Remove",
-      "open": "Settings",
-      "removeTitle": "Remove the IPMI add-on?",
-      "removeConfirm": "IPMI stops. Redfish and the settings stay.",
+      "description": "Power control of the host for data centre tools, through the ATX connection: Redfish (fence_redfish, Ansible) and IPMI over LAN (ipmitool, fence_ipmilan). Both are off until switched on here.",
       "running": "Running",
       "stopped": "Stopped",
       "redfish": "Redfish",
@@ -2518,10 +2503,15 @@
       "ipmi": "IPMI over LAN",
       "ipmiHint": "ipmitool -I lanplus; cipher suites 3 and 17.",
       "ipmiWarning": "IPMI keeps the password as written, and anyone who can reach the IPMI port can obtain a hash of it to guess offline. Use a long password that you use nowhere else, and open the port only to trusted networks.",
+      "ipmiStatus": "IPMI status",
+      "ipmiStatusHint": "What the IPMI service is doing now.",
+      "ipmiSessions": "Open sessions",
+      "ipmiLockedOut": "Clients locked out for too many logins",
+      "ipmiLastCommand": "Last power command",
+      "ipmiNoCommand": "None yet",
       "account": "BMC account",
       "accountHint": "Separate from the web accounts; used by both protocols.",
-      "accountHintRedfish": "Separate from the web accounts; used by Redfish, and by IPMI once its add-on is installed.",
-      "sharedOff": "The BMC account and the power options appear when Redfish is on or the IPMI add-on is installed.",
+      "sharedOff": "The BMC account and the power options appear when Redfish or IPMI is on.",
       "username": "User name",
       "usernameRule": "1-16 letters, digits, '.', '_' or '-'",
       "password": "Password",
@@ -2539,9 +2529,6 @@
       "failed": "The request failed.",
       "redfishEnable": "Enable Redfish",
       "ipmiEnable": "Enable IPMI",
-      "ipmiNotInstalled": "IPMI comes with the IPMI add-on, which is not installed.",
-      "ipmiInstall": "Install the IPMI add-on",
-      "ipmiAddonDescription": "IPMI over LAN for power control of the host (ipmitool, fence_ipmilan). Its settings are in Services > Redfish and IPMI.",
       "holdDefault": "5 (power menu)",
       "advanced": "Advanced",
       "accountFirst": "Set the BMC account below and press Save: Redfish and IPMI turn on only with a password."

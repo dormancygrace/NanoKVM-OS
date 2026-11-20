@@ -101,10 +101,6 @@ func (s *Service) GetPeers(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
 	defer cancel()
 	peers := browsePeers(ctx)
-	hostname, _ := os.Hostname()
-	for i := range peers {
-		peers[i].Self = strings.EqualFold(peers[i].Host, hostname+".local")
-	}
 	sort.Slice(peers, func(a, b int) bool { return peers[a].Name < peers[b].Name })
 	c.Header("Cache-Control", "no-store")
 	rsp.OkRspWithData(c, gin.H{"peers": peers})
@@ -189,6 +185,8 @@ func discoveryQuery(name string, kind dnsmessage.Type) []byte {
 type discoveryLink struct {
 	conn    *net.UDPConn
 	answers *discoveryAnswers
+	// local: this device's addresses on the interface.
+	local []string
 }
 
 func newDiscoveryAnswers() *discoveryAnswers {
@@ -268,6 +266,19 @@ func browsePeers(ctx context.Context) []Peer {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagMulticast == 0 || iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}
+		// The USB network leads to the managed computer only, which is no
+		// NanoKVM and must not be able to show itself as one.
+		if iface.Name == "usb0" {
+			continue
+		}
+		var local []string
+		if addresses, err := iface.Addrs(); err == nil {
+			for _, address := range addresses {
+				if network, ok := address.(*net.IPNet); ok && network.IP.To4() != nil {
+					local = append(local, network.IP.String())
+				}
+			}
+		}
 		conn, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4zero})
 		if err != nil {
 			continue
@@ -277,7 +288,7 @@ func browsePeers(ctx context.Context) []Peer {
 			conn.Close()
 			continue
 		}
-		links = append(links, discoveryLink{conn: conn, answers: newDiscoveryAnswers()})
+		links = append(links, discoveryLink{conn: conn, answers: newDiscoveryAnswers(), local: local})
 	}
 	ask := func(link discoveryLink, questions [][]byte) {
 		for _, question := range questions {
@@ -339,31 +350,62 @@ func browsePeers(ctx context.Context) []Peer {
 		listen(wait)
 	}
 
-	// One device seen on two links is one entry when everything but its
-	// addresses agrees; anything else stays apart.
+	results := make([]linkPeers, 0, len(links))
+	for _, link := range links {
+		results = append(results, linkPeers{peers: link.answers.peers(), local: link.local})
+	}
+	return collectPeers(results)
+}
+
+// linkPeers are the devices one link answered for, and this device's
+// addresses on that link.
+type linkPeers struct {
+	peers []Peer
+	local []string
+}
+
+// collectPeers lists the devices of every link, one row per link: the
+// records of two links are never combined, as two devices on two links may
+// announce the same names. A row is left out only when an earlier one is the
+// same in everything, addresses included, which opens the same page. A row is
+// this device when one of its addresses is this device's own on the link that
+// answered; a row without an address is not.
+func collectPeers(links []linkPeers) []Peer {
 	peers := []Peer{}
 	for _, link := range links {
-		for _, peer := range link.answers.peers() {
-			merged := false
-			for i := range peers {
-				p := &peers[i]
-				if p.Name == peer.Name && strings.EqualFold(p.Host, peer.Host) && p.Port == peer.Port &&
-					p.Proto == peer.Proto && p.Model == peer.Model {
-					for _, address := range peer.Addresses {
-						if !containsString(p.Addresses, address) {
-							p.Addresses = append(p.Addresses, address)
-						}
-					}
-					merged = true
+		for _, peer := range link.peers {
+			for _, address := range peer.Addresses {
+				if containsString(link.local, address) {
+					peer.Self = true
 					break
 				}
 			}
-			if !merged {
+			duplicate := false
+			for _, p := range peers {
+				if samePeer(p, peer) {
+					duplicate = true
+					break
+				}
+			}
+			if !duplicate {
 				peers = append(peers, peer)
 			}
 		}
 	}
 	return peers
+}
+
+func samePeer(a, b Peer) bool {
+	if a.Name != b.Name || a.Host != b.Host || a.Port != b.Port || a.Proto != b.Proto ||
+		a.Model != b.Model || a.Self != b.Self || len(a.Addresses) != len(b.Addresses) {
+		return false
+	}
+	for i := range a.Addresses {
+		if a.Addresses[i] != b.Addresses[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // discoveryInstanceName is the first label of an instance name, as people

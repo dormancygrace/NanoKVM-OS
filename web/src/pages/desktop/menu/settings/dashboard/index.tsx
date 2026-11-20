@@ -839,7 +839,7 @@ export const Dashboard = ({
                 const standard = peer.port === (peer.proto === 'http' ? 80 : 443);
                 const url = `${peer.proto}://${address}${standard ? '' : `:${peer.port}`}/`;
                 return (
-                  <li key={`${peer.host}-${peer.port}`}>
+                  <li key={`${peer.host}-${peer.port}-${peer.addresses.join(',')}`}>
                     <div className="flex items-baseline justify-between gap-3">
                       <a href={url} target="_blank" rel="noreferrer" className="font-medium">
                         {peer.name}

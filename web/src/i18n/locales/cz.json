@@ -1705,7 +1705,6 @@
         "updateFailed": "Nebylo možné uplatnit sdílení Internetu přes USB. Načtěte znovu a zkontrolujte stav zařízení.",
         "offload": "Softwarové předávání zpracovávání toku zapnuto pro příslušná TCP/UDP spojení."
       },
-      "manual": "Nastavit ručně",
       "budgetTitle": "Limit počtu koncových bodů",
       "reload": "Znovunačíst stav",
       "custom": "Uživatelsky určené složení",

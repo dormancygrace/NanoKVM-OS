@@ -1,6 +1,6 @@
 import { ChangeEvent, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button, Divider, Input } from 'antd';
-import type { InputRef } from 'antd';
+import type { InputRef, PopoverProps } from 'antd';
 import clsx from 'clsx';
 import { useSetAtom } from 'jotai';
 import { DownloadIcon } from 'lucide-react';
@@ -23,7 +23,16 @@ import './download-progress.css';
 
 const imageUpdatedEvent = 'nanokvm:image-updated';
 
-export const DownloadImage = () => {
+// label, className, placement: the button outside a toolbar (see MenuItem).
+export const DownloadImage = ({
+  label = false,
+  className,
+  placement
+}: {
+  label?: boolean;
+  className?: string;
+  placement?: PopoverProps['placement'];
+} = {}) => {
   const { t } = useTranslation();
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
 
@@ -590,7 +599,11 @@ export const DownloadImage = () => {
     <MenuItem
       title={t('download.title')}
       icon={
-        <span className="download-toolbar-icon" aria-hidden="true">
+        <span
+          className="download-toolbar-icon"
+          style={label ? { width: 18, height: 18 } : undefined}
+          aria-hidden="true"
+        >
           <DownloadIcon size={18} />
           {transferring && (
             <>
@@ -610,6 +623,9 @@ export const DownloadImage = () => {
       }
       content={content}
       onOpenChange={handleOpenChange}
+      label={label}
+      className={className}
+      placement={placement}
     />
   );
 };

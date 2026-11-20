@@ -14,6 +14,7 @@ import { atxEnabledAtom } from '@/jotai/atx.ts';
 import { captureBusyAtom, captureReadyAtom, isHdmiEnabledAtom } from '@/jotai/screen.ts';
 import { useVirtualDisk } from '@/hooks/useVirtualDisk.ts';
 import { Panel } from '@/components/ui/settings.tsx';
+import { DownloadImage } from '@/pages/desktop/menu/download.tsx';
 import { Image } from '@/pages/desktop/menu/image';
 import { Power } from '@/pages/desktop/menu/power';
 import { Terminal } from '@/pages/desktop/menu/terminal';
@@ -156,6 +157,7 @@ export const HostActions = ({ admin, locked }: { admin: boolean; locked: boolean
     <div className="grid w-full grid-cols-2 gap-2">
       {atx && <Power label className={tile} placement="bottomLeft" />}
       <Image label className={tile} />
+      {admin && <DownloadImage label className={tile} placement="bottomLeft" />}
       {admin && <Terminal label className={tile} placement="bottomLeft" />}
       {admin && (
         <Link

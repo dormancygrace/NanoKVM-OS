@@ -633,6 +633,12 @@
     }
   },
   "keyboard": {
+    "ctrlAltDel": {
+      "title": "Ctrl+Alt+Del button",
+      "send": "Send Ctrl+Alt+Del",
+      "confirmTitle": "Send Ctrl+Alt+Del?",
+      "confirm": "Windows opens its security screen. A Linux text console usually restarts the computer."
+    },
     "more": "Keyboard options",
     "title": "Keyboard",
     "paste": "Paste",
@@ -1680,7 +1686,6 @@
       "presetLabel": "Composition",
       "custom": "Custom composition",
       "customDescription": "Select the USB functions you need below.",
-      "manual": "Configure manually",
       "apply": "Apply",
       "cancel": "Discard changes",
       "reload": "Refresh status",

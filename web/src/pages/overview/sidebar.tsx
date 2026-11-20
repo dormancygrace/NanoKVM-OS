@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 
 import { brandingAtom, brandingFavicon } from '@/jotai/branding';
 import { webTitleAtom } from '@/jotai/settings.ts';
+import { DownloadImage } from '@/pages/desktop/menu/download.tsx';
 import { Image } from '@/pages/desktop/menu/image';
 import type { SettingsFrame } from '@/pages/desktop/menu/settings';
 import { SessionActions } from '@/pages/desktop/menu/settings/session-actions.tsx';
@@ -90,6 +91,7 @@ export const Sidebar = ({
             {link('/screen', <MonitorIcon size={18} />, t('overview.screen.title'), false)}
             {admin && <Terminal label className={clsx(row, 'text-fg')} placement="rightTop" />}
             <Image label className={clsx(row, 'text-fg')} />
+            {admin && <DownloadImage label className={clsx(row, 'text-fg')} placement="rightTop" />}
             {admin &&
               link(
                 settingsPath('system-events'),

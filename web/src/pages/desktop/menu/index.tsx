@@ -35,7 +35,7 @@ import { KeyboardLedStatus } from '../keyboard-led-status';
 import { AudioMenu } from './audio';
 import { Fullscreen } from './fullscreen';
 import { Keyboard } from './keyboard';
-import { Logout } from './logout';
+import { CtrlAltDel } from './keyboard/ctrl-alt-del.tsx';
 import { Mouse } from './mouse';
 import { Collapse, Expand } from './operations';
 import { OverviewLink } from './overview.tsx';
@@ -48,10 +48,6 @@ import { Wol } from './wol';
 
 // Admin-only items come from one lazily loaded chunk (see admin-items.ts).
 const loadAdminItems = () => import('./admin-items.ts');
-const Capture = lazy(() => loadAdminItems().then((module) => ({ default: module.Capture })));
-const DownloadImage = lazy(() =>
-  loadAdminItems().then((module) => ({ default: module.DownloadImage }))
-);
 const Image = lazy(() => loadAdminItems().then((module) => ({ default: module.Image })));
 const Picoclaw = lazy(() => loadAdminItems().then((module) => ({ default: module.Picoclaw })));
 const Script = lazy(() => loadAdminItems().then((module) => ({ default: module.Script })));
@@ -227,7 +223,6 @@ export const Menu = () => {
     const groups: ReactNode[][] = [
       [
         <Screen key="screen" />,
-        ...(isAdmin ? [lazyItem('capture', <Capture />)] : []),
         <Screenshot key="screenshot" />,
         ...(isAdmin ? [lazyItem('screen-text', <ScreenText />, null)] : []),
         ...(isEnabled('recorder') ? [<Recorder key="recorder" />] : [])
@@ -238,6 +233,9 @@ export const Menu = () => {
         ...(captureEnabled && usbInput.keyboard && isEnabled('keyboard')
           ? [<Keyboard key="keyboard" quickAccess={responsiveDevice.isTouchLikeDevice} />]
           : []),
+        ...(captureEnabled && usbInput.keyboard && isEnabled('ctrl-alt-del')
+          ? [<CtrlAltDel key="ctrl-alt-del" />]
+          : []),
         ...(captureEnabled && (usbInput.absolute || usbInput.relative) && isEnabled('mouse')
           ? [<Mouse key="mouse" />]
           : [])
@@ -247,8 +245,7 @@ export const Menu = () => {
             lazyItem('usb', <UsbMenu />),
             ...(isEnabled('image')
               ? [lazyItem('image', <Image tooltipPlacement={tooltipPlacement} />, null)]
-              : []),
-            ...(isEnabled('download') ? [lazyItem('download', <DownloadImage />)] : [])
+              : [])
           ]
         : [],
       isAdmin
@@ -269,10 +266,7 @@ export const Menu = () => {
       variant === 'mobile'
         ? [
             <OverviewLink key="overview" />,
-            <Settings key="settings" tooltipPlacement={tooltipPlacement} />,
-            ...(isEnabled('logout')
-              ? [<Logout key="logout" tooltipPlacement={tooltipPlacement} />]
-              : [])
+            <Settings key="settings" tooltipPlacement={tooltipPlacement} />
           ]
         : []
     ];
@@ -479,7 +473,6 @@ export const Menu = () => {
                 </div>
                 <Divider type="vertical" className="shrink-0" />
                 <Settings />
-                {isEnabled('logout') && <Logout />}
                 {isEnabled('fullscreen') && <Fullscreen />}
                 {isEnabled('collapse') && <Collapse toggleMenu={setIsMenuExpanded} />}
               </MobileMenuItemProvider>

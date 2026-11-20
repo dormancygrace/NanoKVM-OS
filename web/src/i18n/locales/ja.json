@@ -1500,7 +1500,6 @@
       "presetLabel": "構成",
       "custom": "カスタム構成",
       "customDescription": "必要な USB 機能を以下から選択してください。",
-      "manual": "手動で設定",
       "apply": "適用",
       "cancel": "変更を破棄",
       "reload": "状態を更新",

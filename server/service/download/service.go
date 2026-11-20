@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -186,6 +187,54 @@ func (s *Service) StatusImage(c *gin.Context) {
 		Percentage:      percentage,
 		DownloadedBytes: progress.Bytes, TotalBytes: progress.Total, BytesPerSecond: progress.BytesPerSecond,
 	})
+}
+
+// CheckImageUpload is advisory. The transfer rechecks its lock, space and
+// destination since another request can change them before the file arrives.
+func (s *Service) CheckImageUpload(c *gin.Context) {
+	var rsp proto.Response
+	c.Header("Cache-Control", "no-store")
+	name := c.Query("name")
+	if err := validateRemoteImageFilename(name); err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	size, err := strconv.ParseInt(c.Query("size"), 10, 64)
+	if err != nil || size <= 0 {
+		rsp.ErrRsp(c, -1, "invalid image size")
+		return
+	}
+	s.downloadMutex.Lock()
+	busy := s.downloadDone != nil
+	s.downloadMutex.Unlock()
+	if busy {
+		rsp.ErrRsp(c, -1, errDownloadInProgress.Error())
+		return
+	}
+	if err := unix.Access(imageDirectory, unix.W_OK); err != nil {
+		rsp.ErrRsp(c, -1, "image storage is not writable")
+		return
+	}
+	dir, err := os.Open(imageDirectory)
+	if err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	defer dir.Close()
+	budget, err := imageWriteBudget(dir)
+	if err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	if size > budget {
+		rsp.ErrRsp(c, -1, errImageSpace.Error())
+		return
+	}
+	if err := storage.CheckImageUnused(filepath.Join(imageDirectory, name)); err != nil {
+		rsp.ErrRsp(c, -1, err.Error())
+		return
+	}
+	rsp.OkRsp(c)
 }
 
 func (s *Service) DownloadImageFile(c *gin.Context) {

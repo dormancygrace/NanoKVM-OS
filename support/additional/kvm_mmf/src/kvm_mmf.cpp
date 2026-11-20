@@ -148,6 +148,14 @@ struct venc_tuning_t {
 
 static const venc_tuning_t venc_tuning;
 static constexpr uint64_t venc_pending_limit_ms = 3000;
+// The encoder driver's status for a frame it gave up on (osdrv patch 0029):
+// the frame did not finish, the core was reset, and its stream never comes.
+#ifndef CVI_ERR_VENC_FRAME_ABORTED
+#define CVI_ERR_VENC_FRAME_ABORTED CVI_ERR_VENC_SYS_NOTREADY
+#endif
+// A channel whose submitted frame the driver aborted: nothing is left to
+// drain, and teardown destroys the channel before releasing the frame's input.
+static bool venc_frame_aborted[MMF_VENC_MAX_CHN];
 
 /*
  * Video memory shortage. The pools are sized to the measured peak, so their
@@ -3166,9 +3174,12 @@ int mmf_del_venc_channel(int ch) {
 		int drained = CVI_SUCCESS;
 		if (!priv.venc_stream_acquired[ch]) {
 			drained = mmf_venc_pop(ch, &stream);
-			if (drained != CVI_SUCCESS && drained != CVI_ERR_VENC_BUSY) return drained;
+			// An aborted frame (now or by an earlier read) left nothing to
+			// drain: the channel goes as a wedged one does.
+			if (drained != CVI_SUCCESS && drained != CVI_ERR_VENC_BUSY
+				&& drained != CVI_ERR_VENC_FRAME_ABORTED) return drained;
 		}
-		if (drained == CVI_ERR_VENC_BUSY) {
+		if (drained == CVI_ERR_VENC_BUSY || drained == CVI_ERR_VENC_FRAME_ABORTED) {
 			fprintf(stderr, "[kvm_mmf] VENC channel %d is wedged; resetting it and releasing its input\n", ch);
 			fflush(stderr);
 			wedged = true;
@@ -3243,6 +3254,7 @@ int mmf_del_venc_channel(int ch) {
 	memset(info, 0, sizeof(venc_info_t));
 	priv.venc_stream_acquired[ch] = false;
 	priv.venc_input_vi_ch[ch] = -1;
+	venc_frame_aborted[ch] = false;
 	if (vi_direct_venc == ch) _mmf_vi_direct_off_all();
 	fprintf(stderr, "[kvm_mmf] VENC channel %d destroyed\n", ch);
 	fflush(stderr);
@@ -3585,6 +3597,9 @@ int mmf_venc_pop(int ch, mmf_stream_t *stream) {
 		fflush(stderr);
 		return -1;
 	}
+	// The driver gave up on the submitted frame: asking again would wait for
+	// a stream that never comes.
+	if (venc_frame_aborted[ch]) return CVI_ERR_VENC_FRAME_ABORTED;
 	// One frame was already submitted. GetStream waits for that frame itself;
 	// an extra 80 ms select deadline can abandon it while the codec lock is
 	// still held. StopRecvFrame/ResetChn do not cancel H.26x encoding in this SDK.
@@ -3648,6 +3663,12 @@ int mmf_venc_pop(int ch, mmf_stream_t *stream) {
 			}
 			usleep(1000);
 		} while (true);
+		if (s32Ret == CVI_ERR_VENC_FRAME_ABORTED) {
+			venc_frame_aborted[ch] = true;
+			fprintf(stderr, "[kvm_mmf] VENC channel %d frame aborted by the encoder reset\n", ch);
+			fflush(stderr);
+			return s32Ret;
+		}
 		if (s32Ret != CVI_SUCCESS) {
 			printf("CVI_VENC_GetStream failed with %#x\n", s32Ret);
 			return s32Ret;

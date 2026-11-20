@@ -26,6 +26,7 @@ import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { useUsbAudio } from '@/hooks/useUsbAudio.ts';
 import { useUsbInput } from '@/hooks/useUsbInput.ts';
 import { MobileMenuItemProvider } from '@/components/menu-item.tsx';
+import { ThemeToggle } from '@/components/theme-toggle.tsx';
 
 import { Control } from '../control.tsx';
 import { HostLedStatus } from '../host-led-status';
@@ -230,7 +231,12 @@ export const Menu = () => {
           ? [<Power key="power" vertical={variant === 'mobile'} />]
           : [])
       ],
-      variant === 'mobile' ? [<Settings key="settings" tooltipPlacement={tooltipPlacement} />] : []
+      variant === 'mobile'
+        ? [
+            ...(isEnabled('theme') ? [<ThemeToggle key="theme" bar />] : []),
+            <Settings key="settings" tooltipPlacement={tooltipPlacement} />
+          ]
+        : []
     ];
 
     groups
@@ -248,10 +254,9 @@ export const Menu = () => {
   if (isMobileRailActive) {
     // A phone held upright: the bar along the bottom edge, under the screen
     // (the console page leaves it the room). Its menus open upwards as sheets.
-    // It keeps the dark look of the console in either theme.
     return (
       <div
-        className="theme-dark fixed inset-x-0 bottom-0 transition-opacity duration-300"
+        className="fixed inset-x-0 bottom-0 transition-opacity duration-300"
         style={{
           zIndex: isKeyboardOpen ? 998 : 1000,
           opacity: isInitialized ? 1 : 0,
@@ -379,6 +384,7 @@ export const Menu = () => {
                   {renderMenuItems('desktop')}
                 </div>
                 <Divider type="vertical" className="shrink-0" />
+                {isEnabled('theme') && <ThemeToggle bar />}
                 <Settings />
                 {isEnabled('fullscreen') && <Fullscreen />}
                 {isEnabled('collapse') && <Collapse toggleMenu={setIsMenuExpanded} />}

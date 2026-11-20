@@ -1,7 +1,8 @@
 // Package netsvc holds the network services of Settings > Services: LLDP
 // (lldpd), SNMP (net-snmp) and UPS (Network UPS Tools). Each is an Alpine
-// package of the base set, an OpenRC service that is off until it is switched
-// on, and a small configuration written from the settings.
+// package installed with the system (apkpkg.EnsureBasePackages on an updated
+// device), an OpenRC service that is off until it is switched on, and a small
+// configuration written from the settings.
 package netsvc
 
 import (
@@ -61,12 +62,13 @@ func (u *unit) enabled() bool {
 	return err == nil
 }
 
-// state is what a status reports. A service that is off and has no daemon
-// is not running, and its configuration needs no audit until it is switched
-// on: the dashboard asks for all three services every 30 s.
-func (u *unit) state() (enabled, running, foreign bool) {
+// state is what a status reports. The dashboard asks for all three services
+// every 30 s and shows only those that are on: its light status skips the
+// configuration audit of a service that is off and has no daemon, which is not
+// running. The service page shows the foreign warning in any state.
+func (u *unit) state(light bool) (enabled, running, foreign bool) {
 	enabled = u.enabled()
-	if !enabled && !u.alive() {
+	if light && !enabled && !u.alive() {
 		return enabled, false, false
 	}
 	return enabled, u.running(), u.foreignNow()
@@ -366,7 +368,7 @@ type enabledReq struct {
 
 // handleReset replaces the configuration, whoever wrote it, with the one of a
 // fresh installation.
-func (u *unit) handleReset(c *gin.Context, status func() any) {
+func (u *unit) handleReset(c *gin.Context, status func(light bool) any) {
 	var rsp proto.Response
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -379,11 +381,11 @@ func (u *unit) handleReset(c *gin.Context, status func() any) {
 		rsp.ErrRsp(c, -3, "could not replace the configuration")
 		return
 	}
-	rsp.OkRspWithData(c, status())
+	rsp.OkRspWithData(c, status(false))
 }
 
 // handleSettings writes the settings a handler has parsed and checked.
-func (u *unit) handleSettings(c *gin.Context, status func() any, write func() error) {
+func (u *unit) handleSettings(c *gin.Context, status func(light bool) any, write func() error) {
 	var rsp proto.Response
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
@@ -401,10 +403,10 @@ func (u *unit) handleSettings(c *gin.Context, status func() any, write func() er
 		rsp.ErrRsp(c, -3, "could not save the settings")
 		return
 	}
-	rsp.OkRspWithData(c, status())
+	rsp.OkRspWithData(c, status(false))
 }
 
-func (u *unit) handleEnabled(c *gin.Context, status func() any) {
+func (u *unit) handleEnabled(c *gin.Context, status func(light bool) any) {
 	var req enabledReq
 	var rsp proto.Response
 	if err := proto.ParseFormRequest(c, &req); err != nil {
@@ -422,5 +424,5 @@ func (u *unit) handleEnabled(c *gin.Context, status func() any) {
 		rsp.ErrRsp(c, -3, "could not switch the service")
 		return
 	}
-	rsp.OkRspWithData(c, status())
+	rsp.OkRspWithData(c, status(false))
 }

@@ -2701,7 +2701,6 @@
     "routingDisableFirst": "Před měněním směrování tento profil zakažte.",
     "uploadLimit": "Nejvýše 16 profilů (64 KiB na soubor).",
     "openvpnDescription": "Naimportujte .ovpn profily. V rámci stejného nahrání zároveň vyberte i jakékoli soubory s klíči a certifikáty, na které se profil odkazuje.",
-    "uninstallPurge": "Smazat také profily a uložené přihlašovací údaje",
     "openvpnLimit": "Nejvýše 16 profilů (256 KiB na soubor a kombinovaný profil).",
     "description": "Naimportujte WireGuard profily a povolte ten, který potřebujete. Zapnutý profil se znovu připojí i po restartu.",
     "requestFailed": "Spojení přerušeno. Než budete zkoušet znovu, připojte se k NanoKVM znovu a zkontrolujte stav tunelu.",

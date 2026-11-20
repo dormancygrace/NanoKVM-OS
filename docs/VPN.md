@@ -24,8 +24,8 @@ on missing handshakes is provided; Idle alone does not establish tunnel failure.
 ## OpenVPN
 
 Upload `.ovpn` files with any referenced certificate/key files in the same
-selection. The GUI runs Alpine's OpenVPN 2 client (`openvpn`), part of the
-base set, and shows whether a tunnel uses the kernel's data-channel offload.
+selection. The GUI runs Alpine's OpenVPN 2 client (`openvpn`), installed
+with the system, and shows whether a tunnel uses the kernel's data-channel offload.
 Enter requested username/password or private-key passphrase through the profile
 controls. TUN and TAP profiles are supported; executable scripts and
 interactive SSO/MFA are not. Server DNS applies to the whole device while

@@ -5,9 +5,9 @@ pkgdesc="I2C tools (i2c-tools), built for the C906"
 url="https://i2c.wiki.kernel.org/index.php/I2C_Tools"
 arch="riscv64"
 license="GPL-2.0-or-later AND LGPL-2.1-or-later"
-# In place of Alpine's i2c-tools from the community repository, which the image
-# does not use: installing this package removes it, and a dependency on
-# i2c-tools is satisfied by this one.
+# In place of Alpine's i2c-tools from the community repository, so that
+# nanokvm-release needs nothing from it: installing this package removes it,
+# and a dependency on i2c-tools is satisfied by this one.
 provides="i2c-tools=4.4-r100"
 replaces="i2c-tools"
 provider_priority=100

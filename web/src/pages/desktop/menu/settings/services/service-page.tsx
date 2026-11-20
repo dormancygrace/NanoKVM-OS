@@ -77,8 +77,9 @@ export function ServicePage<S extends api.ServiceStatus>({ name, children }: Ser
   const title = t(`settings.netServices.${name}.title`);
   const about = t(`settings.netServices.${name}.about`);
 
-  // The packages are part of the base set; a missing program is a damaged
-  // installation, not a choice.
+  // The packages are installed with the system. A device updated from a
+  // release without them gets them from the server shortly after it starts,
+  // and a package removed on the Software page stays removed.
   if (!status.installed) {
     return (
       <Alert

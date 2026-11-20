@@ -89,15 +89,21 @@ The target repository list is:
 A device updated from a release without the `community` line gets it from
 `nanokvm-base` (its post-upgrade script). A list that already has a
 `community` line of the same Alpine branch, from any mirror, stays as it is,
-and so does a list without an Alpine `main` line (a custom setup). Installing
-Tailscale, NetBird, LLDP, SNMP or UPS from its settings page adds the line
-again if it was removed.
+and so does a list without an Alpine `main` line (a custom setup). The
+server adds the line again if it was removed, when it installs Tailscale or
+NetBird or a missing package of the network services.
 
-The base set includes the OpenVPN 2 client (`openvpn`) and the network
-services LLDP, SNMP and UPS (`lldpd`, `net-snmp`, `nut`), from `main` and
-`community`; their services are off until switched on in the settings.
-Tailscale and NetBird come from `community` and are optional: they are absent
-from the default `nanokvm-release` dependency set and installed on request.
+The OpenVPN 2 client (`openvpn`, from `main`) and the network services LLDP,
+SNMP and UPS (`lldpd` and `nut` from `community`, `net-snmp` from `main`) are
+installed with the system and kept installed; their services are off until
+switched on in the settings. They are not dependencies of `nanokvm-release`:
+apk resolves an update with the repository list it has before the update, and
+a device without the `community` line could not install such a release. The
+image selects them next to `nanokvm-release`; a device updated from a release
+without them gets them from the server shortly after its first start (see
+[updates](../../docs/UPDATES.md#component-versions-and-support)). Tailscale
+and NetBird come from `community` and are optional: they are installed on
+request.
 
 The NanoKVM repository is a rolling package channel within the selected
 stable Alpine branch. New signed revisions become available through ordinary

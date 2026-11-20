@@ -1,9 +1,13 @@
 # LLDP, SNMP and UPS
 
 Settings → Services has three network services. Their Alpine packages are
-part of the base set, and each service is off until it is switched on: none is
-started at boot before that. Each page has a switch; the settings appear while
-the service is on. There is nothing to install or uninstall.
+installed with the system and kept installed; a device updated from a release
+without them gets them shortly after its first start (`lldpd` and `nut` come
+from Alpine `community`, `net-snmp` from `main`). Each service is off until
+it is switched on: none is started at boot before that. Each page has a
+switch; the settings appear while the service is on. A page whose package is
+not installed, not yet or because it was removed on the Software page, says
+so.
 
 | Service | Package | Listens on |
 | --- | --- | --- |

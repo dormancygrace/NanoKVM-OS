@@ -121,7 +121,6 @@
     "openvpnEmpty": "No hay perfiles OpenVPN",
     "openvpnLimit": "Máximo 16 perfiles; 256 KiB por archivo y por perfil combinado.",
     "openvpnNotInstalled": "OpenVPN no está instalado.",
-    "uninstallPurge": "Eliminar también los perfiles y las credenciales guardadas",
     "confirm": "Sí",
     "cancel": "No",
     "openvpnNote": "Solo se puede activar un perfil OpenVPN a la vez. Los perfiles activados se reconectan tras un reinicio. Se admiten perfiles TUN y TAP (TAP sin puente: el NanoKVM toma la dirección que asigna el servidor); scripts y SSO/MFA interactivos no. El DNS del servidor se aplica a todo el dispositivo mientras está conectado.",

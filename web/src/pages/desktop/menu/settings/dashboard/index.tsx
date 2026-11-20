@@ -240,9 +240,9 @@ export const Dashboard = ({
             ['tailscale', '/api/extensions/tailscale/status'],
             ['netbird', '/api/extensions/netbird/status'],
             ['wireguard', '/api/extensions/wireguard/status'],
-            ['ups', '/api/extensions/ups/status'],
-            ['lldp', '/api/extensions/lldp/status'],
-            ['snmp', '/api/extensions/snmp/status'],
+            ['ups', '/api/extensions/ups/status?light=1'],
+            ['lldp', '/api/extensions/lldp/status?light=1'],
+            ['snmp', '/api/extensions/snmp/status?light=1'],
             [
               'journal',
               `/api/vm/journal?limit=${recentEvents}&lang=${encodeURIComponent(i18n.language)}`
@@ -315,6 +315,13 @@ export const Dashboard = ({
   const upsFlags = upsValues?.['ups.status']?.split(' ') ?? [];
   const upsState = upsStates.find(([flag]) => upsFlags.includes(flag));
   const enabledServices = netServices.filter((name) => extra[name]?.enabled);
+  // The VPNs that are installed; OpenVPN, installed with the system, once it
+  // has a profile.
+  const listedVPNs = vpnProviders.filter((provider) => {
+    const data = extra[provider.id];
+    if (!data || !summarizeVPN(data).installed) return false;
+    return provider.id !== 'openvpn' || ('profiles' in data && data.profiles.length > 0);
+  });
   const events = extra.journal?.entries.slice(0, recentEvents) ?? [];
   // The time of an event; with its date when it is a day or more old.
   const eventTime = (time: string) => {
@@ -705,18 +712,14 @@ export const Dashboard = ({
               )}
             </div>
           )) ?? '—'}
-        {/* and no VPN panel without an installed VPN */}
+        {/* and no VPN panel without a VPN to list */}
         {admin &&
-          vpnProviders.some((provider) => {
-            const data = extra[provider.id];
-            return !!data && summarizeVPN(data).installed;
-          }) &&
+          listedVPNs.length > 0 &&
           section(
             'VPN',
             <div className="space-y-4">
-              {vpnProviders.map((provider) => {
-                const data = extra[provider.id];
-                if (!data || !summarizeVPN(data).installed) return null;
+              {listedVPNs.map((provider) => {
+                const data = extra[provider.id]!;
                 if ('profiles' in data)
                   return (
                     <Fragment key={provider.id}>

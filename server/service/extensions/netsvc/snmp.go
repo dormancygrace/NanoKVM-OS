@@ -148,19 +148,19 @@ func freshSNMP() error {
 	return writeFile(snmpConf, snmpSettings{Community: community}.file(), 0o600, "")
 }
 
-func snmpState() any {
+func snmpState(light bool) any {
 	status := snmpStatus{Installed: snmp.installed()}
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running, status.Foreign = snmp.state()
+	status.Enabled, status.Running, status.Foreign = snmp.state(light)
 	status.Settings = readSNMPSettings()
 	return status
 }
 
 func SNMPStatus(c *gin.Context) {
 	var rsp proto.Response
-	rsp.OkRspWithData(c, snmpState())
+	rsp.OkRspWithData(c, snmpState(c.Query("light") == "1"))
 }
 func SNMPEnabled(c *gin.Context) { snmp.handleEnabled(c, snmpState) }
 func SNMPReset(c *gin.Context)   { snmp.handleReset(c, snmpState) }

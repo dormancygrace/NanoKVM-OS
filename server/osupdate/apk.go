@@ -71,6 +71,21 @@ func readInstalledDB() (map[string]string, []string, error) {
 	return maps.Clone(c.versions), slices.Clone(c.releaseCore), nil
 }
 
+// MissingPackages lists the named packages that are not installed.
+func MissingPackages(names ...string) ([]string, error) {
+	installed, _, err := readInstalledDB()
+	if err != nil {
+		return nil, err
+	}
+	var missing []string
+	for _, name := range names {
+		if _, ok := installed[name]; !ok {
+			missing = append(missing, name)
+		}
+	}
+	return missing, nil
+}
+
 func parseInstalledDB(data string) (map[string]string, []string) {
 	versions := map[string]string{}
 	provided := map[string][]string{}

@@ -318,8 +318,10 @@ the old ones (`apkrollback.LegacyTargets`).
 
 `nanokvm-exfatprogs` (exfatprogs 1.4.5: `mkfs.exfat` formats `/data` at first
 boot) and `nanokvm-i2c-tools` (i2c-tools 4.4: `i2cdetect` identifies the board)
-are the only programs of the image that Alpine ships in its community
-repository, so the image needs only Alpine main. The `tools` step builds them
+are the only programs of `nanokvm-release` and its dependencies that Alpine
+ships in its community repository, so the release needs only Alpine main (the
+image installs LLDP and UPS from community next to it, see
+[the repository list](../firmware/alpine/README.md)). The `tools` step builds them
 from the pinned upstream releases with the image's toolchain: i2c-tools
 statically, exfatprogs against the device's `libblkid`. Each package
 `provides` and `replaces` the Alpine package of the same tool, so an upgrade

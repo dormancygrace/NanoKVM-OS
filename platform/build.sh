@@ -1275,8 +1275,13 @@ rootfs() {
     printf '%s\n' /mnt/nanokvm-apk/recipes/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
         https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
     # --preserve-env keeps QEMU_CPU for the package scripts and triggers, which
-    # load the new libz.so.1 (kmod's depmod, for one).
-    BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release
+    # load the new libz.so.1 (kmod's depmod, for one). The network services of
+    # Settings > Services and the OpenVPN client are selected next to
+    # nanokvm-release, which does not depend on them: a device updated from a
+    # release without them gets them from the server (basePackages in
+    # server/service/extensions/apkpkg/base.go, the same list).
+    BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release \
+        lldpd lldpd-openrc net-snmp net-snmp-openrc nut nut-openrc openvpn
     if [ "$kernel_profile" = debug ]; then
         # The debug tools of platform/debug-packages, from main and community.
         # shellcheck disable=SC2046 # one package name per word

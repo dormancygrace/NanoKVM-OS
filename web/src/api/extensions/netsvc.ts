@@ -2,9 +2,9 @@ import { http } from '@/lib/http.ts';
 
 import { SLOW_CALL_TIMEOUT } from './timeouts.ts';
 
-// Settings > Services: LLDP, SNMP and UPS. Each is a package of the base set
-// and a service switched on and off; every call answers with the service's new
-// status.
+// Settings > Services: LLDP, SNMP and UPS. Each is a package installed with the
+// system and a service switched on and off; every call answers with the
+// service's new status.
 
 export type ServiceName = 'lldp' | 'snmp' | 'ups';
 

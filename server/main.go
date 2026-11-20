@@ -24,6 +24,7 @@ import (
 	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/router"
 	"NanoKVM-Server/service/extensions/acme"
+	"NanoKVM-Server/service/extensions/apkpkg"
 	"NanoKVM-Server/service/failsafe"
 	"NanoKVM-Server/service/network"
 	"NanoKVM-Server/service/notify"
@@ -56,6 +57,7 @@ func main() {
 	go logs.RunArchive(ctx)
 	go acme.RunRenewal(ctx)
 	go osupdate.RunNoticeSchedule(ctx)
+	go apkpkg.EnsureBasePackages(ctx)
 	go vm.ReconcileMdnsAfterBoot(ctx)
 	network.PublishDiscovery()
 	journalStart()

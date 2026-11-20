@@ -72,8 +72,10 @@ open, and only while a page is visible.
 A panel is there for what is in use. With the capture switched off the
 **Remote console** and **Video** panels are not shown, and the other panels
 move into their place. The **Capture** switch turns it on and off; the
-overview does not switch the capture on by itself. The VPN panel is shown with
-an installed VPN, and a network interface that is switched off has no panel.
+overview does not switch the capture on by itself. The VPN panel lists the
+installed VPNs, OpenVPN (installed with the system) once it has a profile, and
+is not shown without one to list; a network interface that is switched off
+has no panel.
 
 The picture is renewed next to a video session as well. It is taken from a
 scaler channel of its own, set up for the one picture: the outputs the video

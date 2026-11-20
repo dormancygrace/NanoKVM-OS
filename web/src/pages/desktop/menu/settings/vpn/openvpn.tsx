@@ -149,7 +149,8 @@ export function OpenVPN({ setIsLocked }: { setIsLocked: (locked: boolean) => voi
             <p className="text-fg-muted mt-0 text-sm">{t('vpn.openvpnDescription')}</p>
           </>
         )}
-        {/* OpenVPN is part of the base set; without it the installation is damaged. */}
+        {/* OpenVPN is installed with the system, on an updated device shortly
+            after the server starts; one removed on the Software page stays removed. */}
         {available === false && (
           <Alert type="warning" showIcon message={t('vpn.openvpnNotInstalled')} />
         )}

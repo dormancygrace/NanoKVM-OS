@@ -128,12 +128,12 @@ func parseLLDPNeighbors(data []byte) []lldpNeighbor {
 	return neighbors
 }
 
-func lldpState() any {
+func lldpState(light bool) any {
 	status := lldpStatus{Installed: lldp.installed(), Neighbors: []lldpNeighbor{}}
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running, status.Foreign = lldp.state()
+	status.Enabled, status.Running, status.Foreign = lldp.state(light)
 	status.Settings = readLLDPSettings()
 	if status.Running {
 		if out, err := output(5*time.Second, "lldpcli", "-f", "json0", "show", "neighbors"); err == nil {
@@ -145,7 +145,7 @@ func lldpState() any {
 
 func LLDPStatus(c *gin.Context) {
 	var rsp proto.Response
-	rsp.OkRspWithData(c, lldpState())
+	rsp.OkRspWithData(c, lldpState(c.Query("light") == "1"))
 }
 func LLDPEnabled(c *gin.Context) { lldp.handleEnabled(c, lldpState) }
 func LLDPReset(c *gin.Context)   { lldp.handleReset(c, lldpState) }

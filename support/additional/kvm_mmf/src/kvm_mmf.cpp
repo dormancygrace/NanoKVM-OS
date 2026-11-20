@@ -708,7 +708,7 @@ static void _mmf_strand_vi_frame(int ch)
 {
  if (!priv.vi_frame_valid[ch]) return;
  // A CPU mapping of the frame stays too: a reader may still hold its address.
- if (!vi_frame_from_vi[ch]) vi_pool_stranded[ch] = true;
+ if (!vi_frame_from_vi[ch] && priv.vi_chn_pool_id[ch] != (int)VB_INVALID_POOLID) vi_pool_stranded[ch] = true;
  memset(&priv.vi_frame[ch], 0, sizeof(priv.vi_frame[ch]));
  vi_frame_from_vi[ch] = false;
  priv.vi_frame_valid[ch] = false;

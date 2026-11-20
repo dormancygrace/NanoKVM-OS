@@ -49,7 +49,9 @@ const roleOfMode: Record<UsbModeChoice, UsbRole> = {
   disabled: 'off'
 };
 
-export const Usb = ({ part }: { part: UsbPart }) => {
+// withMode false (the toolbar's quick menu): the composition alone; the mode
+// is changed in Settings > USB > Mode.
+export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boolean }) => {
   const { t } = useTranslation();
   const [status, setStatus] = useState<UsbStatus>();
   const [draft, setDraft] = useState<UsbComposition>();
@@ -261,9 +263,14 @@ export const Usb = ({ part }: { part: UsbPart }) => {
   const modePending = Boolean(
     picked && (picked === 'disabled' ? current !== 'disabled' : role !== roleOfMode[picked])
   );
-  const showMode = part === 'composition';
-  const showComposition = part === 'composition' && mode === 'gadget' && !modePending;
-  const showHost = part === 'composition' && mode === 'host' && !modePending;
+  const showMode = part === 'composition' && withMode;
+  // without the switch, a gadget with no function is still composed here
+  const showComposition =
+    part === 'composition' &&
+    !modePending &&
+    (mode === 'gadget' || (!withMode && role === 'gadget'));
+  const showHost = part === 'composition' && mode === 'host' && !modePending && withMode;
+  const notGadget = part === 'composition' && !withMode && Boolean(status) && role !== 'gadget';
   const showIdentity = part === 'identity';
 
   return (
@@ -285,6 +292,7 @@ export const Usb = ({ part }: { part: UsbPart }) => {
           onCancel={() => setPicked(undefined)}
         />
       )}
+      {notGadget && <Alert type="info" showIcon message={t('settings.usb.role.notGadget')} />}
       {showHost && <UsbHostDevices />}
       {showComposition && <UsbInternet usbBusy={loading} network={Boolean(status?.network)} />}
       {(showComposition || showIdentity) && (

@@ -160,7 +160,7 @@ export const UsbMenu = () => {
                   </div>
                 }
               >
-                <Usb part="composition" />
+                <Usb part="composition" withMode={false} />
               </Suspense>
             </ErrorBoundary>
           )}

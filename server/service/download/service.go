@@ -205,6 +205,9 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 	}
 	finalStatus := downloadStatusFailed
 	defer func() {
+		if c.Request.Context().Err() != nil {
+			finalStatus = downloadStatusIdle
+		}
 		s.finishDownload(done, finalStatus)
 	}()
 
@@ -307,6 +310,9 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 			return
 		}
 
+		if c.Request.Context().Err() != nil {
+			return
+		}
 		if err := installImage(imageDirectory, tempPath, filename); err != nil {
 			rsp.ErrRsp(c, -1, err.Error())
 			return

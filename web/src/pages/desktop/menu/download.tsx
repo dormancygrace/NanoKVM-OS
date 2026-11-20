@@ -41,6 +41,7 @@ export const DownloadImage = () => {
   const pollingGeneration = useRef(0);
   const remoteDownloadActive = useRef(false);
   const fileUploadActive = useRef(false);
+  const [localUpload, setLocalUpload] = useState<AbortController | null>(null);
   const downloadRequestGeneration = useRef(0);
 
   const startInitialPolling = useEffectEvent(() => startStatusPolling());
@@ -280,7 +281,7 @@ export const DownloadImage = () => {
   }
 
   function upload(file: File | null) {
-    if (!file) return;
+    if (!file || localUpload) return;
 
     if (!file || !/\.(iso|img)$/i.test(file.name)) {
       setStatus('failed');
@@ -299,6 +300,8 @@ export const DownloadImage = () => {
     setProgress(readTransferProgress());
     setTransferName(file.name);
 
+    const controller = new AbortController();
+    setLocalUpload(controller);
     const formData = new FormData();
     formData.append('file', file);
 
@@ -307,6 +310,7 @@ export const DownloadImage = () => {
       headers: {
         'X-SHA256-Sum': checksum
       },
+      signal: controller.signal,
       body: formData
     })
       .then(async (response) => {
@@ -327,8 +331,17 @@ export const DownloadImage = () => {
       .catch((error: unknown) => {
         fileUploadActive.current = false;
         stopStatusPolling();
+        if (controller.signal.aborted) {
+          setStatus('idle');
+          setLog('');
+          window.dispatchEvent(new Event(imageUpdatedEvent));
+          return;
+        }
         setStatus('failed');
         setLog(error instanceof Error ? error.message : t('download.failed'));
+      })
+      .finally(() => {
+        setLocalUpload(null);
       });
 
     startStatusPolling();
@@ -494,6 +507,11 @@ export const DownloadImage = () => {
               )}
             </span>
             <span className="tabular-nums">{percentLabel}</span>
+            {localUpload && (
+              <Button danger size="small" onClick={() => localUpload?.abort()}>
+                {t('download.cancel')}
+              </Button>
+            )}
           </div>
           <div
             role="progressbar"

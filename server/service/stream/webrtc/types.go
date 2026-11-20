@@ -41,6 +41,11 @@ type SignalingHandler struct {
 	client *Client
 	mutex  sync.Mutex
 	closed bool
+	// connected: the peer connection carries media. paused: the viewer asked
+	// for no video for now (its tab is hidden); it is a viewer only while
+	// connected and not paused.
+	connected bool
+	paused    bool
 }
 
 type Track struct {

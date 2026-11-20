@@ -14,7 +14,7 @@ import { createVideoAudioChannel, getVideoAudio, publishVideoAudio } from '@/lib
 import { recordAudioReceiver } from '@/lib/webrtc-audio-recording.ts';
 import { client } from '@/lib/websocket.ts';
 import { mouseStyleAtom } from '@/jotai/mouse.ts';
-import { screenshotSourceAtom } from '@/jotai/screen.ts';
+import { screenRecordingAtom, screenshotSourceAtom } from '@/jotai/screen.ts';
 
 import { StallCheck, StallProbe } from './stall-check.ts';
 import { ScreenViewport } from './viewport.tsx';
@@ -29,6 +29,8 @@ type SignalingMessage = {
 const WEBRTC_CONNECTION_FAILED_NOTIFICATION_KEY = 'webrtc_connection_failed';
 const WEBRTC_CONNECTION_TIMEOUT = 10 * 1000;
 const WEBRTC_RECONNECT_DELAY = 3 * 1000;
+// how long a tab is hidden before its video is paused
+const HIDDEN_PAUSE_DELAY = 5 * 1000;
 // A failed peer, and a signaling socket soon after a lost connection (see
 // ConnectRecovery), retry sooner: after a device reboot, a new peer connects as
 // soon as the server is back.
@@ -66,6 +68,16 @@ export const H264Webrtc = ({
   const videoOfferSent = useRef(false);
   const videoIceCandidates = useRef<RTCIceCandidate[]>([]);
   const translationRef = useRef(t);
+  // A hidden tab pauses its video after a while, unless it is being recorded
+  // (the recorder needs the frames). The connection's effect owns the pause;
+  // a change of recording asks it to look again.
+  const recording = useAtomValue(screenRecordingAtom);
+  const recordingRef = useRef(recording);
+  const updatePauseRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    recordingRef.current = recording;
+    updatePauseRef.current();
+  }, [recording]);
 
   const updateScreenshotSource = () => {
     const element = videoRef.current;
@@ -453,10 +465,38 @@ export const H264Webrtc = ({
       if (!disposed) videoElement?.requestVideoFrameCallback?.(onVideoFrame);
     };
     videoElement?.requestVideoFrameCallback?.(onVideoFrame);
+    // Hidden for HIDDEN_PAUSE_DELAY: the device is told to send this viewer
+    // no video (and encodes none when nobody else watches). The connection,
+    // the audio and the input stay, so the picture is back with the next key
+    // frame when the tab is shown.
+    let pauseTimer: ReturnType<typeof setTimeout> | undefined;
+    let videoPaused = false;
+    const updatePause = () => {
+      clearTimeout(pauseTimer);
+      pauseTimer = undefined;
+      if (document.visibilityState === 'visible' || recordingRef.current) {
+        if (videoPaused) {
+          videoPaused = false;
+          sendMsg('video-resume', '');
+          // no frames came while paused: that was not a stall
+          stall.shown(Date.now());
+        }
+        return;
+      }
+      if (!videoPaused) {
+        pauseTimer = setTimeout(() => {
+          videoPaused = true;
+          sendMsg('video-pause', '');
+        }, HIDDEN_PAUSE_DELAY);
+      }
+    };
+    updatePauseRef.current = updatePause;
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') stall.shown(Date.now());
+      updatePause();
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
+    updatePause();
     const stallProbe = new StallProbe(stall, {
       now: Date.now,
       canCheck: () =>
@@ -492,6 +532,8 @@ export const H264Webrtc = ({
       clearInterval(stallProbeTimer);
       stallProbe.dispose();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearTimeout(pauseTimer);
+      updatePauseRef.current = () => {};
       setScreenshotSource(null);
       stopDiagnostics?.();
       cancelReconnect();

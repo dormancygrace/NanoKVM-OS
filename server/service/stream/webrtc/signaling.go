@@ -63,8 +63,15 @@ func (s *SignalingHandler) updateVideoStreamState(state webrtc.ICEConnectionStat
 		return
 	}
 
+	s.connected = isVideoConnected(state)
+	s.syncViewerLocked()
+}
+
+// syncViewerLocked makes the client a viewer of the video, or not, as its
+// connection and its pause say. s.mutex is held.
+func (s *SignalingHandler) syncViewerLocked() {
 	manager := getManager()
-	if isVideoConnected(state) {
+	if s.connected && !s.paused {
 		if err := manager.AddClient(s.client.WsConn(), s.client); err != nil {
 			if writeErr := s.client.WriteMessage("video-error", err.Error()); writeErr != nil {
 				log.Errorf("failed to send video encoder conflict: %s", writeErr)
@@ -77,6 +84,21 @@ func (s *SignalingHandler) updateVideoStreamState(state webrtc.ICEConnectionStat
 	}
 
 	manager.RemoveClient(s.client.WsConn())
+}
+
+// setPaused takes the client out of the viewers while its page does not show
+// the video, and back in. The connection, its audio and the signalling stay:
+// only the video frames stop, and with the last viewer the encoder. A viewer
+// that comes back joins like a new one, with a key frame.
+func (s *SignalingHandler) setPaused(paused bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed || s.paused == paused {
+		return
+	}
+	s.paused = paused
+	s.syncViewerLocked()
 }
 
 func isVideoConnected(state webrtc.ICEConnectionState) bool {
@@ -92,6 +114,12 @@ func (s *SignalingHandler) HandleMessage(message *Message) error {
 		return s.handleVideoCandidate(message.Data)
 	case "heartbeat":
 		return s.handleHeartbeat()
+	case "video-pause":
+		s.setPaused(true)
+		return nil
+	case "video-resume":
+		s.setPaused(false)
+		return nil
 	case "audio-start":
 		if err := s.client.startAudio(); err != nil {
 			return s.client.WriteMessage("audio-error", err.Error())

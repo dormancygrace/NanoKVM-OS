@@ -138,20 +138,18 @@ finishes.
  			VPU_ClearInterrupt(coreIdx);
  			if (int_reason & (1 << INT_WAVE_ENC_PIC)) {
  				break;
-@@ -5704,6 +5744,13 @@
- 
- 	pEncConfig = &pTestEnc->encConfig;
- 	initEncConfigByCtx(pEncConfig, pInitEncCfg);
+@@ -5630,6 +5670,11 @@
+ 		CVI_VC_ERR("cviSetCoreIdx, ret = %d\n", ret);
+ 		return ret;
+ 	}
 +	if (venc_core_failed[pEncConfig->coreIdx]) {
 +		CVI_VC_ERR("encoder core %d did not reset after a stalled frame; no new channel\n",
 +			   pEncConfig->coreIdx);
-+		osal_free(pTestEnc);
-+		pTestEnc = NULL;
-+		goto ERR_CVI_VENC_OPEN;
++		return TE_ERR_ENC_CORE_FAILED;
 +	}
  
- 	ret = initMcuEnv(pEncConfig);
- 
+ 	EnterVcodecLock(pEncConfig->coreIdx);
+ 	productId = VPU_GetProductId(pEncConfig->coreIdx);
 --- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.h
 +++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.h
 @@ -46,6 +46,11 @@

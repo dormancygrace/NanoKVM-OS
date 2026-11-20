@@ -258,6 +258,9 @@ static int vi_jpeg_ch = -1; // the output whose JPEG lease is vi_jpeg_frame
 // A channel number may be recycled during the JPEG hold -> vi_mutex handoff.
 // Generations belong to their frame slots and never reset on capture restart.
 static uint64_t vi_frame_generation[MMF_VI_MAX_CHN];
+// The capture channel's pool holds a frame given up to an encoder core whose
+// reset did not complete (_mmf_strand_vi_frame): the pool is never destroyed.
+static bool vi_pool_stranded[MMF_VI_MAX_CHN];
 static thread_local uint64_t own_jpeg_generation;
 static thread_local int own_jpeg_channel = -1;
 
@@ -697,6 +700,23 @@ static int _mmf_release_vi_frame(int ch)
  return CVI_SUCCESS;
 }
 
+// The frame in capture slot ch went to an encoder core whose reset did not
+// complete: the core may still read it, so it is never given back. It leaves
+// the slot, which takes new frames for the other encoder and the pictures,
+// and its pool stays (the kernel would not destroy a pool with a block out).
+static void _mmf_strand_vi_frame(int ch)
+{
+ if (!priv.vi_frame_valid[ch]) return;
+ // A CPU mapping of the frame stays too: a reader may still hold its address.
+ if (!vi_frame_from_vi[ch]) vi_pool_stranded[ch] = true;
+ memset(&priv.vi_frame[ch], 0, sizeof(priv.vi_frame[ch]));
+ vi_frame_from_vi[ch] = false;
+ priv.vi_frame_valid[ch] = false;
+ priv.vi_frame_mapped[ch] = false;
+ priv.vi_frame_deferred[ch] = false;
+ _mmf_reclaim_disabled_pool(ch);
+}
+
 // A lower stream rate is VPSS frame-rate control on the output
 // (mmf_vpss_set_rate); the VI delivers every frame, so such an output stays
 // on VPSS.
@@ -1129,6 +1149,18 @@ static int _mmf_release_picture_pool(void)
 	return CVI_SUCCESS;
 }
 
+// Destroys capture channel ch's pool; one holding a stranded frame
+// (_mmf_strand_vi_frame) is left as it is instead, and the channel takes a
+// new pool when it needs one.
+static int _mmf_destroy_vi_pool(int ch)
+{
+    if (vi_pool_stranded[ch]) {
+        vi_pool_stranded[ch] = false;
+        return CVI_SUCCESS;
+    }
+    return _destroy_vb_pool(priv.vi_chn_pool_id[ch]);
+}
+
 // A disabled output has no VPSS producer. Return its private pool after the
 // last old VPSS lease, without touching the common pool used by VI/VENC.
 // Called on the capture lock; NV16 JPEG's independent release does not enter.
@@ -1144,7 +1176,7 @@ static int _mmf_reclaim_disabled_pool(int ch)
         if (result != CVI_SUCCESS) return result;
         priv.vi_pool_detached[ch] = true;
     }
-    const int result = _destroy_vb_pool(pool);
+    const int result = _mmf_destroy_vi_pool(ch);
     if (result != CVI_SUCCESS) return result; // retain ownership for retry
     priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
     priv.vi_pool_detached[ch] = false;
@@ -1877,7 +1909,7 @@ int mmf_del_vi_channel(int ch) {
   if (result != CVI_SUCCESS) return result;
   priv.vi_pool_detached[ch] = true;
  }
- result = _destroy_vb_pool(priv.vi_chn_pool_id[ch]);
+ result = _mmf_destroy_vi_pool(ch);
  if (result != CVI_SUCCESS) {
   if (attached && CVI_VPSS_AttachVbPool(0, ch, priv.vi_chn_pool_id[ch]) == CVI_SUCCESS)
    priv.vi_pool_detached[ch] = false;
@@ -3233,14 +3265,15 @@ int mmf_del_venc_channel(int ch) {
 		return destroyRet;
 	}
 	// A core that did not reset may still read the frame's input and write the
-	// channel's pool: both stay taken, for good.
+	// channel's pool: the input, its copy and the pool stay taken, for good.
 	const bool core_failed = venc_frame_aborted[ch] == CVI_ERR_VENC_CORE_FAILED;
 	if (wedged) {
 		const int wedged_vi = priv.venc_input_vi_ch[ch];
 		info->is_running = 0;
 		priv.venc_input_vi_ch[ch] = -1;
 		if (wedged_vi >= 0 && core_failed) {
-			fprintf(stderr, "[kvm_mmf] keeping input %d of VENC channel %d: its core did not reset\n",
+			_mmf_strand_vi_frame(wedged_vi);
+			fprintf(stderr, "[kvm_mmf] input %d of VENC channel %d kept for good: its core did not reset\n",
 				wedged_vi, ch);
 			fflush(stderr);
 		} else if (wedged_vi >= 0) {
@@ -3251,10 +3284,10 @@ int mmf_del_venc_channel(int ch) {
 		}
 	}
 
-	if (info->capture_frame) {
+	if (info->capture_frame && !core_failed) {
 		_mmf_free_frame(info->capture_frame);
-		info->capture_frame = NULL;
 	}
+	info->capture_frame = NULL;
 	/*
 	 * Do not release deferred VI frames here. Profile reconfiguration happens
 	 * after CameraCviMmf::read() has leased the next zero-copy frame, and that

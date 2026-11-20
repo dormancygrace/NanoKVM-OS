@@ -6,7 +6,8 @@ const initialState: ResponsiveDeviceState = {
   isTouchLikeDevice: false,
   isPortraitViewport: false,
   isLandscapeViewport: true,
-  isMobilePortrait: false
+  isMobilePortrait: false,
+  isPhoneLandscape: false
 };
 
 function getState(): ResponsiveDeviceState {

@@ -122,8 +122,24 @@ export const Desktop = () => {
   // Load the device time format once for every displayed device time.
   useDeviceTime();
   const isBigScreen = useMediaQuery('(min-width: 850px)');
-  // An upright phone has the menu as a bar along the bottom (menu/index.tsx).
-  const phoneBar = useResponsiveDevice().isMobilePortrait;
+  // A phone has the menu as a bar along the bottom, or along the right edge
+  // when turned sideways (menu/index.tsx); the screen ends before it.
+  const device = useResponsiveDevice();
+  // The console fills the window and never scrolls as a page: a drag that
+  // ends a scrolling list must not move the page under a phone's address bar.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.style.overflow;
+    root.style.overflow = 'hidden';
+    return () => {
+      root.style.overflow = previous;
+    };
+  }, []);
+  const phoneBarRoom = device.isMobilePortrait
+    ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }
+    : device.isPhoneLandscape
+      ? { paddingRight: 'calc(56px + env(safe-area-inset-right))' }
+      : undefined;
   // The PicoClaw sidebar renders once, into a node of its own that the side
   // panel or the full-screen overlay adopts. Moving between them (a resize
   // across the breakpoint) or the video area remounting (a host resolution
@@ -426,10 +442,7 @@ export const Desktop = () => {
   }
 
   return (
-    <div
-      className="box-border h-dvh w-full overflow-hidden bg-black"
-      style={phoneBar ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' } : undefined}
-    >
+    <div className="box-border h-dvh w-full overflow-hidden bg-black" style={phoneBarRoom}>
       <Head title={t('head.desktop')} />
       {notifierHolder}
 
@@ -519,7 +532,11 @@ export const Desktop = () => {
           ref={adoptPicoclaw}
           className="bg-panel fixed inset-x-0 top-14 bottom-0 z-980 overflow-hidden shadow-2xl"
           style={
-            phoneBar ? { top: 0, bottom: 'calc(56px + env(safe-area-inset-bottom))' } : undefined
+            device.isMobilePortrait
+              ? { top: 0, bottom: 'calc(56px + env(safe-area-inset-bottom))' }
+              : device.isPhoneLandscape
+                ? { top: 0, right: 'calc(56px + env(safe-area-inset-right))' }
+                : undefined
           }
         />
       ) : null}

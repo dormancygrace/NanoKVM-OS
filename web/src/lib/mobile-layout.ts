@@ -11,6 +11,8 @@ export type ResponsiveDeviceState = {
   isPortraitViewport: boolean;
   isLandscapeViewport: boolean;
   isMobilePortrait: boolean;
+  // a phone turned sideways: a tablet is taller
+  isPhoneLandscape: boolean;
 };
 
 export function getResponsiveDeviceState(input: ResponsiveDeviceInput): ResponsiveDeviceState {
@@ -23,6 +25,7 @@ export function getResponsiveDeviceState(input: ResponsiveDeviceInput): Responsi
     isTouchLikeDevice,
     isPortraitViewport,
     isLandscapeViewport,
-    isMobilePortrait: isTouchLikeDevice && isPortraitViewport
+    isMobilePortrait: isTouchLikeDevice && isPortraitViewport,
+    isPhoneLandscape: isTouchLikeDevice && isLandscapeViewport && input.height < 560
   };
 }

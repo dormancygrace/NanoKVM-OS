@@ -394,7 +394,7 @@ export const MenuItem = ({
         placement === 'bottom'
           ? { offset: [0, -16], overflow: { shiftX: true } }
           : placement
-            ? { overflow: { shiftX: true, shiftY: true } }
+            ? { overflow: { adjustY: true, shiftX: true, shiftY: true } }
             : undefined
       }
       classNames={{

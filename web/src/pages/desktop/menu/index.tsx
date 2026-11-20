@@ -68,7 +68,9 @@ function lazyItem(key: string, item: ReactNode, placeholder: ReactNode = <Toolba
 
 const mobileMenuPopoverClassName = 'nanokvm-mobile-menu-popover';
 
-type MenuVariant = 'desktop' | 'mobile';
+// desktop: the floating bar; bottom and side: a phone's bar, held upright or
+// turned sideways.
+type MenuVariant = 'desktop' | 'bottom' | 'side';
 
 export const Menu = () => {
   const audio = useUsbAudio();
@@ -138,7 +140,12 @@ export const Menu = () => {
   } = useMenuVisibility();
 
   const responsiveDevice = useResponsiveDevice();
-  const isMobileRailActive = responsiveDevice.isMobilePortrait;
+  const phoneBar: MenuVariant | null = responsiveDevice.isMobilePortrait
+    ? 'bottom'
+    : responsiveDevice.isPhoneLandscape
+      ? 'side'
+      : null;
+  const isMobileRailActive = phoneBar !== null;
   const menuBounds = useMenuBounds(nodeRef, isMenuExpanded, !isMobileRailActive);
   const isTouchLandscapeMenu =
     responsiveDevice.isTouchLikeDevice && responsiveDevice.isLandscapeViewport;
@@ -176,8 +183,11 @@ export const Menu = () => {
   }
 
   function renderDivider(variant: MenuVariant, key: string) {
-    if (variant === 'mobile') {
+    if (variant === 'bottom') {
       return <div key={key} className="mx-1 h-6 w-px shrink-0 bg-neutral-600/60" />;
+    }
+    if (variant === 'side') {
+      return <div key={key} className="my-1 h-px w-6 shrink-0 bg-neutral-600/60" />;
     }
 
     return <Divider key={key} type="vertical" />;
@@ -185,7 +195,7 @@ export const Menu = () => {
 
   function renderMenuItems(variant: MenuVariant): ReactNode[] {
     const items: ReactNode[] = [];
-    const tooltipPlacement = variant === 'mobile' ? 'top' : 'bottom';
+    const tooltipPlacement = variant === 'bottom' ? 'top' : variant === 'side' ? 'left' : 'bottom';
 
     // Only join non-empty groups, including when appearance settings hide tools.
     const groups: ReactNode[][] = [
@@ -228,10 +238,10 @@ export const Menu = () => {
       [
         ...(isEnabled('wol') ? [<Wol key="wol" />] : []),
         ...(atxEnabled && isEnabled('power')
-          ? [<Power key="power" vertical={variant === 'mobile'} />]
+          ? [<Power key="power" vertical={variant === 'side'} />]
           : [])
       ],
-      variant === 'mobile'
+      variant !== 'desktop'
         ? [
             ...(isEnabled('theme') ? [<ThemeToggle key="theme" bar />] : []),
             <Settings key="settings" tooltipPlacement={tooltipPlacement} />
@@ -251,39 +261,61 @@ export const Menu = () => {
     return items;
   }
 
-  if (isMobileRailActive) {
-    // A phone held upright: the bar along the bottom edge, under the screen
-    // (the console page leaves it the room). Its menus open upwards as sheets.
+  if (phoneBar) {
+    // A phone: the bar along the bottom edge when held upright, along the
+    // right edge when turned sideways, where the picture is limited by the
+    // height and loses nothing to it. The console page leaves the bar its room.
+    // Its menus open towards the screen.
+    const side = phoneBar === 'side';
     return (
       <div
-        className="fixed inset-x-0 bottom-0 transition-opacity duration-300"
+        className={clsx(
+          'fixed transition-opacity duration-300',
+          side ? 'inset-y-0 right-0' : 'inset-x-0 bottom-0'
+        )}
         style={{
           zIndex: isKeyboardOpen ? 998 : 1000,
           opacity: isInitialized ? 1 : 0,
-          paddingBottom: 'env(safe-area-inset-bottom)'
+          ...(side
+            ? { paddingRight: 'env(safe-area-inset-right)' }
+            : { paddingBottom: 'env(safe-area-inset-bottom)' })
         }}
       >
         <MobileMenuItemProvider
-          mobilePlacement="bottom"
+          mobilePlacement={side ? 'right' : 'bottom'}
           mobilePopoverClassName={mobileMenuPopoverClassName}
           dismissMenuKey={dismissMenuKey}
           onRequestMobileMenuDismiss={dismissMenus}
         >
-          <div className="nanokvm-touch-toolbar nanokvm-phone-bar border-line flex h-14 items-center gap-1 border-t bg-neutral-900 px-1.5">
+          <div
+            className={clsx(
+              'nanokvm-touch-toolbar nanokvm-phone-bar border-line box-border flex gap-1 bg-neutral-900',
+              side
+                ? 'h-full w-14 flex-col items-center border-l py-1.5'
+                : 'h-14 items-center border-t px-1.5'
+            )}
+          >
             {showKeyboardLedStatus && (
-              <div className="flex h-9 shrink-0">
+              <div className={clsx('flex shrink-0', side ? 'h-12' : 'h-9')}>
                 <KeyboardLedStatus />
               </div>
             )}
             <OverviewLink />
-            {/* The items scroll sideways when they do not fit; all of them stay
-                mounted: a browser ISO, a recording or an open dialog belongs
-                to its item. */}
-            <div className="flex min-w-0 flex-1 [scrollbar-width:none] items-center overflow-x-auto overflow-y-hidden *:shrink-0 [&::-webkit-scrollbar]:hidden">
-              {renderMenuItems('mobile')}
+            {/* The items scroll when they do not fit; all of them stay mounted:
+                a browser ISO, a recording or an open dialog belongs to its
+                item. */}
+            <div
+              className={clsx(
+                'flex flex-1 [scrollbar-width:none] items-center overscroll-contain *:shrink-0 [&::-webkit-scrollbar]:hidden',
+                side
+                  ? 'min-h-0 flex-col overflow-x-hidden overflow-y-auto'
+                  : 'min-w-0 overflow-x-auto overflow-y-hidden'
+              )}
+            >
+              {renderMenuItems(phoneBar)}
             </div>
             {showHostLedStatus && (
-              <div className="flex h-9 shrink-0">
+              <div className={clsx('flex shrink-0', side ? 'h-12' : 'h-9')}>
                 <HostLedStatus />
               </div>
             )}

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/hid.ts';
 import { MenuTooltip } from '@/components/menu-tooltip.tsx';
+import { confirmAction } from '@/components/ui/confirm.ts';
 
 const inputOwnerRequiredCode = -4;
 
@@ -15,6 +16,14 @@ export const CtrlAltDel = () => {
 
   async function send() {
     if (busy) return;
+    // On a Linux text console the combination restarts the computer.
+    const ok = await confirmAction({
+      title: t('keyboard.ctrlAltDel.confirmTitle'),
+      content: t('keyboard.ctrlAltDel.confirm'),
+      okText: t('keyboard.sequences.send'),
+      danger: true
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const rsp = await api.sendKeySequence('ctrl-alt-del');

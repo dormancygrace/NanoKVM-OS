@@ -572,7 +572,9 @@
   "keyboard": {
     "ctrlAltDel": {
       "title": "Кнопка Ctrl+Alt+Del",
-      "send": "Отправить Ctrl+Alt+Del"
+      "send": "Отправить Ctrl+Alt+Del",
+      "confirmTitle": "Отправить Ctrl+Alt+Del?",
+      "confirm": "Windows откроет экран безопасности. Текстовая консоль Linux обычно перезагружает компьютер."
     },
     "more": "Параметры клавиатуры",
     "title": "Клавиатура",

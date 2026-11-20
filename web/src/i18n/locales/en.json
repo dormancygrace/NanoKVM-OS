@@ -635,7 +635,9 @@
   "keyboard": {
     "ctrlAltDel": {
       "title": "Ctrl+Alt+Del button",
-      "send": "Send Ctrl+Alt+Del"
+      "send": "Send Ctrl+Alt+Del",
+      "confirmTitle": "Send Ctrl+Alt+Del?",
+      "confirm": "Windows opens its security screen. A Linux text console usually restarts the computer."
     },
     "more": "Keyboard options",
     "title": "Keyboard",

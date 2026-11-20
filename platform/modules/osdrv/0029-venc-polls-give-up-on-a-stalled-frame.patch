@@ -1,0 +1,75 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] venc: polls give up on a frame that never finishes
+
+An H.26x frame holds the codec lock from its start until a get of its
+stream returns it. A get that times out leaves the lock held: the caller
+is meant to poll again. libkvm polls with a timeout and, when a frame is
+still pending after a few seconds, tears the channel down. If the frame
+never finishes, CVI_VENC_DestroyChn then waits for that lock forever,
+in uninterruptible sleep; only a reboot frees the encoder.
+
+The blocking get resets the core after interruptTimeout, but polls never
+did. Now a poll that finds the frame still encoding 2 s after the first
+such poll resets the core and fails the get, which releases the lock: the
+caller sees an error and the teardown goes through. A frame takes one
+frame period at most, so a pending frame that old never finishes.
+
+---
+--- a/interdrv/cvi_vc_drv/vcodec/sample/cvitest_internal.h
++++ b/interdrv/cvi_vc_drv/vcodec/sample/cvitest_internal.h
+@@ -80,6 +80,9 @@
+ 	void *yuvFeeder;
+ 	YuvInfo yuvFeederInfo;
+ 	Uint32 interruptTimeout;
++	/* jiffies of the first poll that found the frame still encoding, 0 if
++	 * none: polls give up on the frame after VENC_POLL_STALL_MS. */
++	unsigned long pollPendingSince;
+ #ifdef TEST_ENCODE_CUSTOM_HEADER
+ 	hrd_t hrd;
+ #endif
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -1516,6 +1516,7 @@
+ #endif
+ 	pTestEnc->handle->bBuffFull = CVI_FALSE;
+ 
++	pTestEnc->pollPendingSince = 0;
+ 	ret = VPU_EncStartOneFrame(pTestEnc->handle, pEncParam);
+ 	if (ret != RETCODE_SUCCESS) {
+ 		CVI_VC_ERR("VPU_EncStartOneFrame failed Error code is 0x%x\n",
+@@ -2480,6 +2481,9 @@
+ }
+ #endif
+ 
++/* How long polls wait for one frame before the core is reset. */
++#define VENC_POLL_STALL_MS 2000
++
+ static int cviGetEncodedInfo(stTestEncoder *pTestEnc, int s32MilliSec)
+ {
+ 	EncParam *pEncParam = &pTestEnc->encParam;
+@@ -2500,7 +2504,24 @@
+ 
+ 		if (int_reason == -1) {
+ 			if (s32MilliSec >= 0) {
+-				/* A poll: the caller retries. */
++				unsigned long since = pTestEnc->pollPendingSince;
++
++				/* A poll: the caller retries, until the frame has
++				 * been pending for VENC_POLL_STALL_MS. A frame takes
++				 * one frame period at most; one that has not finished
++				 * by then never will, and it keeps the codec lock: a
++				 * caller that gives up and destroys the channel would
++				 * wait for that lock forever. Reset the core and fail
++				 * the get, which releases the lock. */
++				if (!since) {
++					pTestEnc->pollPendingSince = jiffies | 1;
++				} else if (time_after(jiffies, since + msecs_to_jiffies(VENC_POLL_STALL_MS))) {
++					pTestEnc->pollPendingSince = 0;
++					CVI_VC_ERR("encoder: frame not done in %d ms, resetting the core\n",
++						   VENC_POLL_STALL_MS);
++					VPU_SWReset(coreIdx, SW_RESET_SAFETY, pTestEnc->handle);
++					return TE_ERR_ENC_OPEN;
++				}
+ 				CVI_VC_TRACE(
+ 					"encoder timeout happened in non_block mode\n");
+ 				return TE_STA_ENC_TIMEOUT;

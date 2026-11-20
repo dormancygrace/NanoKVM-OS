@@ -48,13 +48,13 @@ On a Cube or Lite that needs a power cycle and has no recorded profile hash, Vid
 
 **Receiver checks at start.** A Cube receiver keeps its EDID in flash across reinstalls. On the first start of a Cube with an LT6911C, the server reads it once; if it advertises a mode beyond 720p/1080p at 60 Hz, it programs the saved 60 Hz profile and asks for a power cycle. On a PCIe board with an LT6911UXC or LT6911D, and on a Cube or Lite with an LT6911D, the server reads the receiver on the first boot after an installation or system update and programs the saved profile again when the receiver holds another EDID; on PCIe this resets the receiver and delays the first frames by about 1.25 s. `/etc/kvm/monitor_edid_verified` records the profile and system version last confirmed. A profile deferred by a video-memory switch is applied after the new image boots; a failed write is retried on the next server start.
 
-### 16:10 and 21:9
+### 16:10, 21:9 and 8:9
 
-An LT6911UXC or LT6911D also offers 1920×1200 and 2560×1600 (16:10) and 2560×1080 and 3440×1440 (21:9); a Cube or Lite with an LT6911UXC needs a power cycle after the write and uses the fastest rate of the size. On Cube / Lite, an LT6911C offers the two sizes near 1920×1080 at rates within its 148.5 MHz pixel clock: 1920×1200 at 50 and 30 Hz and 2560×1080 at 30 Hz (`slowWiderMonitorRates`). These LT6911C sizes are experimental.
+An LT6911UXC or LT6911D also offers 1920×1200 and 2560×1600 (16:10), 2560×1080 and 3440×1440 (21:9), and 1280×1440 (8:9, half of a QHD screen: a remote screen that fits beside other windows without scaling); a Cube or Lite with an LT6911UXC needs a power cycle after the write and uses the fastest rate of the size. On Cube / Lite, an LT6911C offers the two sizes near 1920×1080 at rates within its 148.5 MHz pixel clock: 1920×1200 at 50 and 30 Hz and 2560×1080 at 30 Hz (`slowWiderMonitorRates`). These LT6911C sizes are experimental.
 
-**Settings → Video → Aspect ratio** picks the ratio, then **Resolution** the size. The default is 16:9, and the quick video menu lists the sizes of the current ratio. Each profile uses CVT reduced blanking with the 800×600 fallback, plus only those stock established and standard timings smaller than the profile in both directions, because a GPU otherwise outputs a mode as wide or as tall instead of the preferred one (`scripts/build-wide-monitor-edids.py`). A saved 16:10 or 21:9 profile that the receiver does not take reads as Auto in both screen APIs.
+**Settings → Video → Aspect ratio** picks the ratio, then **Resolution** the size. The default is 16:9, and the quick video menu lists the sizes of the current ratio. Each profile uses CVT reduced blanking with the 800×600 fallback, plus only those stock established and standard timings smaller than the profile in both directions, because a GPU otherwise outputs a mode as wide or as tall instead of the preferred one (`scripts/build-wide-monitor-edids.py`). A saved 16:10, 21:9 or 8:9 profile that the receiver does not take reads as Auto in both screen APIs.
 
-The `monitor` setting (`/etc/kvm/monitor_resolution`, the API's `monitor`) holds a profile id: the height of a 16:9 or 16:10 profile, or the width of a 21:9 one (2560 is 2560×1080, 3440 is 3440×1440). `/api/vm/video/capabilities` lists each mode's `id`, size and `aspect`.
+The `monitor` setting (`/etc/kvm/monitor_resolution`, the API's `monitor`) holds a profile id: the height of a 16:9 or 16:10 profile, or the width of a 21:9 or 8:9 one (2560 is 2560×1080, 3440 is 3440×1440, 1280 is 1280×1440). 1280×1440 needs the QHD video memory although it has fewer pixels than 1920×1080: the capture takes more than 1080 lines only with it. `/api/vm/video/capabilities` lists each mode's `id`, size and `aspect`.
 
 Capture and encoder throughput set the top rates: 2560×1600 at up to 50 Hz and 3440×1440 at up to 40 Hz. 3440×1440 is H.265 only, because H.264 and MJPEG stop at 2560 pixels wide.
 
@@ -79,7 +79,7 @@ When video settings are applied, the monitor uses the slowest refresh rate of it
 | 2560×1440 | 60, 50, 40, 30 |
 | 1440×2560 | 60, 50, 30 |
 | 3840×2160 | 30 |
-| 1920×1200, 2560×1080 | 60, 50, 30 |
+| 1920×1200, 2560×1080, 1280×1440 | 60, 50, 30 |
 | 2560×1600 | 50, 30 |
 | 3440×1440 | 40, 30 |
 

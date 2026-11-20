@@ -153,6 +153,8 @@ func videoCapabilities() gin.H {
 		mode(1200, false, fits(1200)),
 		mode(3440, false, fits(3440)),
 		mode(2560, false, fits(2560)),
+		// 8:9, half of a QHD screen.
+		mode(1280, false, fits(1280)),
 	}
 
 	portraitProfile := func(resolution, width uint16, rate int, codecs, transports []string, ok bool) portraitCapability {

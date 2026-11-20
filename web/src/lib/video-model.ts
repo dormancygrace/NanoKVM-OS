@@ -26,11 +26,11 @@ export type Reason =
 
 export type MonitorMode = {
   // The value of the monitor setting: the height of a 16:9 or 16:10 profile,
-  // the width of a 21:9 one; absent on older servers (then the height).
+  // the width of a 21:9 or 8:9 one; absent on older servers (then the height).
   id?: number;
   height: number;
   width: number;
-  // 16:9, 16:10 or 21:9; absent on older servers (16:9).
+  // 16:9, 16:10, 21:9 or 8:9; absent on older servers (16:9).
   aspect?: string;
   // Auto (height 0): the size it stands for, 0 when it is the stock profile.
   effectiveWidth?: number;

@@ -50,13 +50,13 @@ On a Cube or Lite that needs a power cycle and has no recorded profile hash, Vid
 
 ### 16:10, 21:9 and 8:9
 
-An LT6911UXC or LT6911D also offers 1920×1200 and 2560×1600 (16:10), 2560×1080 and 3440×1440 (21:9), and 1280×1440 (8:9, half of a QHD screen: a remote screen that fits beside other windows without scaling); a Cube or Lite with an LT6911UXC needs a power cycle after the write and uses the fastest rate of the size. On Cube / Lite, an LT6911C offers the two sizes near 1920×1080 at rates within its 148.5 MHz pixel clock: 1920×1200 at 50 and 30 Hz and 2560×1080 at 30 Hz (`slowWiderMonitorRates`). These LT6911C sizes are experimental.
+An LT6911UXC or LT6911D also offers 1920×1200 and 2560×1600 (16:10), 2560×1080 and 3440×1440 (21:9), and 1280×1440 and 2560×2880 (8:9: half of a QHD screen, for a remote screen that fits beside other windows without scaling, and two QHD screens one above the other); a Cube or Lite with an LT6911UXC needs a power cycle after the write and uses the fastest rate of the size. On Cube / Lite, an LT6911C offers the two sizes near 1920×1080 at rates within its 148.5 MHz pixel clock: 1920×1200 at 50 and 30 Hz and 2560×1080 at 30 Hz (`slowWiderMonitorRates`). These LT6911C sizes are experimental.
 
 **Settings → Video → Aspect ratio** picks the ratio, then **Resolution** the size. The default is 16:9, and the quick video menu lists the sizes of the current ratio. Each profile uses CVT reduced blanking with the 800×600 fallback, plus only those stock established and standard timings smaller than the profile in both directions, because a GPU otherwise outputs a mode as wide or as tall instead of the preferred one (`scripts/build-wide-monitor-edids.py`). A saved 16:10, 21:9 or 8:9 profile that the receiver does not take reads as Auto in both screen APIs.
 
-The `monitor` setting (`/etc/kvm/monitor_resolution`, the API's `monitor`) holds a profile id: the height of a 16:9 or 16:10 profile, or the width of a 21:9 or 8:9 one (2560 is 2560×1080, 3440 is 3440×1440, 1280 is 1280×1440). 1280×1440 needs the QHD video memory although it has fewer pixels than 1920×1080: the capture takes more than 1080 lines only with it. `/api/vm/video/capabilities` lists each mode's `id`, size and `aspect`.
+The `monitor` setting (`/etc/kvm/monitor_resolution`, the API's `monitor`) holds a profile id: the height of a 16:9 or 16:10 profile, or the width of a 21:9 one and of 1280×1440 (2560 is 2560×1080, 3440 is 3440×1440, 1280 is 1280×1440); 2880 is 2560×2880. 1280×1440 needs the QHD video memory although it has fewer pixels than 1920×1080: the capture takes more than 1080 lines only with it. `/api/vm/video/capabilities` lists each mode's `id`, size and `aspect`.
 
-Capture and encoder throughput set the top rates: 2560×1600 at up to 50 Hz and 3440×1440 at up to 40 Hz. 3440×1440 is H.265 only, because H.264 and MJPEG stop at 2560 pixels wide.
+Capture and encoder throughput set the top rates: 2560×1600 at up to 50 Hz and 3440×1440 at up to 40 Hz. 3440×1440 is H.265 only, because H.264 and MJPEG stop at 2560 pixels wide. 2560×2880 runs at 30 Hz with the UHD video memory and is H.265 only as well: H.264 encodes at most 1920 lines, MJPEG a long side of at most 2560.
 
 ### Monitor identity
 
@@ -82,6 +82,7 @@ When video settings are applied, the monitor uses the slowest refresh rate of it
 | 1920×1200, 2560×1080, 1280×1440 | 60, 50, 30 |
 | 2560×1600 | 50, 30 |
 | 3440×1440 | 40, 30 |
+| 2560×2880 | 30 |
 
 A 30 fps stream therefore makes the computer render and send 30 frames per second instead of 90. Changing the frame rate through the single-setting API also resynchronizes the EDID, when a different timing results.
 

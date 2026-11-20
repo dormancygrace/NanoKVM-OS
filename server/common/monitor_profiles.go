@@ -11,7 +11,8 @@ const (
 	MonitorAspect169  = "16:9"
 	MonitorAspect1610 = "16:10"
 	MonitorAspect219  = "21:9"
-	// Half of a QHD screen, for a window beside others.
+	// Half of a QHD screen, for a window beside others, and two QHD screens
+	// one above the other.
 	MonitorAspect89 = "8:9"
 )
 
@@ -20,8 +21,8 @@ var MonitorAspects = []string{MonitorAspect169, MonitorAspect1610, MonitorAspect
 
 // monitorProfile is a landscape monitor size. Its id is what
 // /etc/kvm/monitor_resolution and the API's "monitor" hold: the height of a
-// 16:9 or 16:10 profile, the width of a 21:9 or 8:9 one (its height would be
-// that of a 16:9 profile). 0 is Auto.
+// 16:9 or 16:10 profile, the width of a 21:9 one and of 1280x1440 (their
+// heights would be those of 16:9 profiles), the height of 2560x2880. 0 is Auto.
 type monitorProfile struct {
 	Width, Height uint16
 	Aspect        string
@@ -33,6 +34,7 @@ var widerMonitorProfiles = map[uint16]monitorProfile{
 	2560: {2560, 1080, MonitorAspect219},
 	3440: {3440, 1440, MonitorAspect219},
 	1280: {1280, 1440, MonitorAspect89},
+	2880: {2560, 2880, MonitorAspect89},
 }
 
 // widerMonitorRates lists the refresh rates of the 16:10 and 21:9 profiles,
@@ -44,6 +46,7 @@ var widerMonitorRates = map[uint16][]int{
 	2560: {60, 50, 30},
 	3440: {40, 30},
 	1280: {60, 50, 30},
+	2880: {30},
 }
 
 // slowWiderMonitorRates lists the 16:10 and 21:9 rates of the LT6911C, which

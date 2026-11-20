@@ -31,6 +31,8 @@ PROFILES = {
     (3440, 1440): (10, (40, 30)),
     # 8:9, half of a QHD screen; not one of CVT's aspect ratios, hence 10.
     (1280, 1440): (10, (60, 50, 30)),
+    # Two QHD screens one above the other: 7.4 Mpixel, less than 3840x2160.
+    (2560, 2880): (10, (30,)),
 }
 # The highest pixel clock any of them may use (MHz), the LT6911UXC input limit
 # the 16:9 profiles also respect.

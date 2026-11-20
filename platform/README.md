@@ -350,7 +350,7 @@ or `apk info -v nanokvm nanokvm-web nanokvm-release`.
 APK add-ons have their own releases and a common signed Pages repository,
 separate from both stable and beta OS repositories. The APK repository workflow
 discovers stable releases of the add-ons in `ADDONS` of `scripts/addon_packages.py`
-(RustDesk and IPMI), tagged NAME-VERSION-rN by the add-on workflows. It verifies
+(RustDesk, computer sensors and the TPU models), tagged NAME-VERSION-rN by the add-on workflows. It verifies
 published checksums and package metadata, then signs the add-on v3 index in the
 protected `release` environment. It retains six releases per add-on.
 

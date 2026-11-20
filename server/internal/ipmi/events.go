@@ -4,7 +4,7 @@ import "time"
 
 // Event is a login or a lockout, for the security notifications the server
 // sends for the web and Redfish logins too. The server reads them through
-// the add-on's API socket (GET /events).
+// the daemon's socket (GET /events).
 type Event struct {
 	Seq  uint64 `json:"seq"`
 	Kind string `json:"kind"` // "login" or "lockout"

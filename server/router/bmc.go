@@ -18,13 +18,13 @@ func BMCLoopbackHTTPAllowedPaths() []string {
 // drive is the one virtual drive owner, for Redfish's virtual media.
 func bmcRouter(r *gin.Engine, drive bmcservice.Drive) {
 	atx := vm.NewService()
-	// For the IPMI add-on's daemon only: loopback with the internal token.
+	// For the IPMI daemon only: loopback with the internal token.
 	localAPI := r.Group("/api/internal").Use(middleware.CheckLoopbackInternalToken())
 	localAPI.GET("/atx", atx.GetATXInternal)
 	localAPI.POST("/atx", atx.PressATXInternal)
 
 	service := bmcservice.NewService(vm.ATX{}, drive, bmcservice.RedfishSensors(vm.HostSensorsStatus))
-	// The security notifications for the IPMI add-on's logins and lockouts.
+	// The security notifications for the IPMI daemon's logins and lockouts.
 	go bmcservice.WatchIPMIEvents()
 	// Redfish has its own account (the BMC account of the settings page) and
 	// checks it itself, as on any BMC: these routes take no web login. With
@@ -52,22 +52,6 @@ func bmcRouter(r *gin.Engine, drive bmcservice.Drive) {
 			return
 		}
 		if err := service.Configure(request); err != nil {
-			response.ErrRsp(c, -1, err.Error())
-			return
-		}
-		response.OkRsp(c)
-	})
-	api.POST("/ipmi/install", func(c *gin.Context) {
-		var response proto.Response
-		if err := service.InstallIPMI(); err != nil {
-			response.ErrRsp(c, -1, err.Error())
-			return
-		}
-		response.OkRsp(c)
-	})
-	api.POST("/ipmi/uninstall", func(c *gin.Context) {
-		var response proto.Response
-		if err := service.UninstallIPMI(); err != nil {
 			response.ErrRsp(c, -1, err.Error())
 			return
 		}

@@ -40,6 +40,10 @@ tpu file /usr/share/licenses/nanokvm-tpu/NOTICE 0644 @tpu/NOTICE
 base  file  /etc/init.d/nanokvm-usb-internet            0755  firmware/alpine/openrc/nanokvm-usb-internet
 base  file  /usr/sbin/nkos-standby                      0755  @server/nkos-standby
 base  file  /usr/sbin/nkos-usb-internet                  0755  @server/nkos-usb-internet
+# IPMI over LAN (docs/BMC.md): in no runlevel until the BMC settings switch
+# it on (server/service/bmc).
+base  file  /etc/init.d/nanokvm-ipmi                    0755  firmware/alpine/openrc/nanokvm-ipmi
+base  file  /usr/sbin/nkos-ipmi                         0755  @server/nkos-ipmi
 base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
 base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths
 # The add-on repository, apart from the OS line in /etc/apk/repositories that

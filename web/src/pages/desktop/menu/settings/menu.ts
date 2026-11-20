@@ -1,8 +1,7 @@
 // The settings navigation as data, the way OpenWrt's LuCI menu.d and
-// Cockpit manifests work: every entry names its place, built-in pages and
-// pages added later (add-ons) go into the same list and are sorted
-// together. Whether an entry shows (admin, hardware, installed add-on) is
-// decided where the pages are rendered, not here.
+// Cockpit manifests work: every entry names its place, and the list is
+// sorted by it. Whether an entry shows (admin, hardware, installed add-on)
+// is decided where the pages are rendered, not here.
 
 import { settingsParentOf } from './tabs.ts';
 

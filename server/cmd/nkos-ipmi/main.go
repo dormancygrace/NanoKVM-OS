@@ -1,5 +1,5 @@
-// nkos-ipmi is the daemon of the nanokvm-ipmi add-on: IPMI over LAN for
-// power control of the host. The server itself serves Redfish; this runs
+// nkos-ipmi is the IPMI daemon (OpenRC service nanokvm-ipmi): IPMI over LAN
+// for power control of the host. The server itself serves Redfish; this runs
 // apart from it so that a fault in parsing untrusted UDP packets cannot
 // stop the server and its video.
 package main
@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"NanoKVM-IPMI/internal/ipmi"
+	"NanoKVM-Server/internal/ipmi"
 	"NanoKVM-Server/pkg/bmc"
 )
 
@@ -47,19 +47,19 @@ func main() {
 	errs := make(chan error, 1)
 	go func() { errs <- server.Serve(conn) }()
 	log.Printf("IPMI: listening on UDP port %d", config.IPMIPort)
-	// The settings page's data, through the server's add-on proxy. Without
-	// it the page says the add-on is not running; IPMI itself goes on.
-	if err := serveStatus(statusSocket, server, config.IPMIPort); err != nil {
-		log.Printf("status page: %v", err)
+	// The server reads the settings page's status and the login events here.
+	// Without the socket the page shows no IPMI status; IPMI itself goes on.
+	if err := serveStatus(bmc.IPMISocket, server, config.IPMIPort); err != nil {
+		log.Printf("status socket: %v", err)
 	}
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
 	select {
 	case <-signals:
-		_ = os.Remove(statusSocket)
+		_ = os.Remove(bmc.IPMISocket)
 	case err := <-errs:
-		_ = os.Remove(statusSocket)
+		_ = os.Remove(bmc.IPMISocket)
 		log.Fatalf("IPMI: %v", err)
 	}
 }

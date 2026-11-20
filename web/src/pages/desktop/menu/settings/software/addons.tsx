@@ -16,19 +16,16 @@ import { confirmAction } from '@/components/ui/confirm.ts';
 import { AcmeAddon } from './acme';
 import { AddonCard } from './addon-card';
 import { CatalogAddonCard, CatalogStatus } from './catalog-addon';
-import { IpmiAddon } from './ipmi';
 import { RustDeskAddon } from './rustdesk';
 
 export const Addons = ({
   onOpen,
   onOpenRustDesk,
-  onOpenAcme,
-  onOpenBmc
+  onOpenAcme
 }: {
   onOpen: () => void;
   onOpenRustDesk: () => void;
   onOpenAcme: () => void;
-  onOpenBmc: () => void;
 }) => {
   const { t, i18n } = useTranslation();
   const [status, setStatus] = useAtom(picoclawRuntimeStatusAtom);
@@ -74,11 +71,8 @@ export const Addons = ({
       setChecking(false);
     }
   };
-  // Add-ons with a page of their own keep their card.
-  const ipmiEntry = catalog?.addons.find((addon) => addon.name === 'nanokvm-ipmi');
-  const others =
-    catalog?.addons.filter((addon) => !['nanokvm-rustdesk', 'nanokvm-ipmi'].includes(addon.name)) ??
-    [];
+  // RustDesk has a card of its own.
+  const others = catalog?.addons.filter((addon) => addon.name !== 'nanokvm-rustdesk') ?? [];
   const refresh = useCallback(async () => {
     if (pending.current) return;
     pending.current = true;
@@ -197,15 +191,6 @@ export const Addons = ({
       installed: acmeInstalled,
       card: <AcmeAddon key="acme" onOpen={onOpenAcme} onInstalled={setAcmeInstalled} />
     },
-    ...(ipmiEntry
-      ? [
-          {
-            name: t('settings.bmc.ipmi'),
-            installed: inventory?.ipmi?.installed,
-            card: <IpmiAddon key="ipmi" onOpen={onOpenBmc} entry={ipmiEntry} os={catalog?.os} />
-          }
-        ]
-      : []),
     ...others.map((addon) => ({
       name: addon.name.replace(/^nanokvm-/, '').replace(/[-_]+/g, ' '),
       installed: !!addon.installed,

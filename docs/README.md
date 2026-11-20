@@ -43,7 +43,6 @@
 - [NanoKVM shutdown with network restart](SAFE-POWEROFF.md)
 - [Event log](EVENTS.md) and [logs](LOGS.md)
 - [Scheduled tasks](SCHEDULE.md) and [scripts](SCRIPTS.md)
-- [Add-on pages](ADDONS.md)
 
 ## Building and maintaining
 

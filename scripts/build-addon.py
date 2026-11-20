@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Build a NanoKVM add-on APK from its recipe, addons/NAME/addon.json.
 
-The add-on is a static Go program in its own module (CGO off, so no device
-toolchain), or TPU models: files of a directory that tpu/models/convert.sh
+The add-on is TPU models: files of a directory that tpu/models/convert.sh
 and stage.sh made, installed below MODELS_PREFIX, or a .NET program for the
 managed computer (Windows), which the NanoKVM only serves. Its files and
 lifecycle scripts go with it, packed by apk-tools 3 mkpkg. It has
@@ -27,7 +26,7 @@ import addon_packages  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 ADDONS = ROOT / 'addons'
 SCRIPTS = ('pre-install', 'post-install', 'pre-upgrade', 'post-upgrade', 'pre-deinstall', 'post-deinstall')
-KINDS = ('go', 'models', 'dotnet')
+KINDS = ('models', 'dotnet')
 # Where model add-ons install their models: the TPU programs of the core
 # package nanokvm-tpu read them there.
 MODELS_PREFIX = '/usr/lib/nanokvm-tpu/models'
@@ -47,9 +46,9 @@ def recipe(name, addons=ADDONS):
     # APK version, or a beta's (3.5.0_beta1), which the stable release satisfies.
     if not re.fullmatch(r'\d+\.\d+\.\d+(_beta[1-9][0-9]*)?', r.get('os', '')) or 'nanokvm-os' in r['depends']:
         raise ValueError(f'{name}: addon.json needs "os", the minimum NanoKVM OS release')
-    # One of: a program, models, a .NET program for the managed computer.
+    # One of: models, a .NET program for the managed computer.
     if sum(kind in r for kind in KINDS) != 1:
-        raise ValueError(f'{name}: addon.json needs one of "go", "models" or "dotnet"')
+        raise ValueError(f'{name}: addon.json needs one of "models" or "dotnet"')
     if 'dotnet' in r:
         d = r['dotnet']
         if (set(d) != {'project', 'output', 'path', 'pawnio'} or not (directory / d['project']).is_file()
@@ -74,20 +73,6 @@ def recipe(name, addons=ADDONS):
             raise ValueError(f'{name}: missing license {license}')
     r['directory'] = directory
     return r
-
-
-def build_go(r, go, output):
-    """Cross-build the recipe's Go program for the device."""
-    # Resolve GOROOT, not bin/go: the prepared NanoKVM runtime symlinks bin/
-    # to the official toolchain (as scripts/build-server-existing-libs.py).
-    go_root = go.absolute().parent.parent.resolve()
-    env = dict(os.environ, GOOS='linux', GOARCH='riscv64', GORISCV64='rva20u64', CGO_ENABLED='0',
-               GOEXPERIMENT='', GOROOT=str(go_root), GOTOOLCHAIN='local')
-    binary = output / Path(r['go']['path']).name
-    subprocess.run([str(go_root / 'bin/go'), 'build', '-trimpath', '-buildvcs=false', '-ldflags=-s -w -buildid=',
-                    '-o', str(binary), r['go']['package']], cwd=r['directory'], env=env, check=True)
-    version = subprocess.check_output([str(go_root / 'bin/go'), 'version'], env=env, text=True).strip()
-    return binary, version
 
 
 def kind(r):
@@ -177,15 +162,13 @@ def model_files(r, models):
 
 
 def payload(r, binary, root, source, models=None):
-    """The package's files below root: its program (binary) or its models (the
-    directory models), the recipe's files and licences, and source."""
+    """The package's files below root: its .NET program (binary) or its models
+    (the directory models), the recipe's files and licences, and source."""
     def install(src, dest, mode):
         path = root / dest.lstrip('/')
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(Path(src).read_bytes())
         path.chmod(mode)
-    if 'go' in r:
-        install(binary, r['go']['path'], 0o755)
     if 'dotnet' in r:
         # Served to the managed computer, never run on the NanoKVM.
         install(binary, r['dotnet']['path'], 0o644)
@@ -219,15 +202,14 @@ def mkpkg(r, apk, files, output, version):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--addon', required=True, help='the add-on, for example nanokvm-ipmi')
+    parser.add_argument('--addon', required=True, help='the add-on, for example nanokvm-host-sensors')
     parser.add_argument('--version-only', action='store_true', help='print the recipe version and stop')
     parser.add_argument('--parts-only', action='store_true',
-                        help='print the convert.sh parts of a model add-on (nothing for a program) and stop')
-    parser.add_argument('--kind-only', action='store_true', help='print the recipe kind (go, models, dotnet) and stop')
+                        help='print the convert.sh parts of a model add-on (nothing for a .NET one) and stop')
+    parser.add_argument('--kind-only', action='store_true', help='print the recipe kind (models, dotnet) and stop')
     parser.add_argument('--dotnet', type=Path, help='the dotnet program of a .NET SDK (a dotnet add-on)')
     parser.add_argument('--pawnio', type=Path,
                         help='a PawnIO_setup.exe to use instead of downloading the latest release (a dotnet add-on)')
-    parser.add_argument('--go', type=Path, help='bin/go of the NanoKVM Go runtime (a program add-on)')
     parser.add_argument('--models', type=Path,
                         help='the staged models, OUTPUT/usr/lib/nanokvm-tpu/models of tpu/models/stage.sh (a model add-on)')
     parser.add_argument('--apk', type=Path, help='host apk-tools 3 with mkpkg')
@@ -248,8 +230,6 @@ def main():
         return
     if None in (args.apk, args.output, args.commit, args.source_url):
         parser.error('--apk, --output, --commit and --source-url are required to build')
-    if 'go' in r and args.go is None:
-        parser.error('--go is required for a program add-on')
     if 'models' in r and args.models is None:
         parser.error('--models is required for a model add-on')
     if 'dotnet' in r and args.dotnet is None:
@@ -266,9 +246,7 @@ def main():
         stage = Path(stage)
         source = {'commit': args.commit, 'url': args.source_url, 'package_version': version}
         binary = None
-        if 'go' in r:
-            binary, source['go'] = build_go(r, args.go, stage)
-        elif 'dotnet' in r:
+        if 'dotnet' in r:
             if args.pawnio:
                 pawnio, source['pawnio'] = pawnio_file(args.pawnio.read_bytes(), stage, {'file': args.pawnio.name})
             else:

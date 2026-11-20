@@ -33,7 +33,6 @@ import {
   NetworkIcon,
   PackageIcon,
   PaletteIcon,
-  PuzzleIcon,
   RadioTowerIcon,
   ScanTextIcon,
   ServerCogIcon,
@@ -52,11 +51,10 @@ import {
 import { ErrorBoundary } from 'react-error-boundary';
 import { useTranslation } from 'react-i18next';
 
-import { getAddonInventory, type AddonManifest } from '@/api/addons';
+import { getAddonInventory } from '@/api/addons';
 import { getWiFi } from '@/api/network.ts';
 import { getVirtualDevice } from '@/api/virtual-device.ts';
 import { getBluetoothState } from '@/api/vm.ts';
-import { addonTabId, localized } from '@/lib/addon-form.ts';
 import { releasePointerMenuFocus } from '@/lib/menu-focus.ts';
 import { retryableLazy } from '@/lib/retryable-lazy.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
@@ -64,7 +62,7 @@ import { addonInventoryAtom } from '@/jotai/addons';
 import { keyboardLockAtom } from '@/jotai/keyboard.ts';
 import { picoclawChatOpenAtom, picoclawRuntimeStatusAtom } from '@/jotai/picoclaw.ts';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk.ts';
-import { bmcTabAtom, settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
+import { settingsRequestAtom, submenuOpenCountAtom } from '@/jotai/settings.ts';
 import { updateNoticeAtom } from '@/jotai/updates.ts';
 import { useResponsiveDevice } from '@/hooks/useResponsiveDevice.ts';
 import { RustDeskIcon } from '@/components/icons/rustdesk';
@@ -146,9 +144,6 @@ const Events = lazyPage(() =>
 );
 const Diagnostics = lazyPage(() =>
   import('./system/diagnostics').then((module) => ({ default: module.Diagnostics }))
-);
-const AddonPage = lazyPage(() =>
-  import('./addon').then((module) => ({ default: module.AddonPage }))
 );
 const Addons = lazyPage(() =>
   import('./software/addons').then((module) => ({ default: module.Addons }))
@@ -232,8 +227,6 @@ const menuIcons: Record<string, ReactNode> = {
   vpn: <GlobeLockIcon size={16} />,
   wifi: <WifiIcon size={16} />
 };
-// An add-on page whose manifest names an icon not in the set above.
-const addonIcon = <PuzzleIcon size={16} />;
 
 const menuTitles = new Map<string, SettingsMenuEntry['title']>(
   builtinMenu.map((entry) => [entry.id, entry.title])
@@ -318,12 +311,11 @@ export type SettingsFrame = {
 };
 
 // The tab a settings page opens without one in its address, or with one that
-// names no page. Add-on pages come and go with their add-ons and are checked
-// where the pages are listed.
+// names no page.
 const pageDefaultTab = 'system-general';
 const pageTabOf = (tab: string | undefined) => {
   const resolved = resolveSettingsTab(tab ?? pageDefaultTab);
-  return menuTitles.has(resolved) || resolved.includes('-addon-') ? resolved : pageDefaultTab;
+  return menuTitles.has(resolved) ? resolved : pageDefaultTab;
 };
 
 export const Settings = ({
@@ -337,7 +329,7 @@ export const Settings = ({
   const { onRequestMobileMenuDismiss } = useContext(MobileMenuItemContext);
   const [detailOpen, setDetailOpen] = useState(false);
   const modalOpenRef = useRef(false);
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { account } = useAuth();
   const isAdmin = account.role === 'admin';
   const updateNotice = useAtomValue(updateNoticeAtom);
@@ -397,7 +389,6 @@ export const Settings = ({
   const [inventoryError, setInventoryError] = useState(false);
   const [picoclawStatus] = useAtom(picoclawRuntimeStatusAtom);
   const setPicoclawOpen = useSetAtom(picoclawChatOpenAtom);
-  const setBmcTab = useSetAtom(bmcTabAtom);
   const scrollViewportRef = useRef<HTMLDivElement>(null);
 
   const setKeyboardLock = useSetAtom(keyboardLockAtom);
@@ -455,10 +446,6 @@ export const Settings = ({
         'software-addons': (
           <Addons
             onOpenRustDesk={() => changeTab('services-rustdesk')}
-            onOpenBmc={() => {
-              setBmcTab('ipmi');
-              changeTab('services-bmc');
-            }}
             onOpenAcme={() => changeTab('system-security')}
             onOpen={openChat}
           />
@@ -475,29 +462,8 @@ export const Settings = ({
     about: <About />,
     ...adminPages
   };
-  // Pages of add-ons that describe themselves (settings.group of their
-  // manifests): menu entries like the built-in ones, after them in the group.
-  const addonPages = new Map<string, AddonManifest>(
-    (isAdmin ? (inventory?.addons ?? []) : []).flatMap((manifest) =>
-      manifest.settings?.group
-        ? [[addonTabId(manifest.settings.group, manifest.id), manifest] as const]
-        : []
-    )
-  );
-  const addonEntries: SettingsMenuEntry[] = [...addonPages].map(([id, manifest]) => ({
-    id,
-    order: 1000,
-    icon: manifest.settings?.icon,
-    title: { text: localized(manifest.title, i18n.language) }
-  }));
-  const pageOf = (id: string): ReactNode | undefined => {
-    const manifest = addonPages.get(id);
-    if (manifest) return <AddonPage key={manifest.id} manifest={manifest} />;
-    return pages[id as BuiltinMenuId];
-  };
-  const available = orderMenu([...builtinMenu, ...addonEntries]).filter(
-    (entry) => pageOf(entry.id) !== undefined
-  );
+  const pageOf = (id: string): ReactNode | undefined => pages[id as BuiltinMenuId];
+  const available = orderMenu(builtinMenu).filter((entry) => pageOf(entry.id) !== undefined);
   const tabs = available
     .filter(
       (entry) =>
@@ -506,9 +472,7 @@ export const Settings = ({
     )
     .map((entry) => ({
       id: entry.id,
-      icon: addonPages.has(entry.id)
-        ? (menuIcons[entry.icon ?? ''] ?? addonIcon)
-        : entry.icon && menuIcons[entry.icon],
+      icon: entry.icon && menuIcons[entry.icon],
       component: pageOf(entry.id) ?? null,
       hidden: entry.hidden
     }));
@@ -584,16 +548,6 @@ export const Settings = ({
       setDetailOpen(true);
     }
   }, [currentTab, inventory?.hostSensors?.installed]);
-
-  // The add-on of the open page was removed: back to the add-on list.
-  const addonPageGone =
-    currentTab.includes('-addon-') && !!inventory && !addonPages.has(currentTab);
-  useEffect(() => {
-    if (addonPageGone) {
-      setCurrentTab('software-addons');
-      setDetailOpen(true);
-    }
-  }, [addonPageGone]);
 
   useEffect(() => {
     scrollViewportRef.current?.scrollTo({ top: 0, left: 0 });
@@ -755,8 +709,6 @@ export const Settings = ({
 
   function tabTitle(id: string) {
     if (page && id === 'dashboard') return t('overview.title');
-    const addon = addonPages.get(id);
-    if (addon) return localized(addon.title, i18n.language);
     const title = menuTitles.get(id);
     if (!title) return t(`settings.${id}.title`);
     return 'key' in title ? t(title.key) : title.text;

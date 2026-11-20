@@ -8,9 +8,9 @@ on:
     inputs:
       addon:
         description: 'Add-on, or all five model add-ons'
-        default: nanokvm-ipmi
+        default: nanokvm-host-sensors
         type: choice
-        options: [nanokvm-ipmi, nanokvm-model-ocr, nanokvm-model-ocr-latin, nanokvm-model-ocr-cyrillic,
+        options: [nanokvm-model-ocr, nanokvm-model-ocr-latin, nanokvm-model-ocr-cyrillic,
                   nanokvm-model-ocr-chinese, nanokvm-model-screen, nanokvm-host-sensors, models]
       dry_run:
         description: 'Build and check only; publish nothing'
@@ -23,17 +23,12 @@ on:
       - scripts/build-addon.py
       - scripts/addon_packages.py
       - scripts/next-addon-revision.py
-      - addons/ipmi/**
       - addons/host-sensors/**
       - addons/model-*/**
       - tpu/models/**
       - tpu/helpers/cvimodel-dmabuf.c
       - platform/sources.lock
       - LICENSE
-      - firmware/cpu/sysmon-runtime/**
-      - server/pkg/bmc/**
-      - server/go.mod
-      - server/go.sum
 
 permissions:
   contents: read
@@ -119,7 +114,7 @@ jobs:
             echo "parts=$parts"
             echo "kind=$kind"
           } >> "$GITHUB_OUTPUT"
-          echo "$kind; convert.sh parts: ${parts:-none (a program)}"
+          echo "$kind; convert.sh parts: ${parts:-none (a .NET program)}"
 
       # The converter image takes about 10 GB unpacked.
       - name: Free disk space
@@ -146,20 +141,6 @@ jobs:
           tpu/models/convert.sh "$RUNNER_TEMP/models" $PARTS
           tpu/models/stage.sh "$RUNNER_TEMP/models" "$RUNNER_TEMP/staged"
           (cd "$RUNNER_TEMP/staged" && find . -type f | sort | xargs sha256sum)
-
-      # The OS build's Go: the pinned official toolchain (platform/sources.lock)
-      # with the NanoKVM runtime (firmware/cpu/sysmon-runtime).
-      - name: Go
-        if: steps.kind.outputs.kind == 'go'
-        run: |
-          set -euo pipefail
-          read -r _ url sum < <(awk '$1 == "go" { print $1, $2, $3 }' platform/sources.lock)
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/go.tar.gz" "$url"
-          echo "$sum  $RUNNER_TEMP/go.tar.gz" | sha256sum -c -
-          mkdir "$RUNNER_TEMP/go-base"
-          tar -xzf "$RUNNER_TEMP/go.tar.gz" -C "$RUNNER_TEMP/go-base"
-          python3 firmware/cpu/sysmon-runtime/prepare.py --base "$RUNNER_TEMP/go-base/go" --output "$RUNNER_TEMP/goroot" > /dev/null
-          "$RUNNER_TEMP/goroot/bin/go" version
 
       # A program for the managed computer (Windows), built here with the
       # .NET SDK from Microsoft's installer script.
@@ -227,19 +208,16 @@ jobs:
         env:
           REVISION: ${{ steps.version.outputs.revision }}
           TAG: ${{ steps.version.outputs.tag }}
-          GOFLAGS: -mod=readonly
           PARTS: ${{ steps.kind.outputs.parts }}
           KIND: ${{ steps.kind.outputs.kind }}
           # The latest PawnIO release is read from the GitHub API.
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if [ -n "$PARTS" ]; then
-            input=(--models "$RUNNER_TEMP/staged/usr/lib/nanokvm-tpu/models")
-          elif [ "$KIND" = dotnet ]; then
+          if [ "$KIND" = dotnet ]; then
             input=(--dotnet "$RUNNER_TEMP/dotnet/dotnet")
           else
-            input=(--go "$RUNNER_TEMP/goroot/bin/go")
+            input=(--models "$RUNNER_TEMP/staged/usr/lib/nanokvm-tpu/models")
           fi
           fakeroot python3 scripts/build-addon.py --addon "$ADDON" "${input[@]}" \
             --apk "$RUNNER_TEMP/apk" --output "$RUNNER_TEMP/addon" --revision "$REVISION" \
@@ -248,8 +226,8 @@ jobs:
           ls -la "$RUNNER_TEMP/addon"
           cat "$RUNNER_TEMP/addon/SHA256SUMS"
 
-      # What devices get: the version, a static riscv64 program or the models
-      # with their checksums, the files and scripts of the recipe, and the
+      # What devices get: the version, the .NET program or the models with
+      # their checksums, the files and scripts of the recipe, and the
       # source record.
       - name: Check the package
         env:
@@ -270,11 +248,7 @@ jobs:
           assert "nanokvm-os>=" + recipe["os"] in dump.split(), recipe["os"]
           record = json.load(open(root + "/usr/share/" + recipe["name"] + "/source.json"))
           assert record["commit"] == os.environ["GITHUB_SHA"], record
-          if "go" in recipe:
-              program = root + recipe["go"]["path"]
-              out = subprocess.check_output(["file", program], text=True)
-              assert "RISC-V" in out and "statically linked" in out, out
-          elif "dotnet" in recipe:
+          if "dotnet" in recipe:
               # A Windows program the NanoKVM serves and never runs, with the
               # driver installer it carries on record.
               program = root + recipe["dotnet"]["path"]

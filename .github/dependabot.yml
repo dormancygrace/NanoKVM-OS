@@ -46,7 +46,6 @@ updates:
   - package-ecosystem: gomod
     directories:
       - /server
-      - /addons/ipmi
       - /server/third_party/pion-dtls
       - /server/third_party/pion-ice
       - /server/third_party/pion-sctp

@@ -101,6 +101,16 @@ type Profile = {
   received?: number;
   sent?: number;
 };
+// A NanoKVM that announces itself on the local network (GET /api/network/peers).
+type Peer = {
+  name: string;
+  host: string;
+  addresses: string[];
+  port: number;
+  proto: string;
+  model: string;
+  self: boolean;
+};
 type Extras = {
   time?: { config: DateTimeConfig; synchronized: boolean; daemon: string };
   wifi?: { connected: boolean; ssid: string };
@@ -159,6 +169,7 @@ export const Dashboard = ({
   const [data, setData] = useState<Snapshot>();
   const [video, setVideo] = useState<Video>();
   const [extra, setExtra] = useState<Extras>({});
+  const [peers, setPeers] = useState<Peer[]>([]);
   const [cpu, setCpu] = useState<number | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [extraFailed, setExtraFailed] = useState(false);
@@ -258,6 +269,29 @@ export const Dashboard = ({
       window.clearTimeout(timer);
     };
   }, [admin, i18n.language]);
+
+  // The other NanoKVMs on the network. Asking takes the device a second or
+  // two of waiting for answers, so it has its own, slower turn.
+  useEffect(() => {
+    let disposed = false;
+    let timer: number | undefined;
+    const poll = async () => {
+      if (!document.hidden) {
+        try {
+          const found = await read<{ peers: Peer[] }>('/api/network/peers');
+          if (!disposed) setPeers(found.peers.filter((peer) => !peer.self));
+        } catch {
+          // the last list stays
+        }
+      }
+      if (!disposed) timer = window.setTimeout(() => void poll(), 60000);
+    };
+    void poll();
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   const wireguardNames = new Map(
     extra.wireguard?.profiles.map((profile) => [profile.id, profile.name])
@@ -793,6 +827,32 @@ export const Dashboard = ({
               ))}
             </ul>,
             'system-events'
+          )}
+        {/* The other NanoKVMs that announce themselves here, each a link to
+            its own interface. */}
+        {peers.length > 0 &&
+          section(
+            t('dashboard.peers'),
+            <ul className="m-0 list-none space-y-2 p-0 text-sm">
+              {peers.map((peer) => {
+                const address = peer.addresses[0] ?? peer.host;
+                const standard = peer.port === (peer.proto === 'http' ? 80 : 443);
+                const url = `${peer.proto}://${address}${standard ? '' : `:${peer.port}`}/`;
+                return (
+                  <li key={`${peer.host}-${peer.port}`}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <a href={url} target="_blank" rel="noreferrer" className="font-medium">
+                        {peer.name}
+                      </a>
+                      <span className="text-fg-muted shrink-0 text-xs">{peer.model}</span>
+                    </div>
+                    <div className="text-fg-muted mt-0.5 text-xs break-all">
+                      {[peer.host, ...peer.addresses].join(' · ')}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         {section(
           t('dateTime.title'),

@@ -26,6 +26,7 @@
 ## Network and access
 
 - [Network changes on trial](NETWORK-TRIAL.md)
+- [Finding NanoKVMs on the network](DISCOVERY.md): the service every device announces, and the list of the others
 - [Ethernet interrupt coalescing](ETHERNET-RX-BATCHING.md)
 - [VPN profiles](VPN.md)
 - [Two-factor authentication](TWO-FACTOR.md)

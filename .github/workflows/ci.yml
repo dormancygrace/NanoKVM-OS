@@ -89,6 +89,8 @@ jobs:
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
+      - name: IPMI race checks
+        run: go test -race -tags teststub,nomsgpack ./internal/ipmi ./cmd/nkos-ipmi
       - name: NanoKVM tests of the patched pion modules
         run: |
           for m in pion-dtls pion-ice pion-sctp pion-srtp; do

@@ -205,7 +205,9 @@ func (s *Service) Configure(settings Settings) error {
 	if settings.Password != "" {
 		config.Password = settings.Password
 	}
-	config.IPMIPort = settings.IPMIPort
+	if settings.IPMIPort != 0 {
+		config.IPMIPort = settings.IPMIPort
+	}
 	config.HoldSeconds = settings.HoldSeconds
 	if settings.PowerLEDConnected != nil {
 		config.PowerLEDDisconnected = !*settings.PowerLEDConnected

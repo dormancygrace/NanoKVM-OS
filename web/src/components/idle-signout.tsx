@@ -33,6 +33,8 @@ export const IdleSignout = () => {
     let deadline = 0;
     let lastAsked = 0;
     let asking = false;
+    // Input seen while a request was out: reported when it is back.
+    let activityPending = false;
     let trailing: ReturnType<typeof setTimeout> | undefined;
     let ticker: ReturnType<typeof setInterval> | undefined;
 
@@ -42,7 +44,10 @@ export const IdleSignout = () => {
     };
 
     const ask = (activity: boolean) => {
-      if (asking) return;
+      if (asking) {
+        if (activity) activityPending = true;
+        return;
+      }
       asking = true;
       lastAsked = Date.now();
       (activity ? api.reportActivity() : api.getIdle())
@@ -61,6 +66,10 @@ export const IdleSignout = () => {
         .catch(() => {})
         .finally(() => {
           asking = false;
+          if (activityPending && !stopped) {
+            activityPending = false;
+            ask(true);
+          }
         });
     };
 

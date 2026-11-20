@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"strings"
@@ -86,7 +88,7 @@ func CheckToken() gin.HandlerFunc {
 		unregister := activeSessions.register(session{
 			username: principal.Username, tokenVersion: token.TokenVersion,
 			store: authn.DefaultStore, cancel: cancel,
-			idleKey: sessionKeyOf(token), tokenUntil: token.ExpiresAt.Time,
+			idleKey: sessionKeyOf(token), tokenIssued: tokenIssued(token), tokenUntil: token.ExpiresAt.Time,
 			stream: isStream(c),
 		})
 		defer func() { unregister(); cancel() }()
@@ -228,6 +230,8 @@ func GenerateJWT(username string, tokenVersion uint64) (string, error) {
 		Username:     username,
 		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
+			// Each sign-in its own: two made in the same second differ.
+			ID:        sessionID(),
 			Subject:   username,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(expireDuration)),
@@ -235,6 +239,14 @@ func GenerateJWT(username string, tokenVersion uint64) (string, error) {
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(conf.JWT.SecretKey))
+}
+
+func sessionID() string {
+	var id [16]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(id[:])
 }
 
 func ParseJWT(jwtToken string) (*Token, error) {

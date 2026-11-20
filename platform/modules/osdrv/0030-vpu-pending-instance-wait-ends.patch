@@ -1,0 +1,56 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] vpu: the wait for a pending instance ends
+
+An encoder setup that failed (VPU_EncGetInitialInfo) left its instance
+marked pending on the core. VPU_WaitPendingInst then waited for that mark
+to go in a loop with no sleep and no end: closing the channel kept a CPU
+busy in the kernel for good, and nothing could use the core.
+
+A failed setup now clears the mark. The wait returns at once when the
+pending instance is the caller itself, sleeps between looks, and after
+2 s takes the core over with an error message: a mark that stays that
+long belongs to a command that ended without clearing it.
+
+---
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
+@@ -3076,11 +3076,27 @@
+ 	return ret;
+ }
+ 
++/* How long an instance waits for another one's command on the same core. */
++#define VPU_PENDING_WAIT_MS 2000
++
++/* Waits until no other instance has a command pending on the core, then marks
++ * this one pending. An instance that is pending itself goes on: it waited
++ * already (a failed command can leave its mark). Another instance's mark that
++ * stays VPU_PENDING_WAIT_MS belongs to a command that ended without clearing
++ * it; the core is taken over then, rather than waiting forever in the
++ * kernel with the CPU busy. */
+ static void VPU_WaitPendingInst(CodecInst *pCodecInst)
+ {
+-RETRY:
+-	if (GetPendingInst(pCodecInst->coreIdx)) {
+-		goto RETRY;
++	const unsigned long deadline = jiffies + msecs_to_jiffies(VPU_PENDING_WAIT_MS);
++	CodecInst *pending;
++
++	while ((pending = GetPendingInst(pCodecInst->coreIdx)) && pending != pCodecInst) {
++		if (time_after(jiffies, deadline)) {
++			CVI_VC_ERR("core %d: instance %d still pending after %d ms; taken over\n",
++				   pCodecInst->coreIdx, pending->instIndex, VPU_PENDING_WAIT_MS);
++			break;
++		}
++		usleep_range(500, 1000);
+ 	}
+ 
+ 	SetPendingInst(pCodecInst->coreIdx, pCodecInst, __func__, __LINE__);
+@@ -3212,6 +3228,8 @@
+ 	ret = ProductVpuEncSetup(pCodecInst);
+ 	if (ret != RETCODE_SUCCESS) {
+ 		CVI_VC_ERR("ProductVpuEncSetup ret error %d\n", ret);
++		/* No command of this instance runs any more. */
++		SetPendingInst(pCodecInst->coreIdx, NULL, __func__, __LINE__);
+ 		return ret;
+ 	}
+ 

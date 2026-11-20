@@ -34,7 +34,7 @@ See the [latest OS release](https://github.com/dormancygrace/NanoKVM-OS/releases
 
 ### 🎬 Video, from HD to 4K — and ultrawide
 
-**More room for your desktop: 16:10 and ultrawide 21:9, alongside classic 16:9 and portrait modes.** Choose the aspect ratio in **Settings → Video → Aspect ratio**, then pick the resolution. The full set of profiles, including 4K, QHD and portrait, needs an LT6911UXC or LT6911D receiver.
+**More room for your desktop: 16:10 and ultrawide 21:9, alongside classic 16:9 and portrait modes, and 8:9 for a remote screen beside your other windows.** Choose the aspect ratio in **Settings → Video → Aspect ratio**, then pick the resolution. The full set of profiles, including 4K, QHD and portrait, needs an LT6911UXC or LT6911D receiver.
 
 #### 🖥️ 16:9 — Classic widescreen
 
@@ -58,6 +58,13 @@ See the [latest OS release](https://github.com/dormancygrace/NanoKVM-OS/releases
 | --- | --- |
 | **3440 × 1440** | **Up to 40 Hz** (H.265) |
 | **2560 × 1080** | **Up to 60 Hz** |
+
+#### 🪟 8:9 — Half a QHD screen, or two of them stacked
+
+| Resolution | Maximum monitor refresh rate |
+| --- | --- |
+| **2560 × 2880** | **30 Hz** (H.265) |
+| **1280 × 1440** | **Up to 60 Hz** |
 
 These are the highest advertised monitor timings on an LT6911UXC or LT6911D receiver, not guaranteed delivered video rates. LT6911C receivers offer 720p and 1080p at 60 Hz, plus experimental 1920 × 1200 (up to 50 Hz) and 2560 × 1080 (30 Hz); a PCIe board with an LT6911C keeps the receiver's stock EDID. Available modes also depend on video memory, source timing, codec and browser. The interface reports the input and encoded stream separately and explains unavailable choices. See [video modes and receiver limits](docs/VIDEO.md).
 

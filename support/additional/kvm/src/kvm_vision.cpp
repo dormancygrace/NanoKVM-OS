@@ -348,6 +348,8 @@ uint16_t hdmi_res_list[][2] = {
     {2560, 1600},
     {2560, 1080},
     {3440, 1440},
+    {1280, 1440},
+    {2560, 2880},
     {720, 1280},
     {1080, 1920},
     {1088, 1920},
@@ -566,7 +568,9 @@ int get_manual_resolution(void)
         || (tmp_width == 1080 && tmp_height == 1920)
         || (tmp_width == 1088 && tmp_height == 1920)
         || (tmp_width == 1440 && tmp_height == 2560);
-    if(tmp_height > vi_max_height && !portrait){
+    // 8:9, two QHD screens one above the other: taller than vi_max_height too.
+    const bool tall = tmp_width == 2560 && tmp_height == 2880;
+    if(tmp_height > vi_max_height && !portrait && !tall){
         tmp_height = vi_max_height;
         nanokvm::write_small_uint(vi_height_path, vi_max_height);
     }

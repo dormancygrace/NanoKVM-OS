@@ -11,15 +11,18 @@ const (
 	MonitorAspect169  = "16:9"
 	MonitorAspect1610 = "16:10"
 	MonitorAspect219  = "21:9"
+	// Half of a QHD screen, for a window beside others, and two QHD screens
+	// one above the other.
+	MonitorAspect89 = "8:9"
 )
 
 // MonitorAspects lists the aspect ratios in the order the interface offers them.
-var MonitorAspects = []string{MonitorAspect169, MonitorAspect1610, MonitorAspect219}
+var MonitorAspects = []string{MonitorAspect169, MonitorAspect1610, MonitorAspect219, MonitorAspect89}
 
 // monitorProfile is a landscape monitor size. Its id is what
 // /etc/kvm/monitor_resolution and the API's "monitor" hold: the height of a
-// 16:9 or 16:10 profile, the width of a 21:9 one (its height would be that of
-// a 16:9 profile). 0 is Auto.
+// 16:9 or 16:10 profile, the width of a 21:9 one and of 1280x1440 (their
+// heights would be those of 16:9 profiles), the height of 2560x2880. 0 is Auto.
 type monitorProfile struct {
 	Width, Height uint16
 	Aspect        string
@@ -30,6 +33,8 @@ var widerMonitorProfiles = map[uint16]monitorProfile{
 	1600: {2560, 1600, MonitorAspect1610},
 	2560: {2560, 1080, MonitorAspect219},
 	3440: {3440, 1440, MonitorAspect219},
+	1280: {1280, 1440, MonitorAspect89},
+	2880: {2560, 2880, MonitorAspect89},
 }
 
 // widerMonitorRates lists the refresh rates of the 16:10 and 21:9 profiles,
@@ -40,6 +45,8 @@ var widerMonitorRates = map[uint16][]int{
 	1600: {50, 30},
 	2560: {60, 50, 30},
 	3440: {40, 30},
+	1280: {60, 50, 30},
+	2880: {30},
 }
 
 // slowWiderMonitorRates lists the 16:10 and 21:9 rates of the LT6911C, which
@@ -85,7 +92,7 @@ func MonitorAspect(id uint16) string {
 	return MonitorAspect169
 }
 
-// widerMonitorProfile reports whether id is a 16:10 or 21:9 profile.
+// widerMonitorProfile reports whether id is a 16:10, 21:9 or 8:9 profile.
 func widerMonitorProfile(id uint16) bool {
 	_, ok := widerMonitorProfiles[id]
 	return ok
@@ -116,14 +123,16 @@ func WiderMonitorProfileOffered(id uint16) bool { return len(widerMonitorRatesFo
 func MonitorNeedsUHD(id uint16) bool { return monitorPoolNeed(id) == "uhd" }
 
 // monitorPoolNeed names the video memory a monitor size needs: "" for up to
-// 1920x1088 pixels, "qhd" up to 2560x1440, else "uhd".
+// 1920x1088 pixels, "qhd" up to 2560x1440, else "uhd". A picture taller than
+// 1088 lines needs "qhd" whatever its width (1280x1440): the capture takes
+// more than 1920x1080 in either direction only with that memory.
 func monitorPoolNeed(id uint16) string {
 	width, height := MonitorSize(id)
 	pixels := int(width) * int(height)
 	switch {
 	case pixels > 2560*1440:
 		return "uhd"
-	case pixels > 1920*1088:
+	case pixels > 1920*1088 || height > 1088:
 		return "qhd"
 	}
 	return ""

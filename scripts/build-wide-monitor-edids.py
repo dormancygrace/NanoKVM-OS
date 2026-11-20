@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the 16:10 and 21:9 HDMI monitor profiles, without hardware access.
+"""Build the 16:10, 21:9 and 8:9 HDMI monitor profiles, without hardware access.
 
 One file per size and refresh rate, NanoKVM-monitor-<w>x<h>-<hz>.bin
 (server/common/monitor_profiles.go): a single preferred detailed timing in
@@ -29,6 +29,10 @@ PROFILES = {
     (2560, 1600): (6, (50, 30)),
     (2560, 1080): (10, (60, 50, 30)),
     (3440, 1440): (10, (40, 30)),
+    # 8:9, half of a QHD screen; not one of CVT's aspect ratios, hence 10.
+    (1280, 1440): (10, (60, 50, 30)),
+    # Two QHD screens one above the other: 7.4 Mpixel, less than 3840x2160.
+    (2560, 2880): (10, (30,)),
 }
 # The highest pixel clock any of them may use (MHz), the LT6911UXC input limit
 # the 16:9 profiles also respect.

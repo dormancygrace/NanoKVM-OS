@@ -18,6 +18,7 @@ import (
 const (
 	principalContextKey = "principal"
 	tokenContextKey     = "token"
+	idleOverContextKey  = "idleOver"
 	CookieName          = "nano-kvm-token"
 	HTTPCookieName      = "nano-kvm-token-http"
 	sessionRecheckDelay = 5 * time.Second
@@ -38,6 +39,8 @@ var passwordChangeRoutes = map[string]bool{
 	http.MethodGet + " /api/auth/password":  true,
 	http.MethodPost + " /api/auth/password": true,
 	http.MethodPost + " /api/auth/logout":   true,
+	http.MethodGet + " /api/auth/idle":      true,
+	http.MethodPost + " /api/auth/activity": true,
 	http.MethodGet + " /api/vm/web-title":   true,
 }
 
@@ -60,6 +63,10 @@ func CheckToken() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		principal, token, ok := authenticate(c)
 		if !ok {
+			if c.GetBool(idleOverContextKey) {
+				// Over for good: the browser need not keep offering it.
+				ClearSessionCookie(c)
+			}
 			abortUnauthorized(c)
 			return
 		}
@@ -79,6 +86,8 @@ func CheckToken() gin.HandlerFunc {
 		unregister := activeSessions.register(session{
 			username: principal.Username, tokenVersion: token.TokenVersion,
 			store: authn.DefaultStore, cancel: cancel,
+			idleKey: sessionKeyOf(token), tokenUntil: token.ExpiresAt.Time,
+			websocket: c.IsWebsocket(),
 		})
 		defer func() { unregister(); cancel() }()
 
@@ -166,6 +175,12 @@ func authenticate(c *gin.Context) (Principal, *Token, bool) {
 	user, err := authn.DefaultStore.ValidateToken(token.Username, token.TokenVersion)
 	if err != nil {
 		log.Debugf("validate session for %q: %s", token.Username, err)
+		return Principal{}, nil, false
+	}
+	// A request that names its token in a header has no page to report
+	// activity for it: the request is the activity.
+	if alive, _ := idleState(token, supplied); !alive {
+		c.Set(idleOverContextKey, true)
 		return Principal{}, nil, false
 	}
 	return Principal{Username: user.Username, Role: user.Role, MustChangePassword: user.MustChangePassword}, token, true

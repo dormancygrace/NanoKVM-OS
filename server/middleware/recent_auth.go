@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -35,11 +34,7 @@ func sessionKey(c *gin.Context) (string, bool) {
 	if !ok || token == nil {
 		return "", false
 	}
-	issued := int64(0)
-	if token.IssuedAt != nil {
-		issued = token.IssuedAt.UnixNano()
-	}
-	return fmt.Sprintf("%s\x00%d\x00%d", token.Username, token.TokenVersion, issued), true
+	return sessionKeyOf(token), true
 }
 
 // MarkRecentAuth records that the session has just proved its credentials.

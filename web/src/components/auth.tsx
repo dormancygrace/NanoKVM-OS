@@ -6,6 +6,8 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Account, getAccount } from '@/api/auth.ts';
 import { AUTH_EXPIRED_EVENT, PASSWORD_CHANGE_REQUIRED_EVENT } from '@/lib/auth-events.ts';
 
+import { IdleSignout } from './idle-signout.tsx';
+
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const [account, setAccount] = useState<Account | null>(null);
@@ -70,7 +72,12 @@ export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
     return <Navigate to={'/auth/password'} replace />;
   }
 
-  return <AuthContext.Provider value={{ account }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ account }}>
+      <IdleSignout />
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const AdminRoute = ({ children }: { children: ReactNode }) => {

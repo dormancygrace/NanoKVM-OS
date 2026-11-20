@@ -78,6 +78,23 @@ export function logout() {
   return http.post<null>('/api/auth/logout');
 }
 
+// Sign-out after inactivity, in seconds: the limit (0 is none), what is left
+// of this sign-in's period, and the limits that can be set.
+export type IdleState = { available: boolean; limit: number; left: number; limits: number[] };
+
+export function getIdle() {
+  return http.get<IdleState>('/api/auth/idle');
+}
+
+// Input was seen in the page: the period starts again.
+export function reportActivity() {
+  return http.post<IdleState>('/api/auth/activity');
+}
+
+export function setIdle(limit: number) {
+  return http.post<IdleState>('/api/auth/idle', { limit });
+}
+
 export function getAccount() {
   return http.get<Account>('/api/auth/account');
 }

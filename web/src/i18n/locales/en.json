@@ -501,6 +501,8 @@
     "wifi": "Wi-Fi"
   },
   "auth": {
+    "idleWarning": "No activity: signing out in {{time}}",
+    "idleSignedOut": "Signed out after inactivity",
     "placeholderUsername": "Username",
     "placeholderPassword": "Password",
     "placeholderCurrentPassword": "Current password",
@@ -2481,6 +2483,14 @@
     },
     "security": {
       "title": "Security",
+      "idle": {
+        "label": "Sign out after inactivity",
+        "description": "A sign-in is ended when its page has seen no mouse, keyboard or touch input for this long. What the page requests by itself and an open video do not count.",
+        "off": "Never",
+        "minutes": "{{n}} min",
+        "hours": "{{n}} h",
+        "failed": "Could not change the limit"
+      },
       "watermark": "A watermark on every stream:",
       "watermarkLink": "Video → Watermark"
     },

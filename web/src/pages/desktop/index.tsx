@@ -125,6 +125,16 @@ export const Desktop = () => {
   // A phone has the menu as a bar along the bottom, or along the right edge
   // when turned sideways (menu/index.tsx); the screen ends before it.
   const device = useResponsiveDevice();
+  // The console fills the window and never scrolls as a page: a drag that
+  // ends a scrolling list must not move the page under a phone's address bar.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.style.overflow;
+    root.style.overflow = 'hidden';
+    return () => {
+      root.style.overflow = previous;
+    };
+  }, []);
   const phoneBarRoom = device.isMobilePortrait
     ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' }
     : device.isPhoneLandscape

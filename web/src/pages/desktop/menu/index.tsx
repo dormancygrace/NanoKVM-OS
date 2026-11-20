@@ -289,7 +289,7 @@ export const Menu = () => {
         >
           <div
             className={clsx(
-              'nanokvm-touch-toolbar nanokvm-phone-bar border-line flex gap-1 bg-neutral-900',
+              'nanokvm-touch-toolbar nanokvm-phone-bar border-line box-border flex gap-1 bg-neutral-900',
               side
                 ? 'h-full w-14 flex-col items-center border-l py-1.5'
                 : 'h-14 items-center border-t px-1.5'
@@ -306,7 +306,7 @@ export const Menu = () => {
                 item. */}
             <div
               className={clsx(
-                'flex flex-1 [scrollbar-width:none] items-center *:shrink-0 [&::-webkit-scrollbar]:hidden',
+                'flex flex-1 [scrollbar-width:none] items-center overscroll-contain *:shrink-0 [&::-webkit-scrollbar]:hidden',
                 side
                   ? 'min-h-0 flex-col overflow-x-hidden overflow-y-auto'
                   : 'min-w-0 overflow-x-auto overflow-y-hidden'

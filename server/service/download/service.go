@@ -265,6 +265,9 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 	}
 	finalStatus := downloadStatusFailed
 	defer func() {
+		if c.Request.Context().Err() != nil {
+			finalStatus = downloadStatusIdle
+		}
 		s.finishDownload(done, finalStatus)
 	}()
 
@@ -367,8 +370,12 @@ func (s *Service) DownloadImageFile(c *gin.Context) {
 			return
 		}
 
-		if err := installImage(imageDirectory, tempPath, filename); err != nil {
-			rsp.ErrRsp(c, -1, err.Error())
+		// Canceled (also while waiting for the image lock): nothing is
+		// published, the temporary file goes and the page knows already.
+		if err := installImage(c.Request.Context(), imageDirectory, tempPath, filename); err != nil {
+			if c.Request.Context().Err() == nil {
+				rsp.ErrRsp(c, -1, err.Error())
+			}
 			return
 		}
 
@@ -408,7 +415,7 @@ func validateImageFilename(filename string, suffixes ...string) error {
 
 // installImage publishes a completed temporary file as filename in dir.
 // Uploads, new downloads and resumed downloads all add images through it.
-func installImage(dir, tempPath, filename string) error {
+func installImage(ctx context.Context, dir, tempPath, filename string) error {
 	if err := validateRemoteImageFilename(filename); err != nil {
 		return err
 	}
@@ -416,7 +423,7 @@ func installImage(dir, tempPath, filename string) error {
 	if err != nil {
 		return err
 	}
-	return storage.InstallImage(tempPath, destPath)
+	return storage.InstallImage(ctx, tempPath, destPath)
 }
 
 func (s *Service) DownloadImage(c *gin.Context) {
@@ -541,7 +548,10 @@ func (s *Service) downloadRemoteImage(
 		return ctx.Err()
 	}
 
-	if err := installImage(imageDirectory, tempPath, filename); err != nil {
+	if err := installImage(ctx, imageDirectory, tempPath, filename); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("install downloaded image failed: %w", err)
 	}
 

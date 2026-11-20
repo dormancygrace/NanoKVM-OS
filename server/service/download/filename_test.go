@@ -1,6 +1,7 @@
 package download
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,7 +54,7 @@ func TestInstallImageAcceptsOnlyImageFilenames(t *testing.T) {
 		return f.Name()
 	}
 	for _, name := range []string{"debian-13.iso", "disk.IMG"} {
-		if err := installImage(dir, partial(), name); err != nil {
+		if err := installImage(context.Background(), dir, partial(), name); err != nil {
 			t.Errorf("installImage(%q): %v", name, err)
 		}
 		if info, err := os.Stat(filepath.Join(dir, name)); err != nil || !info.Mode().IsRegular() {
@@ -62,7 +63,7 @@ func TestInstallImageAcceptsOnlyImageFilenames(t *testing.T) {
 	}
 	for _, name := range []string{".jwt_secret", "notes.txt", "../escape.iso"} {
 		temp := partial()
-		if err := installImage(dir, temp, name); err == nil {
+		if err := installImage(context.Background(), dir, temp, name); err == nil {
 			t.Errorf("installImage(%q) succeeded", name)
 		}
 		if _, err := os.Stat(temp); err != nil {

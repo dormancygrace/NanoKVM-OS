@@ -6,51 +6,205 @@ marked pending on the core. VPU_WaitPendingInst then waited for that mark
 to go in a loop with no sleep and no end: closing the channel kept a CPU
 busy in the kernel for good, and nothing could use the core.
 
-A failed setup now clears the mark. The wait returns at once when the
-pending instance is the caller itself, sleeps between looks, and after
-2 s takes the core over with an error message: a mark that stays that
-long belongs to a command that ended without clearing it.
+A failed setup now clears the mark, unless its command timed out waiting
+for the core: that command may still run, and the mark stays.
+
+VPU_WaitPendingInst returns a status. Its callers hold the core's vcodec
+lock, which a frame keeps until its stream is got, so a mark found there
+belongs to a command that returned without clearing it, the caller's own
+included. The core is taken once it reports itself idle (VPU_IsBusy): the
+command has finished. A core still busy 2 s after the pending instance
+last changed is left as it is, mark included; the caller gets
+RETCODE_VPU_STILL_RUNNING and issues no command:
+
+- encoder setup and frame buffer registration return it;
+- a close whose own command may still run keeps the instance and its
+  buffers, and the encoder sample layer keeps its buffers too (the close
+  now comes before they are freed); a close while another instance's
+  command runs frees the instance without its sequence end, which only
+  that instance's commands would use.
 
 ---
 --- a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
 +++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
-@@ -3076,11 +3076,27 @@
+@@ -3076,14 +3076,42 @@
  	return ret;
  }
  
-+/* How long an instance waits for another one's command on the same core. */
+-static void VPU_WaitPendingInst(CodecInst *pCodecInst)
++/* How long an instance waits for a busy core to finish a command. */
 +#define VPU_PENDING_WAIT_MS 2000
 +
-+/* Waits until no other instance has a command pending on the core, then marks
-+ * this one pending. An instance that is pending itself goes on: it waited
-+ * already (a failed command can leave its mark). Another instance's mark that
-+ * stays VPU_PENDING_WAIT_MS belongs to a command that ended without clearing
-+ * it; the core is taken over then, rather than waiting forever in the
-+ * kernel with the CPU busy. */
- static void VPU_WaitPendingInst(CodecInst *pCodecInst)
++/* Marks this instance pending on the core, for a command of its own. Its
++ * callers hold the core's vcodec lock, which a frame keeps until its stream
++ * is got, so an instance found pending here, this one included, is one whose
++ * command returned without clearing the mark (it timed out waiting for the
++ * core). The core is taken once it reports itself idle: that command has
++ * finished. A core still busy VPU_PENDING_WAIT_MS after the pending instance
++ * last changed is left as it is, mark included, and the caller issues no
++ * command: RETCODE_VPU_STILL_RUNNING. */
++static RetCode VPU_WaitPendingInst(CodecInst *pCodecInst)
  {
 -RETRY:
 -	if (GetPendingInst(pCodecInst->coreIdx)) {
 -		goto RETRY;
-+	const unsigned long deadline = jiffies + msecs_to_jiffies(VPU_PENDING_WAIT_MS);
-+	CodecInst *pending;
++	Uint32 coreIdx = pCodecInst->coreIdx;
++	unsigned long deadline = 0;
++	CodecInst *pending, *seen = NULL;
 +
-+	while ((pending = GetPendingInst(pCodecInst->coreIdx)) && pending != pCodecInst) {
-+		if (time_after(jiffies, deadline)) {
-+			CVI_VC_ERR("core %d: instance %d still pending after %d ms; taken over\n",
-+				   pCodecInst->coreIdx, pending->instIndex, VPU_PENDING_WAIT_MS);
++	while ((pending = GetPendingInst(coreIdx))) {
++		if (!VPU_IsBusy(coreIdx)) {
++			CVI_VC_ERR("core %d: instance %d left pending, core idle; taken\n",
++				   coreIdx, pending->instIndex);
 +			break;
++		}
++		if (pending != seen) {
++			seen = pending;
++			deadline = jiffies + msecs_to_jiffies(VPU_PENDING_WAIT_MS);
++		} else if (time_after(jiffies, deadline)) {
++			CVI_VC_ERR("core %d: still busy for instance %d after %d ms; no command\n",
++				   coreIdx, pending->instIndex, VPU_PENDING_WAIT_MS);
++			return RETCODE_VPU_STILL_RUNNING;
 +		}
 +		usleep_range(500, 1000);
  	}
  
- 	SetPendingInst(pCodecInst->coreIdx, pCodecInst, __func__, __LINE__);
-@@ -3212,6 +3228,8 @@
+-	SetPendingInst(pCodecInst->coreIdx, pCodecInst, __func__, __LINE__);
++	SetPendingInst(coreIdx, pCodecInst, __func__, __LINE__);
++	return RETCODE_SUCCESS;
+ }
+ 
+ RetCode VPU_EncClose(EncHandle handle)
+@@ -3099,9 +3127,14 @@
+ 	pCodecInst = handle;
+ 	pEncInfo = &pCodecInst->CodecInfo->encInfo;
+ 
+-	VPU_WaitPendingInst(pCodecInst);
++	/* A core busy with a command of this instance may still use its
++	 * buffers: the instance stays, with them. Another instance's command
++	 * does not use them; this one goes without its sequence end. */
++	ret = VPU_WaitPendingInst(pCodecInst);
++	if (ret != RETCODE_SUCCESS && GetPendingInst(pCodecInst->coreIdx) == pCodecInst)
++		return ret;
+ 
+-	if (pEncInfo->initialInfoObtained) {
++	if (ret == RETCODE_SUCCESS && pEncInfo->initialInfoObtained) {
+ 		VpuWriteReg(pCodecInst->coreIdx, pEncInfo->streamWrPtrRegAddr,
+ 			    pEncInfo->streamWrPtr);
+ 		VpuWriteReg(pCodecInst->coreIdx, pEncInfo->streamRdPtrRegAddr,
+@@ -3124,7 +3157,10 @@
+ 				   pEncInfo->streamWrPtrRegAddr));
+ 	}
+ 
+-	SetPendingInst(pCodecInst->coreIdx, NULL, __func__, __LINE__);
++	if (ret == RETCODE_SUCCESS)
++		SetPendingInst(pCodecInst->coreIdx, NULL, __func__, __LINE__);
++	else
++		ret = RETCODE_FAILURE;
+ 
+ 	if (pEncInfo->vbScratch.size) {
+ 		VDI_FREE_MEMORY(pCodecInst->coreIdx, &pEncInfo->vbScratch);
+@@ -3207,11 +3243,18 @@
+ 	pCodecInst = handle;
+ 	pEncInfo = &pCodecInst->CodecInfo->encInfo;
+ 
+-	VPU_WaitPendingInst(pCodecInst);
++	ret = VPU_WaitPendingInst(pCodecInst);
++	if (ret != RETCODE_SUCCESS)
++		return ret;
+ 
  	ret = ProductVpuEncSetup(pCodecInst);
  	if (ret != RETCODE_SUCCESS) {
  		CVI_VC_ERR("ProductVpuEncSetup ret error %d\n", ret);
-+		/* No command of this instance runs any more. */
-+		SetPendingInst(pCodecInst->coreIdx, NULL, __func__, __LINE__);
++		/* A setup that timed out waiting for the core may still run: the
++		 * mark stays until the core is idle (VPU_WaitPendingInst). Any
++		 * other failure came before the command or after its answer. */
++		if (ret != RETCODE_VPU_RESPONSE_TIMEOUT)
++			SetPendingInst(pCodecInst->coreIdx, NULL, __func__, __LINE__);
  		return ret;
  	}
  
+@@ -3290,7 +3333,9 @@
+ 			return RETCODE_INVALID_STRIDE;
+ 	}
+ 
+-	VPU_WaitPendingInst(pCodecInst);
++	ret = VPU_WaitPendingInst(pCodecInst);
++	if (ret != RETCODE_SUCCESS)
++		return ret;
+ 
+ 	pEncInfo->numFrameBuffers = num;
+ 	pEncInfo->stride = stride;
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -125,7 +125,7 @@
+ static int cviCheckEncodeEnd(stTestEncoder *pTestEnc);
+ static int cviCheckAndCompareBitstream(stTestEncoder *pTestEnc);
+ static int cviGetEncodedInfo(stTestEncoder *pTestEnc, int s32MilliSec);
+-static void cviCloseVpuEnc(stTestEncoder *pTestEnc);
++static RetCode cviCloseVpuEnc(stTestEncoder *pTestEnc);
+ static void cviDeInitVpuEnc(stTestEncoder *pTestEnc);
+ static void *cviInitEncoder(stTestEncoder *pTestEnc, TestEncConfig *pEncConfig);
+ static int cviGetOneStream(void *handle, cviVEncStreamInfo *pStreamInfo,
+@@ -2732,7 +2732,11 @@
+ 	return ret;
+ }
+ 
+-static void cviCloseVpuEnc(stTestEncoder *pTestEnc)
++/* Closes the encoder instance, then frees the buffers of this layer. When the
++ * core is still busy with a command of the instance, VPU_EncClose keeps the
++ * instance: the buffers stay too, and RETCODE_VPU_STILL_RUNNING tells the
++ * caller to keep the rest. */
++static RetCode cviCloseVpuEnc(stTestEncoder *pTestEnc)
+ {
+ 	EncOpenParam *pEncOP = &pTestEnc->encOP;
+ 	int coreIdx = pTestEnc->coreIdx;
+@@ -2741,6 +2745,11 @@
+ 	int buf_cnt;
+ 	cviEncCfg *pcviEc = &pTestEnc->encConfig.cviEc;
+ 
++	if (VPU_EncClose(pTestEnc->handle) == RETCODE_VPU_STILL_RUNNING) {
++		CVI_VC_ERR("core %d still busy; encoder instance and buffers kept\n", coreIdx);
++		return RETCODE_VPU_STILL_RUNNING;
++	}
++
+ 	if (pTestEnc->encConfig.cviEc.singleLumaBuf > 0) {
+ 		buf_cnt = 1;
+ 		// smart-p with additional 1 framebuffer
+@@ -2795,7 +2804,6 @@
+ 		VDI_FREE_MEMORY(coreIdx, &pTestEnc->vbCustomHeader);
+ #endif
+ 
+-	VPU_EncClose(pTestEnc->handle);
+ 	CoreSleepWake(coreIdx, 1); //ensure vpu sleep
+ 
+ 	if (pEncOP->bitstreamFormat == STD_AVC) {
+@@ -2807,6 +2815,7 @@
+ 			    pTestEnc->encConfig.instNum,
+ 			    pTestEnc->outputInfo.encPicCnt);
+ 	}
++	return RETCODE_SUCCESS;
+ }
+ 
+ static void cviDeInitVpuEnc(stTestEncoder *pTestEnc)
+@@ -2858,7 +2867,8 @@
+ 	return (void *)pTestEnc;
+ 
+ INIT_ERR_ENC_OPEN:
+-	cviCloseVpuEnc(pTestEnc);
++	if (cviCloseVpuEnc(pTestEnc) == RETCODE_VPU_STILL_RUNNING)
++		return NULL;
+ INIT_ERR_ENC_INIT:
+ 	cviDeInitVpuEnc(pTestEnc);
+ 	return NULL;
+@@ -5749,8 +5759,8 @@
+ 	}
+ #endif
+ 
+-	cviCloseVpuEnc(pTestEnc);
+-	cviDeInitVpuEnc(pTestEnc);
++	if (cviCloseVpuEnc(pTestEnc) != RETCODE_VPU_STILL_RUNNING)
++		cviDeInitVpuEnc(pTestEnc);
+ 
+ 	if (pTestEnc->encConfig.pusBitCode) {
+ #ifndef FIRMWARE_H

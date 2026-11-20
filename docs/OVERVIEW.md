@@ -60,7 +60,7 @@ one.
   runs on mains or on battery, the charge, the runtime, the load and the
   model.
 - **Services** (an administrator's): LLDP, SNMP and UPS, those that are
-  installed, each with whether it runs and a way to its page; under LLDP the
+  switched on, each with whether it runs and a way to its page; under LLDP the
   first neighbour that announced itself and its port.
 - **Recent events** (an administrator's): the five newest entries of the
   event log, with a way to the whole log.

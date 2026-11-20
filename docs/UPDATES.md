@@ -91,9 +91,8 @@ independently of OS releases; RustDesk is not installed in the full SD image.
 
 - **Experimental C906 overlay:** follow the [stock Alpine migration instructions](../firmware/alpine/README.md#existing-c906-installations).
   Updating NanoKVM packages alone does not replace the overlay.
-- **Coming from a2 with OpenVPN 3:** the supported optional client is
-  OpenVPN 2. Install it from VPN settings before reconnecting; existing profile
-  files are retained.
+- **Coming from a2 with OpenVPN 3:** the supported client is OpenVPN 2, part
+  of the base set; existing profile files are retained.
 - **Stock firmware or pre-v2 betas:** use the [stock migration installer](STOCK-INSTALL.md) or the [full SD image](INSTALL.md).
   Legacy `.nkos` packages do not migrate the system to Alpine.
 - **Original v2.0-a1 image:** it predates the ready-to-use native update path
@@ -127,6 +126,15 @@ its one-time repository migrations (removing Alpine `edge/community`
 it); it can then update to the current release.
 A device that skips this step keeps the edge repository line, and every apk
 run parses its index.
+
+The base set takes LLDP, SNMP and UPS from Alpine `community`. apk resolves
+an update with the repository list it has before the update, so a device
+without the `community` line cannot take a release that needs it: that update
+fails and the device keeps its release. The post-upgrade script of
+`nanokvm-base` adds the line, so such a device first updates to a release that
+has that script but does not yet need `community`, and then to the current
+release. The line can also be added by hand, right after the Alpine `main`
+line.
 
 ## Package publication and retention
 

@@ -1271,15 +1271,14 @@ rootfs() {
     # build key is trusted only for the installation below.
     [ -z "$devkey$laterkey" ] || install -m 0644 "$ecpub" "$r/etc/apk/keys/"
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
-    # The v3 index, as on the device.
+    # The v3 index, as on the device, with Alpine main and community.
     printf '%s\n' /mnt/nanokvm-apk/recipes/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
-        > "$r/etc/apk/repositories"
+        https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
     # --preserve-env keeps QEMU_CPU for the package scripts and triggers, which
     # load the new libz.so.1 (kmod's depmod, for one).
     BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release
     if [ "$kernel_profile" = debug ]; then
         # The debug tools of platform/debug-packages, from main and community.
-        echo https://dl-cdn.alpinelinux.org/alpine/v3.24/community >> "$r/etc/apk/repositories"
         # shellcheck disable=SC2046 # one package name per word
         BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add \
             $(sed 's/#.*//' "$here/debug-packages")

@@ -25,7 +25,6 @@ const (
 
 var snmp = &unit{
 	name:     "SNMP",
-	packages: []string{"net-snmp", "net-snmp-openrc"},
 	binary:   "/usr/sbin/snmpd",
 	service:  "snmpd",
 	pidfile:  "/run/snmpd.pid",
@@ -154,7 +153,7 @@ func snmpState() any {
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running, status.Foreign = snmp.enabled(), snmp.running(), snmp.foreignNow()
+	status.Enabled, status.Running, status.Foreign = snmp.state()
 	status.Settings = readSNMPSettings()
 	return status
 }
@@ -163,10 +162,8 @@ func SNMPStatus(c *gin.Context) {
 	var rsp proto.Response
 	rsp.OkRspWithData(c, snmpState())
 }
-func SNMPInstall(c *gin.Context)   { snmp.handleInstall(c, snmpState) }
-func SNMPUninstall(c *gin.Context) { snmp.handleUninstall(c, snmpState) }
-func SNMPEnabled(c *gin.Context)   { snmp.handleEnabled(c, snmpState) }
-func SNMPReset(c *gin.Context)     { snmp.handleReset(c, snmpState) }
+func SNMPEnabled(c *gin.Context) { snmp.handleEnabled(c, snmpState) }
+func SNMPReset(c *gin.Context)   { snmp.handleReset(c, snmpState) }
 
 func SNMPSettings(c *gin.Context) {
 	var req snmpSettings

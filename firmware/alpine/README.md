@@ -93,9 +93,11 @@ and so does a list without an Alpine `main` line (a custom setup). Installing
 Tailscale, NetBird, LLDP, SNMP or UPS from its settings page adds the line
 again if it was removed.
 
-LLDP and UPS (`lldpd`, `nut`), Tailscale and NetBird come from `community`;
-SNMP (`net-snmp`) and OpenVPN come from `main`. They are optional and absent
-from the default `nanokvm-release` dependency set.
+The base set includes the OpenVPN 2 client (`openvpn`) and the network
+services LLDP, SNMP and UPS (`lldpd`, `net-snmp`, `nut`), from `main` and
+`community`; their services are off until switched on in the settings.
+Tailscale and NetBird come from `community` and are optional: they are absent
+from the default `nanokvm-release` dependency set and installed on request.
 
 The NanoKVM repository is a rolling package channel within the selected
 stable Alpine branch. New signed revisions become available through ordinary

@@ -34,7 +34,6 @@ const (
 
 var ups = &unit{
 	name:     "UPS",
-	packages: []string{"nut", "nut-openrc"},
 	binary:   "/usr/sbin/upsd",
 	service:  "nut-upsd",
 	pidfile:  "/run/nut/upsd.pid",
@@ -204,9 +203,9 @@ func readUPSSettings() (upsSettings, bool) {
 }
 
 // upsAccess gives the driver (user nut) what it opens. The package's udev
-// rules hand it the USB device of a UPS when one is attached; one attached
-// before the install gets them here. The serial ports belong to the group
-// dialout, which the user joins.
+// rules hand it the USB device of a UPS when one is attached; the trigger
+// applies them again to one that is already there. The serial ports belong to
+// the group dialout, which the user joins.
 func upsAccess() {
 	_ = rc(10*time.Second, "udevadm", "trigger", "--subsystem-match=usb", "--action=change")
 	_ = rc(10*time.Second, "addgroup", "nut", "dialout")
@@ -237,7 +236,7 @@ func upsState() any {
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running, status.Foreign = ups.enabled(), ups.running(), ups.foreignNow()
+	status.Enabled, status.Running, status.Foreign = ups.state()
 	status.Settings, _ = readUPSSettings()
 	status.Drivers = upsDrivers()
 	status.USBHost = fileExists(filepath.Join(hid.USBFlagsDir, "usb.host"))
@@ -258,10 +257,8 @@ func UPSStatus(c *gin.Context) {
 	var rsp proto.Response
 	rsp.OkRspWithData(c, upsState())
 }
-func UPSInstall(c *gin.Context)   { ups.handleInstall(c, upsState) }
-func UPSUninstall(c *gin.Context) { ups.handleUninstall(c, upsState) }
-func UPSEnabled(c *gin.Context)   { ups.handleEnabled(c, upsState) }
-func UPSReset(c *gin.Context)     { ups.handleReset(c, upsState) }
+func UPSEnabled(c *gin.Context) { ups.handleEnabled(c, upsState) }
+func UPSReset(c *gin.Context)   { ups.handleReset(c, upsState) }
 
 type upsSettingsReq struct {
 	Driver    string `json:"driver" validate:"required"`

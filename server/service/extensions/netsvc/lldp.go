@@ -18,13 +18,12 @@ import (
 const lldpConfD = "/etc/conf.d/lldpd"
 
 var lldp = &unit{
-	name:     "LLDP",
-	packages: []string{"lldpd", "lldpd-openrc"},
-	binary:   "/usr/sbin/lldpd",
-	service:  "lldpd",
-	pidfile:  "/run/lldpd/lldpd.pid",
-	configs:  []string{lldpConfD},
-	fresh:    func() error { return writeLLDPSettings(lldpSettings{}) },
+	name:    "LLDP",
+	binary:  "/usr/sbin/lldpd",
+	service: "lldpd",
+	pidfile: "/run/lldpd/lldpd.pid",
+	configs: []string{lldpConfD},
+	fresh:   func() error { return writeLLDPSettings(lldpSettings{}) },
 }
 
 type lldpSettings struct {
@@ -134,7 +133,7 @@ func lldpState() any {
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running, status.Foreign = lldp.enabled(), lldp.running(), lldp.foreignNow()
+	status.Enabled, status.Running, status.Foreign = lldp.state()
 	status.Settings = readLLDPSettings()
 	if status.Running {
 		if out, err := output(5*time.Second, "lldpcli", "-f", "json0", "show", "neighbors"); err == nil {
@@ -148,10 +147,8 @@ func LLDPStatus(c *gin.Context) {
 	var rsp proto.Response
 	rsp.OkRspWithData(c, lldpState())
 }
-func LLDPInstall(c *gin.Context)   { lldp.handleInstall(c, lldpState) }
-func LLDPUninstall(c *gin.Context) { lldp.handleUninstall(c, lldpState) }
-func LLDPEnabled(c *gin.Context)   { lldp.handleEnabled(c, lldpState) }
-func LLDPReset(c *gin.Context)     { lldp.handleReset(c, lldpState) }
+func LLDPEnabled(c *gin.Context) { lldp.handleEnabled(c, lldpState) }
+func LLDPReset(c *gin.Context)   { lldp.handleReset(c, lldpState) }
 
 func LLDPSettings(c *gin.Context) {
 	var req lldpSettings

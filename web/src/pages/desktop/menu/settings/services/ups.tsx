@@ -9,12 +9,10 @@ import { Fold, Panel, SettingRow, SettingsSection } from '@/components/ui/settin
 
 import { ServicePage, type ServiceActions } from './service-page.tsx';
 
-type PageProps = { setIsLocked: (isLocked: boolean) => void };
-
 // Services > UPS: Network UPS Tools reads a UPS attached to the NanoKVM and
 // shares its state with the computers the UPS feeds.
-export const UpsPage = ({ setIsLocked }: PageProps) => (
-  <ServicePage<UpsStatus> name="ups" setIsLocked={setIsLocked}>
+export const UpsPage = () => (
+  <ServicePage<UpsStatus> name="ups">
     {(status, actions) => <UpsForm status={status} actions={actions} />}
   </ServicePage>
 );

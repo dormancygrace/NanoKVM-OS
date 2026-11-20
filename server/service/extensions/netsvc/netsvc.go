@@ -1,7 +1,7 @@
-// Package netsvc holds the optional network services of Settings > Services:
-// LLDP (lldpd), SNMP (net-snmp) and UPS (Network UPS Tools). Each is an
-// Alpine package installed on request, an OpenRC service switched on and off,
-// and a small configuration written from the settings.
+// Package netsvc holds the network services of Settings > Services: LLDP
+// (lldpd), SNMP (net-snmp) and UPS (Network UPS Tools). Each is an Alpine
+// package of the base set, an OpenRC service that is off until it is switched
+// on, and a small configuration written from the settings.
 package netsvc
 
 import (
@@ -20,19 +20,17 @@ import (
 	"time"
 
 	"NanoKVM-Server/proto"
-	"NanoKVM-Server/service/extensions/apkpkg"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
-// unit is what the three services share: the packages, the program that tells
-// whether they are installed, and the OpenRC service.
+// unit is what the three services share: the program that tells whether
+// they are installed, and the OpenRC service.
 type unit struct {
-	name     string   // in log lines
-	packages []string // the program first, then what depends on it
-	binary   string
-	service  string
+	name    string // in log lines
+	binary  string
+	service string
 	// the daemon's pid file: "started" for OpenRC is not enough
 	pidfile string
 	// the files the settings are written to
@@ -45,7 +43,7 @@ type unit struct {
 	// writes the configuration of a fresh installation over what is there
 	fresh func() error
 
-	// one install, removal, switch or settings change at a time
+	// one switch or settings change at a time
 	mutex sync.Mutex
 }
 
@@ -61,6 +59,17 @@ func (u *unit) installed() bool {
 func (u *unit) enabled() bool {
 	_, err := os.Lstat(filepath.Join(runlevel, u.service))
 	return err == nil
+}
+
+// state is what a status reports. A service that is off and has no daemon
+// is not running, and its configuration needs no audit until it is switched
+// on: the dashboard asks for all three services every 30 s.
+func (u *unit) state() (enabled, running, foreign bool) {
+	enabled = u.enabled()
+	if !enabled && !u.alive() {
+		return enabled, false, false
+	}
+	return enabled, u.running(), u.foreignNow()
 }
 
 func (u *unit) running() bool {
@@ -133,13 +142,6 @@ func output(limit time.Duration, name string, args ...string) ([]byte, error) {
 	return exec.CommandContext(ctx, name, args...).CombinedOutput()
 }
 
-func (u *unit) install() error {
-	if err := apkpkg.InstallCommunity(u.packages...); err != nil {
-		return err
-	}
-	return u.prepare()
-}
-
 // prepare, before a start, replaces the package's example configuration
 // with the one of a fresh installation, until a complete one is there. One
 // that somebody wrote stays.
@@ -154,20 +156,6 @@ func (u *unit) prepare() error {
 		return err
 	}
 	return u.fresh()
-}
-
-func (u *unit) uninstall() error {
-	if err := u.stop(); err != nil {
-		return err
-	}
-	_ = rc(10*time.Second, "rc-update", "del", u.service, "default")
-	// the dependants first: apk keeps a package another selected one needs
-	for i := len(u.packages) - 1; i >= 0; i-- {
-		if err := apkpkg.Run("remove", u.packages[i]); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // setEnabled adds the service to the boot and starts it, or the reverse. A
@@ -374,30 +362,6 @@ func (u *unit) writable() error {
 
 type enabledReq struct {
 	Enabled *bool `json:"enabled" validate:"required"`
-}
-
-func (u *unit) handleInstall(c *gin.Context, status func() any) {
-	var rsp proto.Response
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-	if err := u.install(); err != nil {
-		log.Errorf("install %s: %v", u.name, err)
-		rsp.ErrRsp(c, -1, "installation failed")
-		return
-	}
-	rsp.OkRspWithData(c, status())
-}
-
-func (u *unit) handleUninstall(c *gin.Context, status func() any) {
-	var rsp proto.Response
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-	if err := u.uninstall(); err != nil {
-		log.Errorf("uninstall %s: %v", u.name, err)
-		rsp.ErrRsp(c, -1, "removal failed")
-		return
-	}
-	rsp.OkRspWithData(c, status())
 }
 
 // handleReset replaces the configuration, whoever wrote it, with the one of a

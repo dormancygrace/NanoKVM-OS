@@ -105,8 +105,8 @@ and interrupt, so it is not for measuring release behaviour.
 Its packages and SD image need the test keys (`-d`): nothing built with the
 debug kernel can reach a published repository. The image, named
 `NanoKVM-OS-VERSION-debug.img.zip`, adds the tools of `debug-packages` from
-Alpine main and community, and keeps community in its repositories. A kernel
-from the published repository replaces the debug kernel on `apk upgrade`.
+Alpine main and community. A kernel from the published repository replaces
+the debug kernel on `apk upgrade`.
 
 ## Signing key
 

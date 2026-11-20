@@ -1,10 +1,10 @@
 import { http } from '@/lib/http.ts';
 
-import { DOWNLOAD_TIMEOUT, SLOW_CALL_TIMEOUT } from './timeouts.ts';
+import { SLOW_CALL_TIMEOUT } from './timeouts.ts';
 
-// Settings > Services: LLDP, SNMP and UPS. Each is a package installed on
-// request and a service switched on and off; every call answers with the
-// service's new status.
+// Settings > Services: LLDP, SNMP and UPS. Each is a package of the base set
+// and a service switched on and off; every call answers with the service's new
+// status.
 
 export type ServiceName = 'lldp' | 'snmp' | 'ups';
 
@@ -74,18 +74,6 @@ const url = (name: ServiceName, action: string) => `/api/extensions/${name}/${ac
 
 export function getStatus<S extends ServiceStatus>(name: ServiceName) {
   return http.request<S>({ method: 'get', url: url(name, 'status'), timeout: 15000 });
-}
-
-export function install<S extends ServiceStatus>(name: ServiceName) {
-  return http.request<S>({ method: 'post', url: url(name, 'install'), timeout: DOWNLOAD_TIMEOUT });
-}
-
-export function uninstall<S extends ServiceStatus>(name: ServiceName) {
-  return http.request<S>({
-    method: 'post',
-    url: url(name, 'uninstall'),
-    timeout: SLOW_CALL_TIMEOUT
-  });
 }
 
 export function setEnabled<S extends ServiceStatus>(name: ServiceName, enabled: boolean) {

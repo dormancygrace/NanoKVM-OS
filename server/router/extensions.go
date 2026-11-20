@@ -22,8 +22,6 @@ func extensionsRouter(r *gin.Engine) {
 
 	api.GET("/vpn/versions", vpn.Versions)
 	ovpn := openvpn.NewService()
-	api.POST("/openvpn/install", ovpn.Install)
-	api.POST("/openvpn/uninstall", ovpn.Uninstall)
 	api.GET("/openvpn/status", ovpn.GetStatus)
 	api.POST("/openvpn/import", ovpn.Import)
 	api.POST("/openvpn/profile", ovpn.Change)
@@ -32,18 +30,16 @@ func extensionsRouter(r *gin.Engine) {
 	api.POST("/wireguard/import", wg.Import)
 	api.POST("/wireguard/profile", wg.Change)
 
-	// Settings > Services: LLDP, SNMP and UPS, each installed on request.
-	for name, handlers := range map[string][6]gin.HandlerFunc{
-		"lldp": {netsvc.LLDPStatus, netsvc.LLDPInstall, netsvc.LLDPUninstall, netsvc.LLDPEnabled, netsvc.LLDPSettings, netsvc.LLDPReset},
-		"snmp": {netsvc.SNMPStatus, netsvc.SNMPInstall, netsvc.SNMPUninstall, netsvc.SNMPEnabled, netsvc.SNMPSettings, netsvc.SNMPReset},
-		"ups":  {netsvc.UPSStatus, netsvc.UPSInstall, netsvc.UPSUninstall, netsvc.UPSEnabled, netsvc.UPSSettings, netsvc.UPSReset},
+	// Settings > Services: LLDP, SNMP and UPS, each off until it is switched on.
+	for name, handlers := range map[string][4]gin.HandlerFunc{
+		"lldp": {netsvc.LLDPStatus, netsvc.LLDPEnabled, netsvc.LLDPSettings, netsvc.LLDPReset},
+		"snmp": {netsvc.SNMPStatus, netsvc.SNMPEnabled, netsvc.SNMPSettings, netsvc.SNMPReset},
+		"ups":  {netsvc.UPSStatus, netsvc.UPSEnabled, netsvc.UPSSettings, netsvc.UPSReset},
 	} {
 		api.GET("/"+name+"/status", handlers[0])
-		api.POST("/"+name+"/install", handlers[1])
-		api.POST("/"+name+"/uninstall", handlers[2])
-		api.PUT("/"+name+"/enabled", handlers[3])
-		api.PUT("/"+name+"/settings", handlers[4])
-		api.POST("/"+name+"/reset", handlers[5])
+		api.PUT("/"+name+"/enabled", handlers[1])
+		api.PUT("/"+name+"/settings", handlers[2])
+		api.POST("/"+name+"/reset", handlers[3])
 	}
 
 	ts := tailscale.NewService()

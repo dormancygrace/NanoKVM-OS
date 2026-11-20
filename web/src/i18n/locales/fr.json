@@ -1500,7 +1500,6 @@
       "presetLabel": "Composition",
       "custom": "Composition personnalisée",
       "customDescription": "Sélectionnez ci-dessous les fonctions USB dont vous avez besoin.",
-      "manual": "Configurer manuellement",
       "apply": "Appliquer",
       "cancel": "Annuler les modifications",
       "reload": "Actualiser l'état",

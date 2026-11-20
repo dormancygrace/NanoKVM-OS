@@ -1500,7 +1500,6 @@
       "presetLabel": "组合",
       "custom": "自定义组合",
       "customDescription": "在下方选择所需的 USB 功能。",
-      "manual": "手动配置",
       "apply": "应用",
       "cancel": "放弃更改",
       "reload": "刷新状态",

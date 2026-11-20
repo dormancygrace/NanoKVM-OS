@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Collapse, message, Select, Switch, Tag, Tooltip } from 'antd';
+import { Alert, Button, message, Select, Switch, Tag, Tooltip } from 'antd';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 
@@ -57,7 +57,6 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
   const [status, setStatus] = useState<UsbStatus>();
   const [draft, setDraft] = useState<UsbComposition>();
   const [selection, setSelection] = useState('custom');
-  const [manualOpen, setManualOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const busy = useRef(false);
   const [error, setError] = useState('');
@@ -71,7 +70,6 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
     setDraft(next);
     const preset = matchingPreset(next);
     setSelection(preset);
-    if (preset === 'custom') setManualOpen(true);
   }, []);
 
   const fetchStatus = useCallback(async () => {
@@ -100,9 +98,7 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
   function choosePreset(id: string) {
     if (busy.current) return;
     setSelection(id);
-    if (id === 'custom') {
-      setManualOpen(true);
-    } else {
+    if (id !== 'custom') {
       const preset = usbPresets.find((item) => item.id === id);
       if (preset && status && fitsBudget(preset.composition, status))
         setDraft({
@@ -400,23 +396,7 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
                     ]}
                   />
                 </SettingRow>
-                {/* a custom composition is made by hand: its functions show at once */}
-                {selection === 'custom' ? (
-                  manualRows
-                ) : (
-                  <Collapse
-                    ghost
-                    activeKey={manualOpen ? ['manual'] : []}
-                    onChange={(keys) => setManualOpen(keys.includes('manual'))}
-                    items={[
-                      {
-                        key: 'manual',
-                        label: t('settings.usb.manual'),
-                        children: manualRows
-                      }
-                    ]}
-                  />
-                )}
+                {manualRows}
               </>
             )}
             {showIdentity && status?.identity && draft && (

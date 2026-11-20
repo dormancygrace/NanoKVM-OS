@@ -68,7 +68,7 @@ export function LedIndicator({
 export function LedPanel({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div
-      className="flex h-full w-4 shrink-0 flex-col items-start justify-center gap-0.5 rounded bg-neutral-800/80 font-mono sm:w-10"
+      className="nanokvm-led-panel flex h-full w-4 shrink-0 flex-col items-start justify-center gap-0.5 rounded bg-neutral-800/80 font-mono sm:w-10"
       aria-label={label}
       role="group"
     >

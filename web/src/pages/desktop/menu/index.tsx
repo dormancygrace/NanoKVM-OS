@@ -59,10 +59,10 @@ const ScreenText = lazy(() => loadAdminItems().then((module) => ({ default: modu
 const Terminal = lazy(() => loadAdminItems().then((module) => ({ default: module.Terminal })));
 const UsbMenu = lazy(() => loadAdminItems().then((module) => ({ default: module.UsbMenu })));
 
-// Keeps a lazy toolbar item's 30x30 slot while its chunk loads, so the bar
+// Keeps a lazy toolbar item's slot while its chunk loads, so the bar
 // does not shift. Image renders nothing until the virtual disk state is known,
 // so its placeholder is empty as well.
-const ToolbarSlot = () => <div className="h-[30px] w-[30px]" aria-hidden="true" />;
+const ToolbarSlot = () => <div className="size-9" aria-hidden="true" />;
 function lazyItem(key: string, item: ReactNode, placeholder: ReactNode = <ToolbarSlot />) {
   return (
     <Suspense key={key} fallback={placeholder}>
@@ -417,7 +417,7 @@ export const Menu = () => {
                 'absolute z-10 !p-0 transition-all duration-300',
                 isTouchLandscapeMenu
                   ? 'top-0 left-1/2 flex! !h-10 !w-16 !min-w-16 -translate-x-1/2 items-center! justify-center! !rounded-b !bg-neutral-800/80 text-neutral-300 shadow-lg shadow-black/30 backdrop-blur'
-                  : 'top-[-10px] left-0 h-[46px]! w-full! bg-transparent!',
+                  : 'top-[-10px] left-0 h-[54px]! w-full! bg-transparent!',
                 isMenuHidden ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
               )}
               onPointerDown={(event) => {
@@ -445,7 +445,7 @@ export const Menu = () => {
             {isMenuExpanded && showKeyboardLedStatus && !isTouchLandscapeMenu && (
               <div
                 className={clsx(
-                  'mr-1 flex h-[36px] shrink-0 transition-all duration-300',
+                  'mr-1.5 flex h-11 shrink-0 transition-all duration-300',
                   isMenuHidden ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
                 )}
               >
@@ -454,14 +454,14 @@ export const Menu = () => {
             )}
             <div
               className={clsx(
-                'pointer-events-auto min-w-0 items-center rounded bg-neutral-800/80 pr-2 pl-1 transition-all duration-300',
-                isTouchLandscapeMenu ? 'nanokvm-touch-toolbar h-[44px]' : 'h-[36px]',
+                'nanokvm-console-bar border-line pointer-events-auto min-w-0 items-center rounded-[14px] border bg-neutral-900/90 pr-1.5 pl-1 shadow-lg shadow-black/30 backdrop-blur transition-all duration-300',
+                isTouchLandscapeMenu ? 'nanokvm-touch-toolbar h-[44px]' : 'h-11',
                 isMenuExpanded ? 'flex' : 'hidden',
                 isMenuHidden ? 'translate-y-[-110%] opacity-80' : 'translate-y-0 opacity-100'
               )}
             >
               <strong className="shrink-0">
-                <div className="flex h-[30px] cursor-move items-center justify-center pl-1 text-neutral-500 select-none">
+                <div className="flex h-9 cursor-move items-center justify-center px-1 text-neutral-500 select-none">
                   <GripVerticalIcon size={18} />
                 </div>
               </strong>
@@ -470,6 +470,7 @@ export const Menu = () => {
                   <KeyboardLedStatus />
                 </div>
               )}
+              <OverviewLink />
               <Divider type="vertical" className="shrink-0" />
 
               <MobileMenuItemProvider dismissMenuKey={dismissMenuKey}>
@@ -477,7 +478,6 @@ export const Menu = () => {
                   {renderMenuItems('desktop')}
                 </div>
                 <Divider type="vertical" className="shrink-0" />
-                <OverviewLink />
                 <Settings />
                 {isEnabled('logout') && <Logout />}
                 {isEnabled('fullscreen') && <Fullscreen />}
@@ -496,7 +496,7 @@ export const Menu = () => {
             {isMenuExpanded && showHostLedStatus && !isTouchLandscapeMenu && (
               <div
                 className={clsx(
-                  'ml-1 flex h-[36px] shrink-0 transition-all duration-300',
+                  'ml-1.5 flex h-11 shrink-0 transition-all duration-300',
                   isMenuHidden ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'
                 )}
               >

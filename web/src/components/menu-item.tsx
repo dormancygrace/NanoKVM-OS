@@ -353,6 +353,7 @@ export const MenuItem = ({
           }
         }}
         aria-disabled={disabled}
+        data-open={isOpen || undefined}
         className={clsx(
           label
             ? 'flex items-center gap-3 text-sm'
@@ -382,7 +383,7 @@ export const MenuItem = ({
       zIndex={placement ? 1100 : desktopMenuPopoverZIndex}
       placement={popoverPlacement}
       align={placement ? { overflow: { shiftX: true, shiftY: true } } : undefined}
-      classNames={{ root: overlay }}
+      classNames={{ root: clsx(overlay, !placement && 'nanokvm-menu-popover') }}
       open={isOpen}
       onOpenChange={toggle}
       fresh={!!fresh}

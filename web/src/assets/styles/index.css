@@ -75,6 +75,50 @@ body {
   }
 }
 
+/* The floating bar of the remote console (pointer devices). Its items keep
+   their own markup; the bar gives them one size and shape, as the touch
+   toolbar above does, and marks the one whose menu is open. */
+@layer utilities {
+  .nanokvm-console-bar:not(.nanokvm-touch-toolbar)
+    :is(button, [role='button'], [data-toolbar-control]) {
+    min-width: 36px !important;
+    min-height: 36px !important;
+    border-radius: 10px !important;
+  }
+}
+
+.nanokvm-console-bar :is(button, [role='button'], [data-toolbar-control]) > svg.lucide {
+  width: 18px;
+  height: 18px;
+}
+
+.nanokvm-console-bar [data-open='true'] {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-fg-strong);
+}
+
+.nanokvm-console-bar .ant-divider-vertical {
+  height: 20px;
+  margin-inline: 6px;
+  border-color: var(--color-line);
+}
+
+/* The lock and host LED panels stand beside the bar and look like it. */
+:has(> .nanokvm-led-panel) > .nanokvm-led-panel {
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  padding-inline: 6px;
+  background: color-mix(in srgb, var(--color-neutral-900) 90%, transparent);
+}
+
+/* The menus of the bar: one card, as the panels of the pages around it. */
+.nanokvm-menu-popover .ant-popover-container {
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  background: var(--color-neutral-900);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.45);
+}
+
 .nanokvm-mobile-menu-popover {
   max-width: calc(100vw - 76px);
 }

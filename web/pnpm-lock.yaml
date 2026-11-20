@@ -156,12 +156,6 @@ packages:
       react: '>=18'
       react-dom: '>=18'
 
-  '@ant-design/cssinjs@2.1.2':
-    resolution: {integrity: sha512-2Hy8BnCEH31xPeSLbhhB2ctCPXE2ZnASdi+KbSeS79BNbUhL9hAEe20SkUk+BR8aKTmqb6+FKFruk7w8z0VoRQ==}
-    peerDependencies:
-      react: '>=16.0.0'
-      react-dom: '>=16.0.0'
-
   '@ant-design/cssinjs@2.2.0':
     resolution: {integrity: sha512-bP+zumx/nJQunCX3sWj69G05tUVwLPSFKVjel5OgkFRcWU8ssFjND/HGTBHNIHtRPMCXbu7BVeB7aCK25PG4Hw==}
     peerDependencies:
@@ -2642,18 +2636,6 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
-  '@ant-design/cssinjs@2.1.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
-    dependencies:
-      '@babel/runtime': 7.29.7
-      '@emotion/hash': 0.8.0
-      '@emotion/unitless': 0.7.5
-      '@rc-component/util': 1.14.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      clsx: 2.1.1
-      csstype: 3.2.3
-      react: 19.3.1
-      react-dom: 19.3.1(react@19.3.1)
-      stylis: 4.4.0
-
   '@ant-design/cssinjs@2.2.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@babel/runtime': 7.29.7
@@ -3740,7 +3722,7 @@ snapshots:
   antd@6.7.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
       '@ant-design/colors': 8.0.1
-      '@ant-design/cssinjs': 2.1.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@ant-design/cssinjs': 2.2.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@ant-design/cssinjs-utils': 2.1.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@ant-design/fast-color': 3.0.1
       '@ant-design/icons': 6.3.4(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

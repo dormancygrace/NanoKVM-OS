@@ -9,6 +9,7 @@ import * as api from '@/api/auth.ts';
 import { brandingAtom, brandingLogo } from '@/jotai/branding';
 import { themeAtom } from '@/jotai/settings.ts';
 import { Head } from '@/components/head.tsx';
+import { ThemeToggle } from '@/components/theme-toggle.tsx';
 
 import { Tips } from './tips.tsx';
 
@@ -114,6 +115,10 @@ export const Login = (): ReactElement => {
     <>
       <Head title={t('head.login')} />
 
+      {/* As on the pages behind the sign-in: the theme is this browser's. */}
+      <div className="fixed right-4 bottom-4 z-10">
+        <ThemeToggle />
+      </div>
       <div className="flex h-screen w-screen flex-col items-center justify-center">
         {challenge ? (
           <Form<{ otp: string }>

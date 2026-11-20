@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import * as api from '@/api/auth.ts';
 import { notifyAuthExpired } from '@/lib/auth-events.ts';
 import { Head } from '@/components/head.tsx';
+import { ThemeToggle } from '@/components/theme-toggle.tsx';
 
 // This code is specific to POST /api/auth/password. The backend uses it when
 // the authenticated user cannot verify their current password.
@@ -90,6 +91,10 @@ export const Password = () => {
     <>
       <Head title={t('head.changePassword')} />
 
+      {/* As on the pages behind the sign-in: the theme is this browser's. */}
+      <div className="fixed right-4 bottom-4 z-10">
+        <ThemeToggle />
+      </div>
       <div className="flex h-screen w-screen flex-col items-center justify-center space-y-5">
         <h2 className="text-xl font-semibold text-neutral-100">{t('auth.changePassword')}</h2>
         {forced && (

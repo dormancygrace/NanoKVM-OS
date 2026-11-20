@@ -427,7 +427,7 @@ export const Desktop = () => {
 
   return (
     <div
-      className="h-dvh w-full overflow-hidden bg-black"
+      className="box-border h-dvh w-full overflow-hidden bg-black"
       style={phoneBar ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom))' } : undefined}
     >
       <Head title={t('head.desktop')} />

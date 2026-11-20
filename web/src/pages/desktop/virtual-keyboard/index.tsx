@@ -307,7 +307,7 @@ export const VirtualKeyboard = () => {
           <button
             type="button"
             aria-label={t('settings.close')}
-            className="text-fg-muted hover:text-fg-strong flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded hover:bg-neutral-700"
+            className="nanokvm-button-base text-fg-muted hover:text-fg-strong flex size-8 cursor-pointer items-center justify-center rounded hover:bg-neutral-700"
             onClick={closeKeyboard}
           >
             <XIcon size={18} />

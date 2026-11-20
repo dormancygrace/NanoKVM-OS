@@ -225,10 +225,10 @@ func gather() snapshot {
 		case "nanokvm-watchdog":
 			t.Paths = append(t.Paths, "/usr/libexec/nanokvm/legacy/S13nanokvm-watchdog")
 			t.Kind = "reboot"
-		case "procfs", "localmount":
+		case "procfs":
 			t.Paths = append(t.Paths, "/etc/rc.conf.d/nanokvm-boot.conf")
 			t.Kind = "reboot"
-		case "nanokvm-board", "nanokvm-modules", "nanokvm-storage", "nanokvm-usb", "dbus", "udev", "udev-trigger", "devfs", "sysfs", "root", "hwclock", "sysctl", "modules", "hwdrivers", "bootmisc", "hostname":
+		case "nanokvm-board", "nanokvm-modules", "nanokvm-storage", "nanokvm-usb", "dbus", "udev", "udev-trigger", "devfs", "sysfs", "root", "localmount", "hwclock", "sysctl", "modules", "hwdrivers", "bootmisc", "hostname":
 			t.Kind = "reboot"
 		}
 		if len(records) == 0 && !strings.HasPrefix(name, "nanokvm-") {

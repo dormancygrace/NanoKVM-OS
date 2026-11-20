@@ -14,9 +14,9 @@ start() {
     chmod 700 "$NANOKVM_CRON_DIR"
 
     if [ -L "$NANOKVM_CRON_SPOOL" ]; then
-        if [ "$(readlink "$NANOKVM_CRON_SPOOL")" = "$NANOKVM_CRON_DIR" ]; then
-            return 0
-        fi
+        # Keep a link that already reaches the directory, such as the stock
+        # spool link through /etc/crontabs: the server may be writing through it.
+        [ ! "$NANOKVM_CRON_SPOOL" -ef "$NANOKVM_CRON_DIR" ] || return 0
         rm -f "$NANOKVM_CRON_SPOOL"
     elif [ -d "$NANOKVM_CRON_SPOOL" ]; then
         # Preserve any volatile crontabs created before this service was added.

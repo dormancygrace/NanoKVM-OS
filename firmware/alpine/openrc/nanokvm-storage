@@ -34,35 +34,6 @@ note_dirty_data() {
     ewarn "/data was not unmounted cleanly; it is checked at the next shutdown"
 }
 
-# localmount does not need OpenRC's root service (/etc/rc.conf.d/nanokvm-boot.conf):
-# do its work here, after fsck has read /fastboot and /forcefsck. Clear the
-# markers once / is writable, honour a shared / in fstab, and reapply fstab
-# options to the filesystems already mounted, except the read-only
-# unavailable-data placeholder a previous failed start left on /data.
-finish_root() {
-    local options mountpoint
-    service_started root && return 0
-    options=",$(fstabinfo -o /),"
-    case $options in
-        *,ro,*) ;;
-        *) if checkpath -W / || mount -n -o remount,rw /; then
-               rm -f /fastboot /forcefsck
-           else
-               ewarn "Root filesystem could not be mounted read/write"
-           fi ;;
-    esac
-    case $options in
-        *,shared,*|*,rshared,*) mount --make-rshared / || ewarn "Cannot make / shared" ;;
-    esac
-    for mountpoint in $(fstabinfo); do
-        case $mountpoint in
-            /*) ! mountinfo -q "$mountpoint" ||
-                    grep -q "^nanokvm-data-unavailable $mountpoint " /proc/mounts ||
-                    fstabinfo --remount "$mountpoint" ;;
-        esac
-    done
-}
-
 # Apply to the mounted filesystems, including older installations whose fstab
 # predates this policy. Do not remount the read-only unavailable-data tmpfs.
 # noatime includes directory access times. Keep discard and barriers unchanged.
@@ -114,7 +85,6 @@ collect_crash() {
 start() {
     ebegin "Preparing NanoKVM storage"
     mkdir -p /boot /data /mnt /sys/kernel/config
-    finish_root
     collect_crash || ewarn "Could not keep the kernel crash log"
     # First: the board identity lives on /boot, the USB flags an older release
     # left there move from it (nanokvm-usb), and the data
@@ -167,7 +137,8 @@ start() {
     # f2fs background GC compacts the root partition whenever the device is
     # idle, and writes the SD card by megabytes per minute on an idle device.
     # Foreground GC still reclaims space when free sections run low. Root is
-    # mounted from the kernel command line, which has no entry in /etc/fstab.
+    # mounted from the kernel command line, and OpenRC's root service is
+    # not enabled, so an /etc/fstab entry would not apply.
     apply_mount_policy
 
     # APK index cache in RAM: every index refresh rewrote about 4.5 MB of the

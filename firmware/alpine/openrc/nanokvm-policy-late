@@ -8,10 +8,10 @@ depend() {
 }
 start() {
     ebegin "Applying deferred NanoKVM policy"
-    # nanokvm-app returns once the server listens. A crontab(1) write before
-    # this already reaches /etc/kvm/cron: its spool, /var/spool/cron/crontabs,
-    # is alpine-baselayout's link to /etc/crontabs, which nanokvm-base links
-    # there. This only makes the spool link direct, once per system.
+    # nanokvm-app returns once the server listens. nanokvm-policy has made the
+    # cron spool reach /etc/kvm/cron/crontabs, and S49persistent-cron keeps a
+    # link that does, so a crontab(1) write meanwhile still lands there; this
+    # keeps the directory's owner and mode.
     /usr/libexec/nanokvm/legacy/S49persistent-cron start || ewarn "Could not apply S49persistent-cron"
     eend 0
 }

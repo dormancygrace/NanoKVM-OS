@@ -180,3 +180,21 @@ export function getDirectPlayback(): DirectPlayback {
 export function setDirectPlayback(mode: DirectPlayback) {
   localStorage.setItem('direct-playback', mode);
 }
+
+// The layout of the host a paste is typed for, and how fast: the last ones
+// chosen in this browser.
+export function getPasteLayout(): string {
+  return localStorage.getItem('nano-kvm-paste-layout') ?? 'en';
+}
+
+export function setPasteLayout(layout: string) {
+  localStorage.setItem('nano-kvm-paste-layout', layout);
+}
+
+export function getPasteSpeed(): 'normal' | 'slow' {
+  return localStorage.getItem('nano-kvm-paste-speed') === 'slow' ? 'slow' : 'normal';
+}
+
+export function setPasteSpeed(speed: 'normal' | 'slow') {
+  localStorage.setItem('nano-kvm-paste-speed', speed);
+}

@@ -633,6 +633,10 @@
     "dropdownFrench": "French",
     "dropdownRussian": "Russian",
     "dropdownSpanish": "Spanish",
+    "pasteLayout": "Keyboard layout of the computer",
+    "pasteSpeed": "Typing speed",
+    "pasteSpeedNormal": "Normal speed",
+    "pasteSpeedSlow": "Slow, for a BIOS",
     "sequences": {
       "title": "Key sequences",
       "tips": "Pressed by the NanoKVM with fixed timing; this tab must hold input control.",

@@ -570,6 +570,10 @@
     "dropdownFrench": "Французский",
     "dropdownRussian": "Русский",
     "dropdownSpanish": "Испанский",
+    "pasteLayout": "Раскладка клавиатуры компьютера",
+    "pasteSpeed": "Скорость набора",
+    "pasteSpeedNormal": "Обычная скорость",
+    "pasteSpeedSlow": "Медленно, для BIOS",
     "sequences": {
       "title": "Комбинации клавиш",
       "tips": "Нажимает сам NanoKVM с фиксированными паузами; эта вкладка должна владеть управлением.",

@@ -1286,18 +1286,15 @@ rootfs() {
     rmdir "$r/mnt/nanokvm-apk"
     [ -z "$laterkey" ] || rm "$r/etc/apk/keys/${ecpub##*/}"
     # The repositories of the device: the v3 index of NanoKVM OS releases on
-    # GitHub Pages (nanokvm-keys moves older devices there) and Alpine main. Community is
-    # off until the Software page or a Tailscale or NetBird install turns it on
-    # (server/osupdate/community.go).
+    # GitHub Pages (nanokvm-keys moves older devices there), Alpine main and
+    # Alpine community, from which the base set takes LLDP, SNMP and UPS.
     case ${NANOKVM_CHANNEL:-stable} in
         stable) channel_path= ;;
         beta) channel_path=beta/ ;;
         *) echo 'Unknown NanoKVM release channel' >&2; exit 1 ;;
     esac
     printf '%s\n' "https://dormancygrace.github.io/NanoKVM-OS/${channel_path}alpine/v3.24/riscv64/Packages.adb" https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
-        > "$r/etc/apk/repositories"
-    # A debug image keeps community: some of its tools come from there.
-    [ "$kernel_profile" = release ] || echo https://dl-cdn.alpinelinux.org/alpine/v3.24/community >> "$r/etc/apk/repositories"
+        https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
     rm -f "$r/etc/resolv.conf"
     # The settings APIs call these; refuse an incomplete root.
     for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \

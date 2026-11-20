@@ -8,6 +8,18 @@ if nft list table inet nkos_flow >/dev/null 2>&1; then
         echo "Could not delete the legacy NanoKVM flowtable; reboot to remove it." >&2
 fi
 set -eu
+# Alpine community is on (added after 4.2.1): the base set takes packages from
+# it. The line goes right after the Alpine main one, from the same mirror; a
+# list without an Alpine main line is a custom setup and stays as it is.
+if [ -f /etc/apk/repositories ]; then
+    awk '
+        { line[NR] = $0; l = $0; gsub(/^[ \t]+|[ \t]+$/, "", l); sub(/\/+$/, "", l); url[NR] = l
+          if (!main && l !~ /^[@#]/ && l ~ /alpine/ && l ~ /\/main$/) { main = NR; c = l; sub(/\/main$/, "/community", c) } }
+        END { for (i = 1; i <= NR; i++) if (main && url[i] == c) have = 1
+              for (i = 1; i <= NR; i++) { print line[i]; if (i == main && !have) print c } }
+    ' /etc/apk/repositories > /etc/apk/repositories.nanokvm-new &&
+        mv /etc/apk/repositories.nanokvm-new /etc/apk/repositories
+fi
 if [ -x /usr/libexec/nanokvm/console-policy ]; then
     /usr/libexec/nanokvm/console-policy
 fi

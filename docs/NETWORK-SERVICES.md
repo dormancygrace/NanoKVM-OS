@@ -2,7 +2,7 @@
 
 Settings → Services has three optional services. None is part of the image:
 each page starts with an **Install** button that installs the Alpine package
-(the install turns on Alpine's community repository). An installed service
+from the community repository. An installed service
 has a switch; its settings appear while it is on. **Uninstall** stops the
 service and removes its packages; the configuration stays and is used again
 after a new install.

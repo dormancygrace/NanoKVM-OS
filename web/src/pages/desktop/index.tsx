@@ -531,6 +531,13 @@ export const Desktop = () => {
         <div
           ref={adoptPicoclaw}
           className="bg-panel fixed inset-x-0 top-14 bottom-0 z-980 overflow-hidden shadow-2xl"
+          style={
+            device.isMobilePortrait
+              ? { top: 0, bottom: 'calc(56px + env(safe-area-inset-bottom))' }
+              : device.isPhoneLandscape
+                ? { top: 0, right: 'calc(56px + env(safe-area-inset-right))' }
+                : undefined
+          }
         />
       ) : null}
       {/* After both slots: their refs adopt the host before the sidebar's

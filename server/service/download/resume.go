@@ -191,7 +191,7 @@ func (s *Service) resumeImageDownload() {
 			err = closeErr
 		}
 		if err == nil {
-			err = installImage(imageDirectory, job.Path, job.Filename)
+			err = installImage(ctx, imageDirectory, job.Path, job.Filename)
 		}
 		// A completed attempt no longer has resume metadata. Do not leave an
 		// orphan on failure; a process crash still keeps the saved checkpoint.

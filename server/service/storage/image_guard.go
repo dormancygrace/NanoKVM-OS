@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -37,9 +38,16 @@ func changeImage(path string, change func() error) error {
 
 // InstallImage publishes an upload/download only while its destination is not
 // referenced by any LUN or a boot marker that a composition apply can reattach.
-// The caller has synced the bytes of tempPath.
-func InstallImage(tempPath, destPath string) error {
-	if err := changeImage(destPath, func() error { return os.Rename(tempPath, destPath) }); err != nil {
+// The caller has synced the bytes of tempPath. A transfer canceled before the
+// rename, also while it waited for the lock, publishes nothing: ctx is checked
+// under the lock, which is the commit point.
+func InstallImage(ctx context.Context, tempPath, destPath string) error {
+	if err := changeImage(destPath, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return os.Rename(tempPath, destPath)
+	}); err != nil {
 		return err
 	}
 	syncImageDir(destPath)

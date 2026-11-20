@@ -8,18 +8,46 @@ if nft list table inet nkos_flow >/dev/null 2>&1; then
         echo "Could not delete the legacy NanoKVM flowtable; reboot to remove it." >&2
 fi
 set -eu
-# Alpine community is on (added after 4.2.1): the base set takes packages from
-# it. The line goes right after the Alpine main one, from the same mirror; a
-# list without an Alpine main line is a custom setup and stays as it is.
-if [ -f /etc/apk/repositories ]; then
-    awk '
-        { line[NR] = $0; l = $0; gsub(/^[ \t]+|[ \t]+$/, "", l); sub(/\/+$/, "", l); url[NR] = l
-          if (!main && l !~ /^[@#]/ && l ~ /alpine/ && l ~ /\/main$/) { main = NR; c = l; sub(/\/main$/, "/community", c) } }
-        END { for (i = 1; i <= NR; i++) if (main && url[i] == c) have = 1
-              for (i = 1; i <= NR; i++) { print line[i]; if (i == main && !have) print c } }
-    ' /etc/apk/repositories > /etc/apk/repositories.nanokvm-new &&
-        mv /etc/apk/repositories.nanokvm-new /etc/apk/repositories
+# Alpine community is listed (after 4.2.1): LLDP and UPS (lldpd, nut) come
+# from it. The line goes right after the first untagged Alpine main line, from
+# the same mirror, as the server places it (server/osupdate/community.go). A
+# list that already has an untagged community line of the same Alpine branch,
+# from any mirror, stays as it is, and so does one without an Alpine main line
+# (a custom setup). Lines are compared without surrounding blanks, a CR and
+# trailing slashes.
+repositories=/etc/apk/repositories
+# "N URL": the community line to add after line N; nothing when none is needed.
+community_add=$(awk '
+    { l = $0; gsub(/^[ \t\r]+|[ \t\r]+$/, "", l); sub(/\/+$/, "", l) }
+    l == "" || l ~ /^[@#]/ { next }
+    !main && l ~ /alpine/ && l ~ /\/main$/ {
+        main = NR; url = l; sub(/\/main$/, "/community", url)
+        branch = l; sub(/\/main$/, "", branch); sub(/^.*\//, "", branch)
+    }
+    l ~ /\/community$/ { b = l; sub(/\/community$/, "", b); sub(/^.*\//, "", b); have[b] = 1 }
+    END { if (main && !(branch in have)) print main, url }
+' "$repositories" 2>/dev/null) || community_add=
+if [ -n "$community_add" ]; then
+    community_after=${community_add%% *}
+    community_url=${community_add#* }
+    # BusyBox awk exits 0 when a write fails (a full disk): the copy replaces
+    # the list only when it is the list with exactly the one line added.
+    if community_tmp=$(mktemp "$repositories.XXXXXX"); then
+        if awk -v n="$community_after" -v url="$community_url" '{ print } NR == n { print url }' \
+            "$repositories" > "$community_tmp" &&
+            [ "$(awk 'END { print NR }' "$community_tmp")" = "$(($(awk 'END { print NR }' "$repositories") + 1))" ] &&
+            [ "$(awk -v n="$((community_after + 1))" 'NR == n' "$community_tmp")" = "$community_url" ] &&
+            [ "$(awk -v n="$((community_after + 1))" 'NR != n' "$community_tmp")" = "$(awk 1 "$repositories")" ] &&
+            chmod 0644 "$community_tmp" && mv "$community_tmp" "$repositories"; then
+            echo "Alpine community repository: added $community_url" >&2
+        else
+            rm -f "$community_tmp"
+            echo "Could not add $community_url to $repositories; the next upgrade tries again." >&2
+        fi
+    fi
+    unset community_after community_url community_tmp
 fi
+unset repositories community_add
 if [ -x /usr/libexec/nanokvm/console-policy ]; then
     /usr/libexec/nanokvm/console-policy
 fi

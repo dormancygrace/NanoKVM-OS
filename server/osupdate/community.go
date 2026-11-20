@@ -7,13 +7,11 @@ import (
 	"syscall"
 )
 
-// Alpine's community repository is on: the base set takes packages from it
-// (the image lists it; nanokvm-base adds it on devices updated from an earlier
-// release). An install of community packages still makes sure of it, for a
-// list that lost the line.
-
-// updateLock is Lock, which tests replace.
-var updateLock = Lock
+// Alpine's community repository is listed: LLDP and UPS (lldpd, nut) come from
+// it. The image lists it, and nanokvm-base's post-upgrade script adds it on a
+// device updated from a release without it, by the same rules as here. An
+// install of community packages makes sure of it again, for a list that lost
+// the line.
 
 func activeRepositoryLines(repositories string) []string {
 	var lines []string
@@ -41,27 +39,31 @@ func communityURL(repositories string) string {
 	return ""
 }
 
-func hasRepository(repositories, url string) bool {
+// hasCommunity reports whether an untagged line is a community repository of
+// the Alpine branch of url (".../v3.24/community"), from any mirror and over
+// either scheme: a second one would only make apk parse the same index twice.
+func hasCommunity(repositories, url string) bool {
+	branch := url[max(strings.LastIndex(strings.TrimSuffix(url, "/community"), "/"), 0):]
 	for _, line := range activeRepositoryLines(repositories) {
-		if strings.TrimRight(line, "/") == url {
+		if !strings.HasPrefix(line, "@") && strings.HasSuffix(strings.TrimRight(line, "/"), branch) {
 			return true
 		}
 	}
 	return false
 }
 
-// withCommunity returns the repositories with the community line removed, or
-// placed right after the main line.
-func withCommunity(repositories, url string, enabled bool) string {
+// withCommunity returns the repositories with the community line placed right
+// after the first untagged main line.
+func withCommunity(repositories, url string) string {
+	main := strings.TrimSuffix(url, "/community") + "/main"
 	var out []string
+	added := false
 	for _, line := range strings.Split(repositories, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.TrimRight(trimmed, "/") == url {
-			continue
-		}
 		out = append(out, line)
-		if enabled && !strings.HasPrefix(trimmed, "@") && strings.TrimRight(trimmed, "/") == strings.TrimSuffix(url, "/community")+"/main" {
+		trimmed := strings.TrimSpace(line)
+		if !added && !strings.HasPrefix(trimmed, "@") && strings.TrimRight(trimmed, "/") == main {
 			out = append(out, url)
+			added = true
 		}
 	}
 	return strings.Join(out, "\n")
@@ -81,16 +83,17 @@ func lockCommunityDB() (*os.File, error) {
 	return os.NewFile(uintptr(fd), apkDBLockPath), nil
 }
 
-// writeCommunity switches the line while the caller holds lockCommunityDB.
-func writeCommunity(url string, enabled bool) error {
+// writeCommunity adds the line, unless the list has one, while the caller
+// holds lockCommunityDB.
+func writeCommunity(url string) error {
 	data, err := os.ReadFile(repositoriesPath)
 	if err != nil {
 		return err
 	}
-	if hasRepository(string(data), url) == enabled {
+	if hasCommunity(string(data), url) {
 		return nil
 	}
-	return writeAtomic(repositoriesPath, []byte(withCommunity(string(data), url, enabled)), 0644)
+	return writeAtomic(repositoriesPath, []byte(withCommunity(string(data), url)), 0644)
 }
 
 func lockedCommunityURL() (string, error) {
@@ -105,7 +108,7 @@ func lockedCommunityURL() (string, error) {
 	return url, nil
 }
 
-// EnableCommunityLocked switches the repository on for an install of
+// EnableCommunityLocked lists the repository for an install of
 // community packages. The caller holds Lock().
 func EnableCommunityLocked() error {
 	dbLock, err := lockCommunityDB()
@@ -117,5 +120,5 @@ func EnableCommunityLocked() error {
 	if err != nil {
 		return err
 	}
-	return writeCommunity(url, true)
+	return writeCommunity(url)
 }

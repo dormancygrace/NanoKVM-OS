@@ -3,7 +3,7 @@
 These recipes are intentionally small. They package board specific files
 already produced by the NanoKVM build into normal Alpine APKs; Alpine's own
 `main` repository continues to provide the ordinary userspace (`community` is
-optional, see [the repository list](../README.md)).
+listed too, see [the repository list](../README.md)).
 
 The recipes consume one prepared source archive per package. The helper
 `scripts/build-alpine-packages.sh` creates those archives from a payload tree

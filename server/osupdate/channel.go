@@ -70,7 +70,7 @@ func SetChannel(channel string) error {
 	if channel != "stable" && channel != "beta" {
 		return errors.New("invalid update channel")
 	}
-	lock, err := updateLock()
+	lock, err := Lock()
 	if err != nil {
 		return err
 	}

@@ -74,7 +74,7 @@ func recoverInterruptedRollback(ctx context.Context) error {
 	if !rollbackConstraintInstalled() {
 		return nil
 	}
-	lock, err := updateLock()
+	lock, err := Lock()
 	if err != nil {
 		return err
 	}

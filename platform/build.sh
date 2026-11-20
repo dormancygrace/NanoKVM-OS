@@ -1287,7 +1287,7 @@ rootfs() {
     [ -z "$laterkey" ] || rm "$r/etc/apk/keys/${ecpub##*/}"
     # The repositories of the device: the v3 index of NanoKVM OS releases on
     # GitHub Pages (nanokvm-keys moves older devices there), Alpine main and
-    # Alpine community, from which the base set takes LLDP, SNMP and UPS.
+    # Alpine community, where LLDP and UPS (lldpd, nut) come from.
     case ${NANOKVM_CHANNEL:-stable} in
         stable) channel_path= ;;
         beta) channel_path=beta/ ;;

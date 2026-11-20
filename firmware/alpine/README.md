@@ -86,13 +86,16 @@ The target repository list is:
 2. Alpine v3.24 `main`;
 3. Alpine v3.24 `community`, right after `main` and from the same mirror.
 
-The base set takes packages from `community`. A device updated from a release
-without it gets the line from `nanokvm-base` (its post-upgrade script); a list
-without an Alpine `main` line is a custom setup and is left alone. Installing
-a package from `community` adds the line again if it was removed.
+A device updated from a release without the `community` line gets it from
+`nanokvm-base` (its post-upgrade script). A list that already has a
+`community` line of the same Alpine branch, from any mirror, stays as it is,
+and so does a list without an Alpine `main` line (a custom setup). Installing
+Tailscale, NetBird, LLDP, SNMP or UPS from its settings page adds the line
+again if it was removed.
 
-Tailscale and NetBird come from `community`, OpenVPN from `main`. They are
-optional and absent from the default `nanokvm-release` dependency set.
+LLDP and UPS (`lldpd`, `nut`), Tailscale and NetBird come from `community`;
+SNMP (`net-snmp`) and OpenVPN come from `main`. They are optional and absent
+from the default `nanokvm-release` dependency set.
 
 The NanoKVM repository is a rolling package channel within the selected
 stable Alpine branch. New signed revisions become available through ordinary

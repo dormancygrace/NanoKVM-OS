@@ -198,7 +198,9 @@ func (s *Service) SetScreenTextLanguage(c *gin.Context) {
 	rsp.OkRspWithData(c, screenTextSettings())
 }
 
-// SetScreenTextSettings turns text recognition on or off ({"enabled":bool}).
+// SetScreenTextSettings turns text recognition on or off ({"enabled":bool})
+// and answers with all the settings, as the language change does, so the
+// page always takes the whole state from the server.
 func (s *Service) SetScreenTextSettings(c *gin.Context) {
 	var rsp proto.Response
 	var req struct {
@@ -221,7 +223,7 @@ func (s *Service) SetScreenTextSettings(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "the setting could not be saved")
 		return
 	}
-	rsp.OkRspWithData(c, gin.H{"enabled": *req.Enabled})
+	rsp.OkRspWithData(c, screenTextSettings())
 }
 
 // screenTextArgs are the helper's arguments for a language: the recognizer's

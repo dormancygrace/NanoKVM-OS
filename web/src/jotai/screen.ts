@@ -46,4 +46,10 @@ export const screenTextOpenAtom = atom(false);
 // follows the page's changes at once. null until loaded.
 export const screenTextSettingsAtom = atom<ScreenTextSettings | null>(null);
 
+// The change of those settings on its way to the device: 'switch', or the
+// language being installed or removed; '' when none. Kept here, not in the
+// page, so that a download still running after the page was left and opened
+// again keeps the other controls waiting.
+export const screenTextChangeAtom = atom('');
+
 export const streamFpsAtom = atom(60);

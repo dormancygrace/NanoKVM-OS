@@ -100,13 +100,15 @@ export function getScreenTextSettings() {
 }
 
 export function setScreenTextEnabled(enabled: boolean) {
-  return http.post<{ enabled: boolean }>('/api/vm/screen/text/settings', { enabled });
+  return http.post<ScreenTextSettings>('/api/vm/screen/text/settings', { enabled });
 }
 
 // Downloads or removes the models of a language: a download from the NanoKVM
 // add-on repository can take minutes on a slow link. The server gives apk up
-// to 30 minutes; the page waits a little longer, so that it hears the
-// server's answer instead of giving up first.
+// to 30 minutes; the page waits a little longer, so that it usually hears the
+// server's answer instead of giving up first. An answer can still be lost
+// (a change started in another browser tab runs first, or the connection
+// drops), so after a failure the page reads the settings again.
 export function setScreenTextLanguage(language: string, installed: boolean) {
   return http.post<ScreenTextSettings>(
     '/api/vm/screen/text/language',

@@ -116,7 +116,7 @@ jobs:
                 # A device without the add-on line (before nanokvm-base 3.5.0)
                 # reads only this index and Alpine main: the add-ons that
                 # nanokvm-release depends on must resolve from it alone.
-                # --simulate reads Alpine's index only from the cache: update first.
+                # --simulate reads the Alpine index only from the cache: update first.
                 cp /usr/share/apk/keys/riscv64/*.pub "$root/etc/apk/keys/"
                 os_only="--repositories-file=/dev/null --repository=$repo/Packages.pending.adb --repository=https://dl-cdn.alpinelinux.org/alpine/$branch/main"
                 apk --root "$root" --arch riscv64 $os_only update

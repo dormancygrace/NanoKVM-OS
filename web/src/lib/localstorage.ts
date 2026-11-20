@@ -13,7 +13,6 @@ const KEYBOARD_LANGUAGE_KEY = 'nano-kvm-keyboard-language';
 const MENU_DISABLED_ITEMS_KEY = 'nano-kvm-menu-disabled-items';
 const MENU_AUTO_HIDE_KEY = 'nano-kvm-menu-auto-hide';
 const THEME_KEY = 'nano-kvm-theme';
-const MOBILE_MENU_PLACEMENT_KEY = 'nano-kvm-mobile-menu-placement';
 const KEYBOARD_LED_STATUS_VISIBLE_KEY = 'nano-kvm-keyboard-led-status-visible';
 const HOST_LED_STATUS_VISIBLE_KEY = 'nano-kvm-host-led-status-visible';
 
@@ -138,21 +137,6 @@ export function getTheme() {
 
 export function setTheme(theme: string) {
   localStorage.setItem(THEME_KEY, theme);
-}
-
-export function getMobileMenuPlacement(): unknown {
-  const value = localStorage.getItem(MOBILE_MENU_PLACEMENT_KEY);
-  if (!value) return null;
-
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-export function setMobileMenuPlacement(placement: { edge: string; top: number }) {
-  localStorage.setItem(MOBILE_MENU_PLACEMENT_KEY, JSON.stringify(placement));
 }
 
 export function getKeyboardLedStatusVisible(): boolean {

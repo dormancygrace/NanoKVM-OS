@@ -240,7 +240,7 @@ type MenuItemProps = {
   className?: string;
   disabled?: boolean;
   fresh?: boolean;
-  mobilePlacement?: 'left' | 'right';
+  mobilePlacement?: 'left' | 'right' | 'bottom';
   mobilePopoverClassName?: string;
   onOpenChange?: (open: boolean) => void;
   onIntent?: () => void;
@@ -323,13 +323,21 @@ export const MenuItem = ({
   const popoverPlacement = fixedPlacement
     ? fixedPlacement
     : placement
-      ? placement === 'right'
-        ? 'leftTop'
-        : 'rightTop'
+      ? placement === 'bottom'
+        ? 'top'
+        : placement === 'right'
+          ? 'leftTop'
+          : 'rightTop'
       : isBigScreen
         ? 'bottomLeft'
         : 'bottom';
-  const tooltipPlacement = placement ? (placement === 'right' ? 'left' : 'right') : 'bottom';
+  const tooltipPlacement = placement
+    ? placement === 'bottom'
+      ? 'top'
+      : placement === 'right'
+        ? 'left'
+        : 'right'
+    : 'bottom';
   const triggerNode = (
     <MenuTooltip
       title={title}
@@ -382,8 +390,20 @@ export const MenuItem = ({
       trigger="click"
       zIndex={placement ? 1100 : desktopMenuPopoverZIndex}
       placement={popoverPlacement}
-      align={placement ? { overflow: { shiftX: true, shiftY: true } } : undefined}
-      classNames={{ root: clsx(overlay, !placement && 'nanokvm-menu-popover') }}
+      align={
+        placement === 'bottom'
+          ? { offset: [0, -16], overflow: { shiftX: true } }
+          : placement
+            ? { overflow: { shiftX: true, shiftY: true } }
+            : undefined
+      }
+      classNames={{
+        root: clsx(
+          overlay,
+          !placement && 'nanokvm-menu-popover',
+          placement === 'bottom' && 'nanokvm-sheet-popover'
+        )
+      }}
       open={isOpen}
       onOpenChange={toggle}
       fresh={!!fresh}

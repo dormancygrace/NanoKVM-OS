@@ -129,6 +129,18 @@ body {
   box-shadow: none;
 }
 
+/* Menus of the phone's bottom bar: sheets across the screen, above the bar. */
+.nanokvm-sheet-popover {
+  left: 8px !important;
+  right: 8px;
+  max-width: none;
+}
+
+.nanokvm-sheet-popover .nanokvm-mobile-menu-panel {
+  width: calc(100vw - 16px - 2 * var(--ant-popover-inner-padding, 12px));
+  max-height: calc(100dvh - 140px);
+}
+
 .nanokvm-mobile-menu-panel {
   display: grid;
   width: min(18rem, calc(100vw - 100px));

@@ -18,7 +18,7 @@ import { RemoteImage } from './remote.tsx';
 import { Tips } from './tips.tsx';
 
 type ImageProps = {
-  tooltipPlacement?: 'bottom' | 'left' | 'right';
+  tooltipPlacement?: 'top' | 'bottom' | 'left' | 'right';
   // Outside a toolbar: the title is shown beside the icon, and className
   // gives the button its size and shape.
   label?: boolean;

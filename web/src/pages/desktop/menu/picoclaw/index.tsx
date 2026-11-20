@@ -8,7 +8,7 @@ import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 import { useDismissMobileMenu } from '@/components/mobile-menu-context.ts';
 
 type PicoclawProps = {
-  tooltipPlacement?: 'bottom' | 'left' | 'right';
+  tooltipPlacement?: 'top' | 'bottom' | 'left' | 'right';
 };
 
 export const Picoclaw = ({ tooltipPlacement = 'bottom' }: PicoclawProps) => {

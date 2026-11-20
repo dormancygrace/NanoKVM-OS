@@ -9,6 +9,7 @@ import {
   MouseIcon,
   NetworkIcon,
   PowerIcon,
+  SunMoonIcon,
   TerminalSquareIcon,
   VideoIcon,
   XIcon
@@ -38,6 +39,7 @@ export const MenuIcons = () => {
     { key: 'picoclaw', icon: <Robot size={16} /> },
     { key: 'recorder', icon: <VideoIcon size={16} /> },
     { key: 'power', icon: <PowerIcon size={16} /> },
+    { key: 'theme', icon: <SunMoonIcon size={16} />, label: 'settings.appearance.theme' },
     { key: 'fullscreen', icon: <MaximizeIcon size={16} />, label: 'fullscreen.toggle' },
     { key: 'collapse', icon: <XIcon size={16} />, label: 'menu.collapse' }
   ].filter(

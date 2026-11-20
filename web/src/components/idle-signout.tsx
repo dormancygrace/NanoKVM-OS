@@ -3,7 +3,7 @@ import { Alert, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/auth.ts';
-import { IDLE_CHANGED_EVENT } from '@/lib/auth-events.ts';
+import { AUTH_EXPIRED_EVENT, IDLE_CHANGED_EVENT } from '@/lib/auth-events.ts';
 
 // Sign-out after inactivity. The device keeps the clock of this sign-in and
 // ends it; the page tells it of input (not of its own requests, which go on
@@ -21,10 +21,6 @@ const WARN_BEFORE = 60_000;
 const RECHECK_EVERY = 10_000;
 
 const INPUTS = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart'] as const;
-
-function isUnauthorized(error: unknown) {
-  return (error as { response?: { status?: number } })?.response?.status === 401;
-}
 
 export const IdleSignout = () => {
   const { t } = useTranslation();
@@ -61,13 +57,8 @@ export const IdleSignout = () => {
           }
           show();
         })
-        .catch((error) => {
-          // The device ended the sign-in; the page is already on its way to
-          // the sign-in form.
-          if (!stopped && limit > 0 && isUnauthorized(error)) {
-            message.info(t('auth.idleSignedOut'), 10);
-          }
-        })
+        // Refused: the sign-in is over, and onExpired has said why.
+        .catch(() => {})
         .finally(() => {
           asking = false;
         });
@@ -102,6 +93,15 @@ export const IdleSignout = () => {
       if (document.visibilityState === 'visible') check();
     };
     const onChanged = () => ask(false);
+    // Whichever request met the refusal first (this watch's, the page's own,
+    // a closed connection): when the period was out, say that this is why
+    // the sign-in form opens.
+    const onExpired = () => {
+      if (limit > 0 && Date.now() >= deadline - 1000) {
+        // One notice, however many requests were refused.
+        message.info({ content: t('auth.idleSignedOut'), duration: 10, key: 'idle-signout' });
+      }
+    };
 
     // In the capture phase: the remote screen keeps its input to itself.
     for (const name of INPUTS) {
@@ -109,6 +109,7 @@ export const IdleSignout = () => {
     }
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener(IDLE_CHANGED_EVENT, onChanged);
+    window.addEventListener(AUTH_EXPIRED_EVENT, onExpired);
     ask(false);
 
     return () => {
@@ -116,6 +117,7 @@ export const IdleSignout = () => {
       for (const name of INPUTS) window.removeEventListener(name, onInput, { capture: true });
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener(IDLE_CHANGED_EVENT, onChanged);
+      window.removeEventListener(AUTH_EXPIRED_EVENT, onExpired);
       clearTimeout(trailing);
       clearInterval(ticker);
     };

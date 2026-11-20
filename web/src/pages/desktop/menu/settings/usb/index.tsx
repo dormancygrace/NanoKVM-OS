@@ -278,6 +278,67 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
 
   const describe = (text: string) => (compact ? { help: text } : { description: text });
 
+  // the functions one by one, with the endpoints they take
+  const manualRows = (
+    <div className={compact ? 'space-y-2.5' : 'space-y-4'}>
+      <Panel
+        className={clsx('flex items-center justify-between gap-3 text-xs', compact && 'py-2!')}
+      >
+        <span className="text-fg-muted">{t('settings.usb.budgetTitle')}</span>
+        <span className={`font-mono ${withinBudget ? 'text-fg' : 'text-warning'}`}>
+          IN {used?.in ?? '–'}/{status?.budget.inLimit ?? '–'} · OUT {used?.out ?? '–'}/
+          {status?.budget.outLimit ?? '–'}
+        </span>
+      </Panel>
+      {usbDevices.map((name) => {
+        const blocked = Boolean(draft && status && !canToggleDevice(draft, name, status));
+        return (
+          <SettingRow
+            key={name}
+            label={
+              <span className={blocked ? 'text-fg-muted' : undefined}>
+                {t(`settings.usb.devices.${name}.title`)}
+              </span>
+            }
+            {...describe(t(`settings.usb.devices.${name}.description`))}
+          >
+            <div className="flex items-center gap-2">
+              <Tag bordered={false} className="text-fg-muted m-0 font-mono text-[10px]">
+                {status?.costs[name].in ?? '–'} IN · {status?.costs[name].out ?? '–'} OUT
+              </Tag>
+              <Tooltip title={blocked ? t('settings.usb.budgetExceeded') : undefined}>
+                <span>
+                  <Switch
+                    aria-label={t(`settings.usb.devices.${name}.title`)}
+                    checked={Boolean(draft?.[name])}
+                    disabled={!status || loading || blocked}
+                    onChange={() => toggle(name)}
+                  />
+                </span>
+              </Tooltip>
+            </div>
+          </SettingRow>
+        );
+      })}
+      <SettingRow
+        label={t('settings.usb.compatibilityProfile.title')}
+        {...describe(t('settings.usb.compatibilityProfile.description'))}
+      >
+        <Switch
+          aria-label={t('settings.usb.compatibilityProfile.title')}
+          checked={draft?.mode === 'hid-only'}
+          disabled={!status || loading}
+          onChange={(enabled) => {
+            if (!draft || busy.current) return;
+            setDraft(setCompatibilityProfile(draft, enabled));
+            setSelection('custom');
+            setError('');
+          }}
+        />
+      </SettingRow>
+    </div>
+  );
+
   return (
     <div className={compact ? 'space-y-4' : 'space-y-6'}>
       {loadFailed && <Alert type="error" showIcon message={t('settings.usb.loadFailed')} />}
@@ -339,89 +400,23 @@ export const Usb = ({ part, withMode = true }: { part: UsbPart; withMode?: boole
                     ]}
                   />
                 </SettingRow>
-                <Collapse
-                  ghost
-                  activeKey={manualOpen ? ['manual'] : []}
-                  onChange={(keys) => setManualOpen(keys.includes('manual'))}
-                  items={[
-                    {
-                      key: 'manual',
-                      label: t('settings.usb.manual'),
-                      children: (
-                        <div className={compact ? 'space-y-2.5' : 'space-y-4'}>
-                          <Panel
-                            className={clsx(
-                              'flex items-center justify-between gap-3 text-xs',
-                              compact && 'py-2!'
-                            )}
-                          >
-                            <span className="text-fg-muted">{t('settings.usb.budgetTitle')}</span>
-                            <span
-                              className={`font-mono ${withinBudget ? 'text-fg' : 'text-warning'}`}
-                            >
-                              IN {used?.in ?? '–'}/{status?.budget.inLimit ?? '–'} · OUT{' '}
-                              {used?.out ?? '–'}/{status?.budget.outLimit ?? '–'}
-                            </span>
-                          </Panel>
-                          {usbDevices.map((name) => {
-                            const blocked = Boolean(
-                              draft && status && !canToggleDevice(draft, name, status)
-                            );
-                            return (
-                              <SettingRow
-                                key={name}
-                                label={
-                                  <span className={blocked ? 'text-fg-muted' : undefined}>
-                                    {t(`settings.usb.devices.${name}.title`)}
-                                  </span>
-                                }
-                                {...describe(t(`settings.usb.devices.${name}.description`))}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Tag
-                                    bordered={false}
-                                    className="text-fg-muted m-0 font-mono text-[10px]"
-                                  >
-                                    {status?.costs[name].in ?? '–'} IN ·{' '}
-                                    {status?.costs[name].out ?? '–'} OUT
-                                  </Tag>
-                                  <Tooltip
-                                    title={blocked ? t('settings.usb.budgetExceeded') : undefined}
-                                  >
-                                    <span>
-                                      <Switch
-                                        aria-label={t(`settings.usb.devices.${name}.title`)}
-                                        checked={Boolean(draft?.[name])}
-                                        disabled={!status || loading || blocked}
-                                        onChange={() => toggle(name)}
-                                      />
-                                    </span>
-                                  </Tooltip>
-                                </div>
-                              </SettingRow>
-                            );
-                          })}
-                          <SettingRow
-                            label={t('settings.usb.compatibilityProfile.title')}
-                            {...describe(t('settings.usb.compatibilityProfile.description'))}
-                          >
-                            <Switch
-                              aria-label={t('settings.usb.compatibilityProfile.title')}
-                              checked={draft?.mode === 'hid-only'}
-                              disabled={!status || loading}
-                              onChange={(enabled) => {
-                                if (!draft || busy.current) return;
-                                setDraft(setCompatibilityProfile(draft, enabled));
-                                setSelection('custom');
-                                setError('');
-                              }}
-                            />
-                          </SettingRow>
-                        </div>
-                      )
-                    }
-                  ]}
-                />
+                {/* a custom composition is made by hand: its functions show at once */}
+                {selection === 'custom' ? (
+                  manualRows
+                ) : (
+                  <Collapse
+                    ghost
+                    activeKey={manualOpen ? ['manual'] : []}
+                    onChange={(keys) => setManualOpen(keys.includes('manual'))}
+                    items={[
+                      {
+                        key: 'manual',
+                        label: t('settings.usb.manual'),
+                        children: manualRows
+                      }
+                    ]}
+                  />
+                )}
               </>
             )}
             {showIdentity && status?.identity && draft && (

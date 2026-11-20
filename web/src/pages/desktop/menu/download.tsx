@@ -273,16 +273,18 @@ export const DownloadImage = () => {
 
   async function checkAndUpload(file: File | null) {
     if (!file || checkingFile) return;
+    const generation = downloadRequestGeneration.current;
     setCheckingFile(true);
     try {
       await checkImageUpload(file);
-      upload(file);
+      if (generation === downloadRequestGeneration.current) upload(file);
     } catch (error) {
+      if (generation !== downloadRequestGeneration.current) return;
       stopStatusPolling();
       setStatus('failed');
       setLog(error instanceof Error ? error.message : t('download.failed'));
     } finally {
-      setCheckingFile(false);
+      if (generation === downloadRequestGeneration.current) setCheckingFile(false);
     }
   }
 

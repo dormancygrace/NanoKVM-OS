@@ -8,6 +8,13 @@ import (
 	"strings"
 )
 
+func validateRawImageSize(size int64) error {
+	if size < 512 || size%512 != 0 {
+		return fmt.Errorf("raw disk image must contain complete 512-byte sectors")
+	}
+	return nil
+}
+
 // Raw disk images may contain partitioned disks or a filesystem directly.
 // Do not limit .img to a particular partition table or filesystem signature.
 func validateUploadedImage(path, name string) error {
@@ -21,10 +28,7 @@ func validateUploadedImage(path, name string) error {
 		if err != nil {
 			return err
 		}
-		if st.Size() >= 512 && st.Size()%512 == 0 {
-			return nil
-		}
-		return fmt.Errorf("raw disk image must contain complete 512-byte sectors")
+		return validateRawImageSize(st.Size())
 	}
 	if opticalImage(f) {
 		return nil

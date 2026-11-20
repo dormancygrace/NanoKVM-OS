@@ -204,11 +204,22 @@ func (s *Service) CheckImageUpload(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "invalid image size")
 		return
 	}
+	if strings.EqualFold(filepath.Ext(name), ".img") {
+		if err := validateRawImageSize(size); err != nil {
+			rsp.ErrRsp(c, -1, err.Error())
+			return
+		}
+	}
 	s.downloadMutex.Lock()
 	busy := s.downloadDone != nil
 	s.downloadMutex.Unlock()
-	if busy {
+	_, lockErr := os.Lstat(transferSentinelPath)
+	if busy || lockErr == nil {
 		rsp.ErrRsp(c, -1, errDownloadInProgress.Error())
+		return
+	}
+	if !os.IsNotExist(lockErr) {
+		rsp.ErrRsp(c, -1, lockErr.Error())
 		return
 	}
 	if err := unix.Access(imageDirectory, unix.W_OK); err != nil {

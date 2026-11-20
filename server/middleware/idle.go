@@ -50,9 +50,20 @@ var idle = struct {
 	limit  time.Duration
 	// since: when the server started or the limit was last changed. No
 	// period starts before it.
-	since  time.Time
-	clocks map[string]*idleClock
+	since time.Time
+	// deadBefore: a sign-in made at or before it that has no clock (made no
+	// request since the server started) ran out of a limit that has been
+	// changed since. Clocks are kept until their tokens expire, also with no
+	// limit, so that "no clock" means "no request".
+	deadBefore time.Time
+	clocks     map[string]*idleClock
 }{clocks: map[string]*idleClock{}, since: time.Now()}
+
+// idleSetting serializes changes of the limit: the file and the limit in
+// memory change together, in the order the changes were made. It is not the
+// idle lock, which every signed-in request takes, so the card write does not
+// hold up requests.
+var idleSetting sync.Mutex
 
 // loadIdleLimitLocked reads the limit once. idle is locked.
 func loadIdleLimitLocked() {
@@ -97,6 +108,15 @@ func SetIdleLimit(seconds int) error {
 	if !validIdleLimit(seconds) {
 		return errors.New("not a limit that can be set")
 	}
+	idleSetting.Lock()
+	defer idleSetting.Unlock()
+
+	// The limit in force, read before its file is replaced.
+	prior := IdleLimit()
+	next := time.Duration(seconds) * time.Second
+	if prior == next {
+		return nil
+	}
 	var err error
 	if seconds == 0 {
 		if err = os.Remove(idleLimitFile); os.IsNotExist(err) {
@@ -106,30 +126,32 @@ func SetIdleLimit(seconds int) error {
 		err = atomicfile.Write(idleLimitFile, []byte(strconv.Itoa(seconds)+"\n"), 0o644)
 	}
 	if err != nil {
+		// Nothing changed in memory either.
 		return err
 	}
 
 	now := time.Now()
 	idle.Lock()
 	defer idle.Unlock()
-	loadIdleLimitLocked()
-	if idle.limit > 0 {
+	if prior > 0 {
+		// Out of time under the limit in force: those with a clock, and,
+		// by deadBefore, those that made no request at all.
 		for _, clock := range idle.clocks {
-			if now.Sub(clock.last) >= idle.limit {
+			if now.Sub(clock.last) >= prior {
 				clock.over = true
 			}
 		}
+		if dead := now.Add(-prior); !idle.since.After(dead) && dead.After(idle.deadBefore) {
+			idle.deadBefore = dead
+		}
 	}
-	idle.limit = time.Duration(seconds) * time.Second
+	idle.limit = next
 	idle.since = now
 	for key, clock := range idle.clocks {
 		switch {
 		case !clock.tokenUntil.After(now):
 			delete(idle.clocks, key)
-		case clock.over:
-		case seconds == 0:
-			delete(idle.clocks, key)
-		default:
+		case !clock.over:
 			clock.last = now
 		}
 	}
@@ -181,7 +203,18 @@ func idleStateOf(key string, issued, until time.Time, touch bool, now time.Time)
 	if clock != nil && clock.over {
 		return false, 0
 	}
+	// A sign-in without a clock made no request since the server started;
+	// one made before deadBefore ran out of an earlier limit. The issue
+	// time is in whole seconds: one second more decides for the user.
+	if clock == nil && !issued.IsZero() && !issued.Add(time.Second).After(idle.deadBefore) {
+		idle.clocks[key] = &idleClock{over: true, tokenUntil: until}
+		return false, 0
+	}
 	if idle.limit == 0 {
+		if clock == nil {
+			// Seen: from now on it is not one that made no request.
+			idle.clocks[key] = &idleClock{last: now, tokenUntil: until}
+		}
 		return true, 0
 	}
 	if clock == nil {

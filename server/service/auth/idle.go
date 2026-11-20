@@ -40,14 +40,15 @@ func (s *Service) ReportActivity(c *gin.Context) {
 // SetIdle changes the limit for every sign-in.
 func (s *Service) SetIdle(c *gin.Context) {
 	var rsp proto.Response
+	// The limit is required: a missing or null one is not "no limit".
 	var req struct {
-		Limit int `json:"limit"`
+		Limit *int `json:"limit"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil || req.Limit == nil {
 		rsp.ErrRsp(c, -1, "invalid arguments")
 		return
 	}
-	if err := middleware.SetIdleLimit(req.Limit); err != nil {
+	if err := middleware.SetIdleLimit(*req.Limit); err != nil {
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}

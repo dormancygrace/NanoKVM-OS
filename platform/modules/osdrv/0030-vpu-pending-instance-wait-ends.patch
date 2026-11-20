@@ -208,3 +208,15 @@ RETCODE_VPU_STILL_RUNNING and issues no command:
  
  	if (pTestEnc->encConfig.pusBitCode) {
  #ifndef FIRMWARE_H
+@@ -6435,7 +6445,10 @@
+ 
+ ERR_ENC_OPEN:
+ 	// Now that we are done with encoding, close the open instance.
+-	cviCloseVpuEnc(pTestEnc);
++	if (cviCloseVpuEnc(pTestEnc) == RETCODE_VPU_STILL_RUNNING) {
++		osal_free(pTestEnc);
++		return suc;
++	}
+ ERR_ENC_INIT:
+ 	cviDeInitVpuEnc(pTestEnc);
+ 	osal_free(pTestEnc);

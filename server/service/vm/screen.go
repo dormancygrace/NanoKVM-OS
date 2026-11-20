@@ -156,13 +156,14 @@ func validateScreenSetting(req proto.SetScreenReq) *settingError {
 	return validateScreenSettingIn(req, nil)
 }
 
-// mjpegSelectionFailure refuses MJPEG while the HDMI input is 3840x2160. Inside
-// a batch the monitor it also sets decides, as it changes the input.
+// mjpegSelectionFailure refuses MJPEG while the HDMI input is longer than
+// MJPEG takes. Inside a batch the input the whole batch leads to decides
+// (batchMonitorInput): a monitor it sets, or the saved one when it turns
+// portrait off.
 func mjpegSelectionFailure(batch *VideoSettingsReq) *settingError {
-	width, height := captureInput()
-	if batch != nil && batch.Monitor != nil && *batch.Monitor > 0 && *batch.Monitor <= math.MaxUint16 {
-		w, h := common.MonitorSize(uint16(*batch.Monitor))
-		width, height = int(w), int(h)
+	width, height, ok := batchMonitorInput(batch)
+	if !ok {
+		width, height = captureInput()
 	}
 	if !common.MjpegAllowedFor(width, height) {
 		return settingFailure(-3, common.MjpegBlockedMessage)

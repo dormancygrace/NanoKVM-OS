@@ -226,14 +226,19 @@ export function monitorAspects(caps: VideoCapabilities) {
   return caps.monitor.aspects?.length ? caps.monitor.aspects : [DEFAULT_ASPECT];
 }
 
+// The portrait profile inputs, for which the stream limit box stands upright
+// (native stream_size, server/common/h264_policy.go). Any other input, a tall
+// 8:9 monitor too, is fitted into the landscape box.
+const PORTRAIT_INPUTS = ['720x1280', '1080x1920', '1088x1920', '1440x2560'];
+
 // The size the encoder produces: the input fitted into the stream limit (a
-// landscape box, upright for a portrait input), never enlarged.
+// landscape box, upright for a portrait profile), never enlarged.
 export function streamSize(draft: VideoDraft, caps: VideoCapabilities) {
   const { width, height } = caps.input;
   const limit = caps.stream.limits.find((l) => l.height === draft.height);
   if (!width || !height) return { width: limit?.width ?? 0, height: draft.height };
   if (!draft.height || !limit) return { width, height };
-  const portrait = height > width;
+  const portrait = PORTRAIT_INPUTS.includes(`${width}x${height}`);
   const [boxWidth, boxHeight] = portrait
     ? [draft.height, limit.width]
     : [limit.width, draft.height];
@@ -276,22 +281,20 @@ export function monitorTarget(draft: VideoDraft, caps: VideoCapabilities) {
     : { width: mode?.width ?? 0, height: mode?.height || draft.monitor, refresh };
 }
 
-// Whether MJPEG cannot run for a draft: its input (the monitor the draft
-// writes, else the current one) is longer than the server allows, whatever the
-// stream limit is. Mirrors the server, which refuses it.
+// Whether MJPEG cannot run for a draft: the input it leads to (draftInput) is
+// longer than the server allows, whatever the stream limit is. Mirrors the
+// server, which refuses it.
 export function mjpegBlocked(draft: VideoDraft, caps: VideoCapabilities) {
   const maxSide = caps.stream.mjpeg?.maxSide;
   if (!maxSide) return false;
-  const changesMonitor =
-    !draft.portrait && caps.monitor.programmable && draft.monitor !== caps.monitor.selected;
-  const input =
-    changesMonitor && draft.monitor ? monitorSize(monitorMode(caps, draft.monitor)) : caps.input;
+  const input = draftInput(draft, caps);
+  if (!input.width || !input.height) return false;
   return Math.max(input.width, input.height) > maxSide;
 }
 
-// The input H.264 would encode for a draft: the portrait profile or monitor
-// the draft writes, else the current input.
-function h264Input(draft: VideoDraft, caps: VideoCapabilities) {
+// The input a draft leads to: the portrait profile or monitor it writes, the
+// saved monitor when it turns portrait off, else the current input.
+function draftInput(draft: VideoDraft, caps: VideoCapabilities) {
   const { monitor } = caps;
   if (!monitor.programmable) return caps.input;
   if (draft.portrait) {
@@ -313,7 +316,7 @@ function h264Input(draft: VideoDraft, caps: VideoCapabilities) {
 export function h264BlockReason(draft: VideoDraft, caps: VideoCapabilities): Reason | undefined {
   const h264 = caps.stream.h264;
   if (!h264?.maxLongSide || !h264.maxHeight) return undefined;
-  const input = h264Input(draft, caps);
+  const input = draftInput(draft, caps);
   if (!input.width || !input.height) return undefined;
   const out = streamSize(draft, { ...caps, input: { ...caps.input, ...input } });
   if (Math.max(out.width, out.height) <= h264.maxLongSide && out.height <= h264.maxHeight)

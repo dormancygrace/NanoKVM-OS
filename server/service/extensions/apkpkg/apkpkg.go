@@ -92,7 +92,8 @@ var errChangesInstalled = errors.New("would change installed packages")
 // changedPackages lists the packages of an apk simulation that are neither
 // new nor a reinstall of a package to fix:
 // "(2/5) Upgrading busybox (1.37.0-r18 -> 1.37.0-r19)". apk pads the step
-// number to the width of the total: "( 2/12) Upgrading ...".
+// number to the width of the total: "( 2/12) Upgrading ...", and appends the
+// repository tag of a tagged selection to the name: "nut@community".
 func changedPackages(simulation string, fix []string) []string {
 	var changed []string
 	for _, line := range strings.Split(simulation, "\n") {
@@ -101,8 +102,10 @@ func changedPackages(simulation string, fix []string) []string {
 			continue
 		}
 		fields := strings.Fields(line[step+2:])
-		if len(fields) < 2 || fields[0] == "Installing" ||
-			fields[0] == "Reinstalling" && slices.Contains(fix, fields[1]) {
+		if len(fields) < 2 || fields[0] == "Installing" {
+			continue
+		}
+		if name, _, _ := strings.Cut(fields[1], "@"); fields[0] == "Reinstalling" && slices.Contains(fix, name) {
 			continue
 		}
 		changed = append(changed, fields[1])

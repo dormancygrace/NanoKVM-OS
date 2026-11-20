@@ -51,6 +51,7 @@ func TestPackageStateReportsRecordedButBroken(t *testing.T) {
 	if err := os.WriteFile(installedDBPath, []byte(db), 0600); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.Remove(installedDBPath) })
 	missing, broken, err := PackageState("script", "files", "complete", "plain", "absent")
 	if err != nil {
 		t.Fatal(err)

@@ -29,6 +29,12 @@ type session struct {
 	// asks the same one rather than reading authn.DefaultStore again.
 	store  *authn.Store
 	cancel context.CancelFunc
+	// idleKey and tokenUntil name the sign-in for the inactivity limit. Only
+	// a stream is ended by it: a transfer that is under way finishes.
+	idleKey     string
+	tokenIssued time.Time
+	tokenUntil  time.Time
+	stream      bool
 }
 
 // sessionRegistry holds the running sessions, and while there are any, one
@@ -110,7 +116,14 @@ func (r *sessionRegistry) recheck() {
 		tokenVersion uint64
 	}
 	valid := make(map[tokenKey]bool)
+	now := time.Now()
 	for _, entry := range sessions {
+		if entry.stream && entry.idleKey != "" {
+			if alive, _ := idleStateOf(entry.idleKey, entry.tokenIssued, entry.tokenUntil, false, now); !alive {
+				entry.cancel()
+				continue
+			}
+		}
 		if entry.store == nil {
 			continue
 		}

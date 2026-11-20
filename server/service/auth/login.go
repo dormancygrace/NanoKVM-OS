@@ -168,12 +168,5 @@ func setSessionCookie(c *gin.Context, token string) {
 }
 
 func clearSessionCookie(c *gin.Context) {
-	secure := middleware.SessionCookieName(c.Request) == middleware.CookieName
-	c.SetSameSite(http.SameSiteStrictMode)
-	// Clear the legacy cookie too, so HTTP fallback cannot restore a session
-	// after logout when token revocation is disabled. HTTPS can clear both;
-	// HTTP cannot remove a Secure cookie left by a previous HTTPS session.
-	for _, name := range []string{middleware.CookieName, middleware.HTTPCookieName} {
-		c.SetCookie(name, "", -1, "/", "", secure, true)
-	}
+	middleware.ClearSessionCookie(c)
 }

@@ -20,6 +20,9 @@ func authRouter(r *gin.Engine) {
 	api.GET("/auth/account", service.GetAccount)         // get account
 	api.POST("/auth/password", service.ChangePassword)   // change password
 	api.POST("/auth/logout", service.Logout)             // logout
+	// Sign-out after inactivity: what is left, and input seen by the page.
+	api.GET("/auth/idle", service.GetIdle)
+	api.POST("/auth/activity", service.ReportActivity)
 
 	// Two-factor authentication of the signed-in user.
 	api.POST("/auth/totp/setup", service.TOTPSetup)
@@ -34,6 +37,7 @@ func authRouter(r *gin.Engine) {
 		middleware.CheckToken(),
 		middleware.RequireRole(authn.RoleAdmin),
 	)
+	admin.POST("/auth/idle", service.SetIdle)
 	admin.GET("/auth/users", service.ListUsers)
 	admin.POST("/auth/users", middleware.RequireRecentAuth(), service.CreateUser)
 	admin.PUT("/auth/users/:username", middleware.RequireRecentAuth(), service.UpdateUser)

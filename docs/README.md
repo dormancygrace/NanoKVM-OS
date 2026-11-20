@@ -29,6 +29,7 @@
 - [Ethernet interrupt coalescing](ETHERNET-RX-BATCHING.md)
 - [VPN profiles](VPN.md)
 - [Two-factor authentication](TWO-FACTOR.md)
+- [Sign-out after inactivity](IDLE-SIGNOUT.md)
 - [SSH public keys](SSH-KEYS.md)
 
 ## Managing the computer

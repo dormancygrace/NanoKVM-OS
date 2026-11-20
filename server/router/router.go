@@ -41,6 +41,7 @@ var allowedDuringRecovery = map[string]bool{
 	"/api/auth/login":             true,
 	"/api/auth/login/totp":        true,
 	"/api/auth/logout":            true,
+	"/api/auth/activity":          true,
 }
 
 func Init(r *gin.Engine) {

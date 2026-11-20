@@ -17,6 +17,7 @@ import (
 // covers what starts with it.
 var journalSkipped = []string{
 	"/api/auth/login", "/api/auth/login/totp", "/api/auth/logout",
+	"/api/auth/activity",
 	"/api/hid/paste", "/api/hid/sequence", "/api/hid/reset",
 	"/api/vm/gpio", "/api/atx*", "/api/network/wol",
 	"/api/storage/image/mount", "/api/storage/remote/*",

@@ -2,7 +2,6 @@ import { useAuth } from '@/contexts/auth.ts';
 import { Button, Switch } from 'antd';
 import { useAtom } from 'jotai';
 import {
-  CommandIcon,
   DiscIcon,
   FileJsonIcon,
   KeyboardIcon,
@@ -18,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 
 import * as ls from '@/lib/localstorage.ts';
 import { menuDisabledItemsAtom } from '@/jotai/settings.ts';
+import { CtrlAltDel } from '@/components/icons/ctrl-alt-del.tsx';
 import { Robot } from '@/components/icons/robot.tsx';
 import { Fold } from '@/components/ui/settings.tsx';
 
@@ -29,7 +29,7 @@ export const MenuIcons = () => {
 
   const items = [
     { key: 'keyboard', icon: <KeyboardIcon size={16} /> },
-    { key: 'ctrl-alt-del', icon: <CommandIcon size={16} />, label: 'keyboard.ctrlAltDel.title' },
+    { key: 'ctrl-alt-del', icon: <CtrlAltDel size={16} />, label: 'keyboard.ctrlAltDel.title' },
     { key: 'mouse', icon: <MouseIcon size={16} /> },
     { key: 'image', icon: <DiscIcon size={16} /> },
     { key: 'terminal', icon: <TerminalSquareIcon size={16} /> },

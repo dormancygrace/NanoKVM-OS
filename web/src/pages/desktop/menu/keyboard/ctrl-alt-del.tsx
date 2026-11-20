@@ -3,6 +3,7 @@ import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import * as api from '@/api/hid.ts';
+import { CtrlAltDel as CtrlAltDelIcon } from '@/components/icons/ctrl-alt-del.tsx';
 import { MenuTooltip } from '@/components/menu-tooltip.tsx';
 import { confirmAction } from '@/components/ui/confirm.ts';
 
@@ -46,7 +47,7 @@ export const CtrlAltDel = () => {
         aria-label={t('keyboard.ctrlAltDel.send')}
         aria-busy={busy}
         data-toolbar-control
-        className="hover:text-fg-strong flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-[11px] font-semibold tracking-tight text-neutral-300 select-none hover:bg-neutral-700/80 aria-busy:opacity-50"
+        className="hover:text-fg-strong flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded text-neutral-300 select-none hover:bg-neutral-700/80 aria-busy:opacity-50"
         onClick={() => void send()}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -55,7 +56,7 @@ export const CtrlAltDel = () => {
           }
         }}
       >
-        CAD
+        <CtrlAltDelIcon size={18} />
       </div>
     </MenuTooltip>
   );

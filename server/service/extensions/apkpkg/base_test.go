@@ -6,14 +6,15 @@ import (
 )
 
 // The retry after a failed transaction: a package left broken is reinstalled,
-// one installed only as a dependency is selected, a world entry with a tag or
-// a constraint is kept, and an excluded package stays out.
+// one installed only as a dependency is selected, a broken dependency is
+// reinstalled without being selected, a world entry with a tag or a constraint
+// is kept, and an excluded package stays out.
 func TestBasePlanRepairsAndSelects(t *testing.T) {
 	world := []byte("lldpd\nlldpd-openrc\nnet-snmp-openrc\nnut@community\nnut-openrc<3\n!openvpn\n")
 	missing := []string{"nut-openrc", "openvpn"}
-	broken := []string{"lldpd", "net-snmp"}
+	broken := []string{"lldpd", "net-snmp", "net-snmp-libs"}
 	fix, add := basePlan(missing, broken, world)
-	if got := strings.Join(fix, ","); got != "lldpd,net-snmp,nut-openrc" {
+	if got := strings.Join(fix, ","); got != "lldpd,net-snmp,nut-openrc,net-snmp-libs" {
 		t.Fatalf("fix: %s", got)
 	}
 	if got := strings.Join(add, ","); got != "net-snmp" {

@@ -71,34 +71,64 @@ func readInstalledDB() (map[string]string, []string, error) {
 	return maps.Clone(c.versions), slices.Clone(c.releaseCore), nil
 }
 
-// PackageState sorts the named packages into those that are not installed and
-// those apk recorded as broken. A package whose files could not be extracted
-// or whose install script failed stays in the installed database, with "f"
-// (files) or "s" (script) on its f: line, until `apk fix` installs it again:
-// these are the flags on which apk fails the transaction and which `apk fix`
-// repairs. "x" (extended attributes) and "S" (checksum kind) do not count.
+// PackageState lists the named packages that are not installed, and the
+// installed packages apk recorded as broken among the named ones and
+// everything they depend on, directly or through other packages. A package
+// whose files could not be extracted or whose install script failed stays in
+// the installed database, with "f" (files) or "s" (script) on its f: line,
+// until `apk fix` installs it again: these are the flags on which apk fails
+// the transaction and which `apk fix` repairs. "x" (extended attributes) and
+// "S" (checksum kind) do not count. apk records a requested package as
+// complete when only the install script of one of its dependencies failed, so
+// the dependencies are checked too.
 func PackageState(names ...string) (missing, broken []string, err error) {
 	data, err := os.ReadFile(installedDBPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	healthy := installedHealth(string(data))
+	db := parsePackageGraph(string(data))
+	seen := map[string]bool{}
+	queue := []string{}
 	for _, name := range names {
-		ok, installed := healthy[name]
-		switch {
-		case !installed:
+		if _, installed := db.healthy[name]; !installed {
 			missing = append(missing, name)
-		case !ok:
+		} else if !seen[name] {
+			seen[name] = true
+			queue = append(queue, name)
+		}
+	}
+	for len(queue) > 0 {
+		name := queue[0]
+		queue = queue[1:]
+		if !db.healthy[name] {
 			broken = append(broken, name)
+		}
+		for _, dep := range db.depends[name] {
+			for _, provider := range db.providers[dep] {
+				if !seen[provider] {
+					seen[provider] = true
+					queue = append(queue, provider)
+				}
+			}
 		}
 	}
 	return missing, broken, nil
 }
 
-// installedHealth maps every installed package to whether apk installed it
-// completely.
-func installedHealth(data string) map[string]bool {
-	healthy := map[string]bool{}
+// packageGraph is the installed database reduced to what PackageState needs:
+// whether each package was installed completely, the names each one depends
+// on, and the packages that provide each name.
+type packageGraph struct {
+	healthy   map[string]bool
+	depends   map[string][]string
+	providers map[string][]string
+}
+
+// parsePackageGraph reads P: (name), p: (provided names such as
+// "so:libnetsnmp.so.45=45.0.0" or "/bin/sh"), D: (dependencies, "!name" being
+// a conflict) and f: (flags) of every package record.
+func parsePackageGraph(data string) packageGraph {
+	db := packageGraph{healthy: map[string]bool{}, depends: map[string][]string{}, providers: map[string][]string{}}
 	name := ""
 	for _, line := range strings.Split(data, "\n") {
 		switch {
@@ -106,14 +136,27 @@ func installedHealth(data string) map[string]bool {
 			name = ""
 		case strings.HasPrefix(line, "P:"):
 			name = line[2:]
-			healthy[name] = true
-		case strings.HasPrefix(line, "f:") && name != "":
+			db.healthy[name] = true
+			db.providers[name] = append(db.providers[name], name)
+		case name == "":
+		case strings.HasPrefix(line, "p:"):
+			for _, provided := range strings.Fields(line[2:]) {
+				provided, _, _ = strings.Cut(provided, "=")
+				db.providers[provided] = append(db.providers[provided], name)
+			}
+		case strings.HasPrefix(line, "D:"):
+			for _, dep := range strings.Fields(line[2:]) {
+				if !strings.HasPrefix(dep, "!") {
+					db.depends[name] = append(db.depends[name], dependencyName(dep))
+				}
+			}
+		case strings.HasPrefix(line, "f:"):
 			if strings.ContainsAny(line[2:], "fs") {
-				healthy[name] = false
+				db.healthy[name] = false
 			}
 		}
 	}
-	return healthy
+	return db
 }
 
 func parseInstalledDB(data string) (map[string]string, []string) {

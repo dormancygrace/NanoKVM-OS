@@ -24,7 +24,8 @@ import (
 var basePackages = []string{"lldpd", "lldpd-openrc", "net-snmp", "net-snmp-openrc", "nut", "nut-openrc", "openvpn"}
 
 // baseMarker records that every base package was installed once, complete and
-// selected in the APK world. A package removed on the Software page after
+// selected in the APK world, with every package they depend on complete. A
+// package removed on the Software page after
 // that stays removed.
 const baseMarker = "/etc/kvm/base-packages"
 
@@ -69,9 +70,9 @@ func EnsureBasePackages(ctx context.Context) {
 }
 
 // installBase writes the marker only when every base package is installed,
-// complete and selected, as read back after the transaction: a failed
-// extraction or install script can leave a package recorded but broken, and
-// that is repaired on the next attempt.
+// complete and selected, and every package they depend on is complete, as read
+// back after the transaction: a failed extraction or install script can leave
+// a package recorded but broken, and that is repaired on the next attempt.
 func installBase() error {
 	fix, add, err := baseWork()
 	if err != nil {
@@ -108,8 +109,9 @@ func baseWork() (fix, add []string, err error) {
 	return fix, add, nil
 }
 
-// basePlan: the base packages to reinstall with `apk fix` and those to select
-// with `apk add`. A package installed only as a dependency of another one is
+// basePlan: the packages to reinstall with `apk fix`, base packages and the
+// broken packages they depend on, and the base packages to select with
+// `apk add`. A dependency is not added to the world. A package installed only as a dependency of another one is
 // not in the world, and apk would remove it with that one; `apk add` of an
 // installed package only adds it to the world. A package the world already
 // names, with a version constraint, a repository tag or a file pin, keeps
@@ -126,6 +128,11 @@ func basePlan(missing, broken []string, world []byte) (fix, add []string) {
 			add = append(add, name)
 		}
 		if slices.Contains(broken, name) || chosen && slices.Contains(missing, name) {
+			fix = append(fix, name)
+		}
+	}
+	for _, name := range broken {
+		if !slices.Contains(basePackages, name) {
 			fix = append(fix, name)
 		}
 	}

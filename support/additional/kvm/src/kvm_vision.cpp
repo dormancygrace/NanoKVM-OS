@@ -1289,9 +1289,25 @@ static int8_t frame_to_jpeg(int vi_ch, int width, int height, kvmv_data_t* dump_
 
 uint8_t kvmvenc_fps = default_h264_fps;
 
+// An encoder that refused these settings is not asked again for a second:
+// each attempt is a full vendor setup, and every video read would make one.
+static constexpr auto venc_retry_gap = std::chrono::seconds(1);
+static struct {
+	uint16_t width, height, bitrate;
+	uint8_t codec, fps;
+	int error;
+	std::chrono::steady_clock::time_point at;
+	bool set;
+} venc_refused;
+
 int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t codec,
 	uint8_t fps)
 {
+	const auto now = std::chrono::steady_clock::now();
+	if (venc_refused.set && venc_refused.width == width && venc_refused.height == height
+		&& venc_refused.bitrate == bitrate && venc_refused.codec == codec && venc_refused.fps == fps
+		&& now - venc_refused.at < venc_retry_gap)
+		return venc_refused.error;
 	mmf_venc_cfg_t cfg{};
 	cfg.type = codec == VENC_H265 ? 1 : 2; // MMF/PAYLOAD_TYPE_E: 1 h265, 2 h264
     cfg.w = width;
@@ -1320,8 +1336,10 @@ int init_venc_video(uint16_t width, uint16_t height, uint16_t bitrate, uint8_t c
 			"size=%ux%u bitrate=%u error=%#x\n",
 			kvm_venc.mmf_venc_chn, codec, width, height, bitrate, ret);
 		fflush(stderr);
+		venc_refused = {width, height, bitrate, codec, fps, ret, now, true};
 		return ret;
 	}
+	venc_refused.set = false;
 	kvm_venc.enc_video_init = 1;
 	return 0;
 }

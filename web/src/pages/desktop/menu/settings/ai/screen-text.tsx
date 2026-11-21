@@ -26,10 +26,10 @@ import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx
 let latestRequest = 0;
 
 // A request that got no answer at all: the connection dropped or timed out,
-// so the server may still be working on it. An HTTP error status is an
-// answer.
+// so the server may still be working on it. An HTTP error status or an
+// answer with an error code is an answer.
 function answerLost(err: unknown) {
-  return !(isAxiosError(err) && err.response);
+  return isAxiosError(err) && !err.response;
 }
 
 // Reads the settings, applying each answer, until the server reports no

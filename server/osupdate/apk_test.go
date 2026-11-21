@@ -40,3 +40,33 @@ func TestPendingUpgradesRefreshesInstalledVersion(t *testing.T) {
 		t.Fatalf("pending: %s", got)
 	}
 }
+
+// A failed extraction or install script leaves the package recorded with
+// "f" or "s" on its f: line; a retry must see it as broken, not installed.
+// So must a broken package reached through the dependencies, by name or by a
+// provided name, while a broken package nothing named depends on, or one only
+// named as a conflict, is left out.
+func TestPackageStateReportsRecordedButBroken(t *testing.T) {
+	db := "C:Q1a=\nP:script\nV:1.0-r0\nf:s\n\n" +
+		"C:Q1b=\nP:files\nV:1.0-r0\nf:fS\n\n" +
+		"C:Q1c=\nP:complete\nV:1.0-r0\nD:!unrelated so:libdep.so.1 /bin/sh\nf:S\n\n" +
+		"C:Q1d=\nP:plain\nV:1.0-r0\n\n" +
+		"C:Q1e=\nP:libdep\nV:1.0-r0\nD:inner>=1\np:so:libdep.so.1=1.0.0\n\n" +
+		"C:Q1f=\nP:inner\nV:1.0-r0\nf:s\n\n" +
+		"C:Q1g=\nP:shell\nV:1.0-r0\np:/bin/sh\n\n" +
+		"C:Q1h=\nP:unrelated\nV:1.0-r0\nf:s\n"
+	if err := os.WriteFile(installedDBPath, []byte(db), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(installedDBPath) })
+	missing, broken, err := PackageState("script", "files", "complete", "plain", "absent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(missing, ","); got != "absent" {
+		t.Fatalf("missing: %s", got)
+	}
+	if got := strings.Join(broken, ","); got != "script,files,inner" {
+		t.Fatalf("broken: %s", got)
+	}
+}

@@ -23,8 +23,6 @@ import (
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/pkg/resolvconf"
 	"NanoKVM-Server/proto"
-	"NanoKVM-Server/service/extensions/apkpkg"
-	"NanoKVM-Server/service/extensions/vpn"
 	"github.com/gin-gonic/gin"
 )
 
@@ -609,58 +607,6 @@ func (s *Service) GetStatus(c *gin.Context) {
 		states = append(states, st)
 	}
 	rsp.OkRspWithData(c, gin.H{"available": toolErr == nil, "profiles": states})
-}
-
-func (s *Service) Install(c *gin.Context) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var rsp proto.Response
-	if _, err := exec.LookPath("openvpn"); err == nil {
-		rsp.OkRsp(c)
-		return
-	}
-	if err := apkpkg.Run("install", "openvpn"); err != nil {
-		rsp.ErrRsp(c, -1, "OpenVPN installation failed: "+err.Error())
-		return
-	}
-	rsp.OkRsp(c)
-}
-
-func (s *Service) Uninstall(c *gin.Context) {
-	purge := vpn.Purge(c)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var rsp proto.Response
-
-	profiles, err := s.profiles()
-	if err != nil {
-		rsp.ErrRsp(c, -1, "cannot read OpenVPN profiles")
-		return
-	}
-	for _, profile := range profiles {
-		if err = s.stop(profile.ID); err != nil {
-			rsp.ErrRsp(c, -1, "OpenVPN could not be stopped: "+err.Error())
-			return
-		}
-	}
-	if err = os.Remove(filepath.Join(s.dir, "active")); err != nil && !errors.Is(err, os.ErrNotExist) {
-		rsp.ErrRsp(c, -1, "cannot disable OpenVPN autostart")
-		return
-	}
-	if _, err = exec.LookPath("openvpn"); err == nil {
-		if err = apkpkg.Run("remove", "openvpn"); err != nil {
-			rsp.ErrRsp(c, -1, "OpenVPN removal failed: "+err.Error())
-			return
-		}
-	}
-	if purge {
-		// Profiles, certificates and saved credentials.
-		if err = vpn.RemoveState(s.dir, s.run); err != nil {
-			rsp.ErrRsp(c, -1, "OpenVPN was removed, but its profiles could not be deleted: "+err.Error())
-			return
-		}
-	}
-	rsp.OkRsp(c)
 }
 
 func (s *Service) Import(c *gin.Context) {

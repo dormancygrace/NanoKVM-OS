@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,10 +33,18 @@ func Run(action, name string) error {
 // installed together, after refreshing the indexes, under the same lock as
 // other package operations.
 func InstallCommunity(names ...string) error {
-	if len(names) == 0 {
+	return installCommunity(false, nil, names)
+}
+
+// installCommunity is InstallCommunity that first reinstalls the fix packages
+// (`apk fix`). With alone, it refuses a transaction that would upgrade,
+// downgrade, replace or remove an installed package, so that the install
+// never carries part of an OS update; reinstalling a fix package is allowed.
+func installCommunity(alone bool, fix, names []string) error {
+	if len(fix)+len(names) == 0 {
 		return errors.New("no APK package to install")
 	}
-	for _, name := range names {
+	for _, name := range append(slices.Clone(fix), names...) {
 		if !packageName.MatchString(name) {
 			return errors.New("invalid APK package name")
 		}
@@ -53,11 +62,32 @@ func InstallCommunity(names ...string) error {
 	if output, runErr := apkrun.Command(ctx, "/sbin/apk", "update").CombinedOutput(); runErr != nil {
 		return fmt.Errorf("apk update failed: %s", tail(output))
 	}
-	if output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{"add", "--"}, names...)...).CombinedOutput(); runErr != nil {
-		return fmt.Errorf("apk add failed: %s", tail(output))
+	for _, step := range []struct {
+		applet string
+		names  []string
+	}{{"fix", fix}, {"add", names}} {
+		if len(step.names) == 0 {
+			continue
+		}
+		if alone {
+			output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{step.applet, "--simulate", "--"}, step.names...)...).CombinedOutput()
+			if runErr != nil {
+				return fmt.Errorf("apk %s failed: %s", step.applet, tail(output))
+			}
+			if changed := osupdate.InstalledChanges(string(output), fix); len(changed) > 0 {
+				return fmt.Errorf("installing %s %w (%s)",
+					strings.Join(step.names, ", "), errChangesInstalled, strings.Join(changed, ", "))
+			}
+		}
+		output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{step.applet, "--"}, step.names...)...).CombinedOutput()
+		if runErr != nil {
+			return fmt.Errorf("apk %s failed: %s", step.applet, tail(output))
+		}
 	}
 	return nil
 }
+
+var errChangesInstalled = errors.New("would change installed packages")
 
 // InstallOnly installs packages of the NanoKVM repositories and changes no
 // installed package: it refreshes the indexes, simulates the transaction and

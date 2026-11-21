@@ -6,12 +6,10 @@ import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx
 
 import { ServicePage, type ServiceActions } from './service-page.tsx';
 
-type PageProps = { setIsLocked: (isLocked: boolean) => void };
-
 // Services > LLDP: the NanoKVM announces itself to the switch it is plugged
 // into, and the page lists what the neighbours announce.
-export const LldpPage = ({ setIsLocked }: PageProps) => (
-  <ServicePage<LldpStatus> name="lldp" setIsLocked={setIsLocked}>
+export const LldpPage = () => (
+  <ServicePage<LldpStatus> name="lldp">
     {(status, actions) => <LldpSettings status={status} actions={actions} />}
   </ServicePage>
 );

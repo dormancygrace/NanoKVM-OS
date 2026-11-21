@@ -7,11 +7,9 @@ import { SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
 
 import { ServicePage, type ServiceActions } from './service-page.tsx';
 
-type PageProps = { setIsLocked: (isLocked: boolean) => void };
-
 // Services > SNMP: a read-only SNMP v2c agent for a monitoring system.
-export const SnmpPage = ({ setIsLocked }: PageProps) => (
-  <ServicePage<SnmpStatus> name="snmp" setIsLocked={setIsLocked}>
+export const SnmpPage = () => (
+  <ServicePage<SnmpStatus> name="snmp">
     {(status, actions) => <SnmpForm status={status} actions={actions} />}
   </ServicePage>
 );

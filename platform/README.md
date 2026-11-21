@@ -105,8 +105,8 @@ and interrupt, so it is not for measuring release behaviour.
 Its packages and SD image need the test keys (`-d`): nothing built with the
 debug kernel can reach a published repository. The image, named
 `NanoKVM-OS-VERSION-debug.img.zip`, adds the tools of `debug-packages` from
-Alpine main and community, and keeps community in its repositories. A kernel
-from the published repository replaces the debug kernel on `apk upgrade`.
+Alpine main and community. A kernel from the published repository replaces
+the debug kernel on `apk upgrade`.
 
 ## Signing key
 
@@ -318,8 +318,10 @@ the old ones (`apkrollback.LegacyTargets`).
 
 `nanokvm-exfatprogs` (exfatprogs 1.4.5: `mkfs.exfat` formats `/data` at first
 boot) and `nanokvm-i2c-tools` (i2c-tools 4.4: `i2cdetect` identifies the board)
-are the only programs of the image that Alpine ships in its community
-repository, so the image needs only Alpine main. The `tools` step builds them
+are the only programs of `nanokvm-release` and its dependencies that Alpine
+ships in its community repository, so the release needs only Alpine main (the
+image installs LLDP and UPS from community next to it, see
+[the repository list](../firmware/alpine/README.md)). The `tools` step builds them
 from the pinned upstream releases with the image's toolchain: i2c-tools
 statically, exfatprogs against the device's `libblkid`. Each package
 `provides` and `replaces` the Alpine package of the same tool, so an upgrade

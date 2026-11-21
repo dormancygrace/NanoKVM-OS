@@ -34,7 +34,6 @@ const (
 
 var ups = &unit{
 	name:     "UPS",
-	packages: []string{"nut", "nut-openrc"},
 	binary:   "/usr/sbin/upsd",
 	service:  "nut-upsd",
 	pidfile:  "/run/nut/upsd.pid",
@@ -204,9 +203,9 @@ func readUPSSettings() (upsSettings, bool) {
 }
 
 // upsAccess gives the driver (user nut) what it opens. The package's udev
-// rules hand it the USB device of a UPS when one is attached; one attached
-// before the install gets them here. The serial ports belong to the group
-// dialout, which the user joins.
+// rules hand it the USB device of a UPS when one is attached; the trigger
+// applies them again to one that is already there. The serial ports belong to
+// the group dialout, which the user joins.
 func upsAccess() {
 	_ = rc(10*time.Second, "udevadm", "trigger", "--subsystem-match=usb", "--action=change")
 	_ = rc(10*time.Second, "addgroup", "nut", "dialout")
@@ -232,12 +231,12 @@ func parseUPSValues(out []byte) map[string]string {
 	return values
 }
 
-func upsState() any {
+func upsState(light bool) any {
 	status := upsStatus{Installed: ups.installed(), Drivers: []string{}, Values: map[string]string{}}
 	if !status.Installed {
 		return status
 	}
-	status.Enabled, status.Running, status.Foreign = ups.enabled(), ups.running(), ups.foreignNow()
+	status.Enabled, status.Running, status.Foreign = ups.state(light)
 	status.Settings, _ = readUPSSettings()
 	status.Drivers = upsDrivers()
 	status.USBHost = fileExists(filepath.Join(hid.USBFlagsDir, "usb.host"))
@@ -256,12 +255,10 @@ func fileExists(path string) bool {
 
 func UPSStatus(c *gin.Context) {
 	var rsp proto.Response
-	rsp.OkRspWithData(c, upsState())
+	rsp.OkRspWithData(c, upsState(c.Query("light") == "1"))
 }
-func UPSInstall(c *gin.Context)   { ups.handleInstall(c, upsState) }
-func UPSUninstall(c *gin.Context) { ups.handleUninstall(c, upsState) }
-func UPSEnabled(c *gin.Context)   { ups.handleEnabled(c, upsState) }
-func UPSReset(c *gin.Context)     { ups.handleReset(c, upsState) }
+func UPSEnabled(c *gin.Context) { ups.handleEnabled(c, upsState) }
+func UPSReset(c *gin.Context)   { ups.handleReset(c, upsState) }
 
 type upsSettingsReq struct {
 	Driver    string `json:"driver" validate:"required"`

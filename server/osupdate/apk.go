@@ -63,6 +63,110 @@ func installedVersions() (map[string]string, error) {
 	return maps.Clone(c.versions), nil
 }
 
+// PackageState lists the named packages that are not installed, and the
+// installed packages apk recorded as broken among the named ones and
+// everything they depend on, directly or through other packages. A package
+// whose files could not be extracted or whose install script failed stays in
+// the installed database, with "f" (files) or "s" (script) on its f: line,
+// until `apk fix` installs it again: these are the flags on which apk fails
+// the transaction and which `apk fix` repairs. "x" (extended attributes) and
+// "S" (checksum kind) do not count. A package that depends on a name no
+// installed package provides is broken too: apk installs and selects a
+// requested package when the archive of one of its dependencies cannot be
+// downloaded. apk records a requested package as
+// complete when only the install script of one of its dependencies failed, so
+// the dependencies are checked too.
+func PackageState(names ...string) (missing, broken []string, err error) {
+	data, err := os.ReadFile(installedDBPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	db := parsePackageGraph(string(data))
+	seen := map[string]bool{}
+	queue := []string{}
+	for _, name := range names {
+		if _, installed := db.healthy[name]; !installed {
+			missing = append(missing, name)
+		} else if !seen[name] {
+			seen[name] = true
+			queue = append(queue, name)
+		}
+	}
+	for len(queue) > 0 {
+		name := queue[0]
+		queue = queue[1:]
+		// A package whose dependency nothing installed provides was installed
+		// without it (a download that failed): `apk fix` of the package
+		// installs the dependency again.
+		unprovided := slices.ContainsFunc(db.depends[name], func(dep string) bool { return len(db.providers[dep]) == 0 })
+		if !db.healthy[name] || unprovided {
+			broken = append(broken, name)
+		}
+		for _, dep := range db.depends[name] {
+			for _, provider := range db.providers[dep] {
+				if !seen[provider] {
+					seen[provider] = true
+					queue = append(queue, provider)
+				}
+			}
+		}
+	}
+	return missing, broken, nil
+}
+
+// dependencyName is the package name of a dependency, without its version
+// constraint: "so:libc.musl-riscv64.so.1", "busybox>=1.37".
+func dependencyName(dep string) string {
+	if i := strings.IndexAny(dep, "<>=~"); i >= 0 {
+		dep = dep[:i]
+	}
+	return dep
+}
+
+// packageGraph is the installed database reduced to what PackageState needs:
+// whether each package was installed completely, the names each one depends
+// on, and the packages that provide each name.
+type packageGraph struct {
+	healthy   map[string]bool
+	depends   map[string][]string
+	providers map[string][]string
+}
+
+// parsePackageGraph reads P: (name), p: (provided names such as
+// "so:libnetsnmp.so.45=45.0.0" or "/bin/sh"), D: (dependencies, "!name" being
+// a conflict) and f: (flags) of every package record.
+func parsePackageGraph(data string) packageGraph {
+	db := packageGraph{healthy: map[string]bool{}, depends: map[string][]string{}, providers: map[string][]string{}}
+	name := ""
+	for _, line := range strings.Split(data, "\n") {
+		switch {
+		case line == "":
+			name = ""
+		case strings.HasPrefix(line, "P:"):
+			name = line[2:]
+			db.healthy[name] = true
+			db.providers[name] = append(db.providers[name], name)
+		case name == "":
+		case strings.HasPrefix(line, "p:"):
+			for _, provided := range strings.Fields(line[2:]) {
+				provided, _, _ = strings.Cut(provided, "=")
+				db.providers[provided] = append(db.providers[provided], name)
+			}
+		case strings.HasPrefix(line, "D:"):
+			for _, dep := range strings.Fields(line[2:]) {
+				if !strings.HasPrefix(dep, "!") {
+					db.depends[name] = append(db.depends[name], dependencyName(dep))
+				}
+			}
+		case strings.HasPrefix(line, "f:"):
+			if strings.ContainsAny(line[2:], "fs") {
+				db.healthy[name] = false
+			}
+		}
+	}
+	return db
+}
+
 func parseInstalledDB(data string) map[string]string {
 	versions := map[string]string{}
 	name := ""
@@ -249,6 +353,27 @@ func OtherInstallChanges(simulation string, names []string) []string {
 			continue
 		}
 		if action != "Installing" || !slices.Contains(names, name) {
+			changed = append(changed, action+" "+name)
+		}
+	}
+	return changed
+}
+
+// InstalledChanges reports the APK transaction steps that change an installed
+// package: every step but installing a new package or reinstalling one of
+// reinstall (a package `apk fix` repairs). An unrecognized numbered step also
+// counts.
+func InstalledChanges(simulation string, reinstall []string) []string {
+	var changed []string
+	for _, line := range strings.Split(simulation, "\n") {
+		action, name, _, ok := parseAPKStep(line)
+		if !ok {
+			if line = strings.TrimSpace(line); apkStepLine.MatchString(line) {
+				changed = append(changed, line)
+			}
+			continue
+		}
+		if action != "Installing" && !(action == "Reinstalling" && slices.Contains(reinstall, name)) {
 			changed = append(changed, action+" "+name)
 		}
 	}

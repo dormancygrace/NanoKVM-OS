@@ -96,9 +96,8 @@ repository line (before 3.5.0) can update.
 
 - **Experimental C906 overlay:** follow the [stock Alpine migration instructions](../firmware/alpine/README.md#existing-c906-installations).
   Updating NanoKVM packages alone does not replace the overlay.
-- **Coming from a2 with OpenVPN 3:** the supported optional client is
-  OpenVPN 2. Install it from VPN settings before reconnecting; existing profile
-  files are retained.
+- **Coming from a2 with OpenVPN 3:** the supported client is OpenVPN 2,
+  installed with the system; existing profile files are retained.
 - **Stock firmware or pre-v2 betas:** use the [stock migration installer](STOCK-INSTALL.md) or the [full SD image](INSTALL.md).
   Legacy `.nkos` packages do not migrate the system to Alpine.
 - **Original v2.0-a1 image:** it predates the ready-to-use native update path
@@ -133,6 +132,27 @@ its one-time repository migrations (removing Alpine `edge/community`
 it); it can then update to the current release.
 A device that skips this step keeps the edge repository line, and every apk
 run parses its index.
+
+LLDP and UPS come from Alpine `community`, SNMP and OpenVPN from `main`. apk
+resolves an update with the repository list it has before the update, so
+`nanokvm-release` does not depend on these packages: a device without the
+`community` line could not take such a release. The image installs them next
+to `nanokvm-release`. On a device updated from a release without them, the
+post-upgrade script of `nanokvm-base` adds the `community` line, and the
+server installs the packages that are missing a few minutes after it starts,
+in the background, retrying until it succeeds. A package already installed
+only as a dependency of another one is added to the APK world, so it stays
+when that one is removed; a world entry with a version constraint or a
+repository tag stays as it is, and a package the world excludes (`!name`)
+stays out. A package that apk recorded as broken (a failed extraction or
+install script), whether one of the set or a package they depend on, is
+reinstalled with `apk fix`; apk records a requested package as complete when
+only the install script of one of its dependencies failed. It refuses an
+installation that would change an installed package (that waits for the next
+OS update) and adds no service to a runlevel. Once all of them are installed,
+complete and selected, and everything they depend on is complete, the server
+leaves the set alone: a package removed later on the Software page stays
+removed.
 
 ## Package publication and retention
 

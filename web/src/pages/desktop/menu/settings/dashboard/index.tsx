@@ -240,9 +240,9 @@ export const Dashboard = ({
             ['tailscale', '/api/extensions/tailscale/status'],
             ['netbird', '/api/extensions/netbird/status'],
             ['wireguard', '/api/extensions/wireguard/status'],
-            ['ups', '/api/extensions/ups/status'],
-            ['lldp', '/api/extensions/lldp/status'],
-            ['snmp', '/api/extensions/snmp/status'],
+            ['ups', '/api/extensions/ups/status?light=1'],
+            ['lldp', '/api/extensions/lldp/status?light=1'],
+            ['snmp', '/api/extensions/snmp/status?light=1'],
             [
               'journal',
               `/api/vm/journal?limit=${recentEvents}&lang=${encodeURIComponent(i18n.language)}`
@@ -309,12 +309,19 @@ export const Dashboard = ({
         });
   const size = (w?: number, h?: number) => (w && h ? `${w} × ${h}` : '—');
   // A panel is there for what is in use: a UPS that is read, the services
-  // that are installed, events once there are any.
+  // that are switched on, events once there are any.
   const upsValues =
     extra.ups?.running && Object.keys(extra.ups.values).length > 0 ? extra.ups.values : undefined;
   const upsFlags = upsValues?.['ups.status']?.split(' ') ?? [];
   const upsState = upsStates.find(([flag]) => upsFlags.includes(flag));
-  const installedServices = netServices.filter((name) => extra[name]?.installed);
+  const enabledServices = netServices.filter((name) => extra[name]?.enabled);
+  // The VPNs that are installed; OpenVPN, installed with the system, once it
+  // has a profile.
+  const listedVPNs = vpnProviders.filter((provider) => {
+    const data = extra[provider.id];
+    if (!data || !summarizeVPN(data).installed) return false;
+    return provider.id !== 'openvpn' || ('profiles' in data && data.profiles.length > 0);
+  });
   const events = extra.journal?.entries.slice(0, recentEvents) ?? [];
   // The time of an event; with its date when it is a day or more old.
   const eventTime = (time: string) => {
@@ -705,18 +712,14 @@ export const Dashboard = ({
               )}
             </div>
           )) ?? '—'}
-        {/* and no VPN panel without an installed VPN */}
+        {/* and no VPN panel without a VPN to list */}
         {admin &&
-          vpnProviders.some((provider) => {
-            const data = extra[provider.id];
-            return !!data && summarizeVPN(data).installed;
-          }) &&
+          listedVPNs.length > 0 &&
           section(
             'VPN',
             <div className="space-y-4">
-              {vpnProviders.map((provider) => {
-                const data = extra[provider.id];
-                if (!data || !summarizeVPN(data).installed) return null;
+              {listedVPNs.map((provider) => {
+                const data = extra[provider.id]!;
                 if ('profiles' in data)
                   return (
                     <Fragment key={provider.id}>
@@ -772,12 +775,12 @@ export const Dashboard = ({
             </dl>,
             'services-ups'
           )}
-        {/* The installed services, each a way to its page. */}
-        {installedServices.length > 0 &&
+        {/* The services that are switched on, each a way to its page. */}
+        {enabledServices.length > 0 &&
           section(
             t('settings.services.title'),
             <div className="space-y-2 text-sm">
-              {installedServices.map((name) => {
+              {enabledServices.map((name) => {
                 const status = extra[name]!;
                 const neighbor = name === 'lldp' ? extra.lldp?.neighbors[0] : undefined;
                 return (

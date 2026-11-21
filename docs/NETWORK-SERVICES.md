@@ -1,12 +1,13 @@
 # LLDP, SNMP and UPS
 
-Settings → Services has three optional services. None is part of the image:
-each page starts with an **Install** button that installs the Alpine package
-(`lldpd` and `nut` come from Alpine `community`, `net-snmp` from `main`). An
-installed service
-has a switch; its settings appear while it is on. **Uninstall** stops the
-service and removes its packages; the configuration stays and is used again
-after a new install.
+Settings → Services has three network services. Their Alpine packages are
+installed with the system and kept installed; a device updated from a release
+without them gets them shortly after its first start (`lldpd` and `nut` come
+from Alpine `community`, `net-snmp` from `main`). Each service is off until
+it is switched on: none is started at boot before that. Each page has a
+switch; the settings appear while the service is on. A page whose package is
+not installed, not yet or because it was removed on the Software page, says
+so.
 
 | Service | Package | Listens on |
 | --- | --- | --- |
@@ -25,8 +26,7 @@ so and shows no settings. **Replace** on that page writes the configuration
 of a fresh installation in its place; the previous file is not kept.
 
 A change is applied to a stopped service. When the service does not stop, the
-change (switching off, settings, uninstall) is refused and nothing is
-written.
+change (switching off, settings) is refused and nothing is written.
 
 ## LLDP
 
@@ -44,7 +44,8 @@ itself: system, interfaces and addresses, uptime, storage, processors, load and
 memory. The rest of the tree is not served; the process table, which shows
 command lines, is part of it.
 
-- **Community**: generated at the installation, 16 characters; it can be
+- **Community**: generated when the service is first switched on, 16
+  characters; it can be
   replaced by one of 8 to 32 letters, digits, dots, dashes or underscores.
   There is no `public` community.
 - **Allowed source**: an IPv4 address or network (`192.168.1.0/24`) that may

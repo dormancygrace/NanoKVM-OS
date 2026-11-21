@@ -1670,6 +1670,14 @@ static CVI_S32 _mmf_vpss_chn_init(VPSS_GRP VpssGrp, VPSS_CHN VpssChn, int width,
 		}
 	}
 
+	s32Ret = CVI_VPSS_EnableChn(VpssGrp, VpssChn);
+	if (s32Ret != CVI_SUCCESS) {
+		SAMPLE_PRT("CVI_VPSS_EnableChn failed with %#x\n", s32Ret);
+		return CVI_FAILURE;
+	}
+
+	priv.vpss_chn_enabled[VpssChn] = true;
+	_wm_sync();
 	return s32Ret;
 }
 
@@ -1829,9 +1837,6 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 		return CVI_FAILURE;
 	}
 
-	// Set up disabled: an enabled channel without its pool asks VPSS for
-	// blocks of the pool it had before, which may be gone or, its id reused,
-	// another channel's. It is enabled below, once its own pool is attached.
 	s32Ret = _mmf_vpss_chn_init(0, ch, width_out, height_out, format_out, fps, depth, mirror, flip);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("_mmf_vpss_chn_init failed with %#x!\n", s32Ret);
@@ -1869,21 +1874,11 @@ static int _mmf_add_vi_channel(int ch, int width, int height, int format, int bu
 	}
 
 	priv.vi_chn_pool_id[ch] = pool_id;
-	priv.vi_pool_detached[ch] = true; // created, not attached yet
 	s32Ret = CVI_VPSS_AttachVbPool(0, ch, pool_id);
 	if (s32Ret != CVI_SUCCESS) {
 		SAMPLE_PRT("CVI_VPSS_AttachVbPool failed. s32Ret: 0x%x !\n", s32Ret);
 		goto _need_deinit_vpss_chn;
 	}
-	priv.vi_pool_detached[ch] = false;
-
-	s32Ret = CVI_VPSS_EnableChn(0, ch);
-	if (s32Ret != CVI_SUCCESS) {
-		SAMPLE_PRT("CVI_VPSS_EnableChn failed with %#x\n", s32Ret);
-		goto _need_deinit_vpss_chn;
-	}
-	priv.vpss_chn_enabled[ch] = true;
-	_wm_sync();
 
  priv.vi_chn_stopping[ch] = false;
  return CVI_SUCCESS;
@@ -1917,22 +1912,8 @@ int mmf_del_vi_channel(int ch) {
   vi_direct_venc = -1;
  }
  vpss_chn_max_fps[ch] = 0; // a reopened channel may feed video
- // Detach first: a destroyed pool's id is reused by the next pool, and a
- // channel still naming it would take that pool's blocks. A pool that cannot
- // go yet (a reader still holds a block) is attached again: until the retry,
- // the channel may be enabled again, and without a pool it would starve.
- const bool attached = priv.vi_chn_pool_id[ch] != (int)VB_INVALID_POOLID && !priv.vi_pool_detached[ch];
- if (attached) {
-  result = CVI_VPSS_DetachVbPool(0, ch);
-  if (result != CVI_SUCCESS) return result;
-  priv.vi_pool_detached[ch] = true;
- }
  result = _mmf_destroy_vi_pool(ch);
- if (result != CVI_SUCCESS) {
-  if (attached && CVI_VPSS_AttachVbPool(0, ch, priv.vi_chn_pool_id[ch]) == CVI_SUCCESS)
-   priv.vi_pool_detached[ch] = false;
-  return result;
- }
+ if (result != CVI_SUCCESS) return result;
  priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
  priv.vi_pool_detached[ch] = priv.vi_pool_reclaimed[ch] = false;
  priv.vi_chn_is_inited[ch] = false;

@@ -28,6 +28,15 @@ start failure, CVI_VENC_SendFrame with CVI_ERR_VENC_CORE_FAILED. What
 is kept stays until the system restarts; a channel on a healthy core
 works and closes as before.
 
+A channel whose start was refused, or failed, has no instance: only a
+successful start sets pTestEnc->coreIdx and takes a reference to the
+core, and a failed one releases what it took. Closing such a channel
+made VPU calls on core 0, the zero-initialized index, whatever its
+codec, down to VPU_DeInit(0) without owning a reference, which could
+take the HEVC core from a running channel. cviVEncClose now frees only
+the CPU memory of a channel without an instance, and a failed start
+clears the handle once it has released its resources.
+
 ---
 --- a/interdrv/cvi_vc_drv/module/src/cvi_venc.c
 +++ b/interdrv/cvi_vc_drv/module/src/cvi_venc.c
@@ -83,7 +92,16 @@ works and closes as before.
  }
 --- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
 +++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
-@@ -3029,6 +3029,12 @@
+@@ -2905,6 +2905,8 @@
+ 	cviCloseVpuEnc(pTestEnc);
+ INIT_ERR_ENC_INIT:
+ 	cviDeInitVpuEnc(pTestEnc);
++	/* Released: the channel's close must not release it again. */
++	pTestEnc->handle = NULL;
+ 	return NULL;
+ }
+ 
+@@ -3029,6 +3031,12 @@
  		}
  	}
  
@@ -96,7 +114,7 @@ works and closes as before.
  	pTestEnc->yuvAddr.addrY = pPicCfg->addrY;
  	pTestEnc->yuvAddr.addrCb = pPicCfg->addrCb;
  	pTestEnc->yuvAddr.addrCr = pPicCfg->addrCr;
-@@ -5140,6 +5146,13 @@
+@@ -5140,6 +5148,13 @@
  	CVI_VC_IF("\n");
  
  	EnterVcodecLock(core_idx);
@@ -110,7 +128,31 @@ works and closes as before.
  	memcpy(pEncConfig, &pTestEnc->encConfig, sizeof(TestEncConfig));
  
  	if (cviInitEncoder(pTestEnc, pEncConfig) == NULL) {
-@@ -5789,6 +5802,21 @@
+@@ -5773,6 +5788,7 @@
+ 	stTestEncoder *pTestEnc = NULL;
+ 	UserDataList *userdataNode = NULL;
+ 	UserDataList *n;
++	bool hasInstance;
+ 
+ 	if (handle == NULL)
+ 		return -1;
+@@ -5780,6 +5796,15 @@
+ 
+ 	CVI_VC_IF("\n");
+ 
++	/* An instance exists only after a successful start, which also sets
++	 * pTestEnc->coreIdx and takes a reference to that core; a start that
++	 * failed released what it took and cleared the handle. A channel
++	 * without one (its start refused or failed) owns nothing of the VPU:
++	 * only its CPU memory goes. */
++	hasInstance = pTestEnc->handle != NULL;
++	if (!hasInstance)
++		goto FREE_CHANNEL;
++
+ 	EnterVcodecLock(pTestEnc->coreIdx);
+ 
+ 	ret = cviCheckAndCompareBitstream(pTestEnc);
+@@ -5789,6 +5814,21 @@
  		return ret;
  	}
  
@@ -132,3 +174,21 @@ works and closes as before.
  #if CACHE_ENCODE_HEADER
  	if (pTestEnc->bEncHeader) {
  		for (i = 0; i < ARRAY_SIZE(pTestEnc->headerBackup); i++) {
+@@ -5801,6 +5841,7 @@
+ 	cviCloseVpuEnc(pTestEnc);
+ 	cviDeInitVpuEnc(pTestEnc);
+ 
++FREE_CHANNEL:
+ 	if (pTestEnc->encConfig.pusBitCode) {
+ #ifndef FIRMWARE_H
+ 		osal_free(pTestEnc->encConfig.pusBitCode);
+@@ -5818,7 +5859,8 @@
+ 	}
+ 	pTestEnc->encConfig.userDataBufSize = 0;
+ 
+-	LeaveVcodecLock(pTestEnc->coreIdx);
++	if (hasInstance)
++		LeaveVcodecLock(pTestEnc->coreIdx);
+ 
+ 	if (pTestEnc)
+ 		osal_free(pTestEnc);

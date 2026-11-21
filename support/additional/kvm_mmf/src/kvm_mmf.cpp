@@ -704,6 +704,8 @@ static int _mmf_release_vi_frame(int ch)
 // complete: the core may still read it, so it is never given back. It leaves
 // the slot, which takes new frames for the other encoder and the pictures,
 // and its pool stays (the kernel would not destroy a pool with a block out).
+// The driver keeps every pool past this process as well: after such a core
+// it refuses the last VB exit until the system restarts (osdrv patch 0029).
 static void _mmf_strand_vi_frame(int ch)
 {
  if (!priv.vi_frame_valid[ch]) return;
@@ -1257,6 +1259,8 @@ static void _mmf_sys_exit(void)
 		SAMPLE_COMM_VI_DestroyIsp(&g_stViConfig);
 		SAMPLE_COMM_VI_DestroyVi(&g_stViConfig);
 	}
+	// After a failed encoder core the driver refuses the last VB exit and
+	// keeps the pools (_mmf_vb_reset_stale).
 	SAMPLE_COMM_SYS_Exit();
 }
 
@@ -1456,6 +1460,11 @@ static int _vi_get_unused_ch() {
  * effect"), and a larger capture finds no pool for its frames (2560x1440
  * after a 1920x1080 start: "No valid pool for size(5529600)") until a
  * reboot. As the only media process, bring the count to zero before init.
+ *
+ * After an encoder core failed its reset (CVI_ERR_VENC_CORE_FAILED) the driver
+ * refuses the last exit until the system restarts (osdrv patch 0029): the
+ * core may still use blocks of those pools. The reset stops there, and this
+ * start runs on the pools and configuration of the first one.
  */
 extern "C" int get_base_fd(void);
 extern "C" int vb_ioctl_exit(int fd);
@@ -1463,9 +1472,18 @@ static void _mmf_vb_reset_stale(void)
 {
 	const int fd = get_base_fd();
 	int exits = 0;
-	while (fd >= 0 && exits < 16 && CVI_VB_IsInited() != CVI_FALSE && vb_ioctl_exit(fd) == 0) ++exits;
+	bool refused = false;
+	while (fd >= 0 && exits < 16 && CVI_VB_IsInited() != CVI_FALSE) {
+		refused = vb_ioctl_exit(fd) != 0;
+		if (refused) break;
+		++exits;
+	}
 	if (exits) {
 		fprintf(stderr, "[kvm_mmf] released %d stale VB reference%s\n", exits, exits == 1 ? "" : "s");
+		fflush(stderr);
+	}
+	if (refused) {
+		fprintf(stderr, "[kvm_mmf] video memory kept until restart: an encoder core did not reset\n");
 		fflush(stderr);
 	}
 }

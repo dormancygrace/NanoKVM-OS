@@ -238,15 +238,27 @@ func upgradeSelections() (skip, bounded []string) {
 	return skip, bounded
 }
 
-// apkStep is one step of an apk transaction: "(2/5) Upgrading nanokvm-base
-// (3.5.0-r0 -> 3.6.0-r0)". apk-tools 3 pads the step number to the width of
-// the total, "( 2/12) Installing ...", so the number is matched with the
-// spaces it may carry.
-var apkStep = regexp.MustCompile(`^\(\s*[0-9]+/[0-9]+\)\s+(\S+)\s+(\S+)(?:\s+\((.*)\))?$`)
+// apkStepNumber is the start of every step line of an apk transaction: the
+// step number padded to the width of the total, "( 2/12)", or "(?)" when apk
+// cannot format it.
+const apkStepNumber = `^\((?:\s*[0-9]+/[0-9]+|\?)\)\s+`
 
-// parseAPKStep is the action, package name and parenthesised detail (the
-// version, or "old -> new") of a transaction step line; ok is false for any
-// other line.
+// apkStep is one step of an apk transaction as apk-tools prints it:
+// "(2/5) Upgrading nanokvm-base (3.5.0-r0 -> 3.6.0-r0)" or
+// "( 3/12) Installing nut@community (2.8.2-r0)". The action is one of the
+// messages apk-tools has, some of them several words; a package from a tagged
+// repository carries the tag after its name.
+var (
+	apkStepLine = regexp.MustCompile(apkStepNumber)
+	apkStep     = regexp.MustCompile(apkStepNumber +
+		`(Installing|Purging|Reinstalling|\[APK unavailable, skipped\] Reinstalling|` +
+		`Updating pinning|Downgrading|Replacing|Upgrading)\s+([^\s@]+)(?:@\S+)?\s+\((.*)\)$`)
+)
+
+// parseAPKStep is the action, package name without its repository tag and
+// parenthesised detail (the version, or "old -> new") of a transaction step
+// line; ok is false for any other line, including a step in a form apk-tools
+// does not print.
 func parseAPKStep(line string) (action, name, detail string, ok bool) {
 	m := apkStep.FindStringSubmatch(strings.TrimSpace(line))
 	if m == nil {

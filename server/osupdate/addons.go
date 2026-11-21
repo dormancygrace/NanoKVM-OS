@@ -282,18 +282,23 @@ func IsInstalledAddon(name string) bool {
 }
 
 // CoreChanges lists the packages of the OS that an `apk add --simulate`
-// transcript would upgrade, downgrade, replace or remove: an add-on install
-// must leave the OS as it is.
+// transcript would upgrade, downgrade, replace, reinstall, re-pin or remove:
+// an add-on install must leave the OS as it is. A step line that cannot be
+// read is listed as it is, so the install is refused rather than let through.
 func CoreChanges(simulation, addon string) []string {
 	stored, _ := readCatalog()
 	core := addonCorePackages(stored.Core)
 	var changed []string
 	for _, line := range strings.Split(simulation, "\n") {
-		// Every step but a new installation changes what is there: any
-		// other action on an OS package counts, including ones this code
-		// does not name.
+		// Every step but a new installation changes what is there.
 		action, name, _, ok := parseAPKStep(line)
-		if !ok || action == "Installing" {
+		if !ok {
+			if line = strings.TrimSpace(line); apkStepLine.MatchString(line) {
+				changed = append(changed, line)
+			}
+			continue
+		}
+		if action == "Installing" {
 			continue
 		}
 		if name != addon && (core[name] || strings.HasPrefix(name, "nanokvm-")) {

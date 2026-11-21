@@ -1,0 +1,41 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] venc: a failed core keeps the buffers of its channels
+
+When the reset after a stalled frame fails (patch 0029), the core may
+still read or write the buffers of any instance on it. 0029 keeps the VB
+pools, but destroying a channel still closed its instance and freed the
+buffers the encoder allocates itself: the instance's work buffer
+(VPU_EncClose), the bitstream and report buffers, ROI, CTU QP and SEI
+buffers, and the source and reconstruction frames outside the common VB.
+Another driver could then be given that memory while the core writes it.
+
+cviVEncClose now leaves the instance open and every buffer allocated when
+the instance's core is marked failed; the channel itself is destroyed,
+and the encoder state holding the buffers stays until the system restarts.
+The core takes no new instance, so nothing else frees them. A channel on
+a healthy core is closed as before.
+
+---
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -5789,6 +5789,20 @@
+ 		return ret;
+ 	}
+ 
++	/* A core whose reset failed may still read or write any buffer of an
++	 * instance on it: the work buffer VPU_EncClose would free, the
++	 * bitstream, report, ROI, QP and SEI buffers, the source and
++	 * reconstruction frames. The channel goes, but the instance and every
++	 * buffer stay allocated, with pTestEnc holding them, until the system
++	 * restarts (the VB pools are kept likewise). Nothing else frees them:
++	 * the core takes no new instance. */
++	if (venc_core_failed[pTestEnc->coreIdx]) {
++		CVI_VC_ERR("encoder: core %d did not reset; the channel's buffers stay until restart\n",
++			   pTestEnc->coreIdx);
++		LeaveVcodecLock(pTestEnc->coreIdx);
++		return 0;
++	}
++
+ #if CACHE_ENCODE_HEADER
+ 	if (pTestEnc->bEncHeader) {
+ 		for (i = 0; i < ARRAY_SIZE(pTestEnc->headerBackup); i++) {

@@ -18,8 +18,9 @@ reboot
 ```
 
 `apk update` refreshes repository indexes; `apk upgrade` installs the available
-updates. There are eighteen core packages; optional add-ons and Alpine dependency
-updates are additional.
+updates. There are eighteen core packages; the packages released on their own
+(RustDesk, the computer sensors, the TPU models) and Alpine dependency updates
+are additional.
 
 Reboot when requested to activate updated kernel or bootloader files.
 Completed component transactions refresh affected services through
@@ -83,9 +84,13 @@ on a release before 3.3 uses 3.3.0, see
 RSA public key stays installed for older packages and rollback.
 Custom repositories and C906 overlay entries are left unchanged.
 
-The OS indexes contain core packages only. RustDesk, computer sensors and model packages
-come from the separately signed add-on index on Pages. Add-ons update
-independently of OS releases; RustDesk is not installed in the full SD image.
+RustDesk, the computer sensors and the TPU models are released on their own and
+come from the separately signed add-on index on Pages; they update
+independently of OS releases. `nanokvm-release` depends on RustDesk, the
+computer sensors and the screen model by name, so every device and the full SD
+image have them; each stays off until switched on. The OS indexes offer the
+newest version of these three as well, so that a device without the add-on
+repository line (before 3.5.0) can update.
 
 ## Other migration cases
 
@@ -101,9 +106,10 @@ independently of OS releases; RustDesk is not installed in the full SD image.
 ## Installing and removing software
 
 Use **Settings → Software → Packages**, or `apk add NAME` / `apk del NAME`.
-APK resolves dependencies and verifies signatures. Software → Add-ons manages
-RustDesk, PicoClaw and acme.sh. RustDesk comes from the signed NanoKVM repository;
-PicoClaw and acme.sh use their upstream release downloads.
+APK resolves dependencies and verifies signatures. AI → Text recognition
+installs and removes the OCR models of each language from the signed add-on
+repository. AI → PicoClaw installs PicoClaw and Settings → System → Security
+installs acme.sh, both from their upstream release downloads.
 
 New full SD images use the OS release version. A package-only hotfix does not
 require a new image; the latest-image link continues to offer the newest
@@ -152,16 +158,16 @@ removed.
 
 New GitHub Releases contain OS releases only: corresponding source, checksums,
 and, when built, the SD image and stock migration archive. APKs, indexes and
-add-on downloads live on GitHub Pages. Add-on version tags reserve package
-revisions without creating GitHub Releases. The source link an add-on installs
-names the Git tree it was built from; for RustDesk that is its
+the downloads of packages released on their own live on GitHub Pages. Their
+version tags reserve package revisions without creating GitHub Releases. The
+source link such a package installs names the Git tree it was built from; for RustDesk that is its
 `nanokvm-rustdesk-VERSION-rN` tag (`addons/rustdesk`), whose third-party
 crates and Go modules are pinned by `Cargo.lock` and `go.sum`. No source
 archive is published.
 
 Pages retains the current stable OS release and two previous stable releases,
 only the latest beta, and the current version plus two previous versions of
-each add-on. Packages shared by
+each package released on its own. Packages shared by
 retained releases remain available even when
 originally built earlier. The stable and beta repository URLs do not change.
 The beta feed selects the newer of the current stable and beta releases;

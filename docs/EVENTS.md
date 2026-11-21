@@ -8,7 +8,7 @@ Settings > System > Event log shows what happened to the host and who did what t
 | --- | --- |
 | Host powered on, powered off | the power LED changed and stayed so for 5 s (needs the LED wired and ATX on) |
 | HDMI signal lost, restored | while video capture runs for any reason (a viewer, the screen watch); capture is not kept running for the journal |
-| Blue screen, kernel panic on the host | the screen watch of the TPU add-on saw one; the text read off the screen is kept with it |
+| Blue screen, kernel panic on the host | the screen watch saw one (the screen model, with text recognition installed and on); the text read off the screen is kept with it |
 | Login from a new address, logins blocked, attempts limited | the web login, Redfish and IPMI |
 | Button pressed | a press of the power or reset button, with its length and who asked: a web user, Redfish, IPMI, MCP |
 | Image mounted, image ejected | the virtual drive's medium changed through the web page (with the user) or through MCP ("API") |

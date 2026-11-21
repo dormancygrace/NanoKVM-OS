@@ -100,8 +100,8 @@ func serialConsoleState() *proto.SerialConsoleRsp {
 	if _, err := os.Stat(helperDiskImage()); err == nil {
 		rsp.Disk.Available = true
 		// A package upgrade replaces the image while the LUN holds the old
-		// one (the kernel then shows the path as deleted), and the computer
-		// sensors add-on brings another image: the host sees the old one
+		// one (the kernel then shows the path as deleted), and turning the
+		// computer sensors on brings another image: the host sees the old one
 		// until the USB devices reconnect.
 		rsp.Disk.Attached, rsp.Disk.Stale = helperDiskLun()
 	}

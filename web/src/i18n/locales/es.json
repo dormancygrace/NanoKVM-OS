@@ -847,33 +847,8 @@
         "saved": "Programación de actualización de índices guardada",
         "failed": "No se pudo cargar o guardar la programación de actualización de índices"
       },
-      "addons": {
-        "title": "Complementos",
-        "packages": "Paquetes",
-        "open": "Abrir PicoClaw",
-        "source": "Versiones oficiales",
-        "picoclawDescription": "Asistente de IA con control remoto opcional. Instala la última versión estable desde el sitio web oficial de PicoClaw.",
-        "install": "Instalar",
-        "update": "Actualizar a {{version}}",
-        "remove": "Eliminar",
-        "removeTitle": "¿Eliminar {{name}}?",
-        "removeConfirm": "El complemento se desinstala; sus ajustes se conservan.",
-        "version": "Versión {{version}}",
-        "installedVersion": "Instalada: {{version}}",
-        "details": "Detalles",
-        "notOffered": "El repositorio ya no ofrece este complemento.",
-        "needsOs": "Requiere NanoKVM OS {{version}} o posterior (instalado: {{installed}}). Actualice primero NanoKVM OS.",
-        "listChecked": "Lista de complementos del repositorio: {{date}}",
-        "listNever": "La lista de complementos aún no se ha cargado.",
-        "listChecking": "Comprobando el repositorio…",
-        "checkNow": "Comprobar ahora",
-        "dailyOff": "La comprobación diaria de actualizaciones está desactivada: la lista solo cambia cuando usted comprueba.",
-        "listFailed": "La última comprobación falló.",
-        "failed": "La solicitud falló.",
-        "installedSection": "Instalados",
-        "availableSection": "Disponibles"
-      },
       "title": "Software",
+      "packages": "Paquetes",
       "description": "Gestiona paquetes de los repositorios de Alpine configurados. Los cambios de paquetes usan la misma base de datos APK y los mismos servicios que SSH.",
       "refresh": "Actualizar índices",
       "upgrade": "Actualizar todo",
@@ -2147,16 +2122,10 @@
       }
     },
     "rustdesk": {
-      "checkUpdates": "Buscar actualizaciones",
-      "absent": "No instalado",
       "running": "En ejecución",
       "stopped": "Detenido",
       "registered": "Registrado",
       "registering": "Esperando al servidor de ID",
-      "install": "Instalar",
-      "remove": "Eliminar",
-      "upgrade": "Actualizar a {{version}}",
-      "addonVersion": "Versión del complemento",
       "rustdeskVersion": "Base del protocolo RustDesk",
       "unknownVersion": "Desconocida",
       "save": "Guardar configuración",
@@ -2184,7 +2153,6 @@
       "webrtc": "WebRTC",
       "webrtcOn": "Se acepta cuando el cliente lo ofrece, sea cual sea el transporte de vídeo.",
       "transportHint": "RustDesk acepta conexiones WebRTC sea cual sea el transporte de Ajustes > Vídeo; un cliente que no ofrece WebRTC se conecta por TCP y relay. WebRTC usa los servidores STUN y TURN del vídeo y puede reducir la frecuencia de imagen en NanoKVM. El cliente RustDesk 1.5 no intenta TCP en una ronda que ofrece WebRTC: para conectar por ID mediante TCP, desactive WebRTC en el cliente.",
-      "open": "Abrir administración",
       "settings": "RustDesk",
       "keepPassword": "Déjalo vacío para mantener la contraseña actual",
       "inputDefaults": "Activar el acceso remoto cambia el USB a la composición de RustDesk (teclado, ambos modos de ratón, disco virtual y, con sonido, audio USB); desactivarlo restaura la anterior, salvo que se haya cambiado mientras tanto.",
@@ -2196,15 +2164,11 @@
       "audioHint": "Activa el audio USB automáticamente. Selecciona NanoKVM como salida de sonido en el equipo conectado.",
       "audioMuted": "La transmisión de sonido a través de RustDesk está desactivada.",
       "clients": "Máximo de espectadores",
-      "unavailable": "RustDesk no está disponible en los repositorios APK configurados. Añade el repositorio que contiene nanokvm-rustdesk o instala su APK desde Paquetes.",
       "explain": "Conecta un cliente de RustDesk a este ID para ver el HDMI y controlar el teclado y el ratón USB.",
       "video": "El vídeo usa automáticamente el códec seleccionado en la configuración de vídeo del NanoKVM. H.265 requiere compatibilidad del cliente. Vuelve a conectar tras cambiar el códec del dispositivo. Tomar el control desde el navegador libera la entrada de RustDesk.",
-      "deletion": "¿Eliminar el paquete? La configuración del servidor, la contraseña y el ID del dispositivo se conservan.",
       "failed": "La solicitud falló",
       "saved": "Configuración guardada",
       "passwordUpdated": "Contraseña actualizada",
-      "description": "Acceso remoto al equipo conectado al NanoKVM mediante RustDesk.",
-      "done": "Operación del paquete completada",
       "id": "ID de RustDesk",
       "source": "Código fuente y licencia",
       "passwordRequired": "Introduce una contraseña de 8 a 64 bytes",
@@ -2353,8 +2317,6 @@
       "title": "IA",
       "screenText": {
         "title": "Reconocimiento de texto",
-        "notInstalled": "El reconocimiento de texto necesita el complemento de modelo de un idioma.",
-        "openAddons": "Complementos",
         "enabled": "Reconocimiento de texto",
         "enabledDescription": "Activado, un botón sobre la pantalla lee su texto, y MCP y PicoClaw también pueden leerlo. Desactivado, ninguno puede.",
         "switchFailed": "No se pudo guardar el ajuste"
@@ -2456,8 +2418,7 @@
       "eventHint": {
         "power": "el host se encendió o se apagó; requiere control ATX con el LED de encendido conectado.",
         "hdmi": "la imagen se perdió o volvió, también cuando el host apaga su pantalla; se detecta mientras la captura de vídeo está activa.",
-        "security": "una dirección bloqueada tras inicios de sesión fallidos, demasiados intentos de inicio de sesión IPMI, un inicio de sesión desde una dirección nueva.",
-        "screen": "una pantalla azul o un kernel panic, reconocidos por el complemento TPU; el texto se lee cuando nadie ve el vídeo y se envía con una captura."
+        "security": "una dirección bloqueada tras inicios de sesión fallidos, demasiados intentos de inicio de sesión IPMI, un inicio de sesión desde una dirección nueva."
       },
       "field": {
         "token": "Token",
@@ -2636,7 +2597,6 @@
       "diskStale": "El agente aparecerá en el disco auxiliar cuando los dispositivos USB se reconecten",
       "diskMissing": "No hay disco auxiliar: requiere el disco virtual en la composición USB y reconectar los dispositivos USB",
       "agentVersion": "agente {{version}}",
-      "agentUpdate": "El complemento trae el agente {{version}}: para actualizar, ejecute de nuevo en el ordenador el instalador de sensores del disco auxiliar.",
       "serialConsole": "El ordenador tiene su consola de inicio de sesión en este puerto (la configura el asistente de consola serie), así que los sensores no pueden usarlo. Elija Red USB."
     }
   },

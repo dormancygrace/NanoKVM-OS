@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import {
   configureRustDesk,
   getRustDeskStatus,
-  rustDeskPackageAction,
+  regenerateRustDeskPassword,
   type RustDeskConfig
 } from '@/api/rustdesk';
 import { showRequestError } from '@/lib/show-request-error.ts';
@@ -28,8 +28,6 @@ import { pollWhileVisible } from '@/lib/visible-poll';
 import { rustDeskStatusAtom } from '@/jotai/rustdesk';
 import { themeAtom } from '@/jotai/settings.ts';
 import { SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
-
-import { RustDeskVersions } from '../software/rustdesk-versions';
 
 export const RustDeskControls = () => {
   const { t } = useTranslation('translation', { keyPrefix: 'settings.rustdesk' });
@@ -114,7 +112,7 @@ export const RustDeskControls = () => {
     setBusy(true);
     try {
       const response =
-        action === 'save' ? await configureRustDesk(values!) : await rustDeskPackageAction(action);
+        action === 'save' ? await configureRustDesk(values!) : await regenerateRustDeskPassword();
       if (!mounted.current || started !== generation.current) return;
       if (response.code !== 0) {
         showRequestError(response, 'settings.rustdesk.failed');
@@ -140,9 +138,18 @@ export const RustDeskControls = () => {
       {error && <Alert type="error" title={error} showIcon />}
       {!status && !error && <Spin />}
       <SettingsSection>
-        {status?.installed && <RustDeskVersions status={status} />}
+        {status && (
+          <div className="text-fg-muted flex flex-col gap-1 text-sm">
+            <span>
+              {t('packageVersion')}: {status.version || t('unknownVersion')}
+            </span>
+            <span>
+              {t('rustdeskVersion')}: {status.rustdesk_version || t('unknownVersion')}
+            </span>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-4">
-          {status?.installed && (
+          {status && (
             <StatusBadge tone={status.running ? 'success' : 'neutral'}>
               {status.running ? t('running') : t('stopped')}
             </StatusBadge>
@@ -160,7 +167,7 @@ export const RustDeskControls = () => {
             <Typography.Text copyable>{status.id}</Typography.Text>
           </div>
         )}
-        {status?.installed && status.config.password_mode === 'temporary' && (
+        {status?.config.password_mode === 'temporary' && (
           <div>
             {status.temporary_password ? (
               <div className="flex flex-wrap items-center gap-2">
@@ -185,7 +192,7 @@ export const RustDeskControls = () => {
         )}
         <p className="m-0">{t('explain')}</p>
       </SettingsSection>
-      {status?.installed && (
+      {status && (
         <ConfigProvider
           theme={{
             // a step lighter than the dialog; the light theme keeps its own white
@@ -359,7 +366,7 @@ export const RustDeskControls = () => {
           </Form>
         </ConfigProvider>
       )}
-      {status?.installed && status.source_url && (
+      {status?.source_url && (
         <a href={status.source_url} target="_blank" rel="noopener noreferrer">
           {t('source')} · AGPL-3.0
         </a>

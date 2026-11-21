@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"NanoKVM-Server/internal/apkrun"
-	log "github.com/sirupsen/logrus"
 )
 
 // Update notices come from a light, periodic look at the NanoKVM repository
@@ -268,12 +267,6 @@ func CheckUpdates(ctx context.Context, network bool) error {
 			err = fmt.Errorf("version check failed: %s", strings.TrimSpace(out))
 		} else {
 			n.Updates = parseSoftwareUpdates(out)
-		}
-	}
-	if err == nil {
-		// The add-ons of the same index: a new one appears with this check.
-		if e := refreshAddonCatalog(ctx, repos, n.CheckedAt); e != nil {
-			log.Warnf("add-on list: %v", e)
 		}
 	}
 	if err != nil {

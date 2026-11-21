@@ -1,4 +1,4 @@
-// Text read from the screen by the TPU add-on (GET /api/vm/screen/text):
+// Text read from the screen by the TPU (GET /api/vm/screen/text):
 // boxes of words in the pixels of the captured picture.
 
 export type ScreenTextBox = {
@@ -17,20 +17,12 @@ export type ScreenTextResult = {
   total_ms: number;
 };
 
-// The recognizers of the add-on; the first is the server's default.
+// The recognizers, one model package each; the first is the server's default.
 export const screenTextLanguages = ['latin', 'chinese', 'cyrillic'] as const;
 export type ScreenTextLanguage = (typeof screenTextLanguages)[number];
 
 function isScreenTextLanguage(value: unknown): value is ScreenTextLanguage {
   return screenTextLanguages.includes(value as ScreenTextLanguage);
-}
-
-// The switch of Settings > AI > Text recognition from its GET reply. A server
-// from before the switch answers {language, languages}: there text
-// recognition is always on and cannot be turned off.
-export function screenTextSwitch(data: { enabled?: unknown } | null | undefined) {
-  if (typeof data?.enabled === 'boolean') return { enabled: data.enabled, switchable: true };
-  return { enabled: true, switchable: false };
 }
 
 // The reading dialog keeps the last language picked in this browser; a first
@@ -108,4 +100,29 @@ export function boxesToText(boxes: ScreenTextBox[]) {
     .sort((a, b) => centre(a[0]) - centre(b[0]))
     .map((line) => line.map((box) => box.text).join(' '))
     .join('\n');
+}
+
+// Reads the text recognition settings until the server reports no language
+// change running, applying each answer, and gives the last one. read throws
+// when no answer comes (it is tried again after wait) and gives null when a
+// newer request has taken over the page's state, which ends the reading.
+export async function readScreenTextSettingsSettled<T extends { changing: boolean }>(
+  read: () => Promise<T | null>,
+  apply: (settings: T) => void,
+  wait: () => Promise<void>
+): Promise<T | null> {
+  for (;;) {
+    let settings: T | null | undefined;
+    try {
+      settings = await read();
+    } catch {
+      // No answer: the device may be busy or the connection down; ask again.
+    }
+    if (settings === null) return null;
+    if (settings) {
+      apply(settings);
+      if (!settings.changing) return settings;
+    }
+    await wait();
+  }
 }

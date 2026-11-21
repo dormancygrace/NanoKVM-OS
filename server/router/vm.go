@@ -61,9 +61,10 @@ func vmRouter(r *gin.Engine) {
 	api.GET("/vm/gpio", service.GetGpio)                                       // get gpio
 	admin.POST("/vm/screen", middleware.RequireVideo, service.SetScreen)       // update screen
 	api.GET("/vm/screen", service.GetScreen)                                   // read shared screen settings
-	admin.GET("/vm/screen/text", service.GetScreenText)                        // read the text on the screen (TPU add-on)
+	admin.GET("/vm/screen/text", service.GetScreenText)                        // read the text on the screen (TPU)
 	admin.GET("/vm/screen/text/settings", service.GetScreenTextSettings)       // on or off, installed languages
 	admin.POST("/vm/screen/text/settings", service.SetScreenTextSettings)      // turn text recognition on or off
+	admin.POST("/vm/screen/text/language", service.SetScreenTextLanguage)      // install or remove the models of a language
 	api.GET("/vm/video/capabilities", service.GetVideoCapabilities)            // video choices and limits
 	admin.POST("/vm/video", middleware.RequireVideo, service.SetVideoSettings) // apply video settings together
 	admin.GET("/vm/video/watermark", service.GetWatermark)                     // the watermark of every stream

@@ -8,7 +8,7 @@ import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { type PicoclawRuntimeStatus } from '@/jotai/picoclaw.ts';
 
 // Settings > AI > PicoClaw without PicoClaw: install it here (the latest
-// release, as Software > Add-ons does) and follow the download. The status
+// release) and follow the download. The status
 // then reports installed and the page shows its settings.
 export const PicoclawInstall = ({
   status,

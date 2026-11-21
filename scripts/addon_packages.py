@@ -13,7 +13,7 @@ import subprocess
 
 # Add-ons published apart from NanoKVM OS, with NAME-VERSION-rN version tags: RustDesk by the RustDesk add-on
 # workflow, the others by the add-on workflow (addon.yml). Pages indexes
-# them without an OS release. No published release pins one from the
+# them without an OS release; BASE below are part of every NanoKVM OS. No published release pins one from the
 # archived NanoKVM-OS-packages repository.
 ADDONS = ('nanokvm-rustdesk', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
           'nanokvm-model-ocr-cyrillic', 'nanokvm-model-ocr-chinese', 'nanokvm-model-screen',
@@ -21,8 +21,7 @@ ADDONS = ('nanokvm-rustdesk', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
 # Packages that an OS package provides and replaces, and that are no longer
 # built. Pages keeps serving their last releases: a device on a release whose
 # OS packages lack them installs them from there, and a rollback to such a
-# release needs them when its world names them. A device whose OS provides
-# the name does not list it as an add-on (server/osupdate/addons.go).
+# release needs them when its world names them.
 RETIRED = ('nanokvm-ipmi',)
 RELEASES = 'https://github.com/dormancygrace/NanoKVM-OS/releases/download/'
 SOURCES = tuple(RELEASES + name + '-' for name in ADDONS + RETIRED)
@@ -30,6 +29,12 @@ SOURCES = tuple(RELEASES + name + '-' for name in ADDONS + RETIRED)
 TAG = re.compile('(' + '|'.join(map(re.escape, ADDONS + RETIRED)) + r')-(\d+\.\d+\.\d+)-r(\d+)')
 
 
+# The add-ons nanokvm-release depends on: part of every NanoKVM OS, off until
+# switched on, but built and published by their own workflows like the others,
+# so that each keeps its version until its sources change. Devices and the
+# image build install them from the add-on repository; the OS indexes offer
+# them too (assemble-apk-repo.py), for devices without that repository line.
+BASE = ('nanokvm-rustdesk', 'nanokvm-host-sensors', 'nanokvm-model-screen')
 MODEL_ADDONS = tuple(name for name in ADDONS if name.startswith('nanokvm-model-'))
 BUILD_ADDONS = tuple(name for name in ADDONS if name != 'nanokvm-rustdesk')
 

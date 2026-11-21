@@ -4,22 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-type nopCloser struct{}
-
-func (nopCloser) Close() error { return nil }
-
-// The real update lock lives under /kvmapp; package tests hold a stand-in.
-func TestMain(m *testing.M) {
-	updateLock = func() (io.Closer, error) { return nopCloser{}, nil }
-	os.Exit(m.Run())
-}
 
 func temporaryConfig(t *testing.T) {
 	t.Helper()
@@ -67,7 +56,7 @@ func TestCustomAddressesAndConfigValidation(t *testing.T) {
 	}
 }
 
-func TestStatusRedactsPasswordAndDistinguishesAvailability(t *testing.T) {
+func TestStatusRedactsPassword(t *testing.T) {
 	temporaryConfig(t)
 	c := defaultConfig()
 	c.Password = "private-pass"
@@ -75,41 +64,20 @@ func TestStatusRedactsPasswordAndDistinguishesAvailability(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := NewService(NewBridge())
-	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		if name == "apk" && args[0] == "query" {
-			return []byte(`[{"name":"nanokvm-rustdesk","version":"0.1.0-r0"}]`), nil
-		}
-		return nil, errors.New("not installed")
+	s.run = func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("stopped")
 	}
 	status, err := s.Status()
 	if err != nil {
 		t.Fatal(err)
 	}
 	encoded, _ := json.Marshal(status)
-	if strings.Contains(string(encoded), c.Password) || !status.HasPassword || status.Installed || !status.Available || status.Running {
+	if strings.Contains(string(encoded), c.Password) || !status.HasPassword || status.Running {
 		t.Fatal(string(encoded))
 	}
 	info, err := os.Stat(ConfigFile)
 	if err != nil || info.Mode().Perm() != 0600 {
 		t.Fatalf("config permissions: %v %v", info, err)
-	}
-}
-
-func TestPackageActionsUseFixedArgv(t *testing.T) {
-	s := NewService(NewBridge())
-	s.run = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		if name != "apk" || len(args) != 2 || args[1] != Package {
-			t.Fatalf("%s %v", name, args)
-		}
-		return nil, nil
-	}
-	for _, action := range []string{"install", "remove"} {
-		if err := s.Action(action); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if s.Action("install another-package") == nil {
-		t.Fatal("unknown action accepted")
 	}
 }
 
@@ -132,13 +100,10 @@ func TestTemporaryPasswordExposedOnlyWhenSelectedAndRunning(t *testing.T) {
 		if name == "rc-service" && !running {
 			return nil, errors.New("stopped")
 		}
-		if name == "apk" && strings.Join(args, " ") == "info -e -v "+Package {
-			return []byte(Package + "-0.2.0-r0\n"), nil
-		}
 		return nil, nil
 	}
 	status, err := s.Status()
-	if err != nil || status.TemporaryPassword != "ABCDEFGH23" || status.Config.Password != "" || status.Version != "0.2.0-r0" {
+	if err != nil || status.TemporaryPassword != "ABCDEFGH23" || status.Config.Password != "" {
 		t.Fatalf("temporary status: %+v %v", status, err)
 	}
 	running = false

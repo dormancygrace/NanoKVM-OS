@@ -1,0 +1,262 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] venc: polls give up on a frame that never finishes
+
+An H.26x frame holds the codec lock from its start until a get of its
+stream returns it. A get that times out leaves the lock held: the caller
+is meant to poll again. libkvm polls with a timeout and, when a frame is
+still pending after a few seconds, tears the channel down. If the frame
+never finishes, CVI_VENC_DestroyChn then waits for that lock forever,
+in uninterruptible sleep; only a reboot frees the encoder.
+
+The blocking get resets the core after interruptTimeout, but polls never
+did. Now a poll that finds the frame still encoding 2 s after the first
+such poll resets the core and fails the get with a status of its own;
+the error path releases the lock (with stream buffers of their own,
+bSingleEsBuf 0, as libkvm's channels have):
+
+- CVI_ERR_VENC_FRAME_ABORTED (the value of CVI_ERR_VENC_SYS_NOTREADY,
+  which no other get path returns): the core was reset; the frame is gone
+  and is not to be asked for again.
+- CVI_ERR_VENC_CORE_FAILED (the value of CVI_ERR_VENC_NOT_PERM, likewise):
+  the reset did not complete. The core may still be working on the
+  frame's buffers, so it takes no new channel until the system restarts.
+  The base VB keeps its pools until then as well: its last exit (the
+  media process's, or the stale-reference reset of the next start) fails
+  with EBUSY instead of freeing them, so the blocks that core may still use
+  are never handed out again.
+
+The HEVC core's reset reported success even when the core did not wake;
+it reports the failure now. Any interrupt of a frame ends its pending
+time, so a stale start time cannot trigger a reset later.
+
+A frame takes one frame period at most, so a pending frame that old never
+finishes.
+
+---
+--- a/interdrv/base/vb.c
++++ b/interdrv/base/vb.c
+@@ -19,6 +19,11 @@
+ static struct mutex poolLock;
+ 
+ static DEFINE_MUTEX(g_lock);
++/* Set when hardware may still use blocks whose owner has gone: an encoder
++ * core whose reset did not complete keeps the frame it was given
++ * (vb_keep_pools). The last exit then keeps the pools, and with them every
++ * block, until the system restarts. */
++static bool vb_pools_kept;
+ 
+ DEFINE_HASHTABLE(vb_hash, 6);
+ 
+@@ -403,6 +408,11 @@
+ 		mutex_unlock(&g_lock);
+ 		return 0;
+ 	}
++	if (vb_pools_kept && atomic_read(&ref_count) == 1) {
++		CVI_TRACE_BASE(CVI_BASE_DBG_WARN, "vb pools kept until restart: hardware may still use their blocks\n");
++		mutex_unlock(&g_lock);
++		return -EBUSY;
++	}
+ 	if (atomic_sub_return(1, &ref_count) > 0) {
+ 		mutex_unlock(&g_lock);
+ 		return 0;
+@@ -421,6 +431,14 @@
+ 	return 0;
+ }
+ 
++void vb_keep_pools(void)
++{
++	mutex_lock(&g_lock);
++	vb_pools_kept = true;
++	mutex_unlock(&g_lock);
++}
++EXPORT_SYMBOL_GPL(vb_keep_pools);
++
+ VB_POOL find_vb_pool(CVI_U32 u32BlkSize)
+ {
+ 	VB_POOL Pool = VB_INVALID_POOLID;
+--- a/interdrv/cvi_vc_drv/module/src/enc_ctx.c
++++ b/interdrv/cvi_vc_drv/module/src/enc_ctx.c
+@@ -12,6 +12,11 @@
+ #define DEF_IQP 32
+ #define DEF_PQP 32
+ #define ENC_TIMEOUT (-2)
++/* TE_ERR_ENC_FRAME_ABORTED of the encoder sample layer: the frame did not
++ * finish and the core was reset; the stream will never come. */
++#define ENC_FRAME_ABORTED (-25)
++/* TE_ERR_ENC_CORE_FAILED: the reset after such a frame did not complete. */
++#define ENC_CORE_FAILED (-26)
+ #define DEAULT_QP_MAP_BITRATE 6000
+ 
+ static CVI_S32 jpege_init(CVI_VOID);
+@@ -1188,6 +1193,10 @@
+ 	CVI_VENC_INFO("cviVEncGetStream status %d\n", status);
+ 	if (status == ENC_TIMEOUT) {
+ 		return CVI_ERR_VENC_BUSY;
++	} else if (status == ENC_FRAME_ABORTED) {
++		return CVI_ERR_VENC_FRAME_ABORTED;
++	} else if (status == ENC_CORE_FAILED) {
++		return CVI_ERR_VENC_CORE_FAILED;
+ 	} else if (status) {
+ 		CVI_VENC_ERR("get stream failed,status %d\n", status);
+ 		return CVI_ERR_VENC_INVALILD_RET;
+--- a/interdrv/cvi_vc_drv/vcodec/sample/cvitest_internal.h
++++ b/interdrv/cvi_vc_drv/vcodec/sample/cvitest_internal.h
+@@ -80,6 +80,9 @@
+ 	void *yuvFeeder;
+ 	YuvInfo yuvFeederInfo;
+ 	Uint32 interruptTimeout;
++	/* jiffies of the first poll that found the frame still encoding, 0 if
++	 * none: polls give up on the frame after VENC_POLL_STALL_MS. */
++	unsigned long pollPendingSince;
+ #ifdef TEST_ENCODE_CUSTOM_HEADER
+ 	hrd_t hrd;
+ #endif
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -21,6 +21,7 @@
+ #include "cvi_enc_internal.h"
+ #include "coda9/coda9.h"
+ #include <base_cb.h>
++#include <vb.h>
+ #include <vi_cb.h>
+ #include <vpss_cb.h>
+ #include <vdi.h>
+@@ -1516,6 +1517,7 @@
+ #endif
+ 	pTestEnc->handle->bBuffFull = CVI_FALSE;
+ 
++	pTestEnc->pollPendingSince = 0;
+ 	ret = VPU_EncStartOneFrame(pTestEnc->handle, pEncParam);
+ 	if (ret != RETCODE_SUCCESS) {
+ 		CVI_VC_ERR("VPU_EncStartOneFrame failed Error code is 0x%x\n",
+@@ -2480,6 +2482,14 @@
+ }
+ #endif
+ 
++/* How long polls wait for one frame before the core is reset. */
++#define VENC_POLL_STALL_MS 2000
++
++/* A core whose reset did not complete: it may still be working on the
++ * buffers of the frame it gave up, so it takes no new channel until the
++ * system restarts. */
++static bool venc_core_failed[MAX_NUM_VPU_CORE];
++
+ static int cviGetEncodedInfo(stTestEncoder *pTestEnc, int s32MilliSec)
+ {
+ 	EncParam *pEncParam = &pTestEnc->encParam;
+@@ -2500,7 +2510,40 @@
+ 
+ 		if (int_reason == -1) {
+ 			if (s32MilliSec >= 0) {
+-				/* A poll: the caller retries. */
++				unsigned long since = pTestEnc->pollPendingSince;
++
++				/* A poll: the caller retries, until the frame has
++				 * been pending for VENC_POLL_STALL_MS. A frame takes
++				 * one frame period at most; one that has not finished
++				 * by then never will, and it keeps the codec lock: a
++				 * caller that gives up and destroys the channel would
++				 * wait for that lock forever. Reset the core and fail
++				 * the get with a status of its own; the error path
++				 * releases the lock (libkvm's channels have stream
++				 * buffers of their own, bSingleEsBuf 0). A reset that
++				 * did not complete leaves the core possibly still
++				 * working on the frame's buffers: that is reported
++				 * apart, and the core takes no new channel. */
++				if (!since) {
++					pTestEnc->pollPendingSince = jiffies | 1;
++				} else if (time_after(jiffies, since + msecs_to_jiffies(VENC_POLL_STALL_MS))) {
++					RetCode reset;
++
++					pTestEnc->pollPendingSince = 0;
++					CVI_VC_ERR("encoder: frame not done in %d ms, resetting the core\n",
++						   VENC_POLL_STALL_MS);
++					reset = VPU_SWReset(coreIdx, SW_RESET_SAFETY, pTestEnc->handle);
++					if (reset != RETCODE_SUCCESS) {
++						venc_core_failed[coreIdx] = true;
++						/* The core may still use the frame's
++						 * blocks after their owner has gone. */
++						vb_keep_pools();
++						CVI_VC_ERR("encoder: core %d reset failed (%d); it takes no new channel\n",
++							   coreIdx, reset);
++						return TE_ERR_ENC_CORE_FAILED;
++					}
++					return TE_ERR_ENC_FRAME_ABORTED;
++				}
+ 				CVI_VC_TRACE(
+ 					"encoder timeout happened in non_block mode\n");
+ 				return TE_STA_ENC_TIMEOUT;
+@@ -2574,6 +2617,7 @@
+ 		}
+ 
+ 		if (int_reason) {
++			pTestEnc->pollPendingSince = 0;
+ 			VPU_ClearInterrupt(coreIdx);
+ 			if (int_reason & (1 << INT_WAVE_ENC_PIC)) {
+ 				break;
+@@ -5630,6 +5674,11 @@
+ 		CVI_VC_ERR("cviSetCoreIdx, ret = %d\n", ret);
+ 		return ret;
+ 	}
++	if (venc_core_failed[pEncConfig->coreIdx]) {
++		CVI_VC_ERR("encoder core %d did not reset after a stalled frame; no new channel\n",
++			   pEncConfig->coreIdx);
++		return TE_ERR_ENC_CORE_FAILED;
++	}
+ 
+ 	EnterVcodecLock(pEncConfig->coreIdx);
+ 	productId = VPU_GetProductId(pEncConfig->coreIdx);
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.h
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.h
+@@ -46,6 +46,11 @@
+ 	TE_ERR_ENC_H265_DBLK = -22,
+ 	TE_ERR_ENC_H264_INTRA_PRED = -23,
+ 	TE_ERR_ENC_SVC_PARAM = -24,
++	/* The frame did not finish; the core was reset (VENC_POLL_STALL_MS). */
++	TE_ERR_ENC_FRAME_ABORTED = -25,
++	/* The reset after such a frame did not complete; the core takes no new
++	 * channel. */
++	TE_ERR_ENC_CORE_FAILED = -26,
+ };
+ 
+ #ifdef __cplusplus
+--- a/interdrv/cvi_vc_drv/vcodec/vpuapi/wave/common/common.c
++++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/wave/common/common.c
+@@ -1018,6 +1018,9 @@
+ 
+ 	if (resetMode == SW_RESET_SAFETY || resetMode == SW_RESET_FORCE) {
+ 		ret = Wave4VpuSleepWake(coreIdx, FALSE, 0);
++		/* A core that did not wake is not usable: say so. */
++		if (ret != RETCODE_SUCCESS)
++			return ret;
+ 	}
+ 
+ 	return RETCODE_SUCCESS;
+--- a/interdrv/include/common/kapi/vb.h
++++ b/interdrv/include/common/kapi/vb.h
+@@ -26,6 +26,8 @@
+ 
+ int32_t vb_get_pool_info(struct vb_pool **pool_info);
+ void vb_cleanup(void);
++/* Keeps the pools until the system restarts (see vb.c). */
++void vb_keep_pools(void);
+ int32_t vb_get_config(struct cvi_vb_cfg *pstVbConfig);
+ 
+ int32_t vb_create_pool(struct cvi_vb_pool_cfg *config);
+--- a/interdrv/include/common/uapi/linux/cvi_comm_venc.h
++++ b/interdrv/include/common/uapi/linux/cvi_comm_venc.h
+@@ -388,6 +388,14 @@
+ 	CVI_ERR_VENC_BUTT
+ } VENC_RECODE_E_ERRTYPE;
+ 
++/* A frame the encoder did not finish: the core was reset and its stream will
++ * never come (CVI_VENC_GetStream). No other getStream path returns this code. */
++#define CVI_ERR_VENC_FRAME_ABORTED CVI_ERR_VENC_SYS_NOTREADY
++/* Such a frame whose core did not complete its reset: the core may still use
++ * the frame's buffers and takes no new channel until the system restarts. No
++ * other getStream path returns this code either. */
++#define CVI_ERR_VENC_CORE_FAILED CVI_ERR_VENC_NOT_PERM
++
+ /*the nalu type of H264E*/
+ typedef enum _H264E_NALU_TYPE_E {
+ 	H264E_NALU_BSLICE = 0, /*B SLICE types*/

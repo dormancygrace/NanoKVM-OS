@@ -12,9 +12,10 @@ import (
 
 // The helper disk is the read-only disk the computer sees next to the
 // virtual drive (a LUN of it, S03usbdev). NanoKVM OS brings one with the
-// serial console helper alone. With the computer sensors add-on the server
-// puts together another, helperDiskFile, with that helper and the add-on's
-// agent, and S03usbdev attaches it instead: one disk, not one per helper.
+// serial console helper alone. While the computer sensors are on (a mode
+// other than off) the server puts together another, helperDiskFile, with
+// that helper and the sensors agents, and S03usbdev attaches it instead: one
+// disk, not one per helper.
 var helperDiskFile = "/var/lib/nanokvm/helper-disk.img"
 
 // What the composed disk was last built from (sizes and times of its
@@ -98,11 +99,12 @@ func fileSignature(paths ...string) string {
 	return b.String()
 }
 
-// reconcileHelperDisk keeps the composed disk in step with the add-on:
-// built while the add-on is installed, removed with it. The LUN keeps the
-// image it has until the USB devices reconnect; helperDiskLun says so.
+// reconcileHelperDisk keeps the composed disk in step with the sensors
+// setting: built while they are on, removed when they are turned off, so that
+// a NanoKVM that does not use them writes no image. The LUN keeps the image it
+// has until the USB devices reconnect; helperDiskLun says so.
 func reconcileHelperDisk() {
-	if !HostSensorsInstalled() {
+	if hostSensorsMode() == hostSensorsOff {
 		helperDiskBuiltFrom = ""
 		if err := os.Remove(helperDiskFile); err != nil && !os.IsNotExist(err) {
 			log.Errorf("helper disk: %v", err)

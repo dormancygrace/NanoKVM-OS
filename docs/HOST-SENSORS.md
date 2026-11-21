@@ -2,14 +2,13 @@
 
 The NanoKVM can show the sensors of the computer it is plugged into: temperatures, voltages, fan speeds, power, and whatever else that computer measures. A program on the computer, the **agent** (`nanokvm-sensors`), reads them and sends a report every few seconds over the USB cable. The NanoKVM keeps the last report and shows it in **Settings > Services > Computer sensors**.
 
-This is an add-on, `nanokvm-host-sensors` (Settings > Software > Add-ons). Without it nothing of this runs or shows: the page is not in the menu, the serial port stays free and the report address refuses. The add-on carries the agent; the receiving side is part of NanoKVM OS.
+The package `nanokvm-host-sensors`, part of every NanoKVM OS, carries the agents; it is built and published on its own, so a new agent reaches devices with the next package update. The feature is off until a connection is chosen: until then nothing of it runs, the serial port stays free, the report address refuses and no helper disk image is written.
 
 Agents: Windows (64-bit, 10 and 11) and Linux (any with `/sys/class/hwmon`; a systemd service).
 
 ## Setting up
 
-1. Install the add-on. **Services > Computer sensors** appears.
-2. Choose how the readings arrive:
+1. Open **Services > Computer sensors** and choose how the readings arrive:
 
    | Mode | The NanoKVM needs | Notes |
    | --- | --- | --- |
@@ -17,19 +16,19 @@ Agents: Windows (64-bit, 10 and 11) and Linux (any with `/sys/class/hwmon`; a sy
    | USB network | the USB network in the USB composition | Reports are taken from the USB network only, never from the LAN, Wi-Fi or a VPN. |
 
    Serial, the USB network and all three HID functions do not fit into the USB endpoint budget together ([USB composition](USB-COMPOSITION.md)); one of the two is enough.
-3. On the computer, open the **NANOKVM** helper disk (below) and double-click `NanoKVM-Sensors-Setup-Windows.exe`. Its window shows the version it brings, the installed agent's and the driver's, and offers what fits: **Install**, **Update** when the installed agent is older, **Remove**. It asks Windows for administrator rights.
+2. On the computer, open the **NANOKVM** helper disk (below) and double-click `NanoKVM-Sensors-Setup-Windows.exe`. Its window shows the version it brings, the installed agent's and the driver's, and offers what fits: **Install**, **Update** when the installed agent is older, **Remove**. It asks Windows for administrator rights.
 
    Installing copies the agent to `Program Files\NanoKVM`, installs the PawnIO driver when it is missing (a checkbox), registers a task that starts the agent as SYSTEM with Windows, and starts it. The installed agent writes its state changes to `%ProgramData%\NanoKVM\nanokvm-sensors.log`.
 
    The same from an administrator's console: `NanoKVM-Sensors-Setup-Windows.exe install` (with the agent's options, which become the installed agent's) and `uninstall`, which stops and removes the task and the copy; the driver stays.
 
-The page names the version of the agent that reports, and says when the add-on brings a newer one: run the setup from the helper disk again to update.
+The page names the version of the agent that reports, and says when NanoKVM OS brings a newer one: run the setup from the helper disk again to update.
 
 ## The helper disk
 
 The agent comes to the computer the way the [serial console helper](USB-COMPOSITION.md#linux-host-setup-the-console-helper) does: on the small read-only disk labelled `NANOKVM` that the computer sees next to the virtual drive (a second LUN of it, so it costs no USB endpoint). It is one disk for both, with names that say what each file sets up: `NanoKVM-Serial-Console-Setup-Linux.sh`, `NanoKVM-Sensors-Setup-Windows.exe`, `NanoKVM-Sensors-Setup-Linux.sh`, and a `README.txt`.
 
-The image with the console helper alone is made when NanoKVM OS is built. The agent belongs to the add-on, so with the add-on installed the server puts the disk together itself (`server/helperdisk`, a 12 MiB FAT12 image in `/var/lib/nanokvm/helper-disk.img`, rebuilt when the add-on or the console helper changes and removed with the add-on), and `S03usbdev` attaches that one instead. The disk is shown while the sensors are on or USB serial is in the composition; it needs the virtual disk in the USB composition. The computer keeps the disk it has until the USB devices reconnect: after installing the add-on or turning the sensors on, apply the USB composition again or reconnect the cable. The page says which it is: the computer has the disk, the agent appears on it after a reconnect, or there is no disk. Only then does it offer the download (`https://<nanokvm>/nanokvm-sensors.exe`) instead.
+The image with the console helper alone is made when NanoKVM OS is built. The agents are in a package built on its own, so while the sensors are on the server puts the disk together itself (`server/helperdisk`, a 12 MiB FAT12 image in `/var/lib/nanokvm/helper-disk.img`, rebuilt when the agents or the console helper change and removed when the sensors are turned off), and `S03usbdev` attaches that one instead. The disk is shown while the sensors are on or USB serial is in the composition; it needs the virtual disk in the USB composition. The computer keeps the disk it has until the USB devices reconnect: after turning the sensors on, apply the USB composition again or reconnect the cable. The page says which it is: the computer has the disk, the agent appears on it after a reconnect, or there is no disk. Only then does it offer the download (`https://<nanokvm>/nanokvm-sensors.exe`) instead.
 
 ## The agent
 

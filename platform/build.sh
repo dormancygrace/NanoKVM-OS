@@ -1236,8 +1236,9 @@ packages() (
         SOURCE_DATE_EPOCH="$(git -C "$repo" log -1 --format=%ct)" PAYLOAD_ROOT=/build/payloads \
         REPODEST=/build/repo SRCDEST=/build/distfiles ABUILD_FLAGS='-F -d' PKGVERSIONS=/build/versions/versions.txt \
         /bin/sh /build/src/scripts/build-alpine-packages.sh stock
-    # OS repositories contain only core/reused packages. Optional add-ons are
-    # published independently to their own Pages repository.
+    # The release holds only the packages built here or reused from earlier
+    # releases. Packages published on their own, including those nanokvm-release
+    # depends on, are in the add-on repository on Pages.
     in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 && /sbin/apk verify ./*.apk'
     # Every package signature was verified before signing the new ECDSA index.
     in_chroot "$b" /bin/sh -c 'cd /build/repo/stock/recipes/riscv64 &&
@@ -1272,7 +1273,14 @@ rootfs() {
     [ -z "$devkey$laterkey" ] || install -m 0644 "$ecpub" "$r/etc/apk/keys/"
     for pub in "$repo"/firmware/alpine/keys/*.pub; do install -m 0644 "$pub" "$r/etc/apk/keys/"; done
     # The v3 index, as on the device, with Alpine main and community.
-    printf '%s\n' /mnt/nanokvm-apk/recipes/riscv64/Packages.adb https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
+    # nanokvm-release also depends on packages that are built and published on
+    # their own (RustDesk, the computer sensors, the screen model): they come
+    # from the signed index of the add-on repository, the line nanokvm-base
+    # installs for the device, whose packages its signature authenticates by
+    # hash.
+    printf '%s\n' /mnt/nanokvm-apk/recipes/riscv64/Packages.adb \
+        "$(cat "$repo/firmware/alpine/etc/apk/repositories.d/nanokvm-addons.list")" \
+        https://dl-cdn.alpinelinux.org/alpine/v3.24/main \
         https://dl-cdn.alpinelinux.org/alpine/v3.24/community > "$r/etc/apk/repositories"
     # --preserve-env keeps QEMU_CPU for the package scripts and triggers, which
     # load the new libz.so.1 (kmod's depmod, for one). The network services of
@@ -1305,9 +1313,17 @@ rootfs() {
     for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
                 usr/libexec/nanokvm/legacy/S50sshd usr/libexec/nanokvm/legacy/S38memory \
                 usr/libexec/nanokvm/legacy/S34mssclamp kvmapp/system/bin/usb-audio-capture \
-                usr/sbin/nkos-board-probe usr/sbin/nkos-board-select usr/sbin/nkos-ipmi etc/init.d/nanokvm-ipmi; do
+                usr/sbin/nkos-board-probe usr/sbin/nkos-board-select usr/sbin/nkos-ipmi etc/init.d/nanokvm-ipmi \
+                usr/bin/nanokvm-rustdesk etc/init.d/nanokvm-rustdesk; do
         [ -x "$r/$path" ] || { echo "rootfs: missing $path" >&2; exit 1; }
     done
+    for path in usr/share/nanokvm/host-sensors/nanokvm-sensors.exe usr/share/nanokvm/host-sensors/nanokvm-sensors.sh \
+                usr/lib/nanokvm-tpu/models/screen.cvimodel; do
+        [ -f "$r/$path" ] || { echo "rootfs: missing $path" >&2; exit 1; }
+    done
+    # RustDesk is off until it is switched on (server/service/rustdesk).
+    [ ! -e "$r/etc/runlevels/default/nanokvm-rustdesk" ] || {
+        echo "rootfs: nanokvm-rustdesk starts at boot" >&2; exit 1; }
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
         echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
     # One provider owns the OpenSSL command, configuration and both ABI3 libraries.

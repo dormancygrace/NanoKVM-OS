@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "Desa"
       },
-      "addons": {
-        "title": "Complements",
-        "packages": "Paquets",
-        "install": "Instal·la"
-      },
       "title": "Programari",
+      "packages": "Paquets",
       "available": "Paquets disponibles",
       "updatesTab": "Actualitzacions",
       "search": "Cerca",
@@ -748,10 +744,7 @@
       }
     },
     "rustdesk": {
-      "absent": "No instal·lat",
       "stopped": "Aturat",
-      "install": "Instal·la",
-      "remove": "Elimina",
       "save": "Desa la configuració",
       "server": "Servidor",
       "passwordMode": "Contrasenya",
@@ -805,8 +798,7 @@
       "eventHint": {
         "power": "l'amfitrió s'ha encès o apagat; requereix control ATX amb el LED d'alimentació connectat.",
         "hdmi": "s'ha perdut la imatge o ha tornat, també quan l'amfitrió apaga la pantalla; es detecta mentre la captura de vídeo està activa.",
-        "security": "una adreça bloquejada després d'inicis de sessió fallits, massa intents d'inici de sessió IPMI, un inici de sessió des d'una adreça nova.",
-        "screen": "una pantalla blava o un kernel panic, reconeguts pel complement TPU; el text es llegeix quan ningú mira el vídeo i s'envia amb una captura de pantalla."
+        "security": "una adreça bloquejada després d'inicis de sessió fallits, massa intents d'inici de sessió IPMI, un inici de sessió des d'una adreça nova."
       },
       "field": {
         "token": "Token",

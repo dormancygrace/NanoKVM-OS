@@ -87,10 +87,15 @@ export function getScreenText(
   });
 }
 
-type ScreenTextSettings = {
+export type ScreenTextSettings = {
   // Text recognition is on: the toolbar button, MCP and PicoClaw read.
   enabled: boolean;
+  // The models of at least one language are installed, so it can read.
+  installed: boolean;
   languages: { name: string; installed: boolean }[];
+  // A language change waits or runs on the device: the languages may still
+  // change.
+  changing: boolean;
 };
 
 export function getScreenTextSettings() {
@@ -98,7 +103,22 @@ export function getScreenTextSettings() {
 }
 
 export function setScreenTextEnabled(enabled: boolean) {
-  return http.post<{ enabled: boolean }>('/api/vm/screen/text/settings', { enabled });
+  return http.post<ScreenTextSettings>('/api/vm/screen/text/settings', { enabled });
+}
+
+// Downloads or removes the models of a language: a download from the NanoKVM
+// add-on repository can take minutes on a slow link. The server gives apk up
+// to 30 minutes; the page waits a little longer, so that it usually hears the
+// server's answer instead of giving up first. An answer can still be lost
+// (a change started in another browser tab runs first, or the connection
+// drops), so after a lost answer the page reads the settings until they
+// report no language change running.
+export function setScreenTextLanguage(language: string, installed: boolean) {
+  return http.post<ScreenTextSettings>(
+    '/api/vm/screen/text/language',
+    { language, installed },
+    { timeout: 35 * 60 * 1000 }
+  );
 }
 
 // update screen arguments

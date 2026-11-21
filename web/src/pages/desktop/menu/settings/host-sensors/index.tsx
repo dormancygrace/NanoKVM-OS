@@ -20,7 +20,6 @@ import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui
 type Mode = 'off' | 'serial' | 'network';
 type WatchdogAction = 'off' | 'notify' | 'reset' | 'cycle';
 type State = {
-  installed: boolean;
   mode: Mode;
   serial: { port: string; state: string };
   network: { interface: string; addresses: string[]; path: string };
@@ -29,7 +28,7 @@ type State = {
   // The host watchdog: what to do after how long a silence of the agent;
   // armed once a report came; last is its last decision (a message key).
   watchdog?: { action: WatchdogAction; minutes: number; armed: boolean; last: string };
-  // The agent version the add-on brings; '' when unknown.
+  // The agent version the package brings; '' when unknown.
   agentVersion: string;
   status: {
     report: {
@@ -52,7 +51,7 @@ type State = {
 
 const url = '/api/vm/host-sensors';
 
-// Services > Computer sensors, the page of the add-on nanokvm-host-sensors:
+// Services > Computer sensors, the page of the package nanokvm-host-sensors:
 // how the reports of the computer's nanokvm-sensors agent arrive, the agent
 // itself, and the last report with the readings chosen to be shown.
 export const HostSensorsPage = () => {

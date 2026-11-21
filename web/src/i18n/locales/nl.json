@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "Opslaan"
       },
-      "addons": {
-        "title": "Uitbreidingspakketten",
-        "packages": "Pakketten",
-        "install": "Installeren"
-      },
       "title": "Software",
+      "packages": "Pakketten",
       "available": "Beschikbare pakketten",
       "updatesTab": "Updates",
       "search": "Zoeken",
@@ -750,10 +746,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Niet geïnstalleerd",
       "stopped": "Gestopt",
-      "install": "Installeren",
-      "remove": "Verwijderen",
       "save": "Instellingen opslaan",
       "server": "Server",
       "passwordMode": "Wachtwoord",
@@ -807,8 +800,7 @@
       "eventHint": {
         "power": "de host is in- of uitgeschakeld; vereist ATX-besturing met aangesloten voedings-LED.",
         "hdmi": "het beeld viel weg of kwam terug, ook als de host zijn scherm uitzet; wordt gezien terwijl videoopname loopt.",
-        "security": "een adres geblokkeerd na mislukte aanmeldingen, te veel IPMI-aanmeldpogingen, een aanmelding vanaf een nieuw adres.",
-        "screen": "een blauw scherm of een kernel panic, herkend door de TPU-add-on; de tekst wordt gelezen als niemand naar de video kijkt, en er wordt een screenshot bij gestuurd."
+        "security": "een adres geblokkeerd na mislukte aanmeldingen, te veel IPMI-aanmeldpogingen, een aanmelding vanaf een nieuw adres."
       },
       "field": {
         "token": "Token",

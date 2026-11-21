@@ -202,7 +202,8 @@ release of the add-ons in `ADDONS` (`scripts/addon_packages.py`) into the
 add-on repository on Pages (firmware/alpine/README.md), so devices install and
 update an add-on without an OS release. An add-on is never built
 with the OS packages: there it would get the release's version, above all of
-its own later versions.
+its own later versions, and an OS release would rebuild and republish it
+although it has not changed.
 
 - RustDesk: `addons/rustdesk`, built and released by the RustDesk add-on
   workflow (`.github/workflows/rustdesk.yml`).
@@ -219,8 +220,7 @@ name stays satisfied, and the versioned name cannot be installed twice: an
 update removes the separate package, and its files change owner, in the same
 transaction. Pages keeps serving the package's last releases, for devices on a
 release without the OS package's copy and for a rollback to such a release,
-whose world still names it. A device whose installed OS packages provide the
-name does not list it as an add-on.
+whose world still names it.
 
 An add-on states the first NanoKVM OS release it works with: `"os": "3.5.0"`
 in its recipe becomes the dependency `nanokvm-os>=3.5.0`, which
@@ -235,15 +235,20 @@ input over the binary control channel, not HTTP requests): increment it in
 both recipes together when the two sides stop understanding each other, so
 that apk installs the add-on only next to a server it can talk to.
 
-Devices find add-ons in the index, without a list of their own: an add-on is
-any `nanokvm-*` package of a NanoKVM repository (an `/etc/apk/repositories`
-line whose URL contains "nanokvm") outside `nanokvm-release` and its
-dependencies. The update check stores them from the NanoKVM index it has
-just fetched, so a published add-on appears on Software > Add-ons with the
-next daily check (or Check now there), without an OS release. Before an
-install the server refuses an add-on whose minimum release is above the
-installed OS, and any transaction that `apk add --simulate` shows would
-change an OS package: apk would meet the minimum by upgrading the whole OS.
+RustDesk, the computer sensors and the screen model (`BASE` in
+`scripts/addon_packages.py`) are dependencies of `nanokvm-release`, by name
+only: every device and image has them, each keeps its own version, and a new
+one reaches devices with the next package update. Their pages switch them on;
+nothing of them runs before. Their `nanokvm-os>=VERSION` and the dependency of
+`nanokvm-release` on them form a cycle, which apk resolves in one transaction.
+Raising the `"os"` of one of them ties rollback to it: a rollback to a release
+below the new minimum installs an older version of the package, which Pages
+keeps while it is among the newest three, and is refused without one.
+
+The OCR models are installed on request from AI > Text recognition. Before an
+install the server refuses any transaction that `apk add --simulate` shows
+would upgrade, downgrade, replace or remove an installed package: apk would
+meet a model's minimum OS release by upgrading the whole OS.
 
 A new add-on goes into `ADDONS`, gets a recipe and a choice in `addon.yml`.
 To release a change, raise the recipe's version and run the workflow from
@@ -251,8 +256,8 @@ main; each run of the same version gets the next revision. Publication starts
 the Pages workflow to verify the package and sign the common add-on index.
 It does not open a pin PR or change the OS source tree.
 
-OS builds, signing and release storage contain only OS packages. Optional
-add-ons are neither dependencies of `nanokvm-release` nor installed in images.
-Pages discovers them from their own releases and verifies each APK against
+OS builds, signing and release storage contain only OS packages; the image
+build installs the add-ons in `BASE` from the signed add-on repository.
+Pages discovers add-ons from their own releases and verifies each APK against
 that release's `SHA256SUMS`, then validates its metadata before signing the
 index. Keep old add-on release assets available for cached indexes and rollback.

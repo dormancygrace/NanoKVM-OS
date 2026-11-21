@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "Kaydet"
       },
-      "addons": {
-        "title": "Eklentiler",
-        "packages": "Paketler",
-        "install": "Kur"
-      },
       "title": "Yazılım",
+      "packages": "Paketler",
       "available": "Kullanılabilir paketler",
       "updatesTab": "Güncellemeler",
       "search": "Ara",
@@ -749,10 +745,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Kurulu değil",
       "stopped": "Durduruldu",
-      "install": "Kur",
-      "remove": "Kaldır",
       "save": "Ayarları kaydet",
       "server": "Sunucu",
       "passwordMode": "Parola",
@@ -806,8 +799,7 @@
       "eventHint": {
         "power": "ana bilgisayar açıldı veya kapatıldı; güç LED'i bağlı ATX denetimi gerekir.",
         "hdmi": "görüntü kayboldu veya geri geldi, ana bilgisayar ekranını kapattığında da; video yakalama çalışırken algılanır.",
-        "security": "başarısız girişlerden sonra engellenen bir adres, çok fazla IPMI giriş denemesi, yeni bir adresten giriş.",
-        "screen": "TPU eklentisinin tanıdığı mavi ekran veya kernel panic; kimse videoyu izlemezken metin okunur ve yanında bir ekran görüntüsü gönderilir."
+        "security": "başarısız girişlerden sonra engellenen bir adres, çok fazla IPMI giriş denemesi, yeni bir adresten giriş."
       },
       "field": {
         "token": "Belirteç",

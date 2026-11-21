@@ -1,6 +1,6 @@
 // The settings navigation as data, the way OpenWrt's LuCI menu.d and
 // Cockpit manifests work: every entry names its place, and the list is
-// sorted by it. Whether an entry shows (admin, hardware, installed add-on)
+// sorted by it. Whether an entry shows (admin, hardware)
 // is decided where the pages are rendered, not here.
 
 import { settingsParentOf } from './tabs.ts';
@@ -125,16 +125,10 @@ export const builtinMenu = [
 
   { id: 'software', order: 90, icon: 'package', title: { key: 'settings.software.title' } },
   {
-    id: 'software-addons',
+    id: 'software-packages',
     order: 10,
     icon: 'package',
-    title: { key: 'settings.software.addons.title' }
-  },
-  {
-    id: 'software-packages',
-    order: 20,
-    icon: 'package',
-    title: { key: 'settings.software.addons.packages' }
+    title: { key: 'settings.software.packages' }
   },
 
   { id: 'appearance', order: 100, icon: 'palette', title: { key: 'settings.appearance.title' } },

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -89,7 +88,7 @@ func InstallOnly(names ...string) error {
 	if runErr != nil {
 		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
-	if changed := otherChanges(string(output), names); len(changed) > 0 {
+	if changed := osupdate.OtherInstallChanges(string(output), names); len(changed) > 0 {
 		return fmt.Errorf("installing %s would change other packages (%s); update NanoKVM OS first",
 			strings.Join(names, ", "), strings.Join(changed, ", "))
 	}
@@ -97,31 +96,6 @@ func InstallOnly(names ...string) error {
 		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
 	return nil
-}
-
-// apkStep is a numbered change of an apk transcript, "(2/5) Upgrading
-// nanokvm-base (4.2.0-r0 -> 4.3.0-r0)"; apk pads the counter in long
-// transactions, "( 2/12)". It captures the verb and what follows it.
-var apkStep = regexp.MustCompile(`^\(\s*[0-9]+/[0-9]+\)\s+(\S+)\s*(.*)$`)
-
-// otherChanges: every numbered change of an `apk add --simulate` transcript
-// that is not the installation of one of names, as "verb package". Whatever
-// apk would do besides that is refused, also a verb this does not know: a
-// package that needs a later OS upgrades, replaces or removes others, and
-// the wording differs between apk-tools releases.
-func otherChanges(simulation string, names []string) []string {
-	var changed []string
-	for _, line := range strings.Split(simulation, "\n") {
-		m := apkStep.FindStringSubmatch(strings.TrimSpace(line))
-		if m == nil {
-			continue
-		}
-		name, _, _ := strings.Cut(m[2], " ")
-		if m[1] != "Installing" || !slices.Contains(names, name) {
-			changed = append(changed, strings.TrimSpace(m[1]+" "+name))
-		}
-	}
-	return changed
 }
 
 // Remove removes packages in one apk transaction, under the same lock as other

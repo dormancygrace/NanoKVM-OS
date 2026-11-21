@@ -217,9 +217,12 @@ const apkStepNumber = `^\((?:\s*[0-9]+/[0-9]+|\?)\)\s+`
 // "( 3/12) Installing nut@community (2.8.2-r0)". The action is one of the
 // messages apk-tools has, some of them several words; a package from a tagged
 // repository carries the tag after its name.
-var apkStep = regexp.MustCompile(apkStepNumber +
-	`(Installing|Purging|Reinstalling|\[APK unavailable, skipped\] Reinstalling|` +
-	`Updating pinning|Downgrading|Replacing|Upgrading)\s+([^\s@]+)(?:@\S+)?\s+\((.*)\)$`)
+var (
+	apkStepLine = regexp.MustCompile(apkStepNumber)
+	apkStep     = regexp.MustCompile(apkStepNumber +
+		`(Installing|Purging|Reinstalling|\[APK unavailable, skipped\] Reinstalling|` +
+		`Updating pinning|Downgrading|Replacing|Upgrading)\s+([^\s@]+)(?:@\S+)?\s+\((.*)\)$`)
+)
 
 // parseAPKStep is the action, package name without its repository tag and
 // parenthesised detail (the version, or "old -> new") of a transaction step
@@ -231,6 +234,25 @@ func parseAPKStep(line string) (action, name, detail string, ok bool) {
 		return "", "", "", false
 	}
 	return m[1], m[2], m[3], true
+}
+
+// OtherInstallChanges reports APK transaction steps other than installing a
+// requested package. An unrecognized numbered step also stops the install.
+func OtherInstallChanges(simulation string, names []string) []string {
+	var changed []string
+	for _, line := range strings.Split(simulation, "\n") {
+		action, name, _, ok := parseAPKStep(line)
+		if !ok {
+			if line = strings.TrimSpace(line); apkStepLine.MatchString(line) {
+				changed = append(changed, line)
+			}
+			continue
+		}
+		if action != "Installing" || !slices.Contains(names, name) {
+			changed = append(changed, action+" "+name)
+		}
+	}
+	return changed
 }
 
 // Only upgrades of the bounded packages are added; installations, removals

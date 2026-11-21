@@ -25,6 +25,93 @@ RETCODE_VPU_STILL_RUNNING and issues no command:
   that instance's commands would use.
 
 ---
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -126,7 +126,7 @@
+ static int cviCheckEncodeEnd(stTestEncoder *pTestEnc);
+ static int cviCheckAndCompareBitstream(stTestEncoder *pTestEnc);
+ static int cviGetEncodedInfo(stTestEncoder *pTestEnc, int s32MilliSec);
+-static void cviCloseVpuEnc(stTestEncoder *pTestEnc);
++static RetCode cviCloseVpuEnc(stTestEncoder *pTestEnc);
+ static void cviDeInitVpuEnc(stTestEncoder *pTestEnc);
+ static void *cviInitEncoder(stTestEncoder *pTestEnc, TestEncConfig *pEncConfig);
+ static int cviGetOneStream(void *handle, cviVEncStreamInfo *pStreamInfo,
+@@ -2776,7 +2776,11 @@
+ 	return ret;
+ }
+ 
+-static void cviCloseVpuEnc(stTestEncoder *pTestEnc)
++/* Closes the encoder instance, then frees the buffers of this layer. When the
++ * core is still busy with a command of the instance, VPU_EncClose keeps the
++ * instance: the buffers stay too, and RETCODE_VPU_STILL_RUNNING tells the
++ * caller to keep the rest. */
++static RetCode cviCloseVpuEnc(stTestEncoder *pTestEnc)
+ {
+ 	EncOpenParam *pEncOP = &pTestEnc->encOP;
+ 	int coreIdx = pTestEnc->coreIdx;
+@@ -2785,6 +2789,11 @@
+ 	int buf_cnt;
+ 	cviEncCfg *pcviEc = &pTestEnc->encConfig.cviEc;
+ 
++	if (VPU_EncClose(pTestEnc->handle) == RETCODE_VPU_STILL_RUNNING) {
++		CVI_VC_ERR("core %d still busy; encoder instance and buffers kept\n", coreIdx);
++		return RETCODE_VPU_STILL_RUNNING;
++	}
++
+ 	if (pTestEnc->encConfig.cviEc.singleLumaBuf > 0) {
+ 		buf_cnt = 1;
+ 		// smart-p with additional 1 framebuffer
+@@ -2839,7 +2848,6 @@
+ 		VDI_FREE_MEMORY(coreIdx, &pTestEnc->vbCustomHeader);
+ #endif
+ 
+-	VPU_EncClose(pTestEnc->handle);
+ 	CoreSleepWake(coreIdx, 1); //ensure vpu sleep
+ 
+ 	if (pEncOP->bitstreamFormat == STD_AVC) {
+@@ -2851,6 +2859,7 @@
+ 			    pTestEnc->encConfig.instNum,
+ 			    pTestEnc->outputInfo.encPicCnt);
+ 	}
++	return RETCODE_SUCCESS;
+ }
+ 
+ static void cviDeInitVpuEnc(stTestEncoder *pTestEnc)
+@@ -2902,7 +2911,10 @@
+ 	return (void *)pTestEnc;
+ 
+ INIT_ERR_ENC_OPEN:
+-	cviCloseVpuEnc(pTestEnc);
++	/* The instance stays, with its handle: the channel's close tries
++	 * again and releases it once. */
++	if (cviCloseVpuEnc(pTestEnc) == RETCODE_VPU_STILL_RUNNING)
++		return NULL;
+ INIT_ERR_ENC_INIT:
+ 	cviDeInitVpuEnc(pTestEnc);
+ 	/* Released: the channel's close must not release it again. */
+@@ -5838,8 +5850,8 @@
+ 	}
+ #endif
+ 
+-	cviCloseVpuEnc(pTestEnc);
+-	cviDeInitVpuEnc(pTestEnc);
++	if (cviCloseVpuEnc(pTestEnc) != RETCODE_VPU_STILL_RUNNING)
++		cviDeInitVpuEnc(pTestEnc);
+ 
+ FREE_CHANNEL:
+ 	if (pTestEnc->encConfig.pusBitCode) {
+@@ -6526,7 +6538,10 @@
+ 
+ ERR_ENC_OPEN:
+ 	// Now that we are done with encoding, close the open instance.
+-	cviCloseVpuEnc(pTestEnc);
++	if (cviCloseVpuEnc(pTestEnc) == RETCODE_VPU_STILL_RUNNING) {
++		osal_free(pTestEnc);
++		return suc;
++	}
+ ERR_ENC_INIT:
+ 	cviDeInitVpuEnc(pTestEnc);
+ 	osal_free(pTestEnc);
 --- a/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
 +++ b/interdrv/cvi_vc_drv/vcodec/vpuapi/vpuapi.c
 @@ -3076,14 +3076,42 @@
@@ -135,88 +222,3 @@ RETCODE_VPU_STILL_RUNNING and issues no command:
  
  	pEncInfo->numFrameBuffers = num;
  	pEncInfo->stride = stride;
---- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
-+++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
-@@ -125,7 +125,7 @@
- static int cviCheckEncodeEnd(stTestEncoder *pTestEnc);
- static int cviCheckAndCompareBitstream(stTestEncoder *pTestEnc);
- static int cviGetEncodedInfo(stTestEncoder *pTestEnc, int s32MilliSec);
--static void cviCloseVpuEnc(stTestEncoder *pTestEnc);
-+static RetCode cviCloseVpuEnc(stTestEncoder *pTestEnc);
- static void cviDeInitVpuEnc(stTestEncoder *pTestEnc);
- static void *cviInitEncoder(stTestEncoder *pTestEnc, TestEncConfig *pEncConfig);
- static int cviGetOneStream(void *handle, cviVEncStreamInfo *pStreamInfo,
-@@ -2732,7 +2732,11 @@
- 	return ret;
- }
- 
--static void cviCloseVpuEnc(stTestEncoder *pTestEnc)
-+/* Closes the encoder instance, then frees the buffers of this layer. When the
-+ * core is still busy with a command of the instance, VPU_EncClose keeps the
-+ * instance: the buffers stay too, and RETCODE_VPU_STILL_RUNNING tells the
-+ * caller to keep the rest. */
-+static RetCode cviCloseVpuEnc(stTestEncoder *pTestEnc)
- {
- 	EncOpenParam *pEncOP = &pTestEnc->encOP;
- 	int coreIdx = pTestEnc->coreIdx;
-@@ -2741,6 +2745,11 @@
- 	int buf_cnt;
- 	cviEncCfg *pcviEc = &pTestEnc->encConfig.cviEc;
- 
-+	if (VPU_EncClose(pTestEnc->handle) == RETCODE_VPU_STILL_RUNNING) {
-+		CVI_VC_ERR("core %d still busy; encoder instance and buffers kept\n", coreIdx);
-+		return RETCODE_VPU_STILL_RUNNING;
-+	}
-+
- 	if (pTestEnc->encConfig.cviEc.singleLumaBuf > 0) {
- 		buf_cnt = 1;
- 		// smart-p with additional 1 framebuffer
-@@ -2795,7 +2804,6 @@
- 		VDI_FREE_MEMORY(coreIdx, &pTestEnc->vbCustomHeader);
- #endif
- 
--	VPU_EncClose(pTestEnc->handle);
- 	CoreSleepWake(coreIdx, 1); //ensure vpu sleep
- 
- 	if (pEncOP->bitstreamFormat == STD_AVC) {
-@@ -2807,6 +2815,7 @@
- 			    pTestEnc->encConfig.instNum,
- 			    pTestEnc->outputInfo.encPicCnt);
- 	}
-+	return RETCODE_SUCCESS;
- }
- 
- static void cviDeInitVpuEnc(stTestEncoder *pTestEnc)
-@@ -2858,7 +2867,8 @@
- 	return (void *)pTestEnc;
- 
- INIT_ERR_ENC_OPEN:
--	cviCloseVpuEnc(pTestEnc);
-+	if (cviCloseVpuEnc(pTestEnc) == RETCODE_VPU_STILL_RUNNING)
-+		return NULL;
- INIT_ERR_ENC_INIT:
- 	cviDeInitVpuEnc(pTestEnc);
- 	return NULL;
-@@ -5749,8 +5759,8 @@
- 	}
- #endif
- 
--	cviCloseVpuEnc(pTestEnc);
--	cviDeInitVpuEnc(pTestEnc);
-+	if (cviCloseVpuEnc(pTestEnc) != RETCODE_VPU_STILL_RUNNING)
-+		cviDeInitVpuEnc(pTestEnc);
- 
- 	if (pTestEnc->encConfig.pusBitCode) {
- #ifndef FIRMWARE_H
-@@ -6435,7 +6445,10 @@
- 
- ERR_ENC_OPEN:
- 	// Now that we are done with encoding, close the open instance.
--	cviCloseVpuEnc(pTestEnc);
-+	if (cviCloseVpuEnc(pTestEnc) == RETCODE_VPU_STILL_RUNNING) {
-+		osal_free(pTestEnc);
-+		return suc;
-+	}
- ERR_ENC_INIT:
- 	cviDeInitVpuEnc(pTestEnc);
- 	osal_free(pTestEnc);

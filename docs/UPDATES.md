@@ -125,9 +125,8 @@ them are not supported. Such a device must first update to 3.3.0 from
 its one-time repository migrations (removing Alpine `edge/community`
 (`@edgecommunity`), and switching Alpine `community` off when nothing needs
 it); it can then update to the current release.
-A device that skips this step keeps the edge and community repository lines,
-and every apk run parses their indexes. Community can still be switched off on
-the Software page.
+A device that skips this step keeps the edge repository line, and every apk
+run parses its index.
 
 ## Package publication and retention
 

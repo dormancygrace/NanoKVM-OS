@@ -1435,17 +1435,7 @@
       "indexMissing": "Nejsou k dispozici žádné rejstříky balíčků. Než se budete pokoušet vyhledávat či instalovat, nechte tyto rejstříky načíst znovu.",
       "indexStale": "Je možné, že rejstříky balíčků jsou zastaralé (naposledy znovunačteno {{updated}}). Než budete provádět instalace, nechte rejstříky načíst znovu.",
       "removeDescription": "APK provede toto odebrání (a změny jeho závislostí) přesně tak, jak zobrazeno níže. Tuto akci pak nelze vzít nijak automaticky zpět.",
-      "requestFailed": "Požadavek na software se nezdařil. Zkontrolujte připojení zařízení a zkuste znovu.",
-      "community": {
-        "label": "Alpine komunitní repozitář",
-        "hint": "Balíčky (jako ty pro Tailscale a NetBird) spravované komunitou kolem distribuce Alpine. Používání je ve výchozím stavu vypnuto: NanoKVM OS odsud nic nepotřebuje a v případě zapnutí používání by každá operace s balíčky načítala i rejstřík komunitního repozitáře. Instalace Tailscale nebo NetBird používání tohoto repozitáře zapne.",
-        "unavailable": "Není nastavený žádný hlavní repozitář Alpine, takže není možné přidat ani komunitní repozitář.",
-        "needed": "Pořád ještě potřebné pro nainstalované balíčky: {{packages}}. Pokud chcete používání repozitáře vypnout, nejprve je odeberte.",
-        "enabled": "Používání komunitního repozitáře zapnuto; znovunačítají se rejstříky",
-        "disabled": "Používání komunitního repozitáře vypnuto",
-        "failed": "Nebylo možné načíst nebo změnit nastavení ohledně komunitního repozitáře",
-        "vpnNote": "Instalace zapne používání komunitního repozitáře Alpine."
-      }
+      "requestFailed": "Požadavek na software se nezdařil. Zkontrolujte připojení zařízení a zkuste znovu."
     },
     "netbird": {
       "disconnect": "Odpojit",

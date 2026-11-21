@@ -96,7 +96,7 @@ export const Install = ({ setIsLocked, onSuccess }: InstallProps) => {
   return (
     <ExtensionInstallResult
       title={t('settings.tailscale.notInstall')}
-      description={`${t('settings.tailscale.installDescription')} ${t('settings.software.community.vpnNote')}`}
+      description={t('settings.tailscale.installDescription')}
       actionLabel={
         state === 'installing'
           ? t('settings.tailscale.installing')

@@ -1,48 +1,17 @@
 package osupdate
 
 import (
-	"bytes"
-	"context"
 	"errors"
-	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"syscall"
-	"time"
-
-	"NanoKVM-Server/internal/apkrun"
 )
 
-// From 3.2 Alpine's community repository is off by default: the image takes
-// nothing from it (exfatprogs and i2c-tools are NanoKVM packages), and every
-// apk run would parse its index. The Software page switches it on, and the
-// Tailscale and NetBird installs do so themselves.
-
-var (
-	communityTmpDir = "/run"
-
-	// updateLock is Lock, which tests replace.
-	updateLock = Lock
-)
-
-// errCommunityUnknown means the needed packages cannot be determined now,
-// usually because an index is missing and the device is offline.
-var errCommunityUnknown = errors.New("cannot determine which packages need the community repository")
-
-type CommunityStatus struct {
-	Enabled bool `json:"enabled"`
-	// Available is false when no Alpine main repository is listed, so no
-	// community line can be derived (a custom setup); the switch is then off.
-	Available bool `json:"available"`
-}
-
-// CommunityChange is the result of a request to switch: Needed lists the
-// installed packages that keep the repository on.
-type CommunityChange struct {
-	Enabled bool     `json:"enabled"`
-	Needed  []string `json:"needed,omitempty"`
-}
+// Alpine's community repository is listed: LLDP and UPS (lldpd, nut) come from
+// it. The image lists it, and nanokvm-base's post-upgrade script adds it on a
+// device updated from a release without it, by the same rules as here. An
+// install of community packages makes sure of it again, for a list that lost
+// the line.
 
 func activeRepositoryLines(repositories string) []string {
 	var lines []string
@@ -70,104 +39,38 @@ func communityURL(repositories string) string {
 	return ""
 }
 
-func hasRepository(repositories, url string) bool {
+// hasCommunity reports whether an untagged line is a community repository of
+// the Alpine branch of url (".../v3.24/community"), from any mirror and over
+// either scheme: a second one would only make apk parse the same index twice.
+func hasCommunity(repositories, url string) bool {
+	branch := url[max(strings.LastIndex(strings.TrimSuffix(url, "/community"), "/"), 0):]
 	for _, line := range activeRepositoryLines(repositories) {
-		if strings.TrimRight(line, "/") == url {
+		if !strings.HasPrefix(line, "@") && strings.HasSuffix(strings.TrimRight(line, "/"), branch) {
 			return true
 		}
 	}
 	return false
 }
 
-// withCommunity returns the repositories with the community line removed, or
-// placed right after the main line.
-func withCommunity(repositories, url string, enabled bool) string {
+// withCommunity returns the repositories with the community line placed right
+// after the first untagged main line.
+func withCommunity(repositories, url string) string {
+	main := strings.TrimSuffix(url, "/community") + "/main"
 	var out []string
+	added := false
 	for _, line := range strings.Split(repositories, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.TrimRight(trimmed, "/") == url {
-			continue
-		}
 		out = append(out, line)
-		if enabled && !strings.HasPrefix(trimmed, "@") && strings.TrimRight(trimmed, "/") == strings.TrimSuffix(url, "/community")+"/main" {
+		trimmed := strings.TrimSpace(line)
+		if !added && !strings.HasPrefix(trimmed, "@") && strings.TrimRight(trimmed, "/") == main {
 			out = append(out, url)
+			added = true
 		}
 	}
 	return strings.Join(out, "\n")
 }
 
-func GetCommunity() (CommunityStatus, error) {
-	data, err := os.ReadFile(repositoriesPath)
-	if err != nil {
-		return CommunityStatus{}, err
-	}
-	url := communityURL(string(data))
-	return CommunityStatus{Enabled: url != "" && hasRepository(string(data), url), Available: url != ""}, nil
-}
-
-// orphaned lists the installed packages that none of the repositories in the
-// given list provides. apk reports a missing index only as a warning, and then
-// calls every package orphaned: any output on stderr is errCommunityUnknown.
-func orphaned(ctx context.Context, repositories string) (map[string]bool, error) {
-	f, err := os.CreateTemp(communityTmpDir, "apk-repositories.")
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(f.Name())
-	if _, err = f.WriteString(repositories + "\n"); err != nil {
-		f.Close()
-		return nil, err
-	}
-	if err = f.Close(); err != nil {
-		return nil, err
-	}
-	var stdout, stderr bytes.Buffer
-	cmd := apkrun.Command(ctx, apkExecutable, "--repositories-file", f.Name(), "list", "--orphaned")
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	cmd.LockWait, cmd.Timeout = softwareLockWait, time.Minute
-	if err = cmd.Run(); err != nil || strings.TrimSpace(stderr.String()) != "" {
-		return nil, fmt.Errorf("%w: %s", errCommunityUnknown, strings.TrimSpace(stderr.String()))
-	}
-	names := map[string]bool{}
-	for _, line := range strings.Split(stdout.String(), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
-			continue
-		}
-		// NAME-VERSION-rN: the version and the release are the last two parts.
-		parts := strings.Split(fields[0], "-")
-		if len(parts) < 3 {
-			return nil, fmt.Errorf("%w: unexpected apk list line %q", errCommunityUnknown, line)
-		}
-		names[strings.Join(parts[:len(parts)-2], "-")] = true
-	}
-	return names, nil
-}
-
-// communityNeeded lists the installed packages that only the community
-// repository provides.
-func communityNeeded(ctx context.Context, repositories, url string) ([]string, error) {
-	without, err := orphaned(ctx, withCommunity(repositories, url, false))
-	if err != nil {
-		return nil, err
-	}
-	with, err := orphaned(ctx, withCommunity(repositories, url, true))
-	if err != nil {
-		return nil, err
-	}
-	var needed []string
-	for name := range without {
-		if !with[name] {
-			needed = append(needed, name)
-		}
-	}
-	sort.Strings(needed)
-	return needed, nil
-}
-
-// lockCommunityDB keeps the installed package set stable across both orphan
-// queries and the repository decision. Callers already hold the update lock;
-// apk's read-only list command does not take this database lock.
+// lockCommunityDB keeps apk off the repository list while it changes. Callers
+// already hold the update lock.
 func lockCommunityDB() (*os.File, error) {
 	fd, err := syscall.Open(apkDBLockPath, syscall.O_RDWR|syscall.O_CREAT|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
@@ -180,16 +83,17 @@ func lockCommunityDB() (*os.File, error) {
 	return os.NewFile(uintptr(fd), apkDBLockPath), nil
 }
 
-// writeCommunity switches the line while the caller holds lockCommunityDB.
-func writeCommunity(url string, enabled bool) error {
+// writeCommunity adds the line, unless the list has one, while the caller
+// holds lockCommunityDB.
+func writeCommunity(url string) error {
 	data, err := os.ReadFile(repositoriesPath)
 	if err != nil {
 		return err
 	}
-	if hasRepository(string(data), url) == enabled {
+	if hasCommunity(string(data), url) {
 		return nil
 	}
-	return writeRepositories([]byte(withCommunity(string(data), url, enabled)))
+	return writeRepositories([]byte(withCommunity(string(data), url)))
 }
 
 func lockedCommunityURL() (string, error) {
@@ -204,45 +108,7 @@ func lockedCommunityURL() (string, error) {
 	return url, nil
 }
 
-// SetCommunity switches the repository on the Software page. Switching it off
-// is refused while installed packages need it; Needed lists them.
-func SetCommunity(enabled bool) (CommunityChange, error) {
-	lock, err := updateLock()
-	if err != nil {
-		return CommunityChange{}, err
-	}
-	defer lock.Close()
-	dbLock, err := lockCommunityDB()
-	if err != nil {
-		return CommunityChange{}, err
-	}
-	defer dbLock.Close()
-	url, err := lockedCommunityURL()
-	if err != nil {
-		return CommunityChange{}, err
-	}
-	if !enabled {
-		data, err := os.ReadFile(repositoriesPath)
-		if err != nil {
-			return CommunityChange{}, err
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer cancel()
-		needed, err := communityNeeded(ctx, string(data), url)
-		if err != nil {
-			return CommunityChange{}, err
-		}
-		if len(needed) > 0 {
-			return CommunityChange{Enabled: true, Needed: needed}, nil
-		}
-	}
-	if err = writeCommunity(url, enabled); err != nil {
-		return CommunityChange{}, err
-	}
-	return CommunityChange{Enabled: enabled}, nil
-}
-
-// EnableCommunityLocked switches the repository on for an install of
+// EnableCommunityLocked lists the repository for an install of
 // community packages. The caller holds Lock().
 func EnableCommunityLocked() error {
 	dbLock, err := lockCommunityDB()
@@ -254,5 +120,5 @@ func EnableCommunityLocked() error {
 	if err != nil {
 		return err
 	}
-	return writeCommunity(url, true)
+	return writeCommunity(url)
 }

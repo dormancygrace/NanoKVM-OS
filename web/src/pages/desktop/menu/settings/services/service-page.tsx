@@ -136,7 +136,7 @@ export function ServicePage<S extends api.ServiceStatus>({
     return (
       <ExtensionInstallResult
         title={t('settings.netServices.notInstalled', { name: title })}
-        description={`${about} ${t('settings.software.community.vpnNote')}`}
+        description={about}
         actionLabel={
           busy === 'install'
             ? t('settings.netServices.installing')

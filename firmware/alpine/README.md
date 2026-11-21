@@ -83,17 +83,19 @@ The target repository list is:
 
 1. the signed NanoKVM repository on GitHub Pages, read through its v3 index
    (`https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/Packages.adb`; see [signing keys](#signing-keys));
-2. Alpine v3.24 `main`.
+2. Alpine v3.24 `main`;
+3. Alpine v3.24 `community`, right after `main` and from the same mirror.
 
-Alpine v3.24 `community` is off by default: the image needs nothing from it,
-and every apk run would parse its index too. The Software page switches it on
-(placed right after `main`, from the same mirror), and installing Tailscale or
-NetBird does so itself. The page refuses to switch it off while installed
-packages come only from it, and names them.
+A device updated from a release without the `community` line gets it from
+`nanokvm-base` (its post-upgrade script). A list that already has a
+`community` line of the same Alpine branch, from any mirror, stays as it is,
+and so does a list without an Alpine `main` line (a custom setup). Installing
+Tailscale, NetBird, LLDP, SNMP or UPS from its settings page adds the line
+again if it was removed.
 
-Tailscale and NetBird come from the stable Alpine `community` repository,
-OpenVPN from `main`. They are optional and absent from the default
-`nanokvm-release` dependency set.
+LLDP and UPS (`lldpd`, `nut`), Tailscale and NetBird come from `community`;
+SNMP (`net-snmp`) and OpenVPN come from `main`. They are optional and absent
+from the default `nanokvm-release` dependency set.
 
 The NanoKVM repository is a rolling package channel within the selected
 stable Alpine branch. New signed revisions become available through ordinary

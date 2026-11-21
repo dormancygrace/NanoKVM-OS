@@ -27,8 +27,8 @@ func Run(action, name string) error {
 	return osupdate.RunSoftware(action, name)
 }
 
-// InstallCommunity installs packages of Alpine's community repository, which
-// is off by default: it switches the repository on first. The packages are
+// InstallCommunity installs packages of Alpine's community repository. It
+// lists the repository first, for a list that lost the line. The packages are
 // installed together, after refreshing the indexes, under the same lock as
 // other package operations.
 func InstallCommunity(names ...string) error {

@@ -6,7 +6,12 @@ url="https://github.com/sipeed/NanoKVM"
 arch="riscv64"
 license="GPL-3.0-only AND GPL-2.0-only AND WTFPL"
 depends="nanokvm-keys dnsmasq iproute2 bash chrony-openrc avahi-openrc dbus-openrc busybox-openrc openssh-server openssh-server-common nftables>=1.1.6-r0 iproute2-tc util-linux openrc eudev kmod nanokvm-exfatprogs dosfstools f2fs-tools"
-provides="nanokvm-usb-flags-layout=1 nanokvm-standby=1"
+# IPMI (nkos-ipmi and its OpenRC service) is part of this package. A world
+# entry nanokvm-ipmi stays satisfied by it; the versioned name cannot be
+# installed twice, so a separate nanokvm-ipmi package is removed and its files
+# change owner.
+replaces="nanokvm-ipmi"
+provides="nanokvm-usb-flags-layout=1 nanokvm-standby=1 nanokvm-ipmi=$pkgver-r$pkgrel"
 source="$pkgname-$pkgver.tar.gz
 	nanokvm-banner.sh
 	nanokvm-rainbow.sh"

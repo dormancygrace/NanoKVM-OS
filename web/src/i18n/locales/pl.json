@@ -934,16 +934,6 @@
         "authError": "Logowanie już nie działa: {{error}}",
         "changed": "Podczas logowania zmieniono usługę, identyfikator klienta lub dzierżawę. Zaloguj się ponownie."
       }
-    },
-    "addonPage": {
-      "failed": "Nie można odczytać wartości dodatku",
-      "notRunning": "Usługa dodatku nie działa",
-      "refused": "Dodatek odrzucił zmianę",
-      "saved": "Zapisano",
-      "save": "Zapisz",
-      "status": "Stan",
-      "yes": "Tak",
-      "no": "Nie"
     }
   },
   "picoclaw": {

@@ -206,11 +206,21 @@ its own later versions.
 
 - RustDesk: `addons/rustdesk`, built and released by the RustDesk add-on
   workflow (`.github/workflows/rustdesk.yml`).
-- A Go program in its own module (IPMI): a recipe `addons/ipmi/addon.json` (version,
-  minimum OS release, metadata, the program, files, lifecycle scripts,
-  licenses), built by
-  `scripts/build-addon.py` and released by the add-on release workflow
-  (`.github/workflows/addon.yml`; Actions → Add-on release → Run workflow).
+- TPU models and the computer sensors' agents: a recipe `addons/NAME/addon.json`
+  (version, minimum OS release, metadata, the models or the .NET program,
+  files, lifecycle scripts, licenses), built by `scripts/build-addon.py` and
+  released by the add-on release workflow (`.github/workflows/addon.yml`;
+  Actions → Add-on release → Run workflow).
+
+A package in `RETIRED` (`scripts/addon_packages.py`) is no longer built: an
+OS package carries its files, replaces it and provides its name at its own
+version, as `nanokvm-base` does for `nanokvm-ipmi`. A world entry with that
+name stays satisfied, and the versioned name cannot be installed twice: an
+update removes the separate package, and its files change owner, in the same
+transaction. Pages keeps serving the package's last releases, for devices on a
+release without the OS package's copy and for a rollback to such a release,
+whose world still names it. A device whose installed OS packages provide the
+name does not list it as an add-on.
 
 An add-on states the first NanoKVM OS release it works with: `"os": "3.5.0"`
 in its recipe becomes the dependency `nanokvm-os>=3.5.0`, which

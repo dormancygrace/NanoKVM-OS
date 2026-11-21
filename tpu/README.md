@@ -54,7 +54,7 @@ model in `/usr/share/NAME/source.json`.
 Pull requests build the affected recipes and retain checked APKs for 14 days.
 Changes to shared conversion inputs build all five model add-ons; a language
 recipe or calibration change builds that language only. Changes to the pinned
-TPU runtime also rebuild every model. IPMI keeps its own build target.
+TPU runtime also rebuild every model.
 
 For a release, run **Add-on release** from `main`, selecting one add-on or
 `models` for all five. With **Build and check only** enabled, any branch can

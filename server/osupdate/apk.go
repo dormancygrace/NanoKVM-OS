@@ -48,7 +48,9 @@ var installedDBCache struct {
 }
 
 // readInstalledDB: the version of every installed package and the NanoKVM
-// packages the installed nanokvm-release depends on. The Add-ons page asks
+// packages the installed nanokvm-release depends on, with the NanoKVM names
+// those packages provide: nanokvm-base provides nanokvm-ipmi, which the add-on
+// repository still offers for releases without it. The Add-ons page asks
 // for both every few seconds, so the file is parsed once per change.
 func readInstalledDB() (map[string]string, []string, error) {
 	info, err := os.Stat(installedDBPath)
@@ -71,6 +73,7 @@ func readInstalledDB() (map[string]string, []string, error) {
 
 func parseInstalledDB(data string) (map[string]string, []string) {
 	versions := map[string]string{}
+	provided := map[string][]string{}
 	var releaseCore []string
 	name := ""
 	for _, line := range strings.Split(data, "\n") {
@@ -81,6 +84,12 @@ func parseInstalledDB(data string) (map[string]string, []string) {
 			name = line[2:]
 		case strings.HasPrefix(line, "V:") && name != "":
 			versions[name] = line[2:]
+		case strings.HasPrefix(line, "p:") && name != "":
+			for _, p := range strings.Fields(line[2:]) {
+				if p := dependencyName(p); strings.HasPrefix(p, "nanokvm-") {
+					provided[name] = append(provided[name], p)
+				}
+			}
 		case strings.HasPrefix(line, "D:") && name == "nanokvm-release":
 			for _, dep := range strings.Fields(line[2:]) {
 				if strings.HasPrefix(dep, "!") {
@@ -90,6 +99,12 @@ func parseInstalledDB(data string) (map[string]string, []string) {
 					releaseCore = append(releaseCore, dep)
 				}
 			}
+		}
+	}
+	// Without an installed release there is no OS package set to extend.
+	if len(releaseCore) > 0 {
+		for _, pkg := range append([]string{"nanokvm-release"}, releaseCore...) {
+			releaseCore = append(releaseCore, provided[pkg]...)
 		}
 	}
 	return versions, releaseCore

@@ -839,16 +839,6 @@
       "description": "停止视频、键盘、虚拟磁盘、SSH 和附加组件。断开 NanoKVM 电源前，请等待完成确认。如果保持供电，可通过重启页面重新启动 NanoKVM OS。连接的计算机将保持开机。",
       "magic": "同时允许 Wake-on-LAN 魔术包。任何能够访问监听服务的人都可以在无需密码的情况下重启 NanoKVM。"
     },
-    "addonPage": {
-      "failed": "无法读取附加组件的数据",
-      "notRunning": "附加组件的服务未运行",
-      "refused": "附加组件拒绝了此操作",
-      "saved": "已保存",
-      "save": "保存",
-      "status": "状态",
-      "yes": "是",
-      "no": "否"
-    },
     "vpn": {
       "title": "VPN",
       "description": "将 NanoKVM 连接到私有网络。选择一种 VPN 进行设置。"
@@ -2299,12 +2289,6 @@
     },
     "bmc": {
       "title": "Redfish 与 IPMI",
-      "description": "通过 ATX 接口为数据中心工具提供主机电源控制：Redfish（fence_redfish、Ansible）内置于 NanoKVM OS，IPMI over LAN（ipmitool、fence_ipmilan）由扩展提供。",
-      "install": "安装",
-      "remove": "移除",
-      "open": "设置",
-      "removeTitle": "移除 IPMI 扩展？",
-      "removeConfirm": "IPMI 将停止。Redfish 和设置会保留。",
       "running": "运行中",
       "stopped": "已停止",
       "redfish": "Redfish",
@@ -2314,8 +2298,6 @@
       "ipmiWarning": "IPMI 以原文保存密码，任何能访问 IPMI 端口的人都可以获取其哈希并离线猜测。请使用一个不在别处使用的长密码，并且只向可信网络开放该端口。",
       "account": "BMC 账户",
       "accountHint": "独立于网页账户；两种协议共用。",
-      "accountHintRedfish": "独立于网页账户；由 Redfish 使用，安装 IPMI 附加组件后 IPMI 也会使用。",
-      "sharedOff": "开启 Redfish 或安装 IPMI 附加组件后，才会显示 BMC 账户和电源选项。",
       "username": "用户名",
       "usernameRule": "1–16 个字母、数字、'.'、'_' 或 '-'",
       "password": "密码",
@@ -2333,9 +2315,6 @@
       "failed": "请求失败。",
       "redfishEnable": "启用 Redfish",
       "ipmiEnable": "启用 IPMI",
-      "ipmiNotInstalled": "IPMI 由 IPMI 扩展提供，该扩展尚未安装。",
-      "ipmiInstall": "安装 IPMI 扩展",
-      "ipmiAddonDescription": "用于主机电源控制的 IPMI over LAN（ipmitool、fence_ipmilan）。设置位于“服务 > Redfish 与 IPMI”。",
       "holdDefault": "5（电源菜单）",
       "advanced": "高级",
       "accountFirst": "请在下方设置 BMC 账户并点击保存：Redfish 和 IPMI 只有在设置密码后才能开启。"

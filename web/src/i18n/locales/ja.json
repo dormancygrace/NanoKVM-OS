@@ -839,16 +839,6 @@
       "description": "映像、キーボード、仮想ディスク、SSH、アドオンを停止します。NanoKVMの電源を切る前に、完了の確認を待ってください。電源を接続したままにする場合は、再起動ページからNanoKVM OSを再び起動できます。接続先のコンピューターの電源は入ったままです。",
       "magic": "Wake-on-LANのマジックパケットも許可します。受信サービスにアクセスできる人は誰でも、パスワードなしでNanoKVMを再起動できます。"
     },
-    "addonPage": {
-      "failed": "アドオンの値を読み取れませんでした",
-      "notRunning": "アドオンのサービスは実行されていません",
-      "refused": "アドオンが拒否しました",
-      "saved": "保存しました",
-      "save": "保存",
-      "status": "状態",
-      "yes": "はい",
-      "no": "いいえ"
-    },
     "vpn": {
       "title": "VPN",
       "description": "NanoKVM をプライベートネットワークに接続します。設定する VPN を選択してください。"
@@ -2299,12 +2289,6 @@
     },
     "bmc": {
       "title": "Redfish と IPMI",
-      "description": "ATX 接続を介したデータセンター向けツールからのホスト電源制御：Redfish（fence_redfish、Ansible）は NanoKVM OS に内蔵され、IPMI over LAN（ipmitool、fence_ipmilan）はアドオンで提供されます。",
-      "install": "インストール",
-      "remove": "削除",
-      "open": "設定",
-      "removeTitle": "IPMI アドオンを削除しますか？",
-      "removeConfirm": "IPMI は停止します。Redfish と設定は残ります。",
       "running": "実行中",
       "stopped": "停止",
       "redfish": "Redfish",
@@ -2314,8 +2298,6 @@
       "ipmiWarning": "IPMI はパスワードをそのまま保存し、IPMI ポートに到達できる人は誰でもそのハッシュを取得してオフラインで推測できます。他では使っていない長いパスワードを使い、ポートは信頼できるネットワークにのみ開放してください。",
       "account": "BMC アカウント",
       "accountHint": "Web アカウントとは別で、両方のプロトコルが使用します。",
-      "accountHintRedfish": "Web アカウントとは別で、Redfish が使用します。IPMI アドオンをインストールすると IPMI も使用します。",
-      "sharedOff": "BMC アカウントと電源オプションは、Redfish を有効にするか IPMI アドオンをインストールすると表示されます。",
       "username": "ユーザー名",
       "usernameRule": "1～16 文字の英字、数字、'.'、'_'、'-'",
       "password": "パスワード",
@@ -2333,9 +2315,6 @@
       "failed": "リクエストに失敗しました。",
       "redfishEnable": "Redfish を有効にする",
       "ipmiEnable": "IPMI を有効にする",
-      "ipmiNotInstalled": "IPMI は IPMI アドオンで提供されますが、インストールされていません。",
-      "ipmiInstall": "IPMI アドオンをインストール",
-      "ipmiAddonDescription": "ホスト電源制御のための IPMI over LAN（ipmitool、fence_ipmilan）。設定は「サービス > Redfish と IPMI」にあります。",
       "holdDefault": "5（電源メニュー）",
       "advanced": "詳細設定",
       "accountFirst": "下の BMC アカウントを設定して［保存］を押してください。Redfish と IPMI はパスワードがあるときだけ有効になります。"

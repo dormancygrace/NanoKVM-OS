@@ -929,16 +929,6 @@
         "authError": "Login virker ikke længere: {{error}}",
         "changed": "Tjenesten, klient-id'et eller tenant blev ændret under login. Log ind igen."
       }
-    },
-    "addonPage": {
-      "failed": "Kunne ikke læse tilføjelsens værdier",
-      "notRunning": "Tilføjelsens tjeneste kører ikke",
-      "refused": "Tilføjelsen afviste det",
-      "saved": "Gemt",
-      "save": "Gem",
-      "status": "Status",
-      "yes": "Ja",
-      "no": "Nej"
     }
   },
   "picoclaw": {

@@ -131,7 +131,6 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 | Add-on | Installation and capabilities |
 | --- | --- |
 | **[RustDesk](https://github.com/rustdesk/rustdesk)** | Optional add-on from the signed add-on repository, installed in Software → Add-ons and configured in Services → RustDesk. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP, and WebRTC whenever the client offers it. Based on the RustDesk 1.5 protocol. |
-| **[IPMI](docs/BMC.md)** | Optional add-on from Software → Add-ons. IPMI over LAN power control (`ipmitool -I lanplus`, `fence_ipmilan`) next to the built-in Redfish service, with session and lockout status; set up in Services → Redfish and IPMI. |
 | **[Computer sensors](docs/HOST-SENSORS.md)** | Optional add-on from Software → Add-ons. Agents for Windows and Linux send the managed computer's temperatures, voltages, fan speeds and power over USB; the readings appear in Services → Computer sensors. |
 | **[Screen text and screen models](tpu/README.md)** | Optional TPU models from Software → Add-ons. OCR models for Latin, Cyrillic or Chinese text read the remote screen (AI → Screen text, MCP and PicoClaw); the screen model recognizes Windows stop screens and kernel panics for crash-screen notifications. |
 | **[PicoClaw](https://github.com/sipeed/picoclaw)** | Install, update or remove the official latest RISC-V release from Software → Add-ons, then configure the model, API key and endpoint in AI → PicoClaw for remote-control or general-assistant use. Its navigation entry appears only while installed. |
@@ -154,7 +153,7 @@ PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM AP
 | **Diagnostics** | Service, USB, firewall and package-operation status, plus system logs in the GUI |
 | **Terminal** | Browser shell and serial sessions, with shell command history |
 | **Scripts** | Shell and Python scripts on the device, run on demand or once per boot, with startup status and bounded logs. Startup scripts survive application service restarts without running twice; Python is installed separately. See [Scripts](docs/SCRIPTS.md) |
-| **Redfish and IPMI** | Host power on/off and reset through the ATX connection for data-centre tools, each on its own switch with one BMC account. See [Redfish and IPMI](docs/BMC.md) |
+| **Redfish and IPMI** | Host power on/off and reset through the ATX connection for data-centre tools (`fence_redfish`, Ansible, `ipmitool -I lanplus`, `fence_ipmilan`), each on its own switch, off by default, with one BMC account; IPMI shows its sessions and lockouts. See [Redfish and IPMI](docs/BMC.md) |
 | **Notifications** | Host power, HDMI signal, sign-in security, host watchdog and crash-screen events, sent by email, Telegram, Slack, Microsoft Teams, Google Chat, Discord, ntfy, Gotify, Pushover, Matrix, webhook or syslog |
 | **[LLDP, SNMP and UPS](docs/NETWORK-SERVICES.md)** | Optional services under Settings → Services, each installed on request: LLDP/CDP announcements with a neighbour list, a read-only SNMP v2c agent, and Network UPS Tools sharing a UPS attached to the NanoKVM. |
 | **Scheduled tasks** | Scripts or shell commands on a schedule, from simple repeats to cron expressions. See [Scheduled tasks](docs/SCHEDULE.md) |
@@ -259,7 +258,7 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 | Source directory | Contents |
 | --- | --- |
 | `server/`, `web/` | Go application, streaming/API services and React/TypeScript interface |
-| `addons/` | Independently released add-ons (RustDesk, IPMI, computer sensors, OCR and screen models), with their source and packaging |
+| `addons/` | Independently released add-ons (RustDesk, computer sensors, OCR and screen models), with their source and packaging |
 | `support/` | Native media/board integration and device tools (`kvm_system`, MMF, `nanokvm_update_edid`) |
 | `tpu/` | TPU runtime integration and the OCR and screen-crash programs |
 | `kvmapp/` | Init scripts and PicoClaw agent files |

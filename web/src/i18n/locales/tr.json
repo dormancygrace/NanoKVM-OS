@@ -934,16 +934,6 @@
         "authError": "Oturum artık çalışmıyor: {{error}}",
         "changed": "Oturum açma sırasında hizmet, istemci kimliği veya kiracı değişti. Yeniden oturum açın."
       }
-    },
-    "addonPage": {
-      "failed": "Eklentinin değerleri okunamadı",
-      "notRunning": "Eklentinin hizmeti çalışmıyor",
-      "refused": "Eklenti bunu reddetti",
-      "saved": "Kaydedildi",
-      "save": "Kaydet",
-      "status": "Durum",
-      "yes": "Evet",
-      "no": "Hayır"
     }
   },
   "picoclaw": {

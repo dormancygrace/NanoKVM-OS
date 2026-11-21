@@ -728,7 +728,8 @@ server() {
         --compression "$out/tools/compress" --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out" \
         --hot-order "$repo/firmware/cpu/go-hot-order/server-webrtc.txt"
     cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
-    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$s/out/nkos-standby" "$img/server/"
+    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$s/out/nkos-standby" \
+        "$s/out/nkos-ipmi" "$img/server/"
 }
 
 # Web UI. npm packages are checked against pnpm-lock.yaml.
@@ -1300,7 +1301,7 @@ rootfs() {
     for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
                 usr/libexec/nanokvm/legacy/S50sshd usr/libexec/nanokvm/legacy/S38memory \
                 usr/libexec/nanokvm/legacy/S34mssclamp kvmapp/system/bin/usb-audio-capture \
-                usr/sbin/nkos-board-probe usr/sbin/nkos-board-select; do
+                usr/sbin/nkos-board-probe usr/sbin/nkos-board-select usr/sbin/nkos-ipmi etc/init.d/nanokvm-ipmi; do
         [ -x "$r/$path" ] || { echo "rootfs: missing $path" >&2; exit 1; }
     done
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {

@@ -934,16 +934,6 @@
         "authError": "Inloggningen fungerar inte längre: {{error}}",
         "changed": "Tjänsten, klient-ID:t eller tenant ändrades under inloggningen. Logga in igen."
       }
-    },
-    "addonPage": {
-      "failed": "Kunde inte läsa tilläggets värden",
-      "notRunning": "Tilläggets tjänst körs inte",
-      "refused": "Tillägget avvisade det",
-      "saved": "Sparat",
-      "save": "Spara",
-      "status": "Status",
-      "yes": "Ja",
-      "no": "Nej"
     }
   },
   "picoclaw": {

@@ -1,41 +1,65 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Form, Input, InputNumber, message, Spin, Switch, Tabs } from 'antd';
-import { useAtom } from 'jotai';
-import { ChevronDownIcon, DownloadIcon } from 'lucide-react';
+import { useAtom, useAtomValue } from 'jotai';
+import { ChevronDownIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import {
   configureBmc,
   getBmcStatus,
-  ipmiPackageAction,
   type BmcSettings,
-  type BmcStatus
+  type BmcStatus,
+  type IpmiDaemonStatus
 } from '@/api/bmc.ts';
-import { localized } from '@/lib/addon-form.ts';
+import { formatDeviceTime } from '@/lib/date-time.ts';
 import { pollWhileVisible } from '@/lib/visible-poll.ts';
 import { bmcTabAtom } from '@/jotai/settings.ts';
+import { timePreferencesAtom } from '@/hooks/useDeviceTime.ts';
 import { Panel, SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
-import { AddonPage } from '../addon';
-import { useAddonSections } from '../addon/sections';
-
-// Services > Redfish and IPMI: Redfish is part of the server, IPMI comes with
-// its add-on; one tab each, and below them the BMC account for both, with the
-// power options and the IPMI port under Advanced. The two switches apply at
-// once; Save is for the account. Other add-ons that extend this page
-// (settings.section "services-bmc") get a tab of their own.
-export const BmcSettingsPage = () => {
+// What the running IPMI daemon reports, refreshed with the page's 5 s poll.
+const IpmiDaemonSection = ({ daemon }: { daemon: IpmiDaemonStatus }) => {
   const { t, i18n } = useTranslation('translation', { keyPrefix: 'settings.bmc' });
-  const sections = useAddonSections('services-bmc');
+  const preferences = useAtomValue(timePreferencesAtom);
+  const rows: [string, string][] = [
+    [t('ipmiPort'), String(daemon.port)],
+    [t('ipmiSessions'), String(daemon.sessions)],
+    [t('ipmiLockedOut'), String(daemon.lockedOut)],
+    [
+      t('ipmiLastCommand'),
+      daemon.lastCommand && daemon.lastCommandAt
+        ? `${daemon.lastCommand}, ${formatDeviceTime(Date.parse(daemon.lastCommandAt), preferences, i18n.language, true)}`
+        : t('ipmiNoCommand')
+    ]
+  ];
+  return (
+    <SettingsSection title={t('ipmiStatus')} description={t('ipmiStatusHint')}>
+      <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-fg-muted">{label}</dt>
+            <dd className="m-0 break-words">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </SettingsSection>
+  );
+};
+
+// Services > Redfish and IPMI: both are part of NanoKVM OS and off by
+// default; one tab each, and below them the BMC account for both, with the
+// power options and the IPMI port under Advanced. The two switches apply at
+// once; Save is for the account.
+export const BmcSettingsPage = () => {
+  const { t } = useTranslation('translation', { keyPrefix: 'settings.bmc' });
   const [activeTab, setActiveTab] = useAtom(bmcTabAtom);
   const [status, setStatus] = useState<BmcStatus>();
-  // Reading the status and the last switch, save or install fail apart:
-  // the 5 s poll must not hide why a change was refused.
+  // Reading the status and the last switch or save fail apart: the 5 s poll
+  // must not hide why a change was refused.
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
   const [switching, setSwitching] = useState<'redfish' | 'ipmi'>();
-  const [installing, setInstalling] = useState(false);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [form] = Form.useForm<BmcSettings>();
   const dirty = useRef(false);
@@ -112,7 +136,6 @@ export const BmcSettingsPage = () => {
     const settings = {
       ...values,
       ipmi: Boolean(values.ipmi),
-      // The port field exists only with the add-on installed.
       ipmiPort: values.ipmiPort ?? previous.ipmiPort,
       holdSeconds: values.holdSeconds || 0,
       powerLedConnected: values.powerLedConnected !== false,
@@ -185,36 +208,13 @@ export const BmcSettingsPage = () => {
     }
   };
 
-  const installIpmi = async () => {
-    if (!begin()) return;
-    setInstalling(true);
-    try {
-      const response = await ipmiPackageAction('install');
-      if (!mounted.current) return;
-      if (response.code !== 0) throw new Error(response.msg);
-      setActionError('');
-    } catch (err) {
-      if (mounted.current) setActionError(err instanceof Error ? err.message : t('failed'));
-    } finally {
-      await refresh(true);
-      operation.current = false;
-      if (mounted.current) setInstalling(false);
-    }
-  };
-
   // The page has no <form> element (see below): Enter submits by hand.
   const submit = () => form.submit();
 
   if (!status) return loadError ? <Alert type="error" title={loadError} showIcon /> : <Spin />;
-  // An add-on removed while its tab is open: back to Redfish, not an empty page.
-  const currentTab =
-    activeTab.startsWith('addon-') &&
-    !sections.some((manifest) => `addon-${manifest.id}` === activeTab)
-      ? 'redfish'
-      : activeTab;
   // The account and the power options serve Redfish and IPMI: without
   // either they configure nothing. Hidden, not unmounted, so a save keeps them.
-  const shared = Boolean(redfish) || status.ipmiInstalled;
+  const shared = Boolean(redfish) || Boolean(ipmi);
   // A switch turned on before there is a password: it waits for Save.
   const waiting =
     !status.passwordSet &&
@@ -225,7 +225,7 @@ export const BmcSettingsPage = () => {
       <p className="text-fg-muted m-0 text-sm">{t('description')}</p>
       {loadError && <Alert type="error" title={loadError} showIcon />}
       {actionError && <Alert type="error" title={actionError} showIcon />}
-      {/* No <form> element: an add-on section in a tab may bring its own form. */}
+      {/* No <form> element: Enter in a field submits through submit(). */}
       <Form
         form={form}
         component={false}
@@ -241,7 +241,7 @@ export const BmcSettingsPage = () => {
         onFinishFailed={() => setShowValidationErrors(true)}
       >
         <Tabs
-          activeKey={currentTab}
+          activeKey={activeTab}
           onChange={setActiveTab}
           items={[
             {
@@ -260,7 +260,7 @@ export const BmcSettingsPage = () => {
                       id="bmc-redfish"
                       aria-describedby="bmc-redfish-description"
                       loading={switching === 'redfish'}
-                      disabled={busy || !!switching || installing}
+                      disabled={busy || !!switching}
                       onChange={(on) => void toggle('redfish', on)}
                     />
                   </Form.Item>
@@ -273,73 +273,42 @@ export const BmcSettingsPage = () => {
               forceRender: true,
               children: (
                 <div className="space-y-4">
-                  {status.ipmiInstalled ? (
-                    <>
-                      <StatusBadge tone={status.ipmiRunning ? 'success' : 'neutral'}>
-                        {status.ipmiRunning ? t('running') : t('stopped')}
-                      </StatusBadge>
-                      <SettingRow
-                        label={t('ipmiEnable')}
-                        description={t('ipmiHint')}
-                        htmlFor="bmc-ipmi"
-                      >
-                        <Form.Item name="ipmi" valuePropName="checked" noStyle>
-                          <Switch
-                            id="bmc-ipmi"
-                            aria-describedby="bmc-ipmi-description"
-                            loading={switching === 'ipmi'}
-                            disabled={busy || !!switching || installing}
-                            onChange={(on) => void toggle('ipmi', on)}
-                          />
-                        </Form.Item>
-                      </SettingRow>
-                      {ipmi && <Alert type="warning" title={t('ipmiWarning')} showIcon />}
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-fg-muted m-0 text-sm">{t('ipmiNotInstalled')}</p>
-                      <Button
-                        icon={<DownloadIcon size={16} />}
-                        loading={installing}
-                        disabled={busy || !!switching || installing}
-                        onClick={() => void installIpmi()}
-                      >
-                        {t('ipmiInstall')}
-                      </Button>
-                    </>
+                  <StatusBadge tone={status.ipmiRunning ? 'success' : 'neutral'}>
+                    {status.ipmiRunning ? t('running') : t('stopped')}
+                  </StatusBadge>
+                  <SettingRow
+                    label={t('ipmiEnable')}
+                    description={t('ipmiHint')}
+                    htmlFor="bmc-ipmi"
+                  >
+                    <Form.Item name="ipmi" valuePropName="checked" noStyle>
+                      <Switch
+                        id="bmc-ipmi"
+                        aria-describedby="bmc-ipmi-description"
+                        loading={switching === 'ipmi'}
+                        disabled={busy || !!switching}
+                        onChange={(on) => void toggle('ipmi', on)}
+                      />
+                    </Form.Item>
+                  </SettingRow>
+                  {ipmi && <Alert type="warning" title={t('ipmiWarning')} showIcon />}
+                  {/* The badge above already says when it is stopped. */}
+                  {status.ipmiRunning && status.ipmiDaemon && (
+                    <IpmiDaemonSection daemon={status.ipmiDaemon} />
                   )}
-                  {/* Its status: the badge above already says when it is stopped. */}
-                  {status.ipmiRunning &&
-                    sections
-                      .filter((manifest) => manifest.id === 'ipmi')
-                      .map((manifest) => (
-                        <AddonPage key={manifest.id} manifest={manifest} embedded />
-                      ))}
                 </div>
               )
-            },
-            ...sections
-              .filter((manifest) => manifest.id !== 'ipmi')
-              .map((manifest) => ({
-                key: `addon-${manifest.id}`,
-                label: localized(manifest.title, i18n.language),
-                // The tab carries its title: drawn as a page of its own.
-                children: <AddonPage manifest={manifest} />
-              }))
+            }
           ]}
         />
-        {/* The account and Save belong to Redfish and IPMI, not to an add-on's tab. */}
-        <div className="space-y-6" hidden={currentTab.startsWith('addon-')}>
+        <div className="space-y-6">
           {waiting && <Alert type="info" title={t('accountFirst')} showIcon />}
           {!shared && !showValidationErrors && (
             <p className="text-fg-muted m-0 text-sm">{t('sharedOff')}</p>
           )}
           {/* A rejected draft must stay editable even after Redfish is switched off. */}
           <div hidden={!shared && !showValidationErrors}>
-            <SettingsSection
-              title={t('account')}
-              description={status.ipmiInstalled ? t('accountHint') : t('accountHintRedfish')}
-            >
+            <SettingsSection title={t('account')} description={t('accountHint')}>
               <Form.Item
                 name="username"
                 label={t('username')}
@@ -395,20 +364,13 @@ export const BmcSettingsPage = () => {
                     >
                       <Switch />
                     </Form.Item>
-                    {status.ipmiInstalled && (
-                      <Form.Item name="ipmiPort" label={t('ipmiPort')}>
-                        <InputNumber min={1} max={65535} onPressEnter={submit} />
-                      </Form.Item>
-                    )}
+                    <Form.Item name="ipmiPort" label={t('ipmiPort')}>
+                      <InputNumber min={1} max={65535} onPressEnter={submit} />
+                    </Form.Item>
                   </div>
                 </details>
               </Panel>
-              <Button
-                type="primary"
-                loading={busy}
-                disabled={busy || !!switching || installing}
-                onClick={submit}
-              >
+              <Button type="primary" loading={busy} disabled={busy || !!switching} onClick={submit}>
                 {t('save')}
               </Button>
             </SettingsSection>

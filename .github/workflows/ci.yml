@@ -30,7 +30,6 @@ jobs:
       poly1305: ${{ steps.areas.outputs.poly1305 }}
       web: ${{ steps.areas.outputs.web }}
       rustdesk: ${{ steps.areas.outputs.rustdesk }}
-      modules: ${{ steps.areas.outputs.modules }}
     steps:
       - id: areas
         env:
@@ -48,15 +47,11 @@ jobs:
           fi
           all='^\.github/'
           changed() { grep -qE "$all|$1" "$files" && echo true || echo false; }
-          modules=()
-          # The IPMI add-on builds against the server module.
-          [ "$(changed '^addons/ipmi/|^server/')" = true ] && modules+=(addons/ipmi)
           {
-            echo "server=$(changed '^(server|support|firmware/cpu)/|^addons/[^/]+/addon-ui\.json$')"
+            echo "server=$(changed '^(server|support|firmware/cpu)/')"
             echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/(go-crypto-c906|sysmon-runtime|go-bytes-index)/|^tests/test-c906-poly1305\.py$')"
             echo "web=$(changed '^web/|^\.nvmrc$')"
             echo "rustdesk=$(changed '^addons/rustdesk/')"
-            echo "modules=$(printf '%s\n' "${modules[@]}" | jq -Rsc 'split("\n") | map(select(. != ""))')"
           } | tee -a "$GITHUB_OUTPUT"
 
   test-budget:
@@ -94,6 +89,8 @@ jobs:
         run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: Test
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
+      - name: IPMI race checks
+        run: go test -race -tags teststub,nomsgpack ./internal/ipmi ./cmd/nkos-ipmi
       - name: NanoKVM tests of the patched pion modules
         run: |
           for m in pion-dtls pion-ice pion-sctp pion-srtp; do
@@ -250,35 +247,6 @@ jobs:
           for t in tests/test-apk-resign.py tests/test-release-build-tar.py firmware/services/test_serial_bridge.py; do
             echo "::group::$t"; python3 "$t"; echo "::endgroup::"
           done
-
-  # The IPMI add-on, when it or the server changes.
-  additional-go-modules:
-    name: Additional Go modules (${{ matrix.directory }})
-    needs: changes
-    if: needs.changes.outputs.modules != '[]'
-    runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        directory: ${{ fromJSON(needs.changes.outputs.modules) }}
-    defaults:
-      run:
-        working-directory: ${{ matrix.directory }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.27.x'
-          cache-dependency-path: '**/go.sum'
-      - run: go build ./...
-      - name: IPMI authentication and protocol tests
-        run: go test -timeout 5m ./...
-      - name: Vet IPMI add-on
-        if: matrix.directory == 'addons/ipmi'
-        run: go vet ./...
-      - name: Race-test IPMI add-on
-        if: matrix.directory == 'addons/ipmi'
-        run: go test -race -timeout 5m ./...
 
   rustdesk:
     name: RustDesk host tests

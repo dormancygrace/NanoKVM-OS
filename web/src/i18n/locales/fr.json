@@ -839,16 +839,6 @@
       "description": "Arrête la vidéo, le clavier, les disques virtuels, SSH et les extensions. Attendez la confirmation avant de débrancher l’alimentation de NanoKVM. Si l’alimentation reste branchée, utilisez la page de redémarrage pour relancer NanoKVM OS. L’ordinateur connecté reste allumé.",
       "magic": "Autoriser aussi un paquet magique Wake-on-LAN. Toute personne pouvant joindre le service d’écoute peut redémarrer NanoKVM sans mot de passe."
     },
-    "addonPage": {
-      "failed": "Impossible de lire les valeurs du module complémentaire",
-      "notRunning": "Le service du module complémentaire n'est pas lancé",
-      "refused": "Le module complémentaire a refusé",
-      "saved": "Enregistré",
-      "save": "Enregistrer",
-      "status": "État",
-      "yes": "Oui",
-      "no": "Non"
-    },
     "vpn": {
       "title": "VPN",
       "description": "Connectez le NanoKVM à un réseau privé. Sélectionnez un VPN pour le configurer."
@@ -2299,12 +2289,6 @@
     },
     "bmc": {
       "title": "Redfish et IPMI",
-      "description": "Contrôle de l'alimentation de l'hôte pour les outils de centre de données, via la connexion ATX : Redfish (fence_redfish, Ansible) fait partie de NanoKVM OS, IPMI sur LAN (ipmitool, fence_ipmilan) est fourni par un module.",
-      "install": "Installer",
-      "remove": "Supprimer",
-      "open": "Paramètres",
-      "removeTitle": "Supprimer le module IPMI ?",
-      "removeConfirm": "IPMI s'arrête. Redfish et les paramètres sont conservés.",
       "running": "En marche",
       "stopped": "Arrêté",
       "redfish": "Redfish",
@@ -2314,8 +2298,6 @@
       "ipmiWarning": "IPMI conserve le mot de passe tel quel, et quiconque atteint le port IPMI peut en obtenir un hachage pour le deviner hors ligne. Utilisez un mot de passe long que vous n'utilisez nulle part ailleurs et n'ouvrez le port qu'aux réseaux de confiance.",
       "account": "Compte BMC",
       "accountHint": "Distinct des comptes web ; utilisé par les deux protocoles.",
-      "accountHintRedfish": "Distinct des comptes web ; utilisé par Redfish, et par IPMI une fois son module installé.",
-      "sharedOff": "Le compte BMC et les options d'alimentation apparaissent quand Redfish est activé ou que le module IPMI est installé.",
       "username": "Nom d'utilisateur",
       "usernameRule": "1 à 16 lettres, chiffres, '.', '_' ou '-'",
       "password": "Mot de passe",
@@ -2333,9 +2315,6 @@
       "failed": "La requête a échoué.",
       "redfishEnable": "Activer Redfish",
       "ipmiEnable": "Activer IPMI",
-      "ipmiNotInstalled": "IPMI est fourni par le module IPMI, qui n'est pas installé.",
-      "ipmiInstall": "Installer le module IPMI",
-      "ipmiAddonDescription": "IPMI sur LAN pour le contrôle de l'alimentation de l'hôte (ipmitool, fence_ipmilan). Ses paramètres sont dans Services > Redfish et IPMI.",
       "holdDefault": "5 (menu d'alimentation)",
       "advanced": "Avancé",
       "accountFirst": "Définissez le compte BMC ci-dessous et cliquez sur Enregistrer : Redfish et IPMI ne s'activent qu'avec un mot de passe."

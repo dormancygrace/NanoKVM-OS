@@ -931,16 +931,6 @@
         "authError": "登入已失效：{{error}}",
         "changed": "登入期間服務、用戶端 ID 或租用戶已變更。請重新登入。"
       }
-    },
-    "addonPage": {
-      "failed": "無法讀取附加元件的值",
-      "notRunning": "附加元件的服務未執行",
-      "refused": "附加元件拒絕了此操作",
-      "saved": "已儲存",
-      "save": "儲存",
-      "status": "狀態",
-      "yes": "是",
-      "no": "否"
     }
   },
   "picoclaw": {

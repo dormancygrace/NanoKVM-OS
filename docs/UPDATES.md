@@ -83,7 +83,7 @@ on a release before 3.3 uses 3.3.0, see
 RSA public key stays installed for older packages and rollback.
 Custom repositories and C906 overlay entries are left unchanged.
 
-The OS indexes contain core packages only. RustDesk, IPMI and model packages
+The OS indexes contain core packages only. RustDesk, computer sensors and model packages
 come from the separately signed add-on index on Pages. Add-ons update
 independently of OS releases; RustDesk is not installed in the full SD image.
 

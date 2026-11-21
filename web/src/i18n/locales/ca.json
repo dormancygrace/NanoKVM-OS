@@ -933,16 +933,6 @@
         "authError": "L'inici de sessió ja no funciona: {{error}}",
         "changed": "El servei, l'ID de client o el tenant han canviat durant l'inici de sessió. Torneu a iniciar la sessió."
       }
-    },
-    "addonPage": {
-      "failed": "No s'han pogut llegir els valors del complement",
-      "notRunning": "El servei del complement no s'està executant",
-      "refused": "El complement ho ha rebutjat",
-      "saved": "Desat",
-      "save": "Desa",
-      "status": "Estat",
-      "yes": "Sí",
-      "no": "No"
     }
   },
   "picoclaw": {

@@ -93,7 +93,7 @@ func writeCommunity(url string) error {
 	if hasCommunity(string(data), url) {
 		return nil
 	}
-	return writeAtomic(repositoriesPath, []byte(withCommunity(string(data), url)), 0644)
+	return writeRepositories([]byte(withCommunity(string(data), url)))
 }
 
 func lockedCommunityURL() (string, error) {

@@ -119,7 +119,7 @@ func SetChannel(channel string) error {
 	if err = saveAPKStatus(APKStatus{State: "idle"}); err != nil {
 		return err
 	}
-	return writeAtomic(repositoriesPath, []byte(strings.Join(lines, "\n")), 0644)
+	return writeRepositories([]byte(strings.Join(lines, "\n")))
 }
 
 // Keep in step with scripts/package-versions.py. Add-ons are independent and

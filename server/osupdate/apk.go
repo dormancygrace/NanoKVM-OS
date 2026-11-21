@@ -238,17 +238,49 @@ func upgradeSelections() (skip, bounded []string) {
 	return skip, bounded
 }
 
-// APK's transaction output is also consumed by addonCoreChanges. Only upgrades
-// of the bounded packages are added; installations, removals and holds are not.
-var apkPlannedUpgrade = regexp.MustCompile(`^\([0-9]+/[0-9]+\) Upgrading ([^ ]+) \(([^ ]+) -> ([^ )]+)\)$`)
+// apkStepNumber is the start of every step line of an apk transaction: the
+// step number padded to the width of the total, "( 2/12)", or "(?)" when apk
+// cannot format it.
+const apkStepNumber = `^\((?:\s*[0-9]+/[0-9]+|\?)\)\s+`
 
+// apkStep is one step of an apk transaction as apk-tools prints it:
+// "(2/5) Upgrading nanokvm-base (3.5.0-r0 -> 3.6.0-r0)" or
+// "( 3/12) Installing nut@community (2.8.2-r0)". The action is one of the
+// messages apk-tools has, some of them several words; a package from a tagged
+// repository carries the tag after its name.
+var (
+	apkStepLine = regexp.MustCompile(apkStepNumber)
+	apkStep     = regexp.MustCompile(apkStepNumber +
+		`(Installing|Purging|Reinstalling|\[APK unavailable, skipped\] Reinstalling|` +
+		`Updating pinning|Downgrading|Replacing|Upgrading)\s+([^\s@]+)(?:@\S+)?\s+\((.*)\)$`)
+)
+
+// parseAPKStep is the action, package name without its repository tag and
+// parenthesised detail (the version, or "old -> new") of a transaction step
+// line; ok is false for any other line, including a step in a form apk-tools
+// does not print.
+func parseAPKStep(line string) (action, name, detail string, ok bool) {
+	m := apkStep.FindStringSubmatch(strings.TrimSpace(line))
+	if m == nil {
+		return "", "", "", false
+	}
+	return m[1], m[2], m[3], true
+}
+
+// Only upgrades of the bounded packages are added; installations, removals
+// and holds are not.
 func boundedUpgrades(plan string, bounded []string) string {
 	var lines []string
 	for _, line := range strings.Split(plan, "\n") {
-		m := apkPlannedUpgrade.FindStringSubmatch(strings.TrimSpace(line))
-		if m != nil && slices.Contains(bounded, m[1]) {
-			lines = append(lines, m[1]+"-"+m[2]+" < "+m[3])
+		action, name, detail, ok := parseAPKStep(line)
+		if !ok || action != "Upgrading" || !slices.Contains(bounded, name) {
+			continue
 		}
+		from, to, found := strings.Cut(detail, " -> ")
+		if !found || strings.ContainsAny(from+to, " ()") {
+			continue
+		}
+		lines = append(lines, name+"-"+from+" < "+to)
 	}
 	return strings.Join(lines, "\n")
 }

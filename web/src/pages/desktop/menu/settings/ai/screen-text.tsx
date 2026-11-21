@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, message, Switch } from 'antd';
+import { isAxiosError } from 'axios';
 import { useAtom } from 'jotai';
 import { DownloadIcon, Trash2Icon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +12,7 @@ import {
   type ScreenTextSettings
 } from '@/api/vm.ts';
 import type { ApiResponse } from '@/lib/http.ts';
-import { screenTextLanguages } from '@/lib/screen-text.ts';
+import { readScreenTextSettingsSettled, screenTextLanguages } from '@/lib/screen-text.ts';
 import { screenTextChangeAtom, screenTextSettingsAtom } from '@/jotai/screen.ts';
 import { confirmAction } from '@/components/ui/confirm.ts';
 import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx';
@@ -24,6 +25,41 @@ import { Panel, SettingRow, SettingsSection } from '@/components/ui/settings.tsx
 // module, so it outlasts the page being left and opened again.
 let latestRequest = 0;
 
+// A request that got no answer at all: the connection dropped or timed out,
+// so the server may still be working on it. An HTTP error status is an
+// answer.
+function answerLost(err: unknown) {
+  return !(isAxiosError(err) && err.response);
+}
+
+// Reads the settings, applying each answer, until the server reports no
+// language change running (from this page, another tab or a request whose
+// answer was lost), and gives the final settings. A read that gets no answer
+// is tried again; it stops with null when a newer request of the page takes
+// over, or when the server refuses the read (the session expired).
+function readSettled(setSettings: (settings: ScreenTextSettings) => void) {
+  let request = latestRequest;
+  return readScreenTextSettingsSettled(
+    async () => {
+      if (request !== latestRequest) return null;
+      request = ++latestRequest;
+      let rsp: ApiResponse<ScreenTextSettings>;
+      try {
+        rsp = await getScreenTextSettings();
+      } catch (err) {
+        if (answerLost(err)) throw err;
+        return null;
+      }
+      return rsp.code === 0 && request === latestRequest ? rsp.data : null;
+    },
+    setSettings,
+    () => new Promise((resolve) => setTimeout(resolve, 2000))
+  );
+}
+
+const languageInstalled = (settings: ScreenTextSettings | null, language: string) =>
+  settings?.languages.some((lang) => lang.name === language && lang.installed) ?? false;
+
 // Settings > AI > Text recognition: reading the text on the screen with the
 // TPU, on or off for the toolbar button, MCP and PicoClaw together, and the
 // languages whose models are installed. The models are downloaded from the
@@ -35,20 +71,17 @@ export const ScreenTextSettingsPage = () => {
   const [settings, setSettings] = useAtom(screenTextSettingsAtom);
   const [changing, setChanging] = useAtom(screenTextChangeAtom);
   const [error, setError] = useState('');
+  // A change of this page, or a language change the server reports.
+  const busy = !!changing || !!settings?.changing;
 
-  // Read when the page opens and again after each change, once no change is
-  // on its way: a read during a change could bring the state from before it.
-  // The read after a change also covers a failed request, after which the
-  // page cannot tell what the server did: the answer to a download that
-  // finished may have been lost on the way.
+  // Read when the page opens and again after each change, once no change of
+  // the page is on its way: a read during a change could bring the state from
+  // before it. While the server reports a language change (one started in
+  // another tab, or before the page was opened again), the reading goes on
+  // until the change ends.
   useEffect(() => {
     if (changing) return;
-    const request = ++latestRequest;
-    getScreenTextSettings()
-      .then((rsp) => {
-        if (rsp.code === 0 && request === latestRequest) setSettings(rsp.data);
-      })
-      .catch(() => {});
+    void readSettled(setSettings);
   }, [changing, setSettings]);
 
   async function apply(send: () => Promise<ApiResponse<ScreenTextSettings>>) {
@@ -59,7 +92,7 @@ export const ScreenTextSettingsPage = () => {
   }
 
   async function toggle(enabled: boolean) {
-    if (!settings || changing) return;
+    if (!settings || busy) return;
     setChanging('switch');
     try {
       await apply(() => setScreenTextEnabled(enabled));
@@ -71,7 +104,7 @@ export const ScreenTextSettingsPage = () => {
   }
 
   async function change(language: string, installed: boolean) {
-    if (changing) return;
+    if (busy) return;
     if (
       !installed &&
       !(await confirmAction({
@@ -90,14 +123,21 @@ export const ScreenTextSettingsPage = () => {
     try {
       await apply(() => setScreenTextLanguage(language, installed));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('settings.ai.screenText.changeFailed'));
+      if (answerLost(err)) {
+        // apk may still be running on the device: the button keeps showing
+        // the change until the server reports none, then the final state.
+        const final = await readSettled(setSettings);
+        if (final && languageInstalled(final, language) !== installed)
+          setError(t('settings.ai.screenText.changeFailed'));
+      } else {
+        setError(err instanceof Error ? err.message : t('settings.ai.screenText.changeFailed'));
+      }
     } finally {
       setChanging('');
     }
   }
 
-  const installed = (language: string) =>
-    settings?.languages.some((lang) => lang.name === language && lang.installed) ?? false;
+  const installed = (language: string) => languageInstalled(settings, language);
 
   return (
     <div className="space-y-6">
@@ -112,7 +152,7 @@ export const ScreenTextSettingsPage = () => {
             aria-describedby="screen-text-enabled-description"
             checked={settings?.enabled ?? false}
             loading={!settings || changing === 'switch'}
-            disabled={!settings || !!changing}
+            disabled={!settings || busy}
             onChange={(enabled) => void toggle(enabled)}
           />
         </SettingRow>
@@ -134,7 +174,7 @@ export const ScreenTextSettingsPage = () => {
                   type="text"
                   icon={<Trash2Icon size={16} />}
                   loading={changing === language}
-                  disabled={!settings || (!!changing && changing !== language)}
+                  disabled={!settings || (busy && changing !== language)}
                   onClick={() => void change(language, false)}
                 >
                   {t('settings.ai.screenText.remove')}
@@ -143,7 +183,7 @@ export const ScreenTextSettingsPage = () => {
                 <Button
                   icon={<DownloadIcon size={16} />}
                   loading={changing === language}
-                  disabled={!settings || (!!changing && changing !== language)}
+                  disabled={!settings || (busy && changing !== language)}
                   onClick={() => void change(language, true)}
                 >
                   {t('settings.ai.screenText.install')}

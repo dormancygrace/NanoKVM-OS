@@ -93,6 +93,9 @@ export type ScreenTextSettings = {
   // The models of at least one language are installed, so it can read.
   installed: boolean;
   languages: { name: string; installed: boolean }[];
+  // A language change waits or runs on the device: the languages may still
+  // change.
+  changing: boolean;
 };
 
 export function getScreenTextSettings() {
@@ -108,7 +111,8 @@ export function setScreenTextEnabled(enabled: boolean) {
 // to 30 minutes; the page waits a little longer, so that it usually hears the
 // server's answer instead of giving up first. An answer can still be lost
 // (a change started in another browser tab runs first, or the connection
-// drops), so after a failure the page reads the settings again.
+// drops), so after a lost answer the page reads the settings until they
+// report no language change running.
 export function setScreenTextLanguage(language: string, installed: boolean) {
   return http.post<ScreenTextSettings>(
     '/api/vm/screen/text/language',

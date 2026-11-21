@@ -101,3 +101,28 @@ export function boxesToText(boxes: ScreenTextBox[]) {
     .map((line) => line.map((box) => box.text).join(' '))
     .join('\n');
 }
+
+// Reads the text recognition settings until the server reports no language
+// change running, applying each answer, and gives the last one. read throws
+// when no answer comes (it is tried again after wait) and gives null when a
+// newer request has taken over the page's state, which ends the reading.
+export async function readScreenTextSettingsSettled<T extends { changing: boolean }>(
+  read: () => Promise<T | null>,
+  apply: (settings: T) => void,
+  wait: () => Promise<void>
+): Promise<T | null> {
+  for (;;) {
+    let settings: T | null | undefined;
+    try {
+      settings = await read();
+    } catch {
+      // No answer: the device may be busy or the connection down; ask again.
+    }
+    if (settings === null) return null;
+    if (settings) {
+      apply(settings);
+      if (!settings.changing) return settings;
+    }
+    await wait();
+  }
+}

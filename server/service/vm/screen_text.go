@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -130,9 +131,13 @@ func screenTextLanguageInstalled(lang string) bool {
 	return err == nil
 }
 
-// screenTextSettings: the switch, whether text recognition can read, and
-// which languages have their models installed.
+// screenTextSettings: the switch, whether text recognition can read, which
+// languages have their models installed, and whether a language change is
+// running. The count is read before the models: read after them, a change
+// that ends in between would give the models from before it with no change
+// running, and the page would take that state as final.
 func screenTextSettings() gin.H {
+	changing := screenTextLanguageChanges.Load() > 0
 	type language struct {
 		Name      string `json:"name"`
 		Installed bool   `json:"installed"`
@@ -141,7 +146,7 @@ func screenTextSettings() gin.H {
 	for _, lang := range screenTextLanguages {
 		languages = append(languages, language{Name: lang, Installed: screenTextLanguageInstalled(lang)})
 	}
-	return gin.H{"enabled": ScreenTextEnabled(), "installed": ScreenTextInstalled(), "languages": languages}
+	return gin.H{"enabled": ScreenTextEnabled(), "installed": ScreenTextInstalled(), "languages": languages, "changing": changing}
 }
 
 func (s *Service) GetScreenTextSettings(c *gin.Context) {
@@ -162,6 +167,12 @@ func screenTextPackage(lang string) string { return screenTextDetectorPackage + 
 // leave it. Not screenTextMutex: a download must not hold up reading.
 var screenTextLanguageMutex sync.Mutex
 
+// screenTextLanguageChanges counts the language changes that wait for
+// screenTextLanguageMutex or hold it. The settings report whether there are
+// any, so that a page whose request lost its answer while apk still runs
+// (or a page opened during a change) waits for the final state.
+var screenTextLanguageChanges atomic.Int32
+
 // SetScreenTextLanguage installs or removes the models of one language
 // ({"language":"latin","installed":true}). Installing names the detector
 // too, as apkpkg.InstallOnly installs nothing it is not given; removing the
@@ -176,26 +187,33 @@ func (s *Service) SetScreenTextLanguage(c *gin.Context) {
 		rsp.ErrRsp(c, -1, "a language and installed are required")
 		return
 	}
-	screenTextLanguageMutex.Lock()
-	defer screenTextLanguageMutex.Unlock()
-	var err error
-	if *req.Installed {
-		err = apkpkg.InstallOnly(screenTextPackage(req.Language), screenTextDetectorPackage)
-	} else {
-		names := []string{screenTextPackage(req.Language)}
-		if !slices.ContainsFunc(screenTextLanguages, func(lang string) bool {
-			return lang != req.Language && screenTextLanguageInstalled(lang)
-		}) {
-			names = append(names, screenTextDetectorPackage)
-		}
-		err = apkpkg.Remove(names...)
-	}
-	if err != nil {
+	if err := changeScreenTextLanguage(req.Language, *req.Installed); err != nil {
 		log.Errorf("screen text: %s models: %v", req.Language, err)
 		rsp.ErrRsp(c, -2, err.Error())
 		return
 	}
+	// Built after the change has left the count, so that the answer does not
+	// report this change as still running.
 	rsp.OkRspWithData(c, screenTextSettings())
+}
+
+// changeScreenTextLanguage installs or removes the models of lang, counted in
+// screenTextLanguageChanges from before it waits for the lock until apk is done.
+func changeScreenTextLanguage(lang string, installed bool) error {
+	screenTextLanguageChanges.Add(1)
+	defer screenTextLanguageChanges.Add(-1)
+	screenTextLanguageMutex.Lock()
+	defer screenTextLanguageMutex.Unlock()
+	if installed {
+		return apkpkg.InstallOnly(screenTextPackage(lang), screenTextDetectorPackage)
+	}
+	names := []string{screenTextPackage(lang)}
+	if !slices.ContainsFunc(screenTextLanguages, func(other string) bool {
+		return other != lang && screenTextLanguageInstalled(other)
+	}) {
+		names = append(names, screenTextDetectorPackage)
+	}
+	return apkpkg.Remove(names...)
 }
 
 // SetScreenTextSettings turns text recognition on or off ({"enabled":bool})

@@ -122,21 +122,21 @@ ATX power/reset controls are available on supported boards. **Wake-on-LAN** incl
 - **WireGuard `.conf` profiles** with an explicit Route Allowed IPs option; **OpenVPN TUN and TAP `.ovpn` profiles**, including referenced certificate/key files in the same upload.
 - **HTTPS from first boot** with a unique device certificate and HTTP redirect. Newly generated certificates use ECDSA P-256; existing certificates are preserved. A **custom certificate** (your own CA or a public one) can be uploaded in Settings → System → Security and takes effect for new connections without a restart; a custom pair that cannot be loaded never blocks start-up (the generated one stands in). **Let's Encrypt / ZeroSSL / Buypass / Google** certificates through **acme.sh**, installed from its latest release on demand: HTTP-01 on port 80 or DNS-01 with every DNS provider acme.sh ships, renewed from the server and served without a restart. The web server's HTTPS and HTTP ports accept at most 256 connections in total and 64 from one address (one IPv6 /64), closing the rest before any TLS work, and run at most 16 TLS handshakes at a time; local add-ons on the loopback address are not limited. SSH can be enabled from settings; administrators can [import public SSH keys](docs/SSH-KEYS.md) from a file or pasted text.
 
-### 🧩 Software and add-ons
+### 🧩 Software and optional features
 
 **Software is a top-level settings section.** Its package manager searches repositories and installs, removes or updates packages using the same APK database as the terminal. Install tools such as `nano`, `htop`, `mc` or Python as needed.
 
-**Daily package-index refresh** is optional and off by default. Enable it in Software → Packages and choose a time in the device timezone. It refreshes the available-package lists; it does **not** automatically install updates. Manage optional software in Software → Add-ons. RustDesk updates are discovered from the signed repository, including for older file-pinned installations.
+**Daily package-index refresh** is optional and off by default. Enable it in Software → Packages and choose a time in the device timezone. It refreshes the available-package lists; it does **not** automatically install updates.
 
-| Add-on | Installation and capabilities |
+| Feature | Installation and capabilities |
 | --- | --- |
-| **[RustDesk](https://github.com/rustdesk/rustdesk)** | Optional add-on from the signed add-on repository, installed in Software → Add-ons and configured in Services → RustDesk. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP, and WebRTC whenever the client offers it. Based on the RustDesk 1.5 protocol. |
-| **[Computer sensors](docs/HOST-SENSORS.md)** | Optional add-on from Software → Add-ons. Agents for Windows and Linux send the managed computer's temperatures, voltages, fan speeds and power over USB; the readings appear in Services → Computer sensors. |
-| **[Screen text and screen models](tpu/README.md)** | Optional TPU models from Software → Add-ons. OCR models for Latin, Cyrillic or Chinese text read the remote screen (AI → Screen text, MCP and PicoClaw); the screen model recognizes Windows stop screens and kernel panics for crash-screen notifications. |
-| **[PicoClaw](https://github.com/sipeed/picoclaw)** | Install, update or remove the official latest RISC-V release from Software → Add-ons, then configure the model, API key and endpoint in AI → PicoClaw for remote-control or general-assistant use. Its navigation entry appears only while installed. |
-| **[acme.sh](https://github.com/acmesh-official/acme.sh)** | Install on demand from Software → Add-ons, then configure HTTPS certificates in Settings → System → Security. Issue and renew certificates through ACME using HTTP-01 or DNS-01 with supported DNS providers; renewed certificates take effect without restarting the service. |
+| **[RustDesk](https://github.com/rustdesk/rustdesk)** | Part of NanoKVM OS, off until switched on in Services → RustDesk. Share the captured HDMI display and USB input using the official RustDesk servers or your own; temporary/permanent passwords, H.264/H.265, direct/relay TCP, and WebRTC whenever the client offers it. Based on the RustDesk 1.5 protocol. |
+| **[Computer sensors](docs/HOST-SENSORS.md)** | Part of NanoKVM OS, off until a connection is chosen in Services → Computer sensors. Agents for Windows and Linux send the managed computer's temperatures, voltages, fan speeds and power over USB; the readings appear on that page. |
+| **[Screen text and screen models](tpu/README.md)** | The screen model, part of NanoKVM OS, recognizes Windows stop screens and kernel panics for crash-screen notifications, which are off until enabled. OCR models for Latin, Cyrillic or Chinese text are downloaded on request in AI → Text recognition and read the remote screen (toolbar, MCP and PicoClaw). |
+| **[PicoClaw](https://github.com/sipeed/picoclaw)** | Install the official latest RISC-V release from AI → PicoClaw, then configure the model, API key and endpoint there for remote-control or general-assistant use; remove it from the PicoClaw panel. |
+| **[acme.sh](https://github.com/acmesh-official/acme.sh)** | Install on demand in Settings → System → Security, where its HTTPS certificates are configured. Issue and renew certificates through ACME using HTTP-01 or DNS-01 with supported DNS providers; renewed certificates take effect without restarting the service. |
 
-RustDesk can forward USB audio. The capture runs at the frame rate a connected RustDesk client asks for (30 FPS unless set higher in the client), for every viewer while that client is connected. The integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [packages and corresponding sources](https://github.com/dormancygrace/NanoKVM-OS/releases?q=nanokvm-rustdesk) are published independently of OS releases: an installed add-on can be updated without waiting for a new NanoKVM OS version.
+RustDesk can forward USB audio. The capture runs at the frame rate a connected RustDesk client asks for (30 FPS unless set higher in the client), for every viewer while that client is connected. The integration does not include clipboard, file transfer, terminal, chat or ATX control. Its [packages and corresponding sources](https://github.com/dormancygrace/NanoKVM-OS/releases?q=nanokvm-rustdesk) are published independently of OS releases, as are the computer sensors and the TPU models: a new version reaches devices with the next package update, without waiting for a new NanoKVM OS version.
 
 PicoClaw is downloaded from its upstream release, **not packaged as a NanoKVM APK**. An **MCP endpoint** with enable/disable and API-key controls is also available under **AI → MCP** for external AI clients.
 
@@ -221,8 +221,8 @@ where future updates come from; it installs nothing by itself. After returning t
 Stable, **Install stable version** restores the current stable firmware even
 when its packages are older. Confirm the rollback; settings and data are kept,
 and a kernel or bootloader change requires a reboot.
-Existing installations stay on Stable. Independent stable add-on releases are
-available in both channels.
+Existing installations stay on Stable. Packages released on their own
+(RustDesk, the computer sensors, the TPU models) are available in both channels.
 
 Updates retain settings, user data and independently installed packages. The core packages include **nanokvm** (backend), **nanokvm-web** (UI) and **nanokvm-release**, which also provides the old **nanokvm-app** name. Web-only updates need a browser refresh instead of a backend restart. Kernel and bootloader updates need a reboot to take effect. Application service updates use OpenRC automatically; no separate apply command is needed.
 
@@ -258,7 +258,7 @@ Pinned platform inputs, Go modules and the web lockfile fix their respective sou
 | Source directory | Contents |
 | --- | --- |
 | `server/`, `web/` | Go application, streaming/API services and React/TypeScript interface |
-| `addons/` | Independently released add-ons (RustDesk, computer sensors, OCR and screen models), with their source and packaging |
+| `addons/` | Packages released on their own (RustDesk, computer sensors, OCR and screen models), with their source and packaging |
 | `support/` | Native media/board integration and device tools (`kvm_system`, MMF, `nanokvm_update_edid`) |
 | `tpu/` | TPU runtime integration and the OCR and screen-crash programs |
 | `kvmapp/` | Init scripts and PicoClaw agent files |

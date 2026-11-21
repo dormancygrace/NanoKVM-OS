@@ -27,9 +27,8 @@ type Reading struct {
 	Value   float64
 }
 
-// Sensors are the host's sensors. on is false while the feature is off (the
-// add-on is not installed, or its transport is off): the resources do not
-// exist then. fresh is false while the agent is silent: the resources
+// Sensors are the host's sensors. on is false while the feature is off (no
+// transport chosen): the resources do not exist then. fresh is false while the agent is silent: the resources
 // exist, without readings, since an old reading must not pass for a
 // current one.
 type Sensors interface {

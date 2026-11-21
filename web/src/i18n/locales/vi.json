@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "Lưu"
       },
-      "addons": {
-        "title": "Tiện ích bổ sung",
-        "packages": "Gói",
-        "install": "Cài đặt"
-      },
       "title": "Phần mềm",
+      "packages": "Gói",
       "available": "Gói có sẵn",
       "updatesTab": "Cập nhật",
       "search": "Tìm kiếm",
@@ -750,10 +746,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Chưa cài đặt",
       "stopped": "Đã dừng",
-      "install": "Cài đặt",
-      "remove": "Gỡ bỏ",
       "save": "Lưu cài đặt",
       "server": "Máy chủ",
       "passwordMode": "Mật khẩu",
@@ -807,8 +800,7 @@
       "eventHint": {
         "power": "máy tính chủ được bật hoặc tắt; cần điều khiển ATX có nối đèn LED nguồn.",
         "hdmi": "mất hình hoặc có lại hình, kể cả khi máy tính chủ tắt màn hình; chỉ phát hiện khi đang thu video.",
-        "security": "địa chỉ bị chặn sau nhiều lần đăng nhập thất bại, quá nhiều lần đăng nhập IPMI, đăng nhập từ địa chỉ mới.",
-        "screen": "màn hình xanh hoặc kernel panic, do tiện ích bổ sung TPU nhận dạng; văn bản được đọc khi không ai xem video và kèm theo ảnh chụp màn hình."
+        "security": "địa chỉ bị chặn sau nhiều lần đăng nhập thất bại, quá nhiều lần đăng nhập IPMI, đăng nhập từ địa chỉ mới."
       },
       "field": {
         "token": "Token",

@@ -15,7 +15,7 @@ var contexts = map[string]string{
 	"network": "NetworkingDevice", "cooler": "Fan", "psu": "PowerSupply", "battery": "Battery",
 }
 
-// redfishSensors are the readings of the computer sensors add-on's agent
+// redfishSensors are the readings of the computer sensors agent
 // as Redfish's sensors. All of them: the page's choice of what it shows is
 // the page's.
 type redfishSensors struct {

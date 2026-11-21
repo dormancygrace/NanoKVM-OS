@@ -113,15 +113,28 @@ jobs:
                 apk --root "$root" --arch riscv64 add --initdb --no-scripts
                 apk --root "$root" --arch riscv64 update
                 apk --root "$root" --arch riscv64 search -e nanokvm-release | grep "^nanokvm-release-"
+                # A device without the add-on line (before nanokvm-base 3.5.0)
+                # reads only this index and Alpine main: the add-ons that
+                # nanokvm-release depends on must resolve from it alone.
+                # --simulate reads the Alpine index only from the cache: update first.
+                cp /usr/share/apk/keys/riscv64/*.pub "$root/etc/apk/keys/"
+                os_only="--repositories-file=/dev/null --repository=$repo/Packages.pending.adb --repository=https://dl-cdn.alpinelinux.org/alpine/$branch/main"
+                apk --root "$root" --arch riscv64 $os_only update
+                apk --root "$root" --arch riscv64 $os_only add --simulate nanokvm-release > /dev/null
                 # On a line of its own: a failure inside a for list would not stop the check.
                 addons=$(cd /scripts && python3 -c "import addon_packages; print(*addon_packages.ADDONS)")
+                base=$(cd /scripts && python3 -c "import addon_packages; print(*addon_packages.BASE)")
                 for addon in $addons; do
-                  # The OS index offers no add-on.
-                  if apk --root "$root" --arch riscv64 --repositories-file=/dev/null --repository="$repo/Packages.pending.adb" \
-                      search -e "$addon" | grep -q "^$addon-"; then
-                    echo "the OS index offers $addon" >&2
-                    exit 1
-                  fi
+                  # The OS index offers no add-on but those nanokvm-release depends on.
+                  case " $base " in
+                    *" $addon "*) ;;
+                    *)
+                      if apk --root "$root" --arch riscv64 --repositories-file=/dev/null --repository="$repo/Packages.pending.adb" \
+                          search -e "$addon" | grep -q "^$addon-"; then
+                        echo "the OS index offers $addon" >&2
+                        exit 1
+                      fi ;;
+                  esac
                   if apk --root "$root" --arch riscv64 search -e "$addon" | grep -q "^$addon-"; then
                     apk --root "$root" --arch riscv64 fetch --stdout "$addon" > /dev/null
                   fi

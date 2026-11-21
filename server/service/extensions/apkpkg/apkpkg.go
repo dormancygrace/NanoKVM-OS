@@ -59,20 +59,20 @@ func InstallCommunity(names ...string) error {
 	return nil
 }
 
-// InstallAddon installs or updates an add-on of the NanoKVM repository. It
-// refuses one whose minimum NanoKVM OS release is above the installed one,
-// and any transaction that would change a package of the OS: apk meets an
-// add-on's minimum release by upgrading the whole OS.
-func InstallAddon(name string) error {
-	if !packageName.MatchString(name) {
-		return errors.New("invalid APK package name")
+// InstallOnly installs packages of the NanoKVM repositories and changes no
+// installed package: it refreshes the indexes, simulates the transaction and
+// refuses it when apk would do anything but install names, so callers name
+// every package the installation brings. A package that needs a later
+// NanoKVM OS (nanokvm-os>=VERSION) would otherwise upgrade the whole OS as a
+// side effect of an install.
+func InstallOnly(names ...string) error {
+	if len(names) == 0 {
+		return errors.New("no APK package to install")
 	}
-	// The list is in /run, empty after a reboot until a check, and AI > Screen
-	// text installs without opening the Add-ons page.
-	if osupdate.GetAddonCatalog().CheckedAt == 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-		_ = osupdate.CheckUpdates(ctx, true)
-		cancel()
+	for _, name := range names {
+		if !packageName.MatchString(name) {
+			return errors.New("invalid APK package name")
+		}
 	}
 	lock, err := osupdate.Lock()
 	if err != nil {
@@ -84,31 +84,42 @@ func InstallAddon(name string) error {
 	if output, runErr := apkrun.Command(ctx, "/sbin/apk", "update").CombinedOutput(); runErr != nil {
 		return fmt.Errorf("apk update failed: %s", tail(output))
 	}
-	spec, err := osupdate.AddonInstallSpec(name)
-	if err != nil {
-		return err
-	}
-	// Select the catalog version without upgrading already satisfied OS dependencies.
-	output, runErr := apkrun.Command(ctx, "/sbin/apk", "add", "--simulate", "--", spec).CombinedOutput()
+	output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{"add", "--simulate", "--"}, names...)...).CombinedOutput()
 	if runErr != nil {
 		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
-	if changed := osupdate.CoreChanges(string(output), name); len(changed) > 0 {
-		return fmt.Errorf("installing %s would change NanoKVM OS packages (%s); update NanoKVM OS first",
-			name, strings.Join(changed, ", "))
+	if changed := osupdate.OtherInstallChanges(string(output), names); len(changed) > 0 {
+		return fmt.Errorf("installing %s would change other packages (%s); update NanoKVM OS first",
+			strings.Join(names, ", "), strings.Join(changed, ", "))
 	}
-	if output, runErr = apkrun.Command(ctx, "/sbin/apk", "add", "--", spec).CombinedOutput(); runErr != nil {
+	if output, runErr = apkrun.Command(ctx, "/sbin/apk", append([]string{"add", "--"}, names...)...).CombinedOutput(); runErr != nil {
 		return fmt.Errorf("apk add failed: %s", tail(output))
 	}
 	return nil
 }
 
-// RemoveAddon removes an installed add-on, never a package of the OS.
-func RemoveAddon(name string) error {
-	if !osupdate.IsInstalledAddon(name) {
-		return errors.New("not an installed add-on")
+// Remove removes packages in one apk transaction, under the same lock as other
+// package operations.
+func Remove(names ...string) error {
+	if len(names) == 0 {
+		return errors.New("no APK package to remove")
 	}
-	return Run("remove", name)
+	for _, name := range names {
+		if !packageName.MatchString(name) {
+			return errors.New("invalid APK package name")
+		}
+	}
+	lock, err := osupdate.Lock()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	if output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{"del", "--"}, names...)...).CombinedOutput(); runErr != nil {
+		return fmt.Errorf("apk del failed: %s", tail(output))
+	}
+	return nil
 }
 
 // Keep selects an installed package in the APK world, so that apk keeps it
@@ -136,6 +147,16 @@ func Keep(name string) error {
 }
 
 var worldPath = "/etc/apk/world"
+
+// Selected reports whether the APK world names the package: whether it was
+// chosen, not only installed as another package's dependency.
+func Selected(name string) (bool, error) {
+	world, err := os.ReadFile(worldPath)
+	if err != nil {
+		return false, err
+	}
+	return selected(world, name), nil
+}
 
 // selected reports whether the world names the package, with or without a
 // version constraint, a repository tag or a file pin.

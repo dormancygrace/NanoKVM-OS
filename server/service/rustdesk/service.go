@@ -1,13 +1,11 @@
 package rustdesk
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"os"
@@ -18,14 +16,10 @@ import (
 	"sync"
 	"time"
 
-	"NanoKVM-Server/internal/apkrun"
 	"NanoKVM-Server/internal/oomscore"
-	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/service/vm"
 
 	log "github.com/sirupsen/logrus"
-
-	"golang.org/x/sys/unix"
 )
 
 const Package = "nanokvm-rustdesk"
@@ -36,7 +30,7 @@ var ConfigFile = ConfigDir + "/config.json"
 type Config struct {
 	AudioEnabled *bool `json:"audio_enabled,omitempty"`
 	LocalPointer *bool `json:"local_pointer,omitempty"`
-	// The address of the direct listener; the add-on listens on the loopback
+	// The address of the direct listener; the daemon listens on the loopback
 	// one without it.
 	Listen       string `json:"listen_address,omitempty"`
 	WebRTC       bool   `json:"webrtc_enabled,omitempty"`
@@ -56,12 +50,9 @@ type Status struct {
 	SupportsAudioSettings     bool            `json:"supports_audio_settings"`
 	PointerSettings           bool            `json:"supports_pointer_settings"`
 	USBAudioEnabled           bool            `json:"usb_audio_enabled"`
-	Installed                 bool            `json:"installed"`
 	Version                   string          `json:"version,omitempty"`
 	RustDeskVersion           string          `json:"rustdesk_version,omitempty"`
 	SourceURL                 string          `json:"source_url,omitempty"`
-	UpdateVersion             string          `json:"update_version,omitempty"`
-	Available                 bool            `json:"available"`
 	Running                   bool            `json:"running"`
 	Config                    Config          `json:"config"`
 	HasPassword               bool            `json:"has_password"`
@@ -82,59 +73,10 @@ type Service struct {
 	enableUSB  func(bool) error
 	ensureUSB  func(bool) error
 	restoreUSB func() error
-
-	// Package facts only change with the apk database, world or indexes, so
-	// status polling reuses them until apkStamp changes or a package action runs.
-	apkStamp func() string
-	// apkMu keeps a repository refresh, including its apk state check, apart
-	// from package actions; apkrun serializes the apk runs themselves with
-	// everything else on the device.
-	apkMu          sync.Mutex
-	factsMu        sync.Mutex
-	generation     int
-	installed      installedFacts
-	repository     repositoryFacts
-	refreshing     chan struct{}
-	failedStamp    string
-	retryAt        time.Time
-	repositoryWait time.Duration
-}
-
-type installedFacts struct {
-	stamp     string
-	installed bool
-	version   string
-}
-type repositoryFacts struct {
-	stamp     string
-	version   string // installed version the upgrade candidate was selected for
-	available bool
-	update    string
-}
-
-// Loading the repository indexes takes apk several seconds of CPU and about
-// 20 MiB on the device, so these queries run in the background, one at a time,
-// at idle priority and with a deadline that lets them finish under load.
-const repositoryTimeout = 3 * time.Minute
-const repositoryRetry = time.Minute
-
-type idlePriority struct{}
-
-// Commands run with this context yield the CPU to requests and streaming.
-func withIdlePriority(ctx context.Context) context.Context {
-	return context.WithValue(ctx, idlePriority{}, true)
-}
-
-// Files apk rewrites whenever installed packages, repositories or their cached
-// indexes change.
-var apkStatePaths = []string{
-	"/etc/apk/arch", "/etc/apk/keys", "/etc/apk/repositories", "/etc/apk/repositories.d",
-	"/lib/apk/repositories.d", "/etc/apk/world", "/lib/apk/db/installed", "/etc/apk/cache", "/var/cache/apk",
 }
 
 func NewService(b *Bridge) *Service {
-	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", startedFile: "/run/openrc/started/" + Package, enableUSB: vm.EnableRemoteAccessUSB, ensureUSB: vm.EnsureRemoteAccessUSB, restoreUSB: vm.RestoreUSBAfterRemoteAccess,
-		apkStamp: func() string { return apkStamp(apkStatePaths) }, repositoryWait: 250 * time.Millisecond}
+	s := &Service{bridge: b, run: runCommand, passwordFile: RuntimeDir + "/temporary-password", upstreamFile: "/usr/share/nanokvm-rustdesk/upstream.json", sourceFile: "/usr/share/nanokvm-rustdesk/source.json", startedFile: "/run/openrc/started/" + Package, enableUSB: vm.EnableRemoteAccessUSB, ensureUSB: vm.EnsureRemoteAccessUSB, restoreUSB: vm.RestoreUSBAfterRemoteAccess}
 	b.mu.Lock()
 	b.prepareUSB = s.PrepareUSB
 	b.mu.Unlock()
@@ -160,39 +102,12 @@ func (s *Service) PrepareUSB() error {
 	return err
 }
 func runCommand(ctx context.Context, name string, args ...string) ([]byte, error) {
-	var data []byte
-	var err error
-	if name == "apk" {
-		// The shared runner queues apk behind runs of other services and
-		// processes within the context's deadline, and lowers the priority of
-		// repository queries itself. Only stdout is the answer: a warning on
-		// stderr would make a JSON query unreadable.
-		cmd := apkrun.Command(ctx, name, args...)
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &stdout, &stderr
-		err = cmd.Run()
-		data = stdout.Bytes()
-		if err != nil {
-			data = append(stderr.Bytes(), data...)
-		}
-	} else {
-		argv := append([]string{name}, args...)
-		if name == "rc-service" && len(args) > 1 && (args[1] == "start" || args[1] == "restart") {
-			// The daemon must not inherit the server's OOM protection.
-			argv = oomscore.Unprotected(name, args...)
-		}
-		cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
-		var output bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &output, &output
-		err = cmd.Start()
-		if err == nil {
-			if ctx.Value(idlePriority{}) != nil {
-				_ = unix.Setpriority(unix.PRIO_PROCESS, cmd.Process.Pid, 19)
-			}
-			err = cmd.Wait()
-		}
-		data = output.Bytes()
+	argv := append([]string{name}, args...)
+	if name == "rc-service" && len(args) > 1 && (args[1] == "start" || args[1] == "restart") {
+		// The daemon must not inherit the server's OOM protection.
+		argv = oomscore.Unprotected(name, args...)
 	}
+	data, err := exec.CommandContext(ctx, argv[0], argv[1:]...).CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("%s failed: %s", name, strings.TrimSpace(string(data[:min(len(data), 2048)])))
 	}
@@ -204,143 +119,9 @@ func (s *Service) command(name string, args ...string) ([]byte, error) {
 	return s.run(ctx, name, args...)
 }
 func (s *Service) statusCommand(name string, args ...string) ([]byte, error) {
-	data, _, err := s.probe(context.Background(), 3*time.Second, name, args...)
-	return data, err
-}
-
-// probe also reports whether the command finished before its deadline: an
-// expired deadline says nothing about the package and is never cached.
-func (s *Service) probe(parent context.Context, timeout time.Duration, name string, args ...string) ([]byte, bool, error) {
-	ctx, cancel := context.WithTimeout(parent, timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	data, err := s.run(ctx, name, args...)
-	return data, ctx.Err() == nil, err
-}
-
-// apkStamp summarizes the size and modification time of apk's state files and
-// of the files in its state directories.
-func apkStamp(paths []string) string {
-	var b strings.Builder
-	for _, path := range paths {
-		info, err := os.Stat(path)
-		if err != nil {
-			fmt.Fprintf(&b, "%s:-;", path)
-			continue
-		}
-		fmt.Fprintf(&b, "%s:%d:%d;", path, info.Size(), info.ModTime().UnixNano())
-		if !info.IsDir() {
-			continue
-		}
-		entries, _ := os.ReadDir(path)
-		for _, entry := range entries {
-			if info, err := entry.Info(); err == nil {
-				fmt.Fprintf(&b, "%s:%d:%d;", entry.Name(), info.Size(), info.ModTime().UnixNano())
-			}
-		}
-	}
-	return b.String()
-}
-
-// stamp identifies the apk state that cached facts were read from. Package
-// actions also advance it in case file timestamps are too coarse to notice.
-func (s *Service) stamp() string {
-	s.factsMu.Lock()
-	generation := s.generation
-	s.factsMu.Unlock()
-	return fmt.Sprintf("%d;%s", generation, s.apkStamp())
-}
-func (s *Service) forgetPackageFacts() {
-	s.factsMu.Lock()
-	s.generation++
-	s.factsMu.Unlock()
-}
-
-func (s *Service) installedFacts(stamp string) installedFacts {
-	s.factsMu.Lock()
-	cached := s.installed
-	s.factsMu.Unlock()
-	if cached.stamp == stamp {
-		return cached
-	}
-	facts := installedFacts{stamp: stamp}
-	_, conclusive, err := s.probe(context.Background(), 3*time.Second, "apk", "info", "-e", Package)
-	facts.installed = err == nil
-	if facts.installed {
-		version, finished, versionErr := s.probe(context.Background(), 3*time.Second, "apk", "info", "-e", "-v", Package)
-		conclusive = conclusive && finished
-		if versionErr == nil {
-			value := strings.TrimSpace(string(version))
-			if strings.HasPrefix(value, Package+"-") {
-				facts.version = strings.TrimPrefix(value, Package+"-")
-			}
-		}
-	}
-	if conclusive {
-		s.factsMu.Lock()
-		s.installed = facts
-		s.factsMu.Unlock()
-	}
-	return facts
-}
-
-// repositoryFacts starts a refresh after apk changed and only the request that
-// starts it waits briefly. Until it finishes, the previous answer stands in;
-// its upgrade candidate only counts for the installed version it was selected
-// for. A refresh still running for an older state is followed by another one
-// on a later request.
-func (s *Service) repositoryFacts(stamp, version string) repositoryFacts {
-	s.factsMu.Lock()
-	defer s.factsMu.Unlock()
-	if s.repository.stamp == stamp || s.refreshing != nil || s.failedStamp == stamp && time.Now().Before(s.retryAt) {
-		return s.repository
-	}
-	done := make(chan struct{})
-	s.refreshing = done
-	go s.refreshRepository(stamp, version, done)
-	s.factsMu.Unlock()
-	timer := time.NewTimer(s.repositoryWait)
-	select {
-	case <-done:
-	case <-timer.C:
-	}
-	timer.Stop()
-	s.factsMu.Lock()
-	return s.repository
-}
-func (s *Service) refreshRepository(stamp, version string, done chan struct{}) {
-	defer close(done)
-	s.apkMu.Lock()
-	var facts repositoryFacts
-	var err error
-	// A package action may have changed apk while this waited; the next
-	// status request then asks again.
-	current := s.stamp() == stamp
-	if current {
-		facts, err = s.queryRepository(version)
-	}
-	s.apkMu.Unlock()
-	s.factsMu.Lock()
-	defer s.factsMu.Unlock()
-	s.refreshing = nil
-	if !current {
-		return
-	}
-	// A failed query reports nothing, as before, and is retried later.
-	if err != nil {
-		s.failedStamp, s.retryAt = stamp, time.Now().Add(repositoryRetry)
-		stamp = ""
-	}
-	facts.stamp = stamp
-	s.repository = facts
-}
-func (s *Service) queryRepository(version string) (repositoryFacts, error) {
-	facts := repositoryFacts{version: version}
-	var err, updateErr error
-	_, facts.available, err = s.repositoryVersion(false)
-	if version != "" {
-		facts.update, _, updateErr = s.repositoryVersion(true)
-	}
-	return facts, errors.Join(err, updateErr)
+	return s.run(ctx, name, args...)
 }
 
 // The default openrc-run status succeeds only in the started state, so a
@@ -354,73 +135,6 @@ func (s *Service) daemonRunning() bool {
 	}
 	_, err := s.statusCommand("rc-service", Package, "status")
 	return err == nil
-}
-
-// updateLock is the device-wide lock of every package and image operation.
-// Without it an add-on action could change apk between the steps of an OS
-// update or rollback, or while a settings recovery is pending.
-var updateLock = func() (io.Closer, error) { return osupdate.Lock() }
-
-// packageCommand holds the index lock so that a status query never loads the
-// indexes alongside an apk transaction.
-func (s *Service) packageCommand(args ...string) error {
-	lock, err := updateLock()
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
-	s.apkMu.Lock()
-	defer s.apkMu.Unlock()
-	defer s.forgetPackageFacts()
-	_, err = s.command("apk", args...)
-	return err
-}
-
-// Explicitly requesting an add-on update replaces its old world constraint.
-// apk upgrade respects an exact-version pin and can report success without
-// changing anything. apk add --upgrade unpins this add-on in the transaction
-// while preserving the other world constraints.
-func (s *Service) upgradePackage() error {
-	lock, lockErr := updateLock()
-	if lockErr != nil {
-		return lockErr
-	}
-	defer lock.Close()
-	s.apkMu.Lock()
-	defer s.apkMu.Unlock()
-	defer s.forgetPackageFacts()
-	before, err := s.installedVersion()
-	if err != nil {
-		return err
-	}
-	if _, err = s.command("apk", "add", "--upgrade", Package); err != nil {
-		return err
-	}
-	after, err := s.installedVersion()
-	if err != nil {
-		return fmt.Errorf("cannot verify RustDesk update: %w", err)
-	}
-	comparison, err := s.command("apk", "version", "--test", before, after)
-	if err != nil {
-		return fmt.Errorf("cannot verify RustDesk update: %w", err)
-	}
-	if strings.TrimSpace(string(comparison)) != "<" {
-		return fmt.Errorf("RustDesk was not updated (installed: %s). Refresh the package indexes and try again", after)
-	}
-	return nil
-}
-
-func (s *Service) installedVersion() (string, error) {
-	data, err := s.command("apk", "info", "-e", "-v", Package)
-	if err != nil {
-		return "", fmt.Errorf("cannot read installed RustDesk version: %w", err)
-	}
-	value := strings.TrimSpace(string(data))
-	version, found := strings.CutPrefix(value, Package+"-")
-	if !found || version == "" || strings.ContainsAny(version, " \t\r\n") {
-		return "", errors.New("cannot read installed RustDesk version")
-	}
-	return version, nil
 }
 
 func defaultConfig() Config {
@@ -446,7 +160,7 @@ func readConfig() (Config, error) {
 	if _, exists := fields["password_mode"]; !exists && c.Password != "" {
 		c.PasswordMode = "permanent"
 	}
-	// Legacy per-add-on preferences never override the shared device codec.
+	// An older codec preference never overrides the shared device codec.
 	c.Codec = "auto"
 	return c, nil
 }
@@ -457,42 +171,28 @@ func (s *Service) Status() (Status, error) {
 	}
 	status := Status{Config: c, HasPassword: c.Password != ""}
 	status.Config.Password = ""
-	stamp := s.stamp()
-	installed := s.installedFacts(stamp)
-	status.Installed = installed.installed
-	// Status polling reads the existing indexes; repository refresh belongs to package management.
-	repository := s.repositoryFacts(stamp, installed.version)
-	status.Available = repository.available
-	if status.Installed {
-		status.SourceURL = s.SourceURL()
-		// This metadata belongs to the installed daemon, including when stopped.
-		// Older packages without metadata remain unknown rather than inheriting
-		// a possibly incorrect version from the web application.
-		if data, readErr := os.ReadFile(s.upstreamFile); readErr == nil {
-			var upstream struct {
-				Version  string `json:"rustdesk_version"`
-				Features struct {
-					TransportSettings bool `json:"transport_settings"`
-					Audio             bool `json:"audio"`
-					AudioSettings     bool `json:"audio_settings"`
-					PointerSettings   bool `json:"pointer_settings"`
-				} `json:"features"`
-			}
-			if json.Unmarshal(data, &upstream) == nil && regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(upstream.Version) {
-				status.RustDeskVersion = upstream.Version
-				status.SupportsTransportSettings = upstream.Features.TransportSettings
-				status.SupportsAudio = upstream.Features.Audio
-				status.SupportsAudioSettings = upstream.Features.AudioSettings
-				status.PointerSettings = upstream.Features.PointerSettings
-				status.USBAudioEnabled = status.SupportsAudio && s.bridge.audioEnabled()
-			}
+	status.Version, status.SourceURL = s.source()
+	// This metadata belongs to the installed daemon, including when stopped.
+	if data, readErr := os.ReadFile(s.upstreamFile); readErr == nil {
+		var upstream struct {
+			Version  string `json:"rustdesk_version"`
+			Features struct {
+				TransportSettings bool `json:"transport_settings"`
+				Audio             bool `json:"audio"`
+				AudioSettings     bool `json:"audio_settings"`
+				PointerSettings   bool `json:"pointer_settings"`
+			} `json:"features"`
 		}
-		status.Version = installed.version
-		if status.Version != "" && repository.version == status.Version {
-			status.UpdateVersion = repository.update
+		if json.Unmarshal(data, &upstream) == nil && regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(upstream.Version) {
+			status.RustDeskVersion = upstream.Version
+			status.SupportsTransportSettings = upstream.Features.TransportSettings
+			status.SupportsAudio = upstream.Features.Audio
+			status.SupportsAudioSettings = upstream.Features.AudioSettings
+			status.PointerSettings = upstream.Features.PointerSettings
+			status.USBAudioEnabled = status.SupportsAudio && s.bridge.audioEnabled()
 		}
-		status.Running = s.daemonRunning()
 	}
+	status.Running = s.daemonRunning()
 	if data, readErr := os.ReadFile(ConfigDir + "/settings-output.json"); readErr == nil {
 		var fields map[string]string
 		if json.Unmarshal(data, &fields) == nil {
@@ -513,58 +213,26 @@ func (s *Service) Status() (Status, error) {
 	return status, nil
 }
 
-// SourceURL returns the public source location recorded by the APK: a legacy
-// release archive, or the Git tree of the version's tag. The device stores
-// and serves no source.
-func (s *Service) SourceURL() string {
+// source returns the package version and the public source location
+// recorded by the APK: a legacy release archive, or the Git tree of the
+// version's tag. The device stores and serves no source.
+func (s *Service) source() (version, sourceURL string) {
 	data, err := os.ReadFile(s.sourceFile)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	var source struct {
-		URL string `json:"url"`
+		URL     string `json:"url"`
+		Version string `json:"package_version"`
 	}
 	if json.Unmarshal(data, &source) != nil {
-		return ""
+		return "", ""
 	}
 	parsed, err := url.Parse(source.URL)
 	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || parsed.Path == "" {
-		return ""
+		return source.Version, ""
 	}
-	return source.URL
-}
-
-// APK reports newer repository versions using its own upgrade selection.
-// Only a failed query is an error; a missing or unreadable answer is not.
-func (s *Service) repositoryVersion(upgradable bool) (string, bool, error) {
-	args := []string{"query", "--no-network"}
-	if !upgradable {
-		args = append(args, "--from=repositories")
-	}
-	// Upgrade selection needs the installed database as well as the repositories.
-	args = append(args, "--format=json", "--fields=name,version")
-	if upgradable {
-		args = append(args, "--upgradable")
-	}
-	data, _, err := s.probe(withIdlePriority(context.Background()), repositoryTimeout, "apk", append(args, Package)...)
-	if err != nil {
-		return "", false, err
-	}
-	var packages []struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
-	}
-	// Unreadable output says nothing about the package: report a failure,
-	// which is retried, instead of caching "not available".
-	if err = json.Unmarshal(data, &packages); err != nil {
-		return "", false, fmt.Errorf("unexpected apk query output: %w", err)
-	}
-	for _, p := range packages {
-		if p.Name == Package && p.Version != "" {
-			return p.Version, true, nil
-		}
-	}
-	return "", false, nil
+	return source.Version, source.URL
 }
 
 func serverAddress(value string, port string) (string, error) {
@@ -682,7 +350,7 @@ func (s *Service) supportsTransportSettings() bool {
 }
 
 // wantsWebRTC reports whether the daemon accepts WebRTC connections: whenever
-// the installed add-on supports it. The client chooses the path: a request
+// the installed daemon supports it. The client chooses the path: a request
 // with a WebRTC offer is answered over WebRTC, one without over TCP or relay.
 // The video transport of the device is the browsers' matter only.
 func (s *Service) wantsWebRTC() bool {
@@ -695,9 +363,6 @@ func (s *Service) AcceptWebRTC() {
 	go func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if _, err := s.command("apk", "info", "-e", Package); err != nil {
-			return
-		}
 		// A daemon that was never configured is off; Configure sets the
 		// option when the user sets RustDesk up.
 		if _, err := os.Stat(ConfigFile); err != nil {
@@ -713,6 +378,34 @@ func (s *Service) AcceptWebRTC() {
 	}()
 }
 
+// runlevelLink is the service's link in the default runlevel: Configure adds
+// it when RustDesk turns on and removes it when it turns off.
+var runlevelLink = "/etc/runlevels/default/" + Package
+
+// SwitchOffStale turns RustDesk off in its configuration, and nothing else,
+// when the configuration says on but is left from an add-on that was removed:
+// selected is false (the package was never chosen, see the caller), or the
+// service has no runlevel link, which the add-on's removal deleted. It runs
+// before anything reads the configuration (Monitor, AcceptWebRTC), which
+// would otherwise open the bridge and start the daemon with its old ID.
+func SwitchOffStale(selected bool) error {
+	if _, err := os.Stat(ConfigFile); errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	c, err := readConfig()
+	if err != nil || !c.Enabled {
+		return err
+	}
+	if _, err = os.Lstat(runlevelLink); err == nil && selected {
+		return nil
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	c.Enabled = false
+	log.Infof("RustDesk: switched off the setting of the removed add-on")
+	return writeConfig(c)
+}
+
 func (s *Service) supportsAudioSettings() bool {
 	data, err := os.ReadFile(s.upstreamFile)
 	if err != nil {
@@ -726,7 +419,7 @@ func (s *Service) supportsAudioSettings() bool {
 	return json.Unmarshal(data, &metadata) == nil && metadata.Features.AudioSettings
 }
 
-// An add-on before the setting refuses a configuration that has it.
+// A daemon from before the setting refuses a configuration that has it.
 func (s *Service) supportsPointerSettings() bool {
 	data, err := os.ReadFile(s.upstreamFile)
 	if err != nil {
@@ -769,16 +462,13 @@ func (s *Service) configureLocked(candidate Config) error {
 	if err = validateConfig(&candidate); err != nil {
 		return err
 	}
-	if _, err = s.command("apk", "info", "-e", Package); err != nil {
-		return errors.New("install the RustDesk package first")
-	}
-	// WebRTC is not a setting: the daemon accepts it whenever the add-on can.
+	// WebRTC is not a setting: the daemon accepts it whenever it can.
 	candidate.WebRTC = s.wantsWebRTC()
 	if candidate.LocalPointer != nil && !s.supportsPointerSettings() {
-		return errors.New("update the RustDesk add-on before configuring the client pointer")
+		return errors.New("update RustDesk before configuring the client pointer")
 	}
 	if candidate.AudioEnabled != nil && !s.supportsAudioSettings() {
-		return errors.New("update the RustDesk add-on before configuring sound transmission")
+		return errors.New("update RustDesk before configuring sound transmission")
 	}
 	// Only turning RustDesk on or off, or its sound on, changes USB; saving
 	// other settings keeps what the user chose in USB settings. Turning on
@@ -850,19 +540,7 @@ func (s *Service) Action(action string) error {
 		}
 		_, err = s.command("rc-service", Package, "restart")
 		return err
-	case "check":
-		return s.packageCommand("update")
-	case "install":
-		return s.packageCommand("add", Package)
-	case "upgrade":
-		return s.upgradePackage()
-	case "remove":
-		if err := s.packageCommand("del", Package); err != nil {
-			return err
-		}
-		s.bridge.Stop()
-		return nil
 	default:
-		return errors.New("unknown RustDesk package action")
+		return errors.New("unknown RustDesk action")
 	}
 }

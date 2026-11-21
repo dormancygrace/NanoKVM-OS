@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,7 @@ import (
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/internal/atomicfile"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/extensions/apkpkg"
 )
 
 // The TPU programs (nanokvm-tpu, tpu/) are in bin; the models, which
@@ -123,23 +125,100 @@ func ScreenTextAvailable() bool {
 	return ScreenTextEnabled() && ScreenTextInstalled()
 }
 
-// GetScreenTextSettings: the switch and which languages have their models
-// installed.
-func (s *Service) GetScreenTextSettings(c *gin.Context) {
-	var rsp proto.Response
+// screenTextLanguageInstalled: the models of the language are there.
+func screenTextLanguageInstalled(lang string) bool {
+	_, err := screenTextArgs(screenTextRoot+"/models/", lang)
+	return err == nil
+}
+
+// screenTextSettings: the switch, whether text recognition can read, which
+// languages have their models installed, and whether a language change is
+// running. The count is read before the models: read after them, a change
+// that ends in between would give the models from before it with no change
+// running, and the page would take that state as final.
+func screenTextSettings() gin.H {
+	changing := screenTextLanguageChanges.Load() > 0
 	type language struct {
 		Name      string `json:"name"`
 		Installed bool   `json:"installed"`
 	}
 	languages := make([]language, 0, len(screenTextLanguages))
 	for _, lang := range screenTextLanguages {
-		_, err := screenTextArgs(screenTextRoot+"/models/", lang)
-		languages = append(languages, language{Name: lang, Installed: err == nil})
+		languages = append(languages, language{Name: lang, Installed: screenTextLanguageInstalled(lang)})
 	}
-	rsp.OkRspWithData(c, gin.H{"enabled": ScreenTextEnabled(), "languages": languages})
+	return gin.H{"enabled": ScreenTextEnabled(), "installed": ScreenTextInstalled(), "languages": languages, "changing": changing}
 }
 
-// SetScreenTextSettings turns text recognition on or off ({"enabled":bool}).
+func (s *Service) GetScreenTextSettings(c *gin.Context) {
+	var rsp proto.Response
+	rsp.OkRspWithData(c, screenTextSettings())
+}
+
+// The models are packages of the add-on repository, downloaded on request:
+// the detector, which every language needs and each language package depends
+// on, and one recognizer package per language.
+const screenTextDetectorPackage = "nanokvm-model-ocr"
+
+func screenTextPackage(lang string) string { return screenTextDetectorPackage + "-" + lang }
+
+// screenTextLanguageMutex: one language change at a time. Removing the last
+// language decides from the installed models whether the detector goes too;
+// two removals side by side would each see the other language and both
+// leave it. Not screenTextMutex: a download must not hold up reading.
+var screenTextLanguageMutex sync.Mutex
+
+// screenTextLanguageChanges counts the language changes that wait for
+// screenTextLanguageMutex or hold it. The settings report whether there are
+// any, so that a page whose request lost its answer while apk still runs
+// (or a page opened during a change) waits for the final state.
+var screenTextLanguageChanges atomic.Int32
+
+// SetScreenTextLanguage installs or removes the models of one language
+// ({"language":"latin","installed":true}). Installing names the detector
+// too, as apkpkg.InstallOnly installs nothing it is not given; removing the
+// last language also removes the detector, which nothing else uses.
+func (s *Service) SetScreenTextLanguage(c *gin.Context) {
+	var rsp proto.Response
+	var req struct {
+		Language  string `json:"language"`
+		Installed *bool  `json:"installed"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Installed == nil || !slices.Contains(screenTextLanguages, req.Language) {
+		rsp.ErrRsp(c, -1, "a language and installed are required")
+		return
+	}
+	if err := changeScreenTextLanguage(req.Language, *req.Installed); err != nil {
+		log.Errorf("screen text: %s models: %v", req.Language, err)
+		rsp.ErrRsp(c, -2, err.Error())
+		return
+	}
+	// Built after the change has left the count, so that the answer does not
+	// report this change as still running.
+	rsp.OkRspWithData(c, screenTextSettings())
+}
+
+// changeScreenTextLanguage installs or removes the models of lang, counted in
+// screenTextLanguageChanges from before it waits for the lock until apk is done.
+func changeScreenTextLanguage(lang string, installed bool) error {
+	screenTextLanguageChanges.Add(1)
+	defer screenTextLanguageChanges.Add(-1)
+	screenTextLanguageMutex.Lock()
+	defer screenTextLanguageMutex.Unlock()
+	if installed {
+		return apkpkg.InstallOnly(screenTextPackage(lang), screenTextDetectorPackage)
+	}
+	names := []string{screenTextPackage(lang)}
+	if !slices.ContainsFunc(screenTextLanguages, func(other string) bool {
+		return other != lang && screenTextLanguageInstalled(other)
+	}) {
+		names = append(names, screenTextDetectorPackage)
+	}
+	return apkpkg.Remove(names...)
+}
+
+// SetScreenTextSettings turns text recognition on or off ({"enabled":bool})
+// and answers with all the settings, as the language change does, so the
+// page always takes the whole state from the server.
 func (s *Service) SetScreenTextSettings(c *gin.Context) {
 	var rsp proto.Response
 	var req struct {
@@ -162,7 +241,7 @@ func (s *Service) SetScreenTextSettings(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "the setting could not be saved")
 		return
 	}
-	rsp.OkRspWithData(c, gin.H{"enabled": *req.Enabled})
+	rsp.OkRspWithData(c, screenTextSettings())
 }
 
 // screenTextArgs are the helper's arguments for a language: the recognizer's

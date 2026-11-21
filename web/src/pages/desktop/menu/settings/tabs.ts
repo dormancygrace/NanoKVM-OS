@@ -52,7 +52,10 @@ const aliases: Record<string, string> = {
   'network-openvpn': 'vpn-openvpn',
   // HTTPS, its certificate and SSH moved to System > Security.
   security: 'system-security',
-  extensions: 'software-addons',
+  extensions: 'software-packages',
+  // Links to the Add-ons page: its packages are part of the OS or installed
+  // from the pages that use them.
+  'software-addons': 'software-packages',
   // MCP moved from System to the AI group.
   'system-mcp': 'ai-mcp',
   ai: 'ai-screen-text',

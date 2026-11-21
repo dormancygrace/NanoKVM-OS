@@ -628,12 +628,8 @@
       "indexSchedule": {
         "save": "Gem"
       },
-      "addons": {
-        "title": "Tilføjelser",
-        "packages": "Pakker",
-        "install": "Installér"
-      },
       "title": "Software",
+      "packages": "Pakker",
       "available": "Tilgængelige pakker",
       "updatesTab": "Opdateringer",
       "search": "Søg",
@@ -744,10 +740,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Ikke installeret",
       "stopped": "Stoppet",
-      "install": "Installér",
-      "remove": "Fjern",
       "save": "Gem indstillinger",
       "server": "Server",
       "passwordMode": "Adgangskode",
@@ -801,8 +794,7 @@
       "eventHint": {
         "power": "værten blev tændt eller slukket; kræver ATX-styring med tilsluttet strøm-LED.",
         "hdmi": "billedet gik tabt eller kom tilbage, også når værten slukker sin skærm; registreres, mens videooptagelsen kører.",
-        "security": "en adresse blokeret efter mislykkede logins, for mange IPMI-loginforsøg, et login fra en ny adresse.",
-        "screen": "en blå skærm eller en kernel panic, genkendt af TPU-tilføjelsen; teksten læses, når ingen ser videoen, og sendes med et skærmbillede."
+        "security": "en adresse blokeret efter mislykkede logins, for mange IPMI-loginforsøg, et login fra en ny adresse."
       },
       "field": {
         "token": "Token",

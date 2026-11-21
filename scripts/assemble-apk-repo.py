@@ -4,8 +4,11 @@
 The newest eligible published OS release supplies each channel's core packages
 and legacy index. Stable excludes prereleases; beta includes stable and beta.
 Independent stable add-on releases form a repository of their own, one for
-both channels, whose v3 index Pages signs; they do not change the OS indexes,
-the OS version or the latest SD image.
+both channels, whose v3 index Pages signs; they do not change the OS version
+or the latest SD image. The OS folders also hold the retained versions of the
+add-on packages that nanokvm-release depends on (addon_packages.BASE), and
+the v3 OS indexes, which Pages makes and signs anew, offer the newest of each
+that the channel's OS packages satisfy (index-apk-repo.py).
 Newest means the highest vX.Y.Z (releases with other tags, from before that
 scheme, rank below, by publication time): a minor release published from its
 draft after a patch release must not replace the patch's indexes.
@@ -16,7 +19,8 @@ release's SHA256SUMS and the size its index records.
 
 The result, below OUTPUT:
   alpine/vX.Y/riscv64/   *.apk, APKINDEX.tar.gz (v2 index), Packages.adb (v3),
-                         packages.json (the version and content of each package)
+                         packages.json (the version and content of each package),
+                         addons.json (the pins of the BASE add-on packages)
   beta/                  the same layout for the opt-in beta channel
   addons/vX.Y/riscv64/   the add-on APKs and addons.json (their pins); devices
                          read it from /etc/apk/repositories.d/nanokvm-addons.list
@@ -185,9 +189,10 @@ def checksums(text):
     return sums
 
 
-def index_packages(apkindex):
-    """{file name: size} from a v2 index. Its first gzip member, the signature,
-    is a tar without an end marker, so the members read as one tar stream."""
+def index_records(apkindex):
+    """The package records ({field letter: value}) of a v2 index. Its first
+    gzip member, the signature, is a tar without an end marker, so the members
+    read as one tar stream."""
     with tarfile.open(fileobj=io.BytesIO(gzip.decompress(apkindex)), mode='r|') as tar:
         for member in tar:
             if member.name == 'APKINDEX':
@@ -195,14 +200,19 @@ def index_packages(apkindex):
                 break
         else:
             raise ValueError('APKINDEX.tar.gz has no APKINDEX')
-    packages = {}
+    records = []
     for record in text.split('\n\n'):
         fields = dict(line.split(':', 1) for line in record.splitlines() if ':' in line)
         if 'P' in fields:
-            packages[f"{fields['P']}-{fields['V']}.apk"] = int(fields['S'])
-    if not packages:
+            records.append(fields)
+    if not records:
         raise ValueError('APKINDEX names no packages')
-    return packages
+    return records
+
+
+def index_packages(apkindex):
+    """{file name: size} from a v2 index."""
+    return {f"{r['P']}-{r['V']}.apk": int(r['S']) for r in index_records(apkindex)}
 
 
 def checked(release, name, sums, fetch=fetch, size=None):
@@ -260,7 +270,9 @@ def image_badge(output, published, include_beta=False):
 ''')
 
 
-def assemble(output, published, keep, branch, keys, fetch=fetch, channel='stable'):
+def assemble(output, published, keep, branch, keys, fetch=fetch, channel='stable', base=None):
+    """base: the pins of the add-on repository's packages that nanokvm-release
+    depends on (addon_packages.BASE), which the OS index offers too."""
     published = [r for r in published if channel == 'beta' or not is_beta(r)]
     if not published:
         raise ValueError('No published release carries Packages.adb')
@@ -290,8 +302,19 @@ def assemble(output, published, keep, branch, keys, fetch=fetch, channel='stable
         if source is None:
             raise ValueError(f'No release carries {name}')
         (repo / name).write_bytes(checked(source, name, sums[source['tag_name']], fetch, size))
-    # The OS repository pins no add-on: they are in the add-on repository.
-    (repo / 'addons.json').write_text(json.dumps({'packages': {}}, indent=2) + '\n')
+    # The packages nanokvm-release depends on that are published on their own
+    # are here as well, byte for byte as in the add-on repository: a device
+    # from before the add-on repository line (nanokvm-base 3.5.0) must resolve
+    # them to update at all. Every retained version is copied (Pages keeps
+    # three of each), so a device whose index is a little old still finds the
+    # file it names; index-apk-repo.py indexes only the newest one this
+    # channel's OS packages can satisfy (nanokvm-os>=, bridge capabilities).
+    # Other add-ons are only in the add-on repository.
+    base = {name: item for name, item in (base or {}).items()
+            if (match := ADDON_TAG.fullmatch(name.removesuffix('.apk'))) and match[1] in addon_packages.BASE}
+    for name, item in sorted(base.items()):
+        (repo / name).write_bytes(addon_packages.checked(name, item, fetch, item['size']))
+    (repo / 'addons.json').write_text(json.dumps({'packages': dict(sorted(base.items()))}, indent=2) + '\n')
     (output / 'keys').mkdir()
     key_links = []
     for key in sorted(Path(keys).glob('*.pub')):

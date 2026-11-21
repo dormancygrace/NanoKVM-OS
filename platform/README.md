@@ -354,9 +354,12 @@ discovers stable releases of the add-ons in `ADDONS` of `scripts/addon_packages.
 published checksums and package metadata, then signs the add-on v3 index in the
 protected `release` environment. It retains six releases per add-on.
 
-OS builds do not download or pin add-ons, and add-on publication does not change
-`packages.json`, the OS version, OS indexes or the latest SD-image link. Add-ons
-declare capability dependencies; a version requiring a newer runtime cannot be
+OS builds neither build nor pin add-ons, and add-on publication does not change
+`packages.json`, the OS version or the latest SD-image link. `nanokvm-release`
+depends on RustDesk, the computer sensors and the screen model by name: the
+`rootfs` step installs them from the signed add-on repository, whatever their
+newest published versions are, and the OS v3 indexes offer the newest of each
+too. Add-ons declare capability dependencies; a version requiring a newer runtime cannot be
 installed on an incompatible OS. PicoClaw and acme.sh continue to use their
 existing upstream and Alpine update mechanisms.
 

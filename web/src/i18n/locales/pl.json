@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "Zapisz"
       },
-      "addons": {
-        "title": "Dodatki",
-        "packages": "Pakiety",
-        "install": "Zainstaluj"
-      },
       "title": "Oprogramowanie",
+      "packages": "Pakiety",
       "available": "Dostępne pakiety",
       "updatesTab": "Aktualizacje",
       "search": "Szukaj",
@@ -749,10 +745,7 @@
       }
     },
     "rustdesk": {
-      "absent": "Nie zainstalowano",
       "stopped": "Zatrzymano",
-      "install": "Zainstaluj",
-      "remove": "Usuń",
       "save": "Zapisz ustawienia",
       "server": "Serwer",
       "passwordMode": "Hasło",
@@ -806,8 +799,7 @@
       "eventHint": {
         "power": "host został włączony lub wyłączony; wymaga sterowania ATX z podłączoną diodą zasilania.",
         "hdmi": "obraz zniknął lub wrócił, także gdy host wyłącza swój ekran; wykrywane, gdy trwa przechwytywanie wideo.",
-        "security": "adres zablokowany po nieudanych logowaniach, zbyt wiele prób logowania IPMI, logowanie z nowego adresu.",
-        "screen": "niebieski ekran lub kernel panic, rozpoznane przez dodatek TPU; tekst jest odczytywany, gdy nikt nie ogląda wideo, i wysyłany razem ze zrzutem ekranu."
+        "security": "adres zablokowany po nieudanych logowaniach, zbyt wiele prób logowania IPMI, logowanie z nowego adresu."
       },
       "field": {
         "token": "Token",

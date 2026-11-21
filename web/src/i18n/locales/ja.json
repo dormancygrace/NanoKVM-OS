@@ -853,33 +853,8 @@
         "saved": "インデックス更新スケジュールを保存しました",
         "failed": "インデックス更新スケジュールを読み込みまたは保存できませんでした"
       },
-      "addons": {
-        "title": "アドオン",
-        "packages": "パッケージ",
-        "open": "PicoClaw を開く",
-        "source": "公式リリース",
-        "picoclawDescription": "リモート操作機能を備えた AI アシスタントです（オプション）。PicoClaw 公式サイトから最新の安定版をインストールします。",
-        "install": "インストール",
-        "update": "{{version}} に更新",
-        "remove": "削除",
-        "removeTitle": "{{name}} を削除しますか？",
-        "removeConfirm": "アドオンをアンインストールします。設定は残ります。",
-        "version": "バージョン {{version}}",
-        "installedVersion": "インストール済み {{version}}",
-        "details": "詳細",
-        "notOffered": "リポジトリはこのアドオンを提供しなくなりました。",
-        "needsOs": "NanoKVM OS {{version}} 以降が必要です（インストール済み: {{installed}}）。先に NanoKVM OS を更新してください。",
-        "listChecked": "リポジトリのアドオン一覧: {{date}}",
-        "listNever": "アドオン一覧はまだ読み込まれていません。",
-        "listChecking": "リポジトリを確認中…",
-        "checkNow": "今すぐ確認",
-        "dailyOff": "毎日の更新確認はオフです。一覧は確認したときだけ変わります。",
-        "listFailed": "前回の確認に失敗しました。",
-        "failed": "リクエストに失敗しました。",
-        "installedSection": "インストール済み",
-        "availableSection": "利用可能"
-      },
       "title": "ソフトウェア",
+      "packages": "パッケージ",
       "description": "設定済みの Alpine リポジトリからパッケージを管理します。パッケージの変更には SSH と同じ APK データベースとサービスが使用されます。",
       "refresh": "インデックスを更新",
       "upgrade": "すべてアップグレード",
@@ -2153,16 +2128,10 @@
       }
     },
     "rustdesk": {
-      "checkUpdates": "アップデートを確認",
-      "absent": "未インストール",
       "running": "実行中",
       "stopped": "停止",
       "registered": "登録済み",
       "registering": "ID サーバーを待機中",
-      "install": "インストール",
-      "remove": "削除",
-      "upgrade": "{{version}} に更新",
-      "addonVersion": "アドオンのバージョン",
       "rustdeskVersion": "RustDesk プロトコルのベース",
       "unknownVersion": "不明",
       "save": "設定を保存",
@@ -2190,7 +2159,6 @@
       "webrtc": "WebRTC",
       "webrtcOn": "クライアントが提示すれば、ビデオのトランスポートに関係なく受け付けます。",
       "transportHint": "設定 > ビデオのトランスポートに関係なく、RustDesk は WebRTC 接続を受け付けます。WebRTC を提示しないクライアントは TCP とリレーで接続します。WebRTC はビデオストリームの STUN と TURN サーバーを使用し、NanoKVM のフレームレートを下げることがあります。RustDesk 1.5 クライアントは WebRTC を提示するラウンドで TCP を試しません。ID で TCP 接続するには、クライアントで WebRTC をオフにしてください。",
-      "open": "管理画面を開く",
       "settings": "RustDesk",
       "keepPassword": "現在のパスワードを維持する場合は空欄のままにしてください",
       "inputDefaults": "リモートアクセスをオンにすると USB が RustDesk の構成（キーボード、両方のマウスモード、仮想ディスク、サウンド有効時は USB オーディオ）に切り替わります。オフにすると、その間に変更されていなければ元の構成に戻ります。",
@@ -2202,15 +2170,11 @@
       "audioHint": "USB オーディオが自動的に有効になります。接続先のコンピューターで音声出力として NanoKVM を選択してください。",
       "audioMuted": "RustDesk 経由の音声送信は無効です。",
       "clients": "最大閲覧者数",
-      "unavailable": "設定済みの APK リポジトリに RustDesk がありません。nanokvm-rustdesk を含むリポジトリを追加するか、「パッケージ」から APK をインストールしてください。",
       "explain": "RustDesk クライアントをこの ID に接続すると、HDMI の映像を表示し、USB キーボードとマウスを操作できます。",
       "video": "映像には NanoKVM のビデオ設定で選択したコーデックが自動的に使用されます。H.265 にはクライアント側の対応が必要です。デバイスのコーデックを変更した後は再接続してください。ブラウザで操作を取得すると、RustDesk の入力は解除されます。",
-      "deletion": "パッケージを削除しますか？サーバー設定、パスワード、デバイス ID は保持されます。",
       "failed": "リクエストに失敗しました",
       "saved": "設定を保存しました",
       "passwordUpdated": "パスワードを更新しました",
-      "description": "RustDesk を使用して、NanoKVM に接続されたコンピューターにリモートアクセスします。",
-      "done": "パッケージの操作が完了しました",
       "id": "RustDesk ID",
       "source": "ソースとライセンス",
       "passwordRequired": "8～64 バイトのパスワードを入力してください",
@@ -2359,8 +2323,6 @@
       "title": "AI",
       "screenText": {
         "title": "文字認識",
-        "notInstalled": "文字認識には言語のモデル アドオンが必要です。",
-        "openAddons": "アドオン",
         "enabled": "文字認識",
         "enabledDescription": "オンにすると、画面上部のボタンで画面の文字を読み取れ、MCP と PicoClaw も読み取れます。オフでは、どれも読み取れません。",
         "switchFailed": "設定を保存できませんでした"
@@ -2462,8 +2424,7 @@
       "eventHint": {
         "power": "ホストの電源が入った、または切れた。ATX 制御と電源 LED の接続が必要です。",
         "hdmi": "映像が途切れた、または戻った（ホストが画面をオフにした場合も含む）。ビデオキャプチャ中に検出します。",
-        "security": "ログイン失敗でブロックされたアドレス、IPMI のログイン試行の超過、新しいアドレスからのログイン。",
-        "screen": "TPU アドオンが認識したブルースクリーンやカーネルパニック。ビデオを誰も見ていないときに文字を読み取り、スクリーンショットと一緒に送信します。"
+        "security": "ログイン失敗でブロックされたアドレス、IPMI のログイン試行の超過、新しいアドレスからのログイン。"
       },
       "field": {
         "token": "トークン",
@@ -2642,7 +2603,6 @@
       "diskStale": "USB デバイスの再接続後、エージェントがヘルパーディスクに表示されます",
       "diskMissing": "ヘルパーディスクがありません: USB 構成に仮想ディスクを含め、USB デバイスを再接続する必要があります",
       "agentVersion": "エージェント {{version}}",
-      "agentUpdate": "アドオンにはエージェント {{version}} が含まれています。更新するには、コンピューターでヘルパーディスクのセンサーセットアップをもう一度実行してください。",
       "serialConsole": "コンピューターはこのポートでログインコンソールを使用しています（シリアルコンソールヘルパーが設定します）。センサーには使用できません。USB ネットワークを選択してください。"
     }
   },

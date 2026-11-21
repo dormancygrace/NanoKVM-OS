@@ -629,12 +629,8 @@
       "indexSchedule": {
         "save": "儲存"
       },
-      "addons": {
-        "title": "附加元件",
-        "packages": "套件",
-        "install": "安裝"
-      },
       "title": "軟體",
+      "packages": "套件",
       "available": "可用套件",
       "updatesTab": "更新",
       "search": "搜尋",
@@ -746,10 +742,7 @@
       }
     },
     "rustdesk": {
-      "absent": "尚未安裝",
       "stopped": "已停止",
-      "install": "安裝",
-      "remove": "移除",
       "save": "儲存設定",
       "server": "伺服器",
       "passwordMode": "密碼",
@@ -803,8 +796,7 @@
       "eventHint": {
         "power": "主機被開啟或關閉；需要啟用 ATX 控制並連接電源指示燈。",
         "hdmi": "畫面遺失或恢復，包括主機關閉顯示器時；僅在視訊擷取執行時偵測。",
-        "security": "登入失敗後被封鎖的位址、IPMI 登入嘗試過多、從新位址登入。",
-        "screen": "由 TPU 附加元件辨識的藍屏或 kernel panic；無人觀看視訊時讀取畫面文字，並隨截圖一起傳送。"
+        "security": "登入失敗後被封鎖的位址、IPMI 登入嘗試過多、從新位址登入。"
       },
       "field": {
         "token": "權杖",

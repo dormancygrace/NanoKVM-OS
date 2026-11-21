@@ -10,8 +10,8 @@ import (
 
 const screenTextToolName = "screen_text"
 
-// ErrNoTextReader: the TPU add-on, which reads the text, is not installed.
-var ErrNoTextReader = errors.New("reading the screen text needs the TPU add-on")
+// ErrNoTextReader: no language of text recognition is installed.
+var ErrNoTextReader = errors.New("reading the screen text needs the models of a language (Settings > AI > Text recognition)")
 
 // ScreenBox is a part of the screen in normalized [0,1] coordinates, the
 // frame of the absolute mouse tools.

@@ -70,7 +70,10 @@ func installedVersions() (map[string]string, error) {
 // the installed database, with "f" (files) or "s" (script) on its f: line,
 // until `apk fix` installs it again: these are the flags on which apk fails
 // the transaction and which `apk fix` repairs. "x" (extended attributes) and
-// "S" (checksum kind) do not count. apk records a requested package as
+// "S" (checksum kind) do not count. A package that depends on a name no
+// installed package provides is broken too: apk installs and selects a
+// requested package when the archive of one of its dependencies cannot be
+// downloaded. apk records a requested package as
 // complete when only the install script of one of its dependencies failed, so
 // the dependencies are checked too.
 func PackageState(names ...string) (missing, broken []string, err error) {
@@ -92,7 +95,11 @@ func PackageState(names ...string) (missing, broken []string, err error) {
 	for len(queue) > 0 {
 		name := queue[0]
 		queue = queue[1:]
-		if !db.healthy[name] {
+		// A package whose dependency nothing installed provides was installed
+		// without it (a download that failed): `apk fix` of the package
+		// installs the dependency again.
+		unprovided := slices.ContainsFunc(db.depends[name], func(dep string) bool { return len(db.providers[dep]) == 0 })
+		if !db.healthy[name] || unprovided {
 			broken = append(broken, name)
 		}
 		for _, dep := range db.depends[name] {

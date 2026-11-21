@@ -1290,6 +1290,10 @@ rootfs() {
     # server/service/extensions/apkpkg/base.go, the same list).
     BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release \
         lldpd lldpd-openrc net-snmp net-snmp-openrc nut nut-openrc openvpn
+    # They are installed: the server does not install them again, so one the
+    # user removes before its first check stays removed.
+    mkdir -p "$r/etc/kvm"
+    : > "$r/etc/kvm/base-packages"
     if [ "$kernel_profile" = debug ]; then
         # The debug tools of platform/debug-packages, from main and community.
         # shellcheck disable=SC2046 # one package name per word

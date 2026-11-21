@@ -46,6 +46,57 @@ func writeAtomic(name string, b []byte, mode os.FileMode) error {
 	return syncDir(filepath.Dir(name))
 }
 
+// writeRepositories replaces the repository list. A list that is a symbolic
+// link is written through it: the link stays and its target is replaced. The
+// new file takes the old one's mode and owner (a list kept private stays so);
+// a list that does not exist yet is created with mode 0644.
+func writeRepositories(b []byte) error {
+	name := repositoriesPath
+	if target, err := filepath.EvalSymlinks(name); err == nil {
+		name = target
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	info, err := os.Stat(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return writeAtomic(name, b, 0644)
+	} else if err != nil {
+		return err
+	}
+	return writeAtomicOwned(name, b, info)
+}
+
+// writeAtomicOwned is writeAtomic with the mode and owner of like.
+func writeAtomicOwned(name string, b []byte, like os.FileInfo) error {
+	f, err := os.CreateTemp(filepath.Dir(name), ".write-")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	defer os.Remove(tmp)
+	err = f.Chmod(like.Mode().Perm())
+	if st, ok := like.Sys().(*syscall.Stat_t); ok && err == nil {
+		err = f.Chown(int(st.Uid), int(st.Gid))
+	}
+	if err == nil {
+		_, err = f.Write(b)
+	}
+	if err == nil {
+		err = f.Sync()
+	}
+	ce := f.Close()
+	if err != nil {
+		return err
+	}
+	if ce != nil {
+		return ce
+	}
+	if err = os.Rename(tmp, name); err != nil {
+		return err
+	}
+	return syncDir(filepath.Dir(name))
+}
+
 func syncDir(name string) error {
 	f, err := os.Open(name)
 	if err != nil {

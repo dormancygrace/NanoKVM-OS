@@ -189,7 +189,7 @@ func writeCommunity(url string, enabled bool) error {
 	if hasRepository(string(data), url) == enabled {
 		return nil
 	}
-	return writeAtomic(repositoriesPath, []byte(withCommunity(string(data), url, enabled)), 0644)
+	return writeRepositories([]byte(withCommunity(string(data), url, enabled)))
 }
 
 func lockedCommunityURL() (string, error) {

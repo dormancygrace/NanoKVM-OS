@@ -46,10 +46,8 @@ go         https://go.dev/dl/go1.27.4.linux-amd64.tar.gz                       7
 node https://nodejs.org/dist/v26.13.1/node-v26.13.1-linux-x64.tar.xz 5c063e46bab0fbc1c17cc445d7ff129cbdcd0471be6ed83b6ab864f8143bc864
 pnpm       https://registry.npmjs.org/@pnpm/exe.linux-x64/-/exe.linux-x64-12.8.1.tgz  8178a5581db169d9913fd6f918933b141cd6a760aab75a3c1f25e36a3ff1b5d8
 
-# Alpine packages and the root file system. qemu runs the riscv64 package
-# scripts on the build host.
+# Alpine packages and the root file system.
 alpine https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/riscv64/alpine-minirootfs-3.24.4-riscv64.tar.gz 010683db6c73b3ad1c334fc8f93f64ae748ef67ae6d69e964929aeaf8517bff3
-qemu       https://launchpad.net/ubuntu/+archive/primary/+files/qemu-user-static_8.2.2+ds-0ubuntu1.19_amd64.deb  ec80ee896fe8f57f7420f4d4076164cb0fa613df6848568cdf5d1a2dbe2347cb
 # The release signer (scripts/sign-release.sh): apk-tools and abuild-sign on the
 # x86_64 CI host. dl-cdn publishes a .sha256 for it, no signature.
 alpine-signer https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.4-x86_64.tar.gz cdaa38cb8de3537967ee5b6c9b6cd00cc962da2b018e6eea48696bb274923012

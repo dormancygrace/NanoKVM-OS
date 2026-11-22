@@ -400,15 +400,6 @@
       "arch": "x86_64"
     },
     {
-      "name": "QEMU Ubuntu build helper",
-      "lock_entry": "qemu",
-      "path": "platform/sources.lock",
-      "pattern": "qemu-user-static_([^/]+)_amd64\\.deb",
-      "kind": "launchpad-binary",
-      "package": "qemu-user-static",
-      "series": "noble"
-    },
-    {
       "name": "RustDesk protocol reference",
       "path": "addons/rustdesk/upstream.json",
       "pattern": "\"rustdesk_version\":\\s*\"([0-9.]+)\"",

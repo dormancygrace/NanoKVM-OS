@@ -89,7 +89,7 @@ Every proposal includes a small .github/upstream-candidates/<component>.json rec
 
 Each component/candidate has a deterministic branch, `deps/upstream-<component>-<digest>` (Linux: `deps/upstream-linux-<version>`). The bots recognise a candidate by the branch name after its prefix. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes recorded output hashes.
 
-QEMU and stock Alpine APK updates remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
+Stock Alpine APK updates remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 
 Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary.
 
@@ -99,7 +99,7 @@ The installed operating system uses **stock Alpine BusyBox** and the source-buil
 
 There are two separate build inputs: Buildroot's BusyBox for the early-boot initramfs, and the standalone BusyBox source used to build only `devmem` for the vendor media library. They do not replace Alpine's BusyBox.
 
-`qemu-riscv64-static` runs riscv64 Alpine programs and package-install scripts on the x86-64 build host. It is not installed on NanoKVM. The watcher checks published versions in the pinned Ubuntu series; a changed Debian/Ubuntu revision is a review candidate, never a lexicographically selected automatic upgrade.
+`qemu-riscv64` runs riscv64 Alpine programs and package-install scripts on the x86-64 build host. It is not installed on NanoKVM and not pinned: the build uses the host's `qemu-user` package, updated with the host.
 
 ## Preventing coverage drift
 

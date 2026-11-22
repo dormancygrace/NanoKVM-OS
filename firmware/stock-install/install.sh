@@ -47,7 +47,7 @@ mounted() {
 mounted /dev/mmcblk0p1 /boot vfat || fail "/boot must be the writable FAT partition 1"
 data_readonly=0
 if ! mounted /dev/mmcblk0p3 /data exfat; then
-    mounted /dev/mmcblk0p3 /data exfat ro || fail "/data must be exFAT partition 3"
+    mounted /dev/mmcblk0p3 /data exfat ro || fail "/dev/mmcblk0p3 must be mounted as exFAT at /data. Check the mount. If Ventoy or another format replaced exFAT, back up its files, eject and detach the USB disk, unmount any filesystems on partition 3, then reformat only partition 3 as exFAT and mount it at /data before retrying."
     data_readonly=1
 fi
 awk '$2=="/" && $3=="ext4" && ($1=="/dev/mmcblk0p2" || $1=="/dev/root") {found=1} END {exit !found}' /proc/mounts ||

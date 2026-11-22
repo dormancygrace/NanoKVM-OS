@@ -1,0 +1,4 @@
+#!/bin/sh
+# Run the new binary; a stopped service stays stopped.
+[ -f /run/openrc/softlevel ] || exit 0
+rc-service --ifstarted zerotier-one restart >/dev/null 2>&1 || true

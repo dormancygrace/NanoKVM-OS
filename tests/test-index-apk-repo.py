@@ -92,5 +92,18 @@ class MetadataTests(unittest.TestCase):
         self.refused(FIXTURE.replace('  pre-upgrade: |', '  pre-fetch: |', 1), 'script pre-fetch')
         self.refused(FIXTURE.replace('  installed-size:', '  installed-size: 1\n    - x\n  installed-size:', 1), 'unexpected info line')
 
+class TrustTests(unittest.TestCase):
+    def test_addon_candidates_come_only_from_production_runs(self):
+        import pages_store as s
+        run = lambda workflow, **change: {'path': '.github/workflows/' + workflow, 'event': 'workflow_dispatch',
+                                          'head_repository': {'full_name': s.a.REPOSITORY}, 'head_branch': 'main', **change}
+        for workflow in ('rustdesk.yml', 'addon.yml', 'zerotier.yml'):
+            self.assertTrue(s.trusted_run(run(workflow), 'addon'), workflow)
+            self.assertFalse(s.trusted_run(run(workflow), 'os'), workflow)
+            for change in ({'event': 'pull_request'}, {'event': 'workflow_run'}, {'head_branch': 'feature'},
+                           {'head_repository': {'full_name': 'someone/NanoKVM-OS'}}):
+                self.assertFalse(s.trusted_run(run(workflow, **change)), (workflow, change))
+        self.assertFalse(s.trusted_run(run('ci.yml')))
+
 
 if __name__ == '__main__': unittest.main()

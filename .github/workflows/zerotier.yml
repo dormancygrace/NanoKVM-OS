@@ -1,0 +1,209 @@
+name: ZeroTier add-on
+
+# Builds nanokvm-zerotier, ZeroTier One's MPL-2.0 agent without the network
+# controller, from the release archive pinned in its recipe, then stages it
+# for Pages. Lightweight version tags reserve revisions; no add-on Releases
+# are created. PRs and dry runs build only.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and check only; publish nothing'
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - .github/workflows/zerotier.yml
+      - firmware/alpine/packages/nanokvm-zerotier/**
+      - scripts/build-zerotier-addon.py
+      - scripts/nanokvm_cpu_profile.py
+      - platform/cpu-profile.json
+      - scripts/addon_packages.py
+      - scripts/pages_store.py
+      - scripts/next-addon-revision.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zerotier-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  OUT: /home/runner/nanokvm-out
+
+jobs:
+  build:
+    name: Build and check
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      revision: ${{ steps.version.outputs.revision }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Validate the branch
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          [ "$GITHUB_REF" = refs/heads/main ] || { echo 'Run the add-on release from main' >&2; exit 1; }
+
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/prepare-build
+        id: prepare
+        with:
+          out: ${{ env.OUT }}
+
+      - name: Version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^pkgver=//p' firmware/alpine/packages/nanokvm-zerotier/APKBUILD)
+          gh api --paginate "repos/$GITHUB_REPOSITORY/tags?per_page=100" --jq '.[].name' > "$RUNNER_TEMP/tags"
+          revision=$(python3 scripts/next-addon-revision.py nanokvm-zerotier "$version" < "$RUNNER_TEMP/tags")
+          tag=nanokvm-zerotier-$version-r$revision
+          {
+            echo "version=$version"
+            echo "revision=$revision"
+            echo "tag=$tag"
+            echo "url=https://github.com/$GITHUB_REPOSITORY/tree/$tag/firmware/alpine/packages/nanokvm-zerotier"
+          } >> "$GITHUB_OUTPUT"
+          echo "$tag"
+
+      - name: Host apk
+        run: |
+          sudo apt-get install -y --no-install-recommends fakeroot
+          cat > "$RUNNER_TEMP/apk" <<'EOF'
+          #!/bin/sh
+          files=
+          output=
+          prev=
+          for arg; do
+            [ "$prev" = --files ] && files=$arg
+            [ "$prev" = --output ] && output=$arg
+            prev=$arg
+          done
+          exec docker run --rm -v "$HOME:$HOME" -v "$RUNNER_TEMP:$RUNNER_TEMP" -v /tmp:/tmp -w "$PWD" \
+            -e FILES="$files" -e OUTPUT="$output" -e OWNER="$HOST_OWNER" alpine:3.24 sh -euc '
+              [ -z "$FILES" ] || chown -R 0:0 "$FILES"
+              status=0; apk "$@" || status=$?
+              [ -z "$FILES" ] || chown -R "$OWNER" "$FILES"
+              [ ! -e "$OUTPUT" ] || chown "$OWNER" "$OUTPUT"
+              exit $status' apk "$@"
+          EOF
+          chmod 0755 "$RUNNER_TEMP/apk"
+          # The builder runs it directly, not through a shell.
+          "$RUNNER_TEMP/apk" --version
+          echo "HOST_OWNER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          REVISION: ${{ steps.version.outputs.revision }}
+          SOURCE_URL: ${{ steps.version.outputs.url }}
+        run: |
+          fakeroot python3 scripts/build-zerotier-addon.py \
+            --cc "$OUT/buildroot-output/host/bin/riscv64-buildroot-linux-musl-gcc" \
+            --apk "$RUNNER_TEMP/apk" --output "$RUNNER_TEMP/addon" \
+            --package-revision "$REVISION" --source-url "$SOURCE_URL" \
+            --selftest "$RUNNER_TEMP/check/zerotier-selftest"
+          (cd "$RUNNER_TEMP/addon" && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS" && mv "$RUNNER_TEMP/SHA256SUMS" .)
+          ls -la "$RUNNER_TEMP/addon"
+          cat "$RUNNER_TEMP/addon/SHA256SUMS"
+
+      # The package as Pages will check it, and its binary and ZeroTier's
+      # selftest on the C906 model with Alpine 3.24's riscv64 musl and
+      # libstdc++.
+      - name: Check the package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REVISION: ${{ steps.version.outputs.revision }}
+          SOURCE_URL: ${{ steps.version.outputs.url }}
+        run: |
+          a=$RUNNER_TEMP/addon
+          t=$RUNNER_TEMP/check
+          docker run --rm -v "$a:$a" -v "$t:$t:ro" -v "$PWD/scripts:/scripts:ro" -e VERSION -e REVISION -e SOURCE_URL alpine:3.24 sh -euc '
+            apk add --no-cache alpine-keys file python3 qemu-riscv64 > /dev/null
+            name=nanokvm-zerotier-$VERSION-r$REVISION.apk
+            apk=$1/$name
+            apk adbdump "$apk" > /tmp/dump
+            (cd /scripts && python3 -c "import addon_packages, sys; addon_packages.metadata(open(\"/tmp/dump\").read(), sys.argv[1])" "$name")
+            grep -qE "^  license: MPL-2.0( AND .*)?$" /tmp/dump
+            if grep -E "^ +(user|group): " /tmp/dump | grep -vqE ": root$"; then
+              echo "files not owned by root:root" >&2; exit 1
+            fi
+            d=$(mktemp -d)
+            apk extract --allow-untrusted --destination "$d" "$apk"
+            file "$d/usr/sbin/zerotier-one" | grep -q "RISC-V.*interpreter /lib/ld-musl-riscv64.so.1"
+            [ "$(readlink "$d/usr/sbin/zerotier-cli")" = zerotier-one ]
+            test -x "$d/etc/init.d/zerotier-one"
+            test -s "$d/usr/share/licenses/nanokvm-zerotier/LICENSE-MPL.txt"
+            grep -q "Permission is hereby granted" "$d/usr/share/licenses/nanokvm-zerotier/cpp-httplib.LICENSE"
+            if grep -q EmbeddedNetworkController "$d/usr/sbin/zerotier-one"; then
+              echo "the non-free controller is built in" >&2; exit 1
+            fi
+            python3 - "$d/usr/share/nanokvm-zerotier/source.json" <<"PY"
+          import json, os, sys
+          record = json.load(open(sys.argv[1]))
+          assert record["packaging"] == os.environ["SOURCE_URL"], record
+          assert record["package_version"] == os.environ["VERSION"] + "-r" + os.environ["REVISION"], record
+          assert record["modifications"] == "none" and "ZT_NONFREE=0" in record["build"], record
+          PY
+            rv=$(mktemp -d)
+            apk --arch riscv64 --root "$rv" --initdb --keys-dir /usr/share/apk/keys/riscv64 \
+              --repositories-file /etc/apk/repositories --no-cache add musl libgcc libstdc++ > /dev/null
+            [ "$(qemu-riscv64 -cpu thead-c906 -L "$rv" "$d/usr/sbin/zerotier-one" -v 2>/dev/null)" = "$VERSION" ]
+            qemu-riscv64 -cpu thead-c906 -L "$rv" "$d/usr/sbin/zerotier-one" -h 2>/dev/null | grep -q "Mozilla Public License"
+            # Nonzero when a test fails. Its socket tests use 127.0.0.1 only.
+            qemu-riscv64 -cpu thead-c906 -L "$rv" "$2/zerotier-selftest" 2>/dev/null
+            echo "package checked"' sh "$a" "$t"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: zerotier-addon
+          path: ${{ runner.temp }}/addon
+          retention-days: 14
+
+      - name: Save compiler cache
+        uses: ./.github/actions/save-compiler-cache
+        if: always() && steps.prepare.outputs.ccache-key != ''
+        with:
+          out: ${{ env.OUT }}
+          key: ${{ steps.prepare.outputs.ccache-key }}
+
+  publish:
+    name: Stage for Pages
+    if: github.event_name == 'workflow_dispatch' && inputs.dry_run != true
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: zerotier-addon
+          path: ${{ runner.temp }}/addon
+
+      - name: Reserve version and stage Pages candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # create-ref fails on an existing tag: never replace a package version.
+          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA"
+          cd "$RUNNER_TEMP/addon"
+          find . -maxdepth 1 -type f ! -name "$TAG.apk" -delete
+          sha256sum -- "$TAG.apk" > SHA256SUMS
+          cd "$GITHUB_WORKSPACE"
+          python3 scripts/pages_store.py --stage "$RUNNER_TEMP/addon" --kind addon --tag "$TAG"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pages-candidate-${{ needs.build.outputs.tag }}
+          path: ${{ runner.temp }}/addon
+          retention-days: 90

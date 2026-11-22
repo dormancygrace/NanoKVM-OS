@@ -207,6 +207,10 @@ although it has not changed.
 
 - RustDesk: `addons/rustdesk`, built and released by the RustDesk add-on
   workflow (`.github/workflows/rustdesk.yml`).
+- ZeroTier: `firmware/alpine/packages/nanokvm-zerotier`, ZeroTier One's
+  agent built from ZeroTier's release archive by
+  `scripts/build-zerotier-addon.py`, and released by the ZeroTier add-on
+  workflow (`.github/workflows/zerotier.yml`).
 - TPU models and the computer sensors' agents: a recipe `addons/NAME/addon.json`
   (version, minimum OS release, metadata, the models or the .NET program,
   files, lifecycle scripts, licenses), built by `scripts/build-addon.py` and

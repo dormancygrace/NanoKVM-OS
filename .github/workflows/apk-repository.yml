@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
   workflow_run:
-    workflows: ['Release', 'RustDesk add-on', 'Add-on release']
+    workflows: ['Release', 'RustDesk add-on', 'Add-on release', 'ZeroTier add-on']
     types: [completed]
   pull_request:
     paths:

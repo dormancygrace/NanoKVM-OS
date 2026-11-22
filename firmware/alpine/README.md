@@ -103,6 +103,8 @@ image selects them next to `nanokvm-release`; a device updated from a release
 without them gets them from the server shortly after its first start (see
 [updates](../../docs/UPDATES.md#component-versions-and-support)). Tailscale
 and NetBird come from `community` and are optional: they are installed on
+request. ZeroTier, which Alpine does not package, is the optional
+`nanokvm-zerotier` add-on of the NanoKVM repository, also installed on
 request.
 
 The NanoKVM repository is a rolling package channel within the selected

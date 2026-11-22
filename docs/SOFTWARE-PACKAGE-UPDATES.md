@@ -27,6 +27,11 @@ first, and refuses it when it would upgrade, downgrade, replace or remove any
 installed package: a model that needs a later NanoKVM OS would otherwise
 update the whole OS as a side effect.
 
+ZeroTier (`nanokvm-zerotier`) is an optional add-on too, installed on request
+and not part of `nanokvm-release`. Its own workflow (`zerotier.yml`) builds it
+from ZeroTier's release archive pinned in its recipe; once installed, its new
+versions arrive with package updates.
+
 Before the add-on repository index is signed, every package in it is checked:
 it may declare only its own files, dependencies and lifecycle scripts. A
 package that has install-if, provides, replaces, triggers or a conflicting

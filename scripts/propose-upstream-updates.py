@@ -227,6 +227,16 @@ def pin_changes(source, result, root=ROOT):
                     files[path] = updated
         if build != (root / build_path).read_text():
             files[build_path] = build
+        if name == 'openssl':
+            # nanokvm-openssl stands in for Alpine's OpenSSL of this version.
+            for path in ('firmware/alpine/packages/nanokvm-openssl/APKBUILD',
+                         'firmware/alpine/packages/README.md', 'docs/COMPONENT-BUILD-PROFILES.md'):
+                text = (root / path).read_text()
+                updated = text.replace('=' + current + '-r', '=' + latest + '-r')
+                updated = updated.replace('OpenSSL ' + current + ' LTS', 'OpenSSL ' + latest + ' LTS')
+                if updated == text:
+                    raise ValueError('OpenSSL ' + current + ' not found in ' + path)
+                files[path] = updated
         evidence = dict(archive=url, sha256=checksum)
     files[lock_path] = re.sub(r'^' + re.escape(name) + r'[ \t]+.+$', lambda _: replacement,
                               original, flags=re.MULTILINE)

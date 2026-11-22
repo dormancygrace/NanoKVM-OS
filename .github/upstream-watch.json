@@ -406,7 +406,11 @@
       "pattern": "qemu-user-static_([^/]+)_amd64\\.deb",
       "kind": "launchpad-binary",
       "package": "qemu-user-static",
-      "series": "noble"
+      "series": "noble",
+      "pull_request": {
+        "id": "qemu-build-helper",
+        "mode": "archive-pin"
+      }
     },
     {
       "name": "RustDesk protocol reference",
@@ -463,7 +467,7 @@
       "upstream_pattern": "openssl-(3\\.5\\.[0-9]+)\\.tar\\.gz",
       "pull_request": {
         "id": "openssl-35-lts",
-        "mode": "review"
+        "mode": "archive-pin"
       }
     },
     {

@@ -63,7 +63,7 @@ public:
 	std::optional<User> validate_token(const std::string &username, std::uint64_t token_version, std::string &error);
 
 	// Slow. ok=false with no error: wrong password, unknown or disabled user. A correct password stored in an
-	// older form (bcrypt, CryptoJS) is rehashed with Argon2id.
+	// older form (bcrypt) is rehashed with Argon2id.
 	std::optional<User> authenticate(const std::string &username, const std::string &password, std::string &error);
 	// Slow.
 	bool create(const std::string &username, const std::string &password, const std::string &role, std::string &error);

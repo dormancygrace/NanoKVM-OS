@@ -1,7 +1,5 @@
 #include "auth/password.hpp"
 
-#include "http/router.hpp"
-
 #include <openssl/core_names.h>
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
@@ -9,6 +7,8 @@
 #include <openssl/rand.h>
 
 #include <crypt.h>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <vector>
 
@@ -18,7 +18,6 @@ namespace {
 
 constexpr std::uint32_t memory_kib = 19456, passes = 2, lanes = 1;
 constexpr size_t salt_len = 16, hash_len = 32;
-constexpr std::string_view cryptojs_key = "nanokvm-sipeed-2024";
 
 std::string b64(const unsigned char *data, size_t len, bool pad)
 {
@@ -104,41 +103,6 @@ std::optional<Phc> parse_phc(const std::string &s)
 	return phc;
 }
 
-std::optional<std::string> decrypt_raw(std::string_view data)
-{
-	if (data.empty()) return std::string();
-	auto raw = unb64(data);
-	if (!raw || raw->size() < 32 || std::memcmp(raw->data(), "Salted__", 8) != 0) return std::nullopt;
-	const unsigned char *salt = raw->data() + 8;
-	size_t enc_len = raw->size() - 16;
-	if (enc_len == 0 || enc_len % 16 != 0) return std::nullopt;
-	// EVP_BytesToKey with MD5, one iteration: key 32 bytes, IV 16.
-	unsigned char derived[48];
-	size_t have = 0;
-	unsigned char prev[16];
-	size_t prev_len = 0;
-	while (have < sizeof derived) {
-		std::vector<unsigned char> buf(prev, prev + prev_len);
-		buf.insert(buf.end(), cryptojs_key.begin(), cryptojs_key.end());
-		buf.insert(buf.end(), salt, salt + 8);
-		EVP_Digest(buf.data(), buf.size(), prev, nullptr, EVP_md5(), nullptr);
-		prev_len = 16;
-		size_t n = std::min<size_t>(16, sizeof derived - have);
-		std::memcpy(derived + have, prev, n);
-		have += n;
-	}
-	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
-	std::vector<unsigned char> plain(enc_len + 16);
-	int len1 = 0, len2 = 0;
-	bool ok = EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, derived, derived + 32) == 1 &&
-	          EVP_CIPHER_CTX_set_padding(ctx, 1) == 1 &&
-	          EVP_DecryptUpdate(ctx, plain.data(), &len1, raw->data() + 16, static_cast<int>(enc_len)) == 1 &&
-	          EVP_DecryptFinal_ex(ctx, plain.data() + len1, &len2) == 1;
-	EVP_CIPHER_CTX_free(ctx);
-	if (!ok) return std::nullopt;
-	return std::string(reinterpret_cast<char *>(plain.data()), static_cast<size_t>(len1 + len2));
-}
-
 } // namespace
 
 std::optional<std::string> hash_password(std::string_view password)
@@ -171,22 +135,12 @@ bool verify_password(const std::string &hash, std::string_view password)
 		const char *result = crypt_r(pw.c_str(), hash.c_str(), &data);
 		return result && std::strlen(result) == hash.size() && CRYPTO_memcmp(result, hash.data(), hash.size()) == 0;
 	}
-	auto legacy = decrypt_cryptojs(hash);
-	return legacy && *legacy == password;
-}
-
-std::optional<std::string> decrypt_cryptojs(std::string_view data)
-{
-	if (auto plain = decrypt_raw(data)) return plain;
-	std::string unescaped = http::url_decode(data);
-	if (unescaped == data) return std::nullopt;
-	return decrypt_raw(unescaped);
+	return false;
 }
 
 std::optional<std::string> decode_credential(std::string_view value, std::string_view encoding)
 {
-	if (encoding == "plain") return std::string(value);
-	if (encoding.empty() || encoding == "cryptojs") return decrypt_cryptojs(value);
+	if (encoding.empty() || encoding == "plain") return std::string(value);
 	return std::nullopt;
 }
 

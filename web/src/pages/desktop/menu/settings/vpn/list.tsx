@@ -8,6 +8,7 @@ import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
 import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { WireGuardIcon } from '@/components/icons/wireguard';
+import { Zerotier as ZerotierIcon } from '@/components/icons/zerotier';
 import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
 
 import {
@@ -22,7 +23,8 @@ const icons: Record<VPNProviderId, ReactNode> = {
   wireguard: <WireGuardIcon />,
   openvpn: <OpenVPNIcon />,
   tailscale: <TailscaleIcon />,
-  netbird: <NetbirdIcon />
+  netbird: <NetbirdIcon />,
+  zerotier: <ZerotierIcon />
 };
 
 // One row per provider; a row opens the provider page "vpn-<id>".

@@ -10,6 +10,10 @@ name: Cache cleanup
 # on older toolchain inputs keeps using the old toolchain, which must not make
 # it look newer than the one main builds now.
 on:
+  # Fork PR caches belong to the base repository. Use its workflow/token only;
+  # never check out or execute PR code in this workflow.
+  pull_request_target:
+    types: [closed]
   schedule:
     - cron: '17 3 * * 1'
   workflow_dispatch:
@@ -25,11 +29,13 @@ jobs:
     permissions:
       # Listing and deleting caches.
       actions: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Delete
+      - name: Select superseded main caches
+        if: github.event_name != 'pull_request_target'
         run: |
           gh cache list --ref refs/heads/main --limit 1000 --sort created_at --order desc \
             --json id,key,sizeInBytes > caches.json
@@ -49,6 +55,33 @@ jobs:
               else:
                   seen.add(m.group(1))
           PY
+      - name: Select closed PR caches
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          # On close, ask for that exact merge ref. The scheduled/manual sweep
+          # also catches caches saved by jobs that finished after the PR closed.
+          query=(--method GET -F per_page=100)
+          if [[ -n "$PR" ]]; then
+            query+=(-f "ref=refs/pull/$PR/merge")
+          fi
+          gh api --paginate "${query[@]}" "repos/$GH_REPO/actions/caches" \
+            --jq '.actions_caches[] | select(.ref | test("^refs/pull/[0-9]+/merge$")) | [.ref, .id, .size_in_bytes] | @tsv' > pr-caches.tsv
+          cut -f1 pr-caches.tsv | sort -u > pr-refs
+          touch delete.txt
+          while read -r ref; do
+            number=${ref#refs/pull/}
+            number=${number%/merge}
+            if [[ -n "$PR" && "$number" != "$PR" ]]; then
+              continue
+            fi
+            state=$(gh api "repos/$GH_REPO/pulls/$number" --jq .state)
+            if [[ "$state" == closed ]]; then
+              awk -v ref="$ref" '$1 == ref { print $2, $3, $1 }' pr-caches.tsv >> delete.txt
+            fi
+          done < pr-refs
+      - name: Delete selected caches
+        run: |
           echo "$(wc -l < delete.txt) caches to delete, $(awk '{ s += $2 } END { print int(s / 1048576) }' delete.txt) MiB"
           while read -r id _ key; do
             echo "delete $key"

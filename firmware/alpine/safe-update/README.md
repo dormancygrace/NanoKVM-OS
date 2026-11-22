@@ -161,8 +161,8 @@ This covers the kernel, its modules and userspace together, using the existing U
 
 ## Test record: package trials
 
-Hardware: a NanoKVM on NanoKVM OS 4.2.1 (kernel 7.3.4), apk-tools 3.0.9, migrated from stock
-(7728 MiB root). NanoKVM OS selected the `lite` board profile; stock reported `beta`. "Scratch image" means an F2FS loop image on `/data`, not the root.
+Hardware: a NanoKVM Lite on NanoKVM OS 4.2.1 (kernel 7.3.4), apk-tools 3.0.9, migrated from stock with the
+v4.2.0 installer (7728 MiB root). NanoKVM OS selected the `lite` board profile; stock reported `beta`. "Scratch image" means an F2FS loop image on `/data`, not the root.
 
 | Test | Result |
 | --- | --- |

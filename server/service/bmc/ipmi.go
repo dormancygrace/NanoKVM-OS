@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -31,6 +32,8 @@ type ipmiRun struct {
 	server *ipmi.Server
 	conn   net.PacketConn
 	done   chan struct{}
+	// handOver: the server stops to give the socket to its successor.
+	handOver atomic.Bool
 }
 
 // running reports whether r serves; Serve ends when its socket fails.
@@ -53,29 +56,43 @@ func sameIPMI(a, b bmc.Config) bool {
 		a.IPMIPort == b.IPMIPort && a.HoldSeconds == b.HoldSeconds
 }
 
-// applyIPMI starts, restarts or stops IPMI for config; s.mu is held. IPMI
-// that runs with the same account, port and hold keeps its sessions.
-func (s *Service) applyIPMI(config bmc.Config) error {
-	if !config.IPMI {
-		s.stopIPMI()
-		return nil
-	}
-	if s.ipmi.running() && sameIPMI(s.ipmi.config, config) {
-		return nil
-	}
-	s.stopIPMI()
-	return s.startIPMI(config)
-}
-
-// startIPMI opens the UDP port and serves IPMI; s.mu is held.
-func (s *Service) startIPMI(config bmc.Config) error {
-	if err := config.Validate(); err != nil {
-		return err
+// ipmiSocket opens the UDP port of config when IPMI is on and the running
+// listener does not have it already; nil means no new socket is needed.
+// s.mu is held.
+func (s *Service) ipmiSocket(config bmc.Config) (net.PacketConn, error) {
+	if !config.IPMI || (s.ipmi.running() && s.ipmi.config.IPMIPort == config.IPMIPort) {
+		return nil, nil
 	}
 	conn, err := net.ListenPacket("udp", ":"+strconv.Itoa(config.IPMIPort))
 	if err != nil {
-		return fmt.Errorf("IPMI cannot use UDP port %d: %w", config.IPMIPort, err)
+		return nil, fmt.Errorf("IPMI cannot use UDP port %d: %w", config.IPMIPort, err)
 	}
+	return conn, nil
+}
+
+// applyIPMI makes IPMI serve config, which is saved; conn is ipmiSocket's
+// socket for it. IPMI that runs with the same account, port and hold keeps
+// its sessions; a new account or hold on the same port takes over the
+// socket. s.mu is held.
+func (s *Service) applyIPMI(config bmc.Config, conn net.PacketConn) {
+	switch {
+	case !config.IPMI:
+		s.stopIPMI()
+	case conn != nil:
+		s.stopIPMI()
+		s.serveIPMI(config, conn)
+	case !sameIPMI(s.ipmi.config, config):
+		run := s.ipmi
+		run.handOver.Store(true)
+		_ = run.conn.SetReadDeadline(time.Now())
+		<-run.done
+		_ = run.conn.SetReadDeadline(time.Time{})
+		s.serveIPMI(config, run.conn)
+	}
+}
+
+// serveIPMI serves IPMI for config on conn; s.mu is held.
+func (s *Service) serveIPMI(config bmc.Config, conn net.PacketConn) {
 	major, minor := versionBytes(s.info.FirmwareVersion)
 	server := &ipmi.Server{
 		Username: config.Username, Password: config.Password, GUID: deviceGUID(),
@@ -87,13 +104,18 @@ func (s *Service) startIPMI(config bmc.Config) error {
 	run := &ipmiRun{config: config, server: server, conn: conn, done: make(chan struct{})}
 	go func() {
 		defer close(run.done)
-		if err := server.Serve(conn); !errors.Is(err, net.ErrClosed) {
+		err := server.Serve(conn)
+		if run.handOver.Load() {
+			return
+		}
+		// The socket is closed by stopIPMI, or failed: free the port.
+		_ = conn.Close()
+		if !errors.Is(err, net.ErrClosed) {
 			log.Errorf("IPMI stopped: %v", err)
 		}
 	}()
 	s.ipmi = run
 	log.Infof("IPMI: listening on UDP port %d", config.IPMIPort)
-	return nil
 }
 
 // stopIPMI closes the port and waits for the server to end; s.mu is held.
@@ -112,11 +134,17 @@ func (s *Service) keepIPMI() {
 	for logged := false; ; time.Sleep(ipmiRetry) {
 		s.mu.Lock()
 		config, err := bmc.Load(s.configPath)
+		if err == nil {
+			err = config.Validate()
+		}
 		if err != nil || !config.IPMI || s.ipmi.running() {
 			s.mu.Unlock()
 			return
 		}
-		err = s.startIPMI(config)
+		conn, err := s.ipmiSocket(config)
+		if err == nil {
+			s.applyIPMI(config, conn)
+		}
 		s.mu.Unlock()
 		if err == nil {
 			return

@@ -14,9 +14,28 @@ type Event struct {
 	Minutes  int
 }
 
-// event hands e to OnEvent off the packet path; s.mu is held.
+// maxEvents is how many events wait for OnEvent; beyond that an event is
+// dropped and logged.
+const maxEvents = 32
+
+// event queues e for OnEvent, off the packet path; s.mu is held.
 func (s *Server) event(e Event) {
-	if s.OnEvent != nil {
-		go s.OnEvent(e)
+	if s.OnEvent == nil {
+		return
 	}
+	select {
+	case s.events <- e:
+	default:
+		s.logf("IPMI: notification queue full, %s from %s not reported", e.Kind, e.Address)
+	}
+}
+
+// notify hands e to OnEvent; a panic there is logged.
+func (s *Server) notify(e Event) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logf("IPMI notification failed: %v", r)
+		}
+	}()
+	s.OnEvent(e)
 }

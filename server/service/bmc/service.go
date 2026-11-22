@@ -168,11 +168,24 @@ func (s *Service) Configure(settings Settings) error {
 	if settings.VirtualMedia != nil {
 		config.VirtualMedia = *settings.VirtualMedia
 	}
+	if err = config.Validate(); err != nil {
+		return err
+	}
+	// The new IPMI port is taken before anything changes: a port that
+	// cannot be used leaves the settings and the running IPMI as they were.
+	conn, err := s.ipmiSocket(config)
+	if err != nil {
+		return err
+	}
 	if err = bmc.Save(s.configPath, config); err != nil {
+		if conn != nil {
+			_ = conn.Close()
+		}
 		return err
 	}
 	s.useRedfish(config)
-	return s.applyIPMI(config)
+	s.applyIPMI(config, conn)
+	return nil
 }
 
 // deviceUUID is /etc/machine-id, the device's random identity, as a UUID.

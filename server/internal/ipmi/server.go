@@ -132,6 +132,7 @@ type Server struct {
 	sessions   map[uint32]*session
 	failed     map[string]*failures
 	actions    chan func(context.Context) error
+	events     chan Event
 	start      sync.Once
 	// The last power command accepted, for Stats.
 	lastCommand   string
@@ -190,14 +191,38 @@ func (s *Server) init() {
 		s.actions = make(chan func(context.Context) error, 1)
 		go func() {
 			for action := range s.actions {
-				ctx, cancel := context.WithTimeout(s.base(), time.Minute)
-				if err := action(ctx); err != nil && s.Log != nil {
-					s.Log("IPMI power action failed: %v", err)
-				}
-				cancel()
+				s.runAction(action)
+			}
+		}()
+		// Notifications in the order of the logins, one at a time.
+		s.events = make(chan Event, maxEvents)
+		go func() {
+			for e := range s.events {
+				s.notify(e)
 			}
 		}()
 	})
+}
+
+// runAction runs one accepted power action; a panic in it is logged and
+// the worker goes on with the next.
+func (s *Server) runAction(action func(context.Context) error) {
+	ctx, cancel := context.WithTimeout(s.base(), time.Minute)
+	defer cancel()
+	defer func() {
+		if r := recover(); r != nil {
+			s.logf("IPMI power action failed: %v", r)
+		}
+	}()
+	if err := action(ctx); err != nil {
+		s.logf("IPMI power action failed: %v", err)
+	}
+}
+
+func (s *Server) logf(format string, args ...any) {
+	if s.Log != nil {
+		s.Log(format, args...)
+	}
 }
 
 func (s *Server) base() context.Context {
@@ -211,8 +236,9 @@ func (s *Server) base() context.Context {
 // whose handling panics gets no answer, and the server goes on.
 func (s *Server) Serve(conn net.PacketConn) error {
 	s.init()
-	// No more power actions after the last packet: the worker ends once it
-	// has run those already accepted.
+	// No more power actions or events after the last packet: the workers
+	// end once they have handled those already accepted.
+	defer close(s.events)
 	defer close(s.actions)
 	buf := make([]byte, 1024)
 	for {
@@ -229,9 +255,7 @@ func (s *Server) Serve(conn net.PacketConn) error {
 func (s *Server) handleSafe(pkt []byte, addr string) (reply []byte) {
 	defer func() {
 		if r := recover(); r != nil {
-			if s.Log != nil {
-				s.Log("IPMI: packet from %s: %v", addr, r)
-			}
+			s.logf("IPMI: packet from %s: %v", addr, r)
 			reply = nil
 		}
 	}()

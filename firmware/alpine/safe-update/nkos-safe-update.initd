@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+# Reports how the last package trial ended (confirmed or rolled back).
+description="NanoKVM safe update: record the last trial's outcome"
+depend() {
+	need localmount
+	before nanokvm-app
+}
+start() {
+	ebegin "Checking the last package update trial"
+	/usr/sbin/nkos-safe-update boot
+	eend $?
+}

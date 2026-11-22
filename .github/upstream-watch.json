@@ -188,6 +188,14 @@
       }
     },
     {
+      "name": "ZeroTier One",
+      "path": "firmware/alpine/packages/nanokvm-zerotier/APKBUILD",
+      "pattern": "^pkgver=([0-9.]+)$",
+      "kind": "github-tags",
+      "repo": "zerotier/ZeroTierOne",
+      "upstream_pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+)$"
+    },
+    {
       "name": "exfatprogs",
       "path": "platform/sources.lock",
       "pattern": "exfatprogs-([0-9.]+)\\.tar",

@@ -131,13 +131,67 @@ func InstallOnly(names ...string) error {
 // Remove removes packages in one apk transaction, under the same lock as other
 // package operations.
 func Remove(names ...string) error {
-	return RemoveAfter(nil, names...)
+	if err := validNames(names); err != nil {
+		return err
+	}
+	lock, err := osupdate.Lock()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	return del(ctx, names)
 }
 
-// RemoveAfter is Remove that first runs prepare under the same lock, so that a
-// caller stops what the packages run only once their removal can go ahead.
-// prepare returns how to undo what it did; that runs when apk fails.
+// RemoveAfter removes packages that a caller first stops, with prepare: only
+// under the package lock and once apk is shown to purge every one of them, so
+// that nothing is stopped for a removal that cannot happen. prepare returns
+// how to undo what it did; that runs when apk fails or leaves a package
+// installed (apk exits 0 and keeps a package another selected one needs).
 func RemoveAfter(prepare func() (undo func() error, err error), names ...string) error {
+	if err := validNames(names); err != nil {
+		return err
+	}
+	lock, err := osupdate.Lock()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	output, err := apkrun.Command(ctx, "/sbin/apk", append([]string{"del", "--simulate", "--"}, names...)...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("apk del failed: %s", tail(output))
+	}
+	if kept := osupdate.KeptByRemoval(string(output), names); len(kept) > 0 {
+		return fmt.Errorf("apk would not remove %s: %s", strings.Join(kept, ", "), tail(output))
+	}
+	var undo func() error
+	if prepare != nil {
+		if undo, err = prepare(); err != nil {
+			return err
+		}
+	}
+	err = del(ctx, names)
+	if err == nil {
+		var left []string
+		for _, name := range names {
+			if apkrun.Command(ctx, "/sbin/apk", "info", "-e", "--", name).Run() == nil {
+				left = append(left, name)
+			}
+		}
+		if len(left) > 0 {
+			err = fmt.Errorf("apk del left %s installed", strings.Join(left, ", "))
+		}
+	}
+	if err != nil && undo != nil {
+		err = errors.Join(err, undo())
+	}
+	return err
+}
+
+func validNames(names []string) error {
 	if len(names) == 0 {
 		return errors.New("no APK package to remove")
 	}
@@ -146,25 +200,12 @@ func RemoveAfter(prepare func() (undo func() error, err error), names ...string)
 			return errors.New("invalid APK package name")
 		}
 	}
-	lock, err := osupdate.Lock()
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
-	var undo func() error
-	if prepare != nil {
-		if undo, err = prepare(); err != nil {
-			return err
-		}
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-	if output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{"del", "--"}, names...)...).CombinedOutput(); runErr != nil {
-		err = fmt.Errorf("apk del failed: %s", tail(output))
-		if undo != nil {
-			err = errors.Join(err, undo())
-		}
-		return err
+	return nil
+}
+
+func del(ctx context.Context, names []string) error {
+	if output, err := apkrun.Command(ctx, "/sbin/apk", append([]string{"del", "--"}, names...)...).CombinedOutput(); err != nil {
+		return fmt.Errorf("apk del failed: %s", tail(output))
 	}
 	return nil
 }

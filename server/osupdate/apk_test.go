@@ -70,3 +70,16 @@ func TestPackageStateReportsRecordedButBroken(t *testing.T) {
 		t.Fatalf("broken: %s", got)
 	}
 }
+
+// apk del exits 0 and keeps a package another selected package needs: only a
+// Purging step shows that it goes.
+func TestKeptByRemoval(t *testing.T) {
+	purged := "(1/1) Purging nanokvm-zerotier (1.16.2-r1)\nOK: 130.6 MiB in 174 packages\n"
+	if kept := KeptByRemoval(purged, []string{"nanokvm-zerotier"}); len(kept) != 0 {
+		t.Fatalf("kept %v", kept)
+	}
+	retained := "World updated, but the following packages are not removed due to:\n  nanokvm-zerotier: example\n\nOK: 130.6 MiB in 174 packages\n"
+	if kept := KeptByRemoval(retained, []string{"nanokvm-zerotier"}); len(kept) != 1 || kept[0] != "nanokvm-zerotier" {
+		t.Fatalf("kept %v", kept)
+	}
+}

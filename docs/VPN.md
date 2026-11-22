@@ -1,6 +1,6 @@
 # VPN profiles
 
-Settings → VPN contains WireGuard, OpenVPN and Tailscale submenus. Each page
+Settings → VPN contains WireGuard, OpenVPN, Tailscale, NetBird and ZeroTier submenus. Each page
 shows its component version. WireGuard and OpenVPN each allow one enabled
 profile; enabled profiles are restored after restart. Import alone does not
 connect. Avoid overlapping routes when using multiple VPN clients.
@@ -46,26 +46,23 @@ Open the Tailscale submenu to use its existing installation/login controls.
 
 ## ZeroTier
 
-ZeroTier is the optional `nanokvm-zerotier` add-on from the NanoKVM
-repository. Install and start it over SSH:
-
-```sh
-apk add nanokvm-zerotier
-rc-update add zerotier-one default
-rc-service zerotier-one start
-zerotier-cli info
-zerotier-cli join NETWORK_ID
-```
-
-Then authorize the node ID that `zerotier-cli info` shows in the network's
-controller (ZeroTier Central or your own); until then `zerotier-cli
-listnetworks` shows the network as `ACCESS_DENIED`. ZeroTier can run alongside
-the other VPNs; avoid overlapping routes.
+The ZeroTier submenu installs the optional `nanokvm-zerotier` add-on from the
+NanoKVM repository, then starts the `zerotier-one` service, which also adds it
+to the boot runlevel. It shows the node ID, whether the node has reached
+ZeroTier's root servers, and the joined networks with their state and
+addresses. Join a network with its 16-digit ID, then authorize the node ID in
+that network's controller (ZeroTier Central or your own); until then the
+network shows **Not authorized**. Leave removes the network from this device
+only. ZeroTier can run alongside the other VPNs; avoid overlapping routes.
 
 The add-on is ZeroTier One's agent (MPL-2.0), built from ZeroTier's release
 for musl and the C906, without ZeroTier's network controller, which is
-source-available and not part of the package. A controller is not needed to
-join networks. The identity and joined networks live in
+source-available and not part of the package. A controller is not needed
+to join networks. The identity and joined networks live in
 `/var/lib/zerotier-one`, the same place as other ZeroTier installations, so
-an identity copied there before starting keeps its node ID. `apk del
-nanokvm-zerotier` stops the service and keeps that directory.
+an identity copied there before starting keeps its node ID. They are kept on
+uninstall unless you choose to delete them, and the settings backup includes
+them for **Restore this device**, never for migration: two devices with one
+identity disrupt each other. Managed routes are applied; default-route and
+DNS settings pushed by a network are not (ZeroTier does not set DNS on
+Linux).

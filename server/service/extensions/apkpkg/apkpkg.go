@@ -16,6 +16,15 @@ import (
 
 var packageName = regexp.MustCompile(`^[a-z0-9][a-z0-9+_.-]{0,127}$`)
 
+// Replaced in tests.
+var (
+	lockPackages = osupdate.Lock
+	installed    = osupdate.Installed
+	apk          = func(ctx context.Context, args ...string) ([]byte, error) {
+		return apkrun.Command(ctx, "/sbin/apk", args...).CombinedOutput()
+	}
+)
+
 // Run executes one APK package operation while holding the same system-wide
 // lock as firmware and generic Software updates.
 func Run(action, name string) error {
@@ -153,14 +162,14 @@ func RemoveAfter(prepare func() (undo func() error, err error), names ...string)
 	if err := validNames(names); err != nil {
 		return err
 	}
-	lock, err := osupdate.Lock()
+	lock, err := lockPackages()
 	if err != nil {
 		return err
 	}
 	defer lock.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	output, err := apkrun.Command(ctx, "/sbin/apk", append([]string{"del", "--simulate", "--"}, names...)...).CombinedOutput()
+	output, err := apk(ctx, append([]string{"del", "--simulate", "--"}, names...)...)
 	if err != nil {
 		return fmt.Errorf("apk del failed: %s", tail(output))
 	}
@@ -175,13 +184,13 @@ func RemoveAfter(prepare func() (undo func() error, err error), names ...string)
 	}
 	err = del(ctx, names)
 	if err == nil {
-		var left []string
-		for _, name := range names {
-			if apkrun.Command(ctx, "/sbin/apk", "info", "-e", "--", name).Run() == nil {
-				left = append(left, name)
-			}
-		}
-		if len(left) > 0 {
+		// Only a database read proves the removal; a failed one counts as a
+		// package left installed.
+		left, checkErr := installed(names...)
+		switch {
+		case checkErr != nil:
+			err = fmt.Errorf("cannot confirm that apk removed %s: %w", strings.Join(names, ", "), checkErr)
+		case len(left) > 0:
 			err = fmt.Errorf("apk del left %s installed", strings.Join(left, ", "))
 		}
 	}
@@ -204,7 +213,7 @@ func validNames(names []string) error {
 }
 
 func del(ctx context.Context, names []string) error {
-	if output, err := apkrun.Command(ctx, "/sbin/apk", append([]string{"del", "--"}, names...)...).CombinedOutput(); err != nil {
+	if output, err := apk(ctx, append([]string{"del", "--"}, names...)...); err != nil {
 		return fmt.Errorf("apk del failed: %s", tail(output))
 	}
 	return nil

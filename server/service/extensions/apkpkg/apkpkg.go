@@ -131,6 +131,13 @@ func InstallOnly(names ...string) error {
 // Remove removes packages in one apk transaction, under the same lock as other
 // package operations.
 func Remove(names ...string) error {
+	return RemoveAfter(nil, names...)
+}
+
+// RemoveAfter is Remove that first runs prepare under the same lock, so that a
+// caller stops what the packages run only once their removal can go ahead.
+// prepare returns how to undo what it did; that runs when apk fails.
+func RemoveAfter(prepare func() (undo func() error, err error), names ...string) error {
 	if len(names) == 0 {
 		return errors.New("no APK package to remove")
 	}
@@ -144,10 +151,20 @@ func Remove(names ...string) error {
 		return err
 	}
 	defer lock.Close()
+	var undo func() error
+	if prepare != nil {
+		if undo, err = prepare(); err != nil {
+			return err
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if output, runErr := apkrun.Command(ctx, "/sbin/apk", append([]string{"del", "--"}, names...)...).CombinedOutput(); runErr != nil {
-		return fmt.Errorf("apk del failed: %s", tail(output))
+		err = fmt.Errorf("apk del failed: %s", tail(output))
+		if undo != nil {
+			err = errors.Join(err, undo())
+		}
+		return err
 	}
 	return nil
 }

@@ -67,11 +67,10 @@ func (s *Service) Uninstall(c *gin.Context) {
 		rsp.OkRsp(c)
 		return
 	}
-	if err := NewCli().Stop(); err != nil {
-		rsp.ErrRsp(c, -1, "ZeroTier could not be stopped; package was kept: "+err.Error())
-		return
-	}
-	if err := apkpkg.Run("remove", PackageName); err != nil {
+	// Stopped only under the package lock, once the removal can go ahead:
+	// while another update holds it, ZeroTier keeps running. A failed removal
+	// starts it again, and puts it back in the boot runlevel, as it was.
+	if err := apkpkg.RemoveAfter(NewCli().stopForRemoval, PackageName); err != nil {
 		rsp.ErrRsp(c, -1, "ZeroTier removal failed: "+err.Error())
 		return
 	}

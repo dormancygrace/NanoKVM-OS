@@ -81,6 +81,8 @@ func (c *Cli) Restart() error {
 	return startDaemon("restart")
 }
 
+// Stop stops the service and takes it out of the boot runlevel. A service
+// that is not in the runlevel is not an error; failing to remove it is.
 func (c *Cli) Stop() error {
 	running, err := c.ServiceRunning()
 	if err != nil {
@@ -91,8 +93,55 @@ func (c *Cli) Stop() error {
 			return err
 		}
 	}
-	_ = runProgram(commandTimeout, "rc-update", "del", serviceName, "default")
-	return nil
+	enabled, err := inRunlevel()
+	if err != nil || !enabled {
+		return err
+	}
+	return runProgram(commandTimeout, "rc-update", "del", serviceName, "default")
+}
+
+// stopForRemoval is Stop before the package is removed. It returns how to put
+// the service back as it was, for a removal that fails; a failed Stop puts it
+// back at once.
+func (c *Cli) stopForRemoval() (func() error, error) {
+	running, err := c.ServiceRunning()
+	if err != nil {
+		return nil, err
+	}
+	enabled, err := inRunlevel()
+	if err != nil {
+		return nil, err
+	}
+	restore := func() error {
+		var errs []error
+		if enabled {
+			if now, err := inRunlevel(); err != nil || !now {
+				errs = append(errs, err, runProgram(commandTimeout, "rc-update", "add", serviceName, "default"))
+			}
+		}
+		if running {
+			if now, err := c.ServiceRunning(); err != nil || !now {
+				errs = append(errs, err, startDaemon("start"))
+			}
+		}
+		return errors.Join(errs...)
+	}
+	if err = c.Stop(); err != nil {
+		return nil, errors.Join(err, restore())
+	}
+	return restore, nil
+}
+
+// runlevelLink is the service's link in the default runlevel: Start adds it
+// and Stop removes it.
+var runlevelLink = "/etc/runlevels/default/" + serviceName
+
+func inRunlevel() (bool, error) {
+	_, err := os.Lstat(runlevelLink)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return false, err
+	}
+	return err == nil, nil
 }
 
 func (c *Cli) ServiceRunning() (bool, error) {

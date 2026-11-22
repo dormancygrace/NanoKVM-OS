@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +38,9 @@ type Plan struct {
 	Options        Options  `json:"options"`
 	Changes        []Change `json:"changes"`
 	RemovePackages []string `json:"removePackages"`
+	// Settings groups the restored archive does not cover: their files are
+	// neither replaced nor deleted, also when the boot pass takes inventory.
+	Keep []string `json:"keep,omitempty"`
 	// The source world is checked again at boot: do not execute a stale removal.
 	World []byte `json:"world"`
 }
@@ -68,7 +72,7 @@ func (e Engine) applyFile(name string, f *File) error {
 	return write(e.Root, name, f)
 }
 func (e Engine) Snapshot() (Archive, error) {
-	a := Archive{Format: 1, Version: e.Version, Board: e.Board, Created: time.Now().UTC()}
+	a := Archive{Format: 1, Version: e.Version, Board: e.Board, Created: time.Now().UTC(), Covers: allGroups()}
 	var err error
 	a.Files, err = inventory(e.Root)
 	if err != nil {
@@ -143,6 +147,7 @@ func (e Engine) Prepare(a *Archive, o Options) (Plan, Preview, error) {
 		}
 		v.Version = a.Version
 		v.Packages = a.Packages
+		p.Keep = uncovered(a.Covers)
 	}
 	current, err := inventory(e.Root)
 	if err != nil {
@@ -154,6 +159,9 @@ func (e Engine) Prepare(a *Archive, o Options) (Plan, Preview, error) {
 			continue
 		}
 		if o.Action == "restore" && o.Mode == "migrate" && !portable(f.Path) {
+			continue
+		}
+		if slices.Contains(p.Keep, group(f.Path)) {
 			continue
 		}
 		desired[f.Path] = nil
@@ -391,9 +399,15 @@ func validatePlan(p Plan) error {
 	if len(p.Changes) > MaxFiles+8 {
 		return errors.New("excessive recovery changes")
 	}
+	if err := validGroups(p.Keep); err != nil || (len(p.Keep) > 0 && p.Options.Action != "restore") {
+		return errors.New("invalid recovery journal")
+	}
 	seen := map[string]bool{}
 	total := 0
 	for _, c := range p.Changes {
+		if slices.Contains(p.Keep, group(c.Path)) {
+			return errors.New("recovery change in a kept settings group")
+		}
 		if (!allowed(c.Path) && c.Path != "etc/shadow" && c.Path != "etc/kvm/.jwt_secret" && c.Path != "etc/kvm/.picoclaw_internal_token") || seen[c.Path] {
 			return errors.New("invalid recovery destination")
 		}
@@ -483,7 +497,7 @@ func (e Engine) Resume(remove func([]string) error) (result error) {
 				return err
 			}
 			for _, f := range current {
-				if seen[f.Path] || (p.Options.Mode == "migrate" && !portable(f.Path)) {
+				if seen[f.Path] || (p.Options.Mode == "migrate" && !portable(f.Path)) || slices.Contains(p.Keep, group(f.Path)) {
 					continue
 				}
 				p.Changes = append(p.Changes, Change{Path: f.Path, Before: &f})

@@ -2335,6 +2335,7 @@
       "version": "Version",
       "networks": "Networks",
       "noNetworks": "No network joined yet.",
+      "notAnswering": "ZeroTier is starting and does not answer yet.",
       "join": "Join a network",
       "joinDesc": "The 16-digit network ID from your network controller.",
       "joinBtn": "Join",

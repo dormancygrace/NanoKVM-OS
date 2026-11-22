@@ -41,7 +41,7 @@ export const Uninstall = ({ onSuccess }: UninstallProps) => {
         onSuccess();
       })
       .catch((err) => {
-        setErrMsg(err.message || t('settings.zerotier.error.uninstallFailed'));
+        setErrMsg(err?.message || t('settings.zerotier.error.uninstallFailed'));
       })
       .finally(() => {
         uninstallInFlight.current = false;

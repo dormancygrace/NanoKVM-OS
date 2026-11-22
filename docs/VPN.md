@@ -47,8 +47,9 @@ Open the Tailscale submenu to use its existing installation/login controls.
 ## ZeroTier
 
 The ZeroTier submenu installs the optional `nanokvm-zerotier` add-on from the
-NanoKVM repository, then starts the `zerotier-one` service, which also adds it
-to the boot runlevel. It shows the node ID, whether the node has reached
+NanoKVM repository and then offers to start the `zerotier-one` service;
+starting it also adds it to the boot runlevel, and stopping it takes it out.
+Once it runs, the submenu shows the node ID, whether the node has reached
 ZeroTier's root servers, and the joined networks with their state and
 addresses. Join a network with its 16-digit ID, then authorize the node ID in
 that network's controller (ZeroTier Central or your own); until then the

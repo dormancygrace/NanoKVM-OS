@@ -31,8 +31,11 @@ export const Device = ({ status, onChange }: DeviceProps) => {
   const [busy, setBusy] = useState('');
   const [errMsg, setErrMsg] = useState('');
   const networks = status.networks ?? [];
+  // Without a node ID the service runs but does not answer yet (it reads its
+  // identity first): its networks are unknown, not none, and it cannot join.
+  const answering = !!status.address;
   const id = network.trim().toLowerCase();
-  const valid = api.networkIdPattern.test(id);
+  const valid = answering && api.networkIdPattern.test(id);
 
   function request(key: string, call: () => ReturnType<typeof api.join>, onDone?: () => void) {
     if (busy) return;
@@ -86,7 +89,9 @@ export const Device = ({ status, onChange }: DeviceProps) => {
 
       <SettingsSection title={t('settings.zerotier.networks')}>
         {networks.length === 0 && (
-          <p className="text-fg-muted px-1 text-sm">{t('settings.zerotier.noNetworks')}</p>
+          <p className="text-fg-muted px-1 text-sm">
+            {t(answering ? 'settings.zerotier.noNetworks' : 'settings.zerotier.notAnswering')}
+          </p>
         )}
         {networks.map((n) => (
           <SettingRow
@@ -141,9 +146,8 @@ export const Device = ({ status, onChange }: DeviceProps) => {
               id="zerotier-network"
               className="font-mono"
               value={network}
-              maxLength={16}
               placeholder="0123456789abcdef"
-              status={network && !valid ? 'error' : undefined}
+              status={answering && network && !valid ? 'error' : undefined}
               onChange={(e) => setNetwork(e.target.value)}
               onPressEnter={() =>
                 valid &&

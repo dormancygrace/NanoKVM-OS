@@ -5,7 +5,6 @@ from dependency_coverage import validate_coverage, npm_sources
 from concurrent.futures import ThreadPoolExecutor
 import html
 import io
-import functools
 import json
 import os
 from pathlib import Path
@@ -22,60 +21,6 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         # In particular, never forward a GitHub token to a different host.
         return None
 
-
-
-def dpkg_order(c):
-    """dpkg's weight of one non-digit version character ('' is the end)."""
-    if c == '~':
-        return -1
-    if c == '' or c.isdigit():
-        return 0
-    if c.isalpha():
-        return ord(c)
-    return ord(c) + 256
-
-
-def dpkg_part(a, b):
-    """dpkg's verrevcmp: an upstream version or a revision."""
-    i = j = 0
-    while i < len(a) or j < len(b):
-        while (i < len(a) and not a[i].isdigit()) or (j < len(b) and not b[j].isdigit()):
-            ac = dpkg_order(a[i] if i < len(a) else '')
-            bc = dpkg_order(b[j] if j < len(b) else '')
-            if ac != bc:
-                return ac - bc
-            i, j = i + 1, j + 1
-        while i < len(a) and a[i] == '0':
-            i += 1
-        while j < len(b) and b[j] == '0':
-            j += 1
-        first = 0
-        while i < len(a) and j < len(b) and a[i].isdigit() and b[j].isdigit():
-            first = first or ord(a[i]) - ord(b[j])
-            i, j = i + 1, j + 1
-        if i < len(a) and a[i].isdigit():
-            return 1
-        if j < len(b) and b[j].isdigit():
-            return -1
-        if first:
-            return first
-    return 0
-
-
-def dpkg_compare(a, b):
-    """Debian version order of a and b, as dpkg --compare-versions."""
-    def split(v):
-        epoch, _, rest = v.partition(':') if ':' in v else ('0', '', v)
-        upstream, _, revision = rest.rpartition('-') if '-' in rest else (rest, '', '')
-        return int(epoch or 0), upstream, revision
-    ea, ua, ra = split(a)
-    eb, ub, rb = split(b)
-    if ea != eb:
-        return ea - eb
-    return dpkg_part(ua, ub) or dpkg_part(ra, rb)
-
-
-debian_version = functools.cmp_to_key(dpkg_compare)
 
 def request_bytes(url):
     if urllib.parse.urlparse(url).scheme != 'https':
@@ -276,20 +221,14 @@ def check(source, root=ROOT):
                        'distro_arch_series': 'https://api.launchpad.net/1.0/ubuntu/' + source['series'] + '/amd64',
                        'order_by_date': 'true', 'ws.size': '100'}))
             data = json.loads(request(url))
-            versions = sorted({row['binary_package_version'] for row in data['entries']}, key=debian_version)
+            versions = sorted({row['binary_package_version'] for row in data['entries']})
             if not versions:
                 raise ValueError('No published Ubuntu binary versions')
-            # The newest published version of every pocket, by dpkg's ordering.
-            # Archive file names carry no epoch: the pin is compared with the
-            # epoch of the newest version.
-            newest = versions[-1]
-            epoch = newest.split(':', 1)[0] + ':' if ':' in newest else ''
-            pinned = current if ':' in current else epoch + current
-            order = dpkg_compare(newest, pinned)
-            result.update(latest=newest.split(':', 1)[-1],
-                          link='https://launchpad.net/ubuntu/' + source['series'] + '/+package/' + source['package'],
-                          status='update available' if order > 0 else ('current' if order == 0 else 'pinned ahead'),
-                          detail='Published amd64 versions in Ubuntu ' + source['series'] + ': ' + ', '.join(versions))
+            # Debian version ordering is not numeric or lexical. Report candidates;
+            # never present a possibly older pocket version as an automatic upgrade.
+            result.update(latest=', '.join(versions), link='https://launchpad.net/ubuntu/' + source['series'] + '/+package/' + source['package'],
+                          status='review package versions' if any(v != current for v in versions) else 'current',
+                          detail='Published amd64 versions in the selected Ubuntu series; compare with dpkg before repinning')
         elif kind == 'alpine-rootfs':
             branch = '.'.join(current.split('.')[:2])
             arch = source.get('arch', 'riscv64')

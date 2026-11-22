@@ -406,11 +406,7 @@
       "pattern": "qemu-user-static_([^/]+)_amd64\\.deb",
       "kind": "launchpad-binary",
       "package": "qemu-user-static",
-      "series": "noble",
-      "pull_request": {
-        "id": "qemu-build-helper",
-        "mode": "archive-pin"
-      }
+      "series": "noble"
     },
     {
       "name": "RustDesk protocol reference",

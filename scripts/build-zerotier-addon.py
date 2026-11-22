@@ -5,6 +5,8 @@ Cross-compiles the MPL-2.0 agent with the NanoKVM riscv64 musl toolchain and
 the C906 profile, without ZeroTier's source-available network controller
 (ZT_NONFREE) or SSO. The upstream archive is pinned by the checksum in
 firmware/alpine/packages/nanokvm-zerotier/APKBUILD.
+The APK must record root:root for every file: the script reads that back with
+apk adbdump and discards a package that does not.
 No device access, package installation, signing, publication or image changes.
 """
 import argparse
@@ -36,10 +38,16 @@ EXT_LICENSES = {
     'nlohmann': ('LICENSE.MIT', 'MIT'),
     'prometheus-cpp-lite-1.0': ('LICENSE', 'MIT'),
     'inja': ('LICENSE', 'MIT'),
-    # Header-only; its notice is the header's first comment (MIT).
+    # Header-only, without its LICENSE: the header's attribution comment,
+    # then upstream's license of that version, kept next to the recipe.
     'cpp-httplib': ('httplib.h', 'MIT'),
     # Header-only API; its LICENSE is in the full tree next to it.
     'opentelemetry-cpp-api-only': ('../opentelemetry-cpp-1.21.0/LICENSE', 'Apache-2.0'),
+}
+# Full license texts of header-only ext/ code that ZeroTier vendors without
+# them, by the version the header declares. Another version fails the build.
+EXT_LICENSE_TEXTS = {
+    'cpp-httplib': (r'#define CPPHTTPLIB_VERSION "([^"]+)"', {'0.15.3': 'cpp-httplib-0.15.3.LICENSE'}),
 }
 # Markers of the source-available parts. The built binary must contain none.
 NONFREE_MARKERS = (b'EmbeddedNetworkController', b'Source-Available License', b'nonfree/LICENSE')
@@ -54,7 +62,7 @@ def recipe():
     sums = dict(reversed(line.split()) for line in
                 re.search(r'^sha512sums="(.*?)"', text, re.M | re.S).group(1).split('\n') if line.strip())
     depends = re.search(r'^depends="([^"]*)"', text, re.M).group(1)
-    return text, version, value('pkgrel'), ztver, archive, sums[archive], depends
+    return text, version, value('pkgrel'), ztver, archive, sums, depends
 
 
 def fetch(url, digest, path):
@@ -66,6 +74,27 @@ def fetch(url, digest, path):
     actual = hashlib.sha512(path.read_bytes()).hexdigest()
     if actual != digest:
         raise SystemExit(f'{path}: sha512 {actual} does not match the recipe')
+
+
+def static_elf(path):
+    """Whether path is an ELF program without an interpreter (statically
+    linked): fakeroot cannot change the owners such a program sees."""
+    with open(path, 'rb') as f:
+        head = f.read(64)
+        if head[:4] != b'\x7fELF' or head[4] != 2 or head[5] != 1:
+            return False  # A script (as the workflow's wrapper) or not ELF64 LE.
+        phoff = int.from_bytes(head[32:40], 'little')
+        phentsize = int.from_bytes(head[54:56], 'little')
+        phnum = int.from_bytes(head[56:58], 'little')
+        f.seek(phoff)
+        table = f.read(phentsize * phnum)
+    return not any(int.from_bytes(table[i:i + 4], 'little') == 3  # PT_INTERP
+                   for i in range(0, len(table), phentsize))
+
+
+def owners(dump):
+    """The user and group names of every ACL in an `apk adbdump`."""
+    return re.findall(r'^\s+(?:user|group): (.*)$', dump, re.M)
 
 
 def used_ext(tree):
@@ -85,7 +114,8 @@ def used_ext(tree):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cc', type=Path, required=True, help='riscv64 musl GCC (its g++ and strip are used too)')
-    parser.add_argument('--apk', type=Path, required=True, help='host apk-tools 3 with mkpkg')
+    parser.add_argument('--apk', type=Path, required=True,
+                        help='host apk-tools 3 with mkpkg, run as root or under fakeroot (dynamically linked)')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--archive', type=Path, help='the upstream archive, instead of downloading it')
     parser.add_argument('--package-revision', type=int, help='package revision; defaults to the recipe')
@@ -99,7 +129,14 @@ def main():
     if args.package_revision is not None and args.package_revision < 0:
         parser.error('--package-revision must be nonnegative')
 
-    text, version, revision, ztver, archive_name, digest, depends = recipe()
+    text, version, revision, ztver, archive_name, sums, depends = recipe()
+    digest = sums[archive_name]
+    apk = args.apk.resolve()
+    # Before the build: under fakeroot, a static apk-tools would record the
+    # build account as the owner of every file.
+    if os.environ.get('FAKEROOTKEY') and static_elf(apk):
+        parser.error(f'{apk} is statically linked, so fakeroot cannot give it root:root files; '
+                     'run apk as root (the workflow runs it in a container) or use a dynamically linked apk-tools')
     if args.package_revision is not None:
         revision = str(args.package_revision)
     package_version = f'{version}-r{revision}'
@@ -197,15 +234,24 @@ def main():
         src = tree / 'ext' / name / license_file
         if src.suffix == '.h':
             # The leading // comment block: copyright and license.
+            header = src.read_text()
             notice = []
-            for line in src.read_text().splitlines():
+            for line in header.splitlines():
                 if not line.startswith('//'):
                     break
                 notice.append(line[2:].strip())
             if not any('MIT License' in line for line in notice):
                 raise SystemExit(f'{src}: no MIT notice in its leading comment')
+            pattern, texts = EXT_LICENSE_TEXTS[name]
+            found = re.search(pattern, header)
+            ext_version = found.group(1) if found else None
+            if ext_version not in texts:
+                raise SystemExit(f'{src}: version {ext_version}; add its upstream LICENSE to the recipe')
+            full = PKG / texts[ext_version]
+            if hashlib.sha512(full.read_bytes()).hexdigest() != sums.get(full.name):
+                raise SystemExit(f'{full}: sha512 does not match the recipe')
             src = root / f'{name}.LICENSE'
-            src.write_text('\n'.join(notice).strip() + '\n')
+            src.write_text('\n'.join(notice).strip() + '\n\n' + full.read_text())
         install(src, f'{share}/{name}.LICENSE')
     meta = f'usr/share/{NAME}'
     record(root / 'cpu-profile.json', cxx, 'openssl', cflags)
@@ -222,7 +268,7 @@ def main():
     (root / 'source.json').write_text(json.dumps(source, indent=2) + '\n')
     install(root / 'source.json', f'{meta}/source.json')
 
-    command = [str(args.apk.resolve()), 'mkpkg', '--files', str(payload), '--output', str(apkfile)]
+    command = [str(apk), 'mkpkg', '--files', str(payload), '--output', str(apkfile)]
     for value in [f'name:{NAME}', f'version:{package_version}', 'arch:riscv64',
                   'license:' + ' AND '.join(sorted(licenses, key=lambda s: (s != 'MPL-2.0', s))),
                   'description:ZeroTier One virtual network agent for NanoKVM OS',
@@ -240,6 +286,19 @@ def main():
             except PermissionError:
                 raise SystemExit('Payload is ready. Run this script with fakeroot for root:root APK ownership.')
     subprocess.run(command, check=True)
+    # What apk recorded, not what this process sees: fakeroot's owners reach
+    # only the programs it can intercept.
+    try:
+        dump = subprocess.run([str(apk), '--allow-untrusted', 'adbdump', str(apkfile)],
+                              check=True, capture_output=True, text=True).stdout
+        found = owners(dump)
+        entries = 1 + sum(1 for _ in payload.rglob('*'))
+        if len(found) != 2 * entries or set(found) != {'root'}:
+            raise SystemExit(f'{apkfile}: {len(found)} owner records for {entries} entries, '
+                             f'owners {sorted(set(found))}, not root:root; discarded')
+    except BaseException:
+        apkfile.unlink(missing_ok=True)
+        raise
     print(apkfile)
 
 

@@ -75,6 +75,7 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends fakeroot
           cat > "$RUNNER_TEMP/apk" <<'EOF'
+          #!/bin/sh
           files=
           output=
           prev=
@@ -92,6 +93,8 @@ jobs:
               exit $status' apk "$@"
           EOF
           chmod 0755 "$RUNNER_TEMP/apk"
+          # The builder runs it directly, not through a shell.
+          "$RUNNER_TEMP/apk" --version
           echo "HOST_OWNER=$(id -u):$(id -g)" >> "$GITHUB_ENV"
 
       - name: Build
@@ -126,12 +129,16 @@ jobs:
             apk adbdump "$apk" > /tmp/dump
             (cd /scripts && python3 -c "import addon_packages, sys; addon_packages.metadata(open(\"/tmp/dump\").read(), sys.argv[1])" "$name")
             grep -qE "^  license: MPL-2.0( AND .*)?$" /tmp/dump
+            if grep -E "^ +(user|group): " /tmp/dump | grep -vqE ": root$"; then
+              echo "files not owned by root:root" >&2; exit 1
+            fi
             d=$(mktemp -d)
             apk extract --allow-untrusted --destination "$d" "$apk"
             file "$d/usr/sbin/zerotier-one" | grep -q "RISC-V.*interpreter /lib/ld-musl-riscv64.so.1"
             [ "$(readlink "$d/usr/sbin/zerotier-cli")" = zerotier-one ]
             test -x "$d/etc/init.d/zerotier-one"
             test -s "$d/usr/share/licenses/nanokvm-zerotier/LICENSE-MPL.txt"
+            grep -q "Permission is hereby granted" "$d/usr/share/licenses/nanokvm-zerotier/cpp-httplib.LICENSE"
             if grep -q EmbeddedNetworkController "$d/usr/sbin/zerotier-one"; then
               echo "the non-free controller is built in" >&2; exit 1
             fi

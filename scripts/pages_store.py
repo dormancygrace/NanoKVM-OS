@@ -31,7 +31,7 @@ _spec.loader.exec_module(a)
 BASE = a.PAGES_URL
 CATALOG = 'package-store/catalog.json'
 LIMIT = 950_000_000  # Leave headroom below the published Pages 1 GB limit.
-WORKFLOWS = {'release.yml': 'os', 'rustdesk.yml': 'addon', 'addon.yml': 'addon'}
+WORKFLOWS = {'release.yml': 'os', 'rustdesk.yml': 'addon', 'addon.yml': 'addon', 'zerotier.yml': 'addon'}
 SAFE = re.compile(r'[A-Za-z0-9][A-Za-z0-9+_.-]*')
 
 

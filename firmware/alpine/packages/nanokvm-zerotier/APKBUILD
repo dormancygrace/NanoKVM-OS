@@ -19,6 +19,7 @@ makedepends="linux-headers"
 install="$pkgname.post-upgrade $pkgname.pre-deinstall"
 source="zerotier-one-$_ztver.tar.gz::https://github.com/zerotier/ZeroTierOne/archive/refs/tags/$_ztver.tar.gz
 	zerotier-one.initd
+	cpp-httplib-0.15.3.LICENSE
 	"
 builddir="$srcdir/ZeroTierOne-$_ztver"
 
@@ -54,10 +55,21 @@ package() {
 	install -Dm644 ext/inja/LICENSE "$licenses"/inja.LICENSE
 	install -Dm644 ext/prometheus-cpp-lite-1.0/LICENSE "$licenses"/prometheus-cpp-lite-1.0.LICENSE
 	install -Dm644 ext/opentelemetry-cpp-1.21.0/LICENSE "$licenses"/opentelemetry-cpp-api-only.LICENSE
-	sed -n '1,/^#/{/^\/\//s,^// *,,p}' ext/cpp-httplib/httplib.h > "$licenses"/cpp-httplib.LICENSE
+	# cpp-httplib is vendored as its header alone: its attribution, then
+	# upstream's license of that version.
+	grep -q '^#define CPPHTTPLIB_VERSION "0.15.3"' ext/cpp-httplib/httplib.h || {
+		error "cpp-httplib is not 0.15.3: add its upstream LICENSE"
+		return 1
+	}
+	{
+		# Its comment ends with an empty line.
+		sed -n '1,/^#/{/^\/\//s,^// *,,p}' ext/cpp-httplib/httplib.h
+		cat "$srcdir"/cpp-httplib-0.15.3.LICENSE
+	} > "$licenses"/cpp-httplib.LICENSE
 }
 
 sha512sums="
 c955fe75930cdecb806b766aa3ae07f18dd2b4ee772d69f20375e043bdd3473d8e12fe530cfb8663f194fe63d5a66c545983be93b4c81b171fe4da930062ad7b  zerotier-one-1.16.2.tar.gz
 17808e9230918e3e8b9c6b7f2459b0fe33edadc19bec30dcb1f0589f0a246a9e53a725ad7d37b09b2021b56830718c9735cef969939d364438fcbfc9c798d383  zerotier-one.initd
+1f25c039257837a151b74d988758bd40c7a2e64267446816246a051476299b6499710c947596b1130be3c977db5bca93ac82c8b179f7e8ad89471a31fd3da384  cpp-httplib-0.15.3.LICENSE
 "

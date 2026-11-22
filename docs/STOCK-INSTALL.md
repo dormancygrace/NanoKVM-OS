@@ -33,7 +33,12 @@ filesystem repair or formatting is attempted during this step.
 Detach any other virtual media in the stock UI first; the installer does not
 disconnect USB networking for you. `--check` leaves mounts and USB media unchanged.
 
-**Files on partition 3 (`/data`) are erased.** The installer stages its
+**Migration package version matters.** The v4.2.0 migration package kept partition
+3 in place and used the remaining space in the old stock root for the new
+F2FS root. A migrated root of about 7.5 GiB is expected with that package.
+Updating the installed system to 4.2.1 with APK keeps this layout.
+
+**With the 768 MiB layout described below, files on partition 3 (`/data`) are erased.** The installer stages its
 payload there; once the new system boots, partition 3 is recreated right after
 the new 768 MiB root over the rest of the card and formatted, so the card has
 the partition sizes of a full SD image. Copy wanted files off first. Wi-Fi credentials,
@@ -69,6 +74,12 @@ saved stock boot image and 8 MiB of headroom on `/data`, the recovery FIT plus 1
 and at least 128 MiB of root filesystem headroom. The stock updater also needs
 its own download/extraction space on the old root. For a card without a usable
 partition 3, install the full SD image instead.
+
+If the preflight reports that partition 3 is not mounted as exFAT at
+`/data`, check the mount first. If a USB host installed Ventoy on the
+exported virtual disk, partition 3 may contain a nested partition table.
+Back up any files you want to keep, restore a single exFAT filesystem on
+**partition 3 only**, and mount it at `/data` on stock before retrying.
 
 ## Recovery progress
 

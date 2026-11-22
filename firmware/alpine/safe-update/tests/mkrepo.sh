@@ -4,8 +4,13 @@
 #   nkos-sut-breaknet 1-r0      post-install takes the network down: "boots but unreachable"
 set -eu
 R=${1:-/data/nkos-sut-repo}
+# Never delete a caller's directory: the destination must not exist yet (or be empty).
+if [ -e "$R" ] && [ -n "$(ls -A "$R" 2> /dev/null)" ]; then
+	echo "mkrepo.sh: $R exists and is not empty; choose a new directory" >&2; exit 1
+fi
+mkdir -p "$R"
 W=$(mktemp -d /data/.nkos-sut-build.XXXXXX)
-rm -rf "$R"; mkdir -p "$R"
+trap 'rm -rf "$W"' EXIT
 mk() { # name version root [post-install script]
 	set -- "$1" "$2" "$3" "${4:-}"
 	if [ -n "$4" ]; then
@@ -32,5 +37,4 @@ exit 0
 EOS
 mk nkos-sut-breaknet 1-r0 "$d" "$W/breaknet.post"
 apk mkndx --allow-untrusted -o "$R/Packages.adb" "$R"/*.apk
-rm -rf "$W"
 ls -la "$R"

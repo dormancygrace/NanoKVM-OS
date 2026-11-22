@@ -13,7 +13,9 @@ The root is F2FS. With `checkpoint=disable`, F2FS commits nothing written after 
 is re-enabled. A reboot, unmount, power loss or reset discards it, and the filesystem mounts as it was when
 checkpointing stopped. (Android uses the same mechanism for userdata during OTA updates.)
 
-1. **Preflight**, all before any change. It refuses if:
+1. **Lock, then preflight**, all before any change. `start` first takes NanoKVM-Server's update lock
+   (`/kvmapp/.os-update/lock`). It then hands the lock to the detached worker and on to the guard, so every
+   check below runs under it. It refuses if:
    - the root isn't F2FS;
    - a trial is already running or unresolved;
    - settings recovery is pending;
@@ -27,13 +29,14 @@ checkpointing stopped. (Android uses the same mechanism for userdata during OTA 
 2. `pending` is written to `/var/lib/nkos-safe-update` and synced, so it is committed.
 3. `mount -o remount,checkpoint=disable:20% /`.
 4. A detached **guard** starts:
-   - it takes NanoKVM-Server's update lock (`/kvmapp/.os-update/lock`) for the whole window;
+   - it holds the update lock for the whole window;
    - it stops `nanokvm-watchdog` and feeds `/dev/watchdog0` itself.
 5. apk runs, with at most 30 minutes for the transaction. The service restarts in `nkos-apply-updates` work as
    usual. If apk fails or is killed, the trial rolls back at once.
 6. `applied` is written. It exists only *inside* the trial, so it survives only if the trial is committed. The
    confirm window (default 15 minutes) starts now.
 7. **`nkos-safe-update confirm`**:
+   - wins the decision (below) or refuses;
    - re-enables checkpointing, which commits everything;
    - records the result;
    - tells the guard to disarm (magic close) and restart `nanokvm-watchdog`.
@@ -46,6 +49,14 @@ checkpointing stopped. (Android uses the same mechanism for userdata during OTA 
    - both present means it was **committed**, and only the cleanup was interrupted.
 
    The result is appended to `/var/lib/nkos-safe-update/history`.
+
+**Confirm or rollback is decided once.** The first of `confirm`, `rollback`, a failed apk or the deadline to
+create `/run/nkos-safe-update/decision` (an atomic `mkdir`) wins, and the other side backs off. A late
+`confirm` therefore can't commit after a rollback has started. A confirm that wins but then dies or stalls,
+for example in the remount, gets 120 s; after that the guard stops feeding and the watchdog resets the board.
+The next boot shows from `applied` whether the root was committed.
+
+All deadlines are in seconds of uptime, so clock changes (NTP) can't move them.
 
 The guard also polls `/proc/mounts`. If anything re-enables checkpointing behind its back, the trial is
 committed without a confirm, so the guard records a warning and stands down.
@@ -64,6 +75,7 @@ nkos-safe-update confirm
 nkos-safe-update rollback      # reboot now and discard the trial
 nkos-safe-update kernel        # upgrade only kernel, kmod and bootloader packages (no trial), then reboot
 nkos-safe-update kernel-trial [-t SECONDS] [-- APK ARGS]   # whole-system trial: boot a trial kernel once, update inside it
+nkos-safe-update kernel-finish # retry what a kernel trial left to do (also done at every boot)
 ```
 
 `-t` sets the confirm window (default 900 s, minimum 60 s). The trial runs detached, so a dropped SSH session
@@ -97,8 +109,11 @@ this order:
 
 ## Whole-system trial (`kernel-trial`)
 
-This covers the kernel, its modules and userspace together, using the existing U-Boot. The bootcmd tries
-`boot.sd`, then `boot.prev`, then resets; it has done so since 2026-10-23, bootloader 4.x.
+This trials a boot image and userspace together, using the existing U-Boot. The bootcmd tries `boot.sd`, then
+`boot.prev`, then resets.
+- That isn't true of every NanoKVM OS release; the v3.7.0 bootcmd, for one, tries only `boot.sd`.
+- So `kernel-trial` checks the bootloader actually installed. It cuts each LZ4 frame out of `/boot/fip.bin`,
+  decompresses it, and refuses unless one contains that exact loop.
 
 1. **Prepare**, on the running system:
    - compose the board image from the kernel payload with their `compose-fit`;
@@ -107,11 +122,17 @@ This covers the kernel, its modules and userspace together, using the existing U
    - repack with lz4 legacy and `mkimage`, using their `boot.its`;
    - check that kernel and device-tree bytes are identical and the structure matches.
 
+   - check that both anchors appear exactly once in their `/init` and both blocks exactly once in ours,
+     each step checked on its own.
+
    It then:
    - makes `boot.prev` a checked copy of the running `boot.sd`;
-   - writes the root record (committed) and then `/boot/nkos-ktrial.armed`;
-   - writes the trial image as `boot.sd` (via `.new` and a check on the card);
+   - writes the root record (committed, read back) and then `/boot/nkos-ktrial.armed`; nothing on `/boot`
+     changes if the record can't be written;
+   - writes the trial image as `boot.sd` (via `.new`, the rename and a check on the card);
    - reboots.
+
+   Each step is checked.
 2. **Boot-once:** early in the trial image's `/init`, and only when the armed marker carries the image's own
    trial id, it renames `boot.sd` to `nkos-ktrial.sd` and the marker to `.running`. From then on, any reset
    boots `boot.prev`, the old kernel. Without a matching marker, the init is their stock init.
@@ -119,16 +140,26 @@ This covers the kernel, its modules and userspace together, using the existing U
    - It owns `/dev/watchdog0` and keeps feeding it only while userspace keeps its promises: checking in within
      300 s, then meeting the deadline the guard writes to `/dev/.nkos-ktrial` (plus 120 s for a graceful reboot).
    - After that it stops feeding, and the board resets onto `boot.prev`.
-4. **Trial boot:** the boot service checks in and starts a normal package trial (checkpointing disabled), with
-   the watcher instead of the guard owning the watchdog.
-5. **`confirm`:** commits the root, then installs the boot image with NanoKVM OS's `activate-kernel`.
-   `boot.sd` becomes their stock image of the installed kernel, and `boot.prev` stays the image the device ran
-   before. The watcher then disarms.
+4. **Trial boot:** the boot service checks in and starts a normal package trial (checkpointing disabled).
+   - The guard leaves the watchdog to the watcher only once the watcher reports `armed`; otherwise it takes
+     the watchdog itself.
+   - Kernel, kmod and bootloader stay excluded from this transaction, because the trial image was built from
+     the payload installed at arming time.
+5. **`confirm`:**
+   - writes `promote=1` into the root record *inside* the trial, so it exists exactly when the root commit
+     happens;
+   - commits the root;
+   - installs the boot image with NanoKVM OS's `activate-kernel`. `boot.sd` becomes their stock image of the
+     installed kernel, and `boot.prev` stays the image the device ran before.
+   - **If that install fails,** `confirm` says so and exits with an error. The records stay, and the install
+     is retried at every boot or with `kernel-finish`.
+   - The watcher then disarms.
 6. **Any other ending** (timeout, power loss, hang, a killed watcher, no check-in): the next boot is `boot.prev`
    with the root as it was.
    - The boot service sees the markers, restores `boot.sd` with `activate-kernel`, and records the rollback.
-   - If power is lost between the two confirm steps, it sees "committed" instead and finishes installing the
-     boot image.
+     The records are removed only after the restored `boot.sd` is verified on the card; otherwise they stay
+     for the next boot.
+   - If the root commit happened (`promote=1`), it finishes installing the boot image instead.
 
 **Gaps:**
 - **A kernel that dies before `/init` runs** boots the same image again after the panic reset, a loop that
@@ -141,8 +172,8 @@ This covers the kernel, its modules and userspace together, using the existing U
 - **The new kernel payload isn't fetched yet.** The trial image is built from the installed kernel payload
   (`NKOS_SU_PAYLOAD` overrides it). A real kernel update needs the image built from the *new* kernel package,
   with its modules pre-staged, and that part is not written.
-  - So `kernel-trial` refuses a plan that changes `nanokvm-kernel` or `nanokvm-kmod` unless a payload is
-    given.
+  - So kernel, kmod and bootloader packages are refused in the plan, and excluded again in the trial boot,
+    in case the index changed meanwhile.
   - Use `nkos-safe-update kernel` for kernel updates for now.
   - Today it can trial the boot path plus a package update on the current kernel.
 - **Each kernel release presumably gets its own `/lib/modules` directory,** which this design relies on. That
@@ -189,6 +220,10 @@ v4.2.0 installer (7728 MiB root). NanoKVM OS selected the `lite` board profile; 
 | NanoKVM-Server's update lock during a trial | held by the guard |
 | `remount,checkpoint=enable` by hand during a trial | detected within one feed interval; warning in the history; watchdog daemon restored |
 
+`tests/host-test.sh` runs on any Linux host (no device, no root). It sources the script with stubs and
+checks the failure paths: the confirm/rollback decision, a stalled confirm, the watcher readiness check,
+confirm with a failed boot-image install, the restore records, the init patching, and the record write.
+
 `tests/mkrepo.sh` builds the unsigned test repository on the device (apk 3 `mkpkg`/`mkndx`): the demo package
 versions and the network-breaking package. `tests/manifest.sh` hashes the whole root, for the byte-exact
 comparisons. The kernel-order test used a similar set built by hand. The overrides `NKOS_SU_HELD` and
@@ -213,6 +248,24 @@ change.
 | `kernel-trial -- fix -r nanokvm-kernel` | refused (new-kernel payload not supported yet); nothing armed |
 | Power cut between the two confirm steps (test hook) | `boot.prev` booted with the committed root; the boot service finished installing `boot.sd` |
 | Package-trial regression on the final script: confirm, timeout, guard `kill -9` | all as before |
+
+## Test record: after the first review (#984)
+
+The script was largely rewritten for the review: the lock order, the decision, uptime deadlines, watcher
+readiness, the kernel-trial record and promotion. So these were re-run on the device, plus
+`tests/host-test.sh` (22 checks).
+
+| Test | Result |
+| --- | --- |
+| Bootloader check on the installed `fip.bin` (10 runs), and on a copy with the U-Boot LZ4 frame's magic corrupted | found 10/10 (frames cut to their exact length: on trailing bytes `lz4` may drop its output); the corrupted copy is refused |
+| Trial, `confirm` | committed; watchdog daemon back |
+| Second `start` during a trial | refused by the lock before touching anything; the guard state and deadline unchanged |
+| `rollback`, then `confirm` | the confirm is refused (rollback already decided); rebooted and rolled back |
+| Trial, no confirm (60 s) | rolled back at the deadline |
+| `kill -9` of the guard | watchdog reset; back 64 s after the kill; rolled back |
+| Kernel trial, `confirm` | guard reported `armed watcher`; root committed and boot image installed; trial files gone; watcher disarmed |
+| Kernel trial, no confirm (60 s) | rolled back; `boot.sd` restored and verified; both rollbacks in the history |
+| `tests/mkrepo.sh` on an existing repository | refused |
 
 **Not tested yet:**
 - a physical power pull during a trial, as opposed to `reboot -n -f`;

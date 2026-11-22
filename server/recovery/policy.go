@@ -40,9 +40,10 @@ var settings = strings.Fields(`
  etc/ssh/ssh_host_ecdsa_key etc/ssh/ssh_host_ecdsa_key.pub
  etc/kvm/server.crt etc/kvm/server.key etc/kvm/bmc/config.json
  etc/kvm/acme/settings.json var/lib/tailscale/tailscaled.state etc/netbird/config.json
+ var/lib/zerotier-one/identity.secret var/lib/zerotier-one/identity.public var/lib/zerotier-one/local.conf
  etc/kvm/notify/config.json etc/kvm/notify/addresses.json
 `)
-var trees = []string{"etc/kvm/network", "etc/kvm/wifi.saved", "etc/kvm/usb", "etc/kvm/branding", "etc/kvm/scripts", "etc/kvm/wireguard", "etc/kvm/openvpn", "etc/kvm/tls", "etc/kvm/acme/data", "etc/nanokvm-rustdesk"}
+var trees = []string{"etc/kvm/network", "etc/kvm/wifi.saved", "etc/kvm/usb", "etc/kvm/branding", "etc/kvm/scripts", "etc/kvm/wireguard", "etc/kvm/openvpn", "etc/kvm/tls", "etc/kvm/acme/data", "etc/nanokvm-rustdesk", "var/lib/zerotier-one/networks.d"}
 var packageName = regexp.MustCompile(`^[A-Za-z0-9_.][A-Za-z0-9+_.-]{0,127}$`)
 var versionPattern = regexp.MustCompile(`^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-._][A-Za-z0-9.-]+)?$`)
 
@@ -69,7 +70,7 @@ func portable(p string) bool {
 	if users(p) || p == "etc/kvm/atx" || strings.HasPrefix(p, "etc/ssh/") || strings.HasPrefix(p, "boot/") || strings.HasPrefix(p, "etc/kvm/wifi") || strings.HasPrefix(p, "etc/kvm/network/") || strings.HasPrefix(p, "etc/kvm/monitor_") {
 		return false
 	}
-	for _, prefix := range []string{"etc/kvm/wireguard/", "etc/kvm/openvpn/", "etc/kvm/tls/", "etc/kvm/acme/", "etc/nanokvm-rustdesk/", "root/.picoclaw/", "etc/kvm/usb/"} {
+	for _, prefix := range []string{"etc/kvm/wireguard/", "etc/kvm/openvpn/", "etc/kvm/tls/", "etc/kvm/acme/", "etc/nanokvm-rustdesk/", "var/lib/zerotier-one/", "root/.picoclaw/", "etc/kvm/usb/"} {
 		if strings.HasPrefix(p, prefix) {
 			return false
 		}

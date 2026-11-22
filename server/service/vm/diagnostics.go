@@ -196,7 +196,7 @@ func diagnosticsReport(snapshot DiagnosticsSnapshot) any {
 	}
 }
 
-var reportServiceNames = map[string]bool{"nanokvm-storage": true, "nanokvm-modules": true, "nanokvm-board": true, "nanokvm-network": true, "nanokvm-app": true, "nanokvm-usb": true, "nanokvm-ssh": true, "chronyd": true, "dnsmasq": true, "tailscaled": true, "netbird": true, "openvpn client": true}
+var reportServiceNames = map[string]bool{"nanokvm-storage": true, "nanokvm-modules": true, "nanokvm-board": true, "nanokvm-network": true, "nanokvm-app": true, "nanokvm-usb": true, "nanokvm-ssh": true, "chronyd": true, "dnsmasq": true, "tailscaled": true, "netbird": true, "zerotier-one": true, "openvpn client": true}
 var reportUSBNames = map[string]bool{"keyboard": true, "relative mouse": true, "absolute mouse": true, "network": true, "disk": true, "serial": true, "audio": true}
 
 func reportServices(items []DiagnosticService) []reportService {
@@ -485,7 +485,7 @@ func collectServiceStatus(ctx context.Context) []DiagnosticService {
 		{"nanokvm-board", "enabled", "", false}, {"nanokvm-network", "enabled", "", false},
 		{"nanokvm-app", "enabled", "", false}, {"nanokvm-usb", "enabled", "", false},
 		{"nanokvm-ssh", "enabled", "/etc/kvm/ssh_stop", false}, {"chronyd", "enabled", "", false},
-		{"dnsmasq", "on-demand", "", true}, {"tailscaled", "optional", "", true}, {"netbird", "optional", "", true},
+		{"dnsmasq", "on-demand", "", true}, {"tailscaled", "optional", "", true}, {"netbird", "optional", "", true}, {"zerotier-one", "optional", "", true},
 	}
 	results := make([]DiagnosticService, len(specs)+1)
 	sem := make(chan struct{}, 3)

@@ -128,12 +128,13 @@ type Server struct {
 	mu  sync.Mutex
 	// lastExpire is the last expiry scan: at most one a second, not one
 	// per packet (an unauthenticated sender chooses the packet rate).
-	lastExpire time.Time
-	sessions   map[uint32]*session
-	failed     map[string]*failures
-	actions    chan func(context.Context) error
-	events     chan Event
-	start      sync.Once
+	lastExpire  time.Time
+	sessions    map[uint32]*session
+	failed      map[string]*failures
+	actions     chan func(context.Context) error
+	events      chan Event
+	eventWorker sync.WaitGroup
+	start       sync.Once
 	// The last power command accepted, for Stats.
 	lastCommand   string
 	lastCommandAt time.Time
@@ -196,11 +197,11 @@ func (s *Server) init() {
 		}()
 		// Notifications in the order of the logins, one at a time.
 		s.events = make(chan Event, maxEvents)
-		go func() {
+		s.eventWorker.Go(func() {
 			for e := range s.events {
 				s.notify(e)
 			}
-		}()
+		})
 	})
 }
 
@@ -238,6 +239,8 @@ func (s *Server) Serve(conn net.PacketConn) error {
 	s.init()
 	// No more power actions or events after the last packet: the workers
 	// end once they have handled those already accepted.
+	// Deliver pending events before a replacement listener starts reporting logins.
+	defer s.eventWorker.Wait()
 	defer close(s.events)
 	defer close(s.actions)
 	buf := make([]byte, 1024)

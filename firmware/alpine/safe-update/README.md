@@ -54,16 +54,22 @@ checkpointing stopped. (Android uses the same mechanism for userdata during OTA 
 - `confirm`, `rollback`, a failed apk and the deadline race to publish `/run/nkos-safe-update/decision`. It's
   written to a private file and linked into place with `ln`, which fails if the file exists. A decision is
   therefore only ever visible complete, and the first one wins; the other side backs off.
-- `confirm` checks the deadline itself before claiming, so it can't win in the seconds before the guard's
-  next round. A late `confirm` can't commit after a rollback has started.
+- `confirm` checks the deadline itself before claiming, and again after winning the claim. If time ran out
+  while the claim was being published, it hands over to rollback instead of committing. A late `confirm`
+  can't commit after a rollback has started.
 - If `confirm` wins but can't commit (the remount leaves checkpointing disabled), it hands its decision over
   to a graceful rollback.
 - A confirm that dies or stalls gets 120 s; after that the guard stops feeding and the watchdog resets the
   board. The next boot shows from `applied` whether the root was committed.
 
-**The boot service is safe to restart.** It only acts on a trial from an earlier boot. It also claims the
-kernel-trial boot once, so a restart never clears a running trial or starts a second worker. A kernel-trial
-recovery that fails makes the service fail, and the records stay for the next boot.
+**The boot service is safe to restart.**
+- It only acts on a trial from an earlier boot.
+- It claims the kernel-trial boot once, so a restart never clears a running trial or starts a second
+  worker.
+- Kernel-trial recovery takes the update lock first, so it never races a `kernel-trial` that is arming.
+- It leaves alone a trial armed in this boot (the record carries the arming boot id) that is waiting for
+  its reboot, unless arming failed.
+- A kernel-trial recovery that fails makes the service fail, and the records stay for the next boot.
 
 All deadlines are in seconds of uptime, so clock changes (NTP) can't move them.
 
@@ -295,6 +301,17 @@ plus these on the device:
 | `confirm` at uptime = deadline, before the guard's next round (no decision yet) | refused ("the confirm window has closed"); nothing committed; rolled back |
 | Kernel trial, service restart in the trial boot, `confirm`, normal reboot | no second worker, same deadline and guard; committed; `boot.sd` installed and verified; persisted |
 | Kernel trial, no confirm (60 s) | rolled back; `boot.sd` restored and verified; boot service `started` |
+
+Third review round (confirm re-checks the deadline after claiming, recovery locks and leaves a trial armed in
+this boot alone, the guard never reports `failed` on a normal start): 41 host checks, plus on the device:
+
+| Test | Result |
+| --- | --- |
+| Trial, `confirm` | committed; the guard went `starting` → `armed watchdog`, never `failed` |
+| `confirm` one second before the deadline | committed (the valid side of the boundary) |
+| Record and `.armed` marker for this boot, then `rc-service nkos-safe-update restart` | both kept ("armed and waits for its reboot"); `kernel-finish` refuses |
+| Kernel trial, `confirm` | committed; `boot.sd` installed and verified |
+| Kernel trial, no confirm (60 s) | recovery after the reboot took the lock, restored and verified `boot.sd`; service `started` |
 
 **Not tested yet:**
 - a physical power pull during a trial, as opposed to `reboot -n -f`;

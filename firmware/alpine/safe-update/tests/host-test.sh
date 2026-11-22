@@ -28,7 +28,10 @@ export PATH="$T/bin:$PATH" NKOS_SU_LIB=1 NKOS_SU_STATE="$T/state" NKOS_SU_RUN="$
 . "$HERE/nkos-safe-update"
 export LIB="$HERE"
 NOW=1000
-up() { echo "$NOW"; }
+# up(): $NOW, or, when $T/clock lists values, the next one on each call (time moving between steps)
+up() {
+	if [ -s "$T/clock" ]; then head -1 "$T/clock"; [ "$(wc -l < "$T/clock")" -gt 1 ] && sed -i 1d "$T/clock"; else echo "$NOW"; fi
+}
 cp_disabled() { [ -e "$T/cp.disabled" ]; }
 # oncard.bad: the next read-back of the card returns garbage (once)
 oncard() { if [ -e "$T/oncard.bad" ]; then rm -f "$T/oncard.bad"; echo bad; else sha256sum < "$1" | cut -d ' ' -f 1; fi; }
@@ -43,7 +46,7 @@ check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fails=$((fails
 calls() { if [ -e "$T/$1.calls" ]; then wc -l < "$T/$1.calls" | tr -d ' '; else echo 0; fi; }
 reset() {
 	rm -rf "$T/run" "$T/kt" "$T/state" "$T/boot" "$T"/*.calls "$T/promote-before-commit" "$T/cp.disabled" \
-		"$T/mount.keeps-disabled" "$T/oncard.bad"
+		"$T/mount.keeps-disabled" "$T/oncard.bad" "$T/clock" "$T/states"
 	mkdir -p "$T/run" "$T/kt" "$T/state" "$T/boot"
 	NOW=1000 own=1 rebooting=
 }
@@ -84,6 +87,11 @@ printf 'id=x\nboot=test-boot\n' > "$T/state/pending"
 guard_step 1500; r=$?
 check "checkpointing re-enabled by someone else: warning, disarm, stop" '[ "$r" = 1 ] && [ "$(calls disarm)" = 1 ] && grep -q WARNING "$T/state/history"'
 
+# --- guard_setup: the states it publishes on success never include failed --------------------------------
+reset; : > "$T/wdt"
+( put() { echo "$2" >> "$T/states"; printf '%s\n' "$2" > "$RUN/$1"; }; guard_setup ) > /dev/null 2>&1
+check "a successful setup never publishes failed" '! grep -q failed "$T/states" && [ "$(tail -1 "$T/states")" = "armed watchdog" ]'
+
 # --- guard_setup: the watcher is trusted only once it reports armed -----------------------------------
 reset; : > "$T/wdt"; echo k0 > "$T/kt/id"; echo id=k0 > "$T/state/ktrial"
 ( guard_setup && cat "$T/run/guard.state" ) > "$T/out" 2>&1
@@ -99,6 +107,9 @@ check "confirm after the deadline (before the guard notices) is refused" '[ "$r"
 reset; trial t1; echo 2000 > "$T/run/deadline"; decide rollback 1500
 ( cmd_confirm ) > /dev/null 2>&1; r=$?
 check "confirm after a rollback decision is refused" '[ "$r" != 0 ] && [ "$(decision)" = rollback ] && [ "$(calls mount)" = 0 ]'
+reset; trial t1; echo 100 > "$T/run/deadline"; printf '99\n100\n' > "$T/clock"   # the deadline passes while claiming
+( cmd_confirm ) > /dev/null 2>&1; r=$?
+check "a deadline that passes while the claim is published: no commit, handed to rollback" '[ "$r" != 0 ] && [ "$(decision)" = rollback ] && ! grep -q checkpoint=enable "$T/mount.calls" 2> /dev/null'
 reset; trial t2; ktrial k1; echo 2000 > "$T/run/deadline"; chmod 555 "$T/state"
 ( cmd_confirm ) > /dev/null 2>&1; r=$?; chmod 755 "$T/state"
 check "an intent that cannot be written: nothing claimed, nothing committed" '[ "$r" != 0 ] && [ -z "$(decision)" ] && [ "$(calls mount)" = 0 ]'
@@ -132,6 +143,19 @@ check "a service restart during this boot's trial leaves it alone" '[ -e "$T/sta
 reset; ktrial k5; echo 2000 > "$T/run/deadline"
 ( cmd_boot ) > /dev/null 2>&1; echo 2000 > "$T/run/deadline"; ( cmd_boot ) > /dev/null 2>&1
 check "the trial boot is claimed once: one worker, the run directory kept" '[ "$(calls setsid)" = 1 ] && [ "$(cat "$T/run/deadline")" = 2000 ]'
+reset; rm -rf "$T/kt"; activate_ok; printf 'id=k10\npayload=x\narmed_boot=earlier\n' > "$T/state/ktrial"; echo k10 > "$T/boot/nkos-ktrial.armed"
+exec 7>> "$T/lock"; flock -n 7                       # another process (kernel-trial arming) holds the lock
+( cmd_boot ) > /dev/null 2>&1; r=$?
+exec 7>&-
+check "recovery while the update lock is held: skipped, records kept" '[ "$r" = 0 ] && [ -f "$T/state/ktrial" ] && [ -e "$T/boot/nkos-ktrial.armed" ] && [ ! -e "$T/boot/boot.sd" ]'
+reset; rm -rf "$T/kt"; activate_ok; printf 'id=k11\npayload=x\narmed_boot=test-boot\n' > "$T/state/ktrial"; echo k11 > "$T/boot/nkos-ktrial.armed"
+( cmd_boot ) > /dev/null 2>&1; r=$?
+check "a trial armed in this boot (awaiting its reboot) is not recovered" '[ "$r" = 0 ] && [ -f "$T/state/ktrial" ] && [ -e "$T/boot/nkos-ktrial.armed" ]'
+( cmd_kernel_finish ) > /dev/null 2>&1; r=$?
+check "kernel-finish refuses a trial awaiting its reboot" '[ "$r" != 0 ] && [ -e "$T/boot/nkos-ktrial.armed" ]'
+mv "$T/boot/nkos-ktrial.armed" "$T/boot/nkos-ktrial.failed"
+( cmd_boot ) > /dev/null 2>&1
+check "a trial whose arming failed in this boot is recovered" '[ ! -f "$T/state/ktrial" ] && [ ! -e "$T/boot/nkos-ktrial.failed" ] && [ -f "$T/boot/boot.sd" ]'
 reset; printf 'id=t7\nboot=earlier-boot\n' > "$T/state/pending"
 ( cmd_boot ) > /dev/null 2>&1
 check "a trial from an earlier boot is recorded as rolled back" '[ ! -e "$T/state/pending" ] && grep -q "rolled back t7" "$T/state/history"'

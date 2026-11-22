@@ -115,7 +115,7 @@ guard_setup() {
 			i=$((i + 1)); [ "$i" -lt 10 ] || { put guard.state failed; return 1; }
 			sleep 1
 		done
-		put guard.state failed                  # a failed open below ends this shell
+		put guard.state starting                # a failed open below ends this shell; the worker sees it exit
 		exec 3> "$WDT"
 	fi
 	put guard.state "armed $( [ -n "$own" ] && echo watchdog || echo watcher)"
@@ -248,13 +248,15 @@ worker_start() {
 	log "trial $id: checkpointing disabled; confirm within $TIMEOUT s of the update being applied"
 
 	setsid "$0" __guard < /dev/null > "$RUN/guard.log" 2>&1 &
+	gpid=$!
 	i=0; while :; do
 		case "$(cat "$RUN/guard.state" 2> /dev/null)" in armed*) break ;; esac
-		i=$((i + 1)); sleep 1
-		if [ "$i" -ge 30 ] || [ "$(cat "$RUN/guard.state" 2> /dev/null)" = failed ]; then
+		# Failure is a reported "failed", the guard exiting (a failed open ends its shell), or a timeout.
+		if [ "$i" -ge 30 ] || [ "$(cat "$RUN/guard.state" 2> /dev/null)" = failed ] || ! kill -0 "$gpid" 2> /dev/null; then
 			log "the guard did not arm a watchdog; rolling back"
 			sync; reboot; exit 1
 		fi
+		i=$((i + 1)); sleep 1
 	done
 	exec 9>&-                                   # the guard keeps the lock
 
@@ -301,6 +303,10 @@ cmd_confirm() {
 	t=$(up)
 	[ "$t" -lt "$(cat "$RUN/deadline" 2> /dev/null || echo 0)" ] || die "too late: the confirm window has closed; the trial rolls back"
 	decide confirm "$t" || die "too late: $(decision) already decided"
+	# Time may have passed while the claim was published: re-check before committing.
+	if [ "$(up)" -ge "$(cat "$RUN/deadline" 2> /dev/null || echo 0)" ]; then
+		redecide rollback; die "too late: the confirm window closed while confirming; the trial rolls back"
+	fi
 	if ! mount -o remount,checkpoint=enable / || cp_disabled; then
 		# Not committed: hand over to a graceful rollback rather than leaving the guard to wait.
 		if cp_disabled; then redecide rollback; die "cannot re-enable checkpointing; rolling back"; fi
@@ -404,10 +410,25 @@ kt_boot() {
 		mkdir -p "$RUN" && chmod 0700 "$RUN" && rm -rf "${RUN:?}"/*
 		setsid "$0" __ktrial_apply < /dev/null > "$RUN/start.log" 2>&1 &
 	elif kt_markers || [ -f "$KSTATE" ]; then
-		kt_finish || return 1
+		# Never race the process that arms a trial: recovery takes the update lock (its own open
+		# file description) and rechecks. A trial armed in this boot is waiting for its reboot,
+		# not for recovery, unless arming itself failed (".failed").
+		mkdir -p "${LOCK%/*}"
+		exec 8>> "$LOCK"
+		flock -n 8 || { exec 8>&-; log "an update operation holds the lock; kernel-trial recovery skipped"; return 0; }
+		if ! kt_markers && [ ! -f "$KSTATE" ]; then exec 8>&-; return 0; fi
+		if kt_armed_here; then
+			exec 8>&-; log "a kernel trial is armed and waits for its reboot"; return 0
+		fi
+		kt_finish; r=$?
+		exec 8>&-
+		return "$r"
 	fi
 	return 0
 }
+
+# A trial armed in this boot and still waiting for its reboot (arming did not fail).
+kt_armed_here() { [ -f "$KSTATE" ] && [ "$(get armed_boot "$KSTATE")" = "$(boot_id)" ] && [ ! -e "$BOOT"/nkos-ktrial.failed ]; }
 
 ktrial_apply() {
 	# In the trial boot: wait for the network if the update needs it, then run the package trial.
@@ -499,7 +520,7 @@ kt_install_image() {
 kt_record() {
 	# The kernel trial record on the root: written, synced and read back before /boot changes.
 	mkdir -p "$STATE" &&
-		printf 'id=%s\ntimeout=%s\napk=%s\npayload=%s\nprev=%s\n' "$1" "$2" "$3" "$4" "$5" > "$KSTATE.new" &&
+		printf 'id=%s\ntimeout=%s\napk=%s\npayload=%s\nprev=%s\narmed_boot=%s\n' "$1" "$2" "$3" "$4" "$5" "$(boot_id)" > "$KSTATE.new" &&
 		mv "$KSTATE.new" "$KSTATE" && sync && [ "$(get id "$KSTATE")" = "$1" ] || { rm -f "$KSTATE.new"; return 1; }
 }
 
@@ -596,6 +617,7 @@ cmd_kernel_finish() {
 		die "the kernel trial is still running; confirm it or let it roll back"
 	fi
 	kt_markers || [ -f "$KSTATE" ] || { log "no kernel trial to finish"; return 0; }
+	! kt_armed_here || die "a kernel trial is armed and waits for its reboot; nothing to finish"
 	kt_finish
 }
 

@@ -188,6 +188,33 @@
       }
     },
     {
+      "name": "libwebsockets",
+      "path": "platform/sources.lock",
+      "pattern": "libwebsockets/archive/refs/tags/v([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "warmcat/libwebsockets",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "libwebsockets"
+    },
+    {
+      "name": "glaze",
+      "path": "platform/sources.lock",
+      "pattern": "glaze/archive/refs/tags/v([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "stephenberry/glaze",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "glaze"
+    },
+    {
+      "name": "rapidyaml",
+      "path": "platform/sources.lock",
+      "pattern": "rapidyaml\\.v([0-9.]+)\\.singlehdr",
+      "kind": "github-tags",
+      "repo": "biojppm/rapidyaml",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "rapidyaml"
+    },
+    {
       "name": "ZeroTier One",
       "path": "firmware/alpine/packages/nanokvm-zerotier/APKBUILD",
       "pattern": "^pkgver=([0-9.]+)$",

@@ -22,6 +22,10 @@ sipeed-sdk  https://github.com/sipeed/LicheeRV-Nano-Build.git  d4003f15b35d43ad4
 opensbi https://github.com/riscv-software-src/opensbi.git cbf9f6734dd85a982c63e3cb5db7ffe09da839ca .=d6a4747810533f9da9e17428cab821ccc8b1594c
 
 # Application and native media libraries
+# NanoKVM-Server (server-cpp): HTTP/1.1, HTTP/2 and WebSocket on OpenSSL; JSON; server.yaml.
+libwebsockets https://github.com/warmcat/libwebsockets/archive/refs/tags/v5.1.0.tar.gz 9acbba00aaa9e6178ae09c6f920d95449b527c1417e81d2cdd4103bc6d64d13f
+glaze      https://github.com/stephenberry/glaze/archive/refs/tags/v9.1.0.tar.gz 55f8a675397c505f9bee6c160e1c26b0085868f185d04d7a7727531fdbff4bd4
+rapidyaml  https://github.com/biojppm/rapidyaml/releases/download/v0.16.0/rapidyaml.v0.16.0.singlehdr.hpp 0d0b8076174cf62f034406b03529fda542ebc9a17506d3bd6d949aedc4bfa6ab
 openssl    https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
 cvi-mpi    https://github.com/sophgo/cvi_mpi.git             693a72a1d52f2e08ea767e0a72905e81f10572a5  .=839006d556c5d57bed19aa2974a57470a5f7a900
 sensors    https://github.com/sophgo/SensorSupportList.git   e2824e1d07f516c41238e123fefbab71a34843bc  .=d64a3a80534b362db4811565e866652d709974c0

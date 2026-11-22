@@ -1,0 +1,382 @@
+#include "http/server.hpp"
+
+#include "common/log.hpp"
+
+#include <libwebsockets.h>
+#include <openssl/ssl.h>
+
+#include <algorithm>
+#include <arpa/inet.h>
+#include <csignal>
+#include <cstdlib>
+#include <cstring>
+#include <fcntl.h>
+#include <memory>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
+
+namespace nkos::http {
+
+namespace {
+
+enum class Role { serve, redirect };
+
+struct VhostData {
+	Role role;
+	const Router *router;
+	int https_port;
+};
+
+// One request in flight on a connection (HTTP/1.1) or stream (HTTP/2).
+struct Session {
+	Request request;
+	Response response;
+	size_t sent = 0;
+	bool head = false;
+	bool body_expected = false;
+	int fd = -1;             // a file being sent
+	off_t remaining = 0;     // its bytes still to send
+	~Session()
+	{
+		if (fd >= 0) ::close(fd);
+	}
+};
+
+struct Pss {
+	Session *session;
+};
+
+volatile std::sig_atomic_t stopping = 0;
+lws_context *context;
+
+void on_signal(int) { stopping = 1; if (context) lws_cancel_service(context); }
+
+const char *method_names[] = {"GET", "POST", "OPTIONS", "PUT", "PATCH", "DELETE", "CONNECT", "HEAD"};
+
+std::string peer_address(lws *wsi)
+{
+	char ip[64] = {};
+	lws_get_peer_simple(wsi, ip, sizeof ip);
+	return ip;
+}
+
+std::string query_of(lws *wsi)
+{
+	std::string out;
+	char frag[1024];
+	for (int i = 0;; i++) {
+		int n = lws_hdr_copy_fragment(wsi, frag, sizeof frag, WSI_TOKEN_HTTP_URI_ARGS, i);
+		if (n <= 0) break;
+		if (!out.empty()) out += '&';
+		out.append(frag, static_cast<size_t>(n));
+	}
+	return out;
+}
+
+bool append_header(lws *wsi, unsigned char **p, unsigned char *end, const std::string &name, const std::string &value)
+{
+	std::string n = name + ":";
+	return lws_add_http_header_by_name(wsi, reinterpret_cast<const unsigned char *>(n.c_str()),
+	                                   reinterpret_cast<const unsigned char *>(value.data()),
+	                                   static_cast<int>(value.size()), p, end) == 0;
+}
+
+int respond(lws *wsi, Session &s);
+
+// A single "bytes=" range as net/http's ServeContent reads it; false when the header asks for no satisfiable range.
+// Several ranges are answered with the whole file (browsers and download resumes ask for one).
+bool parse_range(const std::string &header, off_t size, off_t &start, off_t &length, bool &partial)
+{
+	partial = false;
+	start = 0;
+	length = size;
+	if (header.empty()) return true;
+	if (!header.starts_with("bytes=") || header.find(',') != std::string::npos) return true;
+	std::string spec = header.substr(6);
+	auto dash = spec.find('-');
+	if (dash == std::string::npos) return true;
+	std::string a = spec.substr(0, dash), b = spec.substr(dash + 1);
+	auto digits = [](const std::string &v) { return !v.empty() && v.find_first_not_of("0123456789") == std::string::npos; };
+	if (a.empty()) {
+		if (!digits(b)) return true;
+		off_t n = std::atoll(b.c_str());
+		if (n == 0 || size == 0) return false;
+		if (n > size) n = size;
+		start = size - n;
+		length = n;
+	} else {
+		if (!digits(a) || (!b.empty() && !digits(b))) return true;
+		start = std::atoll(a.c_str());
+		if (start >= size) return false;
+		off_t last = b.empty() ? size - 1 : std::min<off_t>(std::atoll(b.c_str()), size - 1);
+		if (last < start) return true;
+		length = last - start + 1;
+	}
+	partial = true;
+	return true;
+}
+
+int finish_headers(lws *wsi, Session &s, unsigned status, const char *type, unsigned long long length,
+                   const std::vector<std::pair<std::string, std::string>> &extra)
+{
+	unsigned char buf[LWS_PRE + 4096], *start = buf + LWS_PRE, *p = start, *end = buf + sizeof buf;
+	if (lws_add_http_common_headers(wsi, status, type, length, &p, end)) return -1;
+	for (const auto &[name, value] : s.response.headers)
+		if (!append_header(wsi, &p, end, name, value)) return -1;
+	for (const auto &[name, value] : extra)
+		if (!append_header(wsi, &p, end, name, value)) return -1;
+	return lws_finalize_write_http_header(wsi, start, &p, end) ? -1 : 0;
+}
+
+int respond_file(lws *wsi, Session &s)
+{
+	Response &r = s.response;
+	s.fd = ::open(r.file.c_str(), O_RDONLY | O_CLOEXEC);
+	struct stat st{};
+	if (s.fd < 0 || ::fstat(s.fd, &st) != 0) {
+		r.file.clear();
+		r.text(500, "500 Internal Server Error");
+		return respond(wsi, s);
+	}
+	off_t start = 0, length = st.st_size;
+	bool partial = false;
+	std::vector<std::pair<std::string, std::string>> extra{{"Accept-Ranges", "bytes"}};
+	if (!r.file_encoding.empty()) extra.emplace_back("Content-Encoding", r.file_encoding);
+	if (!parse_range(s.request.header("range"), st.st_size, start, length, partial)) {
+		extra.emplace_back("Content-Range", "bytes */" + std::to_string(st.st_size));
+		r.file.clear();
+		r.body = "invalid range: failed to overlap\n";
+		if (finish_headers(wsi, s, 416, "text/plain; charset=utf-8", r.body.size(), extra)) return -1;
+		if (s.head) return lws_http_transaction_completed(wsi) ? -1 : 0;
+		lws_callback_on_writable(wsi);
+		return 0;
+	}
+	if (partial)
+		extra.emplace_back("Content-Range", "bytes " + std::to_string(start) + "-" + std::to_string(start + length - 1) +
+		                                        "/" + std::to_string(st.st_size));
+	std::string type = r.content_type.empty() ? "application/octet-stream" : r.content_type;
+	if (finish_headers(wsi, s, partial ? 206 : 200, type.c_str(), static_cast<unsigned long long>(length), extra)) return -1;
+	if (s.head || length == 0) return lws_http_transaction_completed(wsi) ? -1 : 0;
+	if (::lseek(s.fd, start, SEEK_SET) != start) return -1;
+	s.remaining = length;
+	lws_callback_on_writable(wsi);
+	return 0;
+}
+
+int write_file(lws *wsi, Session &s)
+{
+	constexpr size_t chunk = 16384;
+	unsigned char buf[LWS_PRE + chunk];
+	size_t want = static_cast<size_t>(std::min<off_t>(chunk, s.remaining));
+	ssize_t n = ::read(s.fd, buf + LWS_PRE, want);
+	if (n <= 0) return -1;
+	s.remaining -= n;
+	bool last = s.remaining == 0;
+	if (lws_write(wsi, buf + LWS_PRE, static_cast<size_t>(n), last ? LWS_WRITE_HTTP_FINAL : LWS_WRITE_HTTP) != n) return -1;
+	if (last) {
+		::close(s.fd);
+		s.fd = -1;
+		return lws_http_transaction_completed(wsi) ? -1 : 0;
+	}
+	lws_callback_on_writable(wsi);
+	return 0;
+}
+
+// Sends the response; returns -1 to close, 0 to continue.
+int respond(lws *wsi, Session &s)
+{
+	Response &r = s.response;
+	if (!r.file.empty()) return respond_file(wsi, s);
+	unsigned char buf[LWS_PRE + 4096], *start = buf + LWS_PRE, *p = start, *end = buf + sizeof buf;
+	const char *type = r.content_type.empty() ? nullptr : r.content_type.c_str();
+	if (lws_add_http_common_headers(wsi, static_cast<unsigned>(r.status), type, r.body.size(), &p, end)) return -1;
+	for (const auto &[name, value] : r.headers)
+		if (!append_header(wsi, &p, end, name, value)) return -1;
+	if (lws_finalize_write_http_header(wsi, start, &p, end)) return -1;
+	if (s.head || r.body.empty()) return lws_http_transaction_completed(wsi) ? -1 : 0;
+	lws_callback_on_writable(wsi);
+	return 0;
+}
+
+int write_body(lws *wsi, Session &s)
+{
+	constexpr size_t chunk = 16384;
+	std::string &body = s.response.body;
+	size_t n = std::min(chunk, body.size() - s.sent);
+	bool last = s.sent + n == body.size();
+	unsigned char buf[LWS_PRE + chunk];
+	std::memcpy(buf + LWS_PRE, body.data() + s.sent, n);
+	if (lws_write(wsi, buf + LWS_PRE, n, last ? LWS_WRITE_HTTP_FINAL : LWS_WRITE_HTTP) != static_cast<int>(n)) return -1;
+	s.sent += n;
+	if (last) return lws_http_transaction_completed(wsi) ? -1 : 0;
+	lws_callback_on_writable(wsi);
+	return 0;
+}
+
+// Go's redirectHost: the request host without its port, the HTTPS port added unless 443, IPv6 in brackets.
+std::string redirect_host(const std::string &request_host, int https_port)
+{
+	std::string host = request_host;
+	if (!host.empty() && host.front() == '[') {
+		auto close = host.find(']');
+		if (close != std::string::npos) host = host.substr(1, close - 1);
+	} else if (std::count(host.begin(), host.end(), ':') == 1) {
+		host = host.substr(0, host.find(':'));
+	}
+	bool v6 = host.find(':') != std::string::npos;
+	if (https_port != 443) return (v6 ? "[" + host + "]" : host) + ":" + std::to_string(https_port);
+	return v6 ? "[" + host + "]" : host;
+}
+
+void handle(lws *wsi, Session &s, const VhostData &vd)
+{
+	if (vd.role == Role::redirect) {
+		// Loopback-only internal routes and the ACME challenge come with their families.
+		std::string uri = s.request.path;
+		if (!s.request.query.empty()) uri += "?" + s.request.query;
+		s.response.redirect(307, "https://" + redirect_host(s.request.header("host"), vd.https_port) + uri);
+		return;
+	}
+	vd.router->dispatch(s.request, s.response);
+	(void)wsi;
+}
+
+int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
+{
+	auto *pss = static_cast<Pss *>(user);
+	switch (reason) {
+	case LWS_CALLBACK_HTTP: {
+		auto *vd = static_cast<VhostData *>(lws_get_vhost_user(lws_get_vhost(wsi)));
+		if (!vd || !pss) return -1;
+		delete pss->session;
+		pss->session = new Session;
+		Session &s = *pss->session;
+		const char *uri = nullptr;
+		int uri_len = 0;
+		int m = lws_http_get_uri_and_method(wsi, const_cast<char **>(&uri), &uri_len);
+		if (m < 0 || m >= static_cast<int>(std::size(method_names))) return -1;
+		s.request.wsi = wsi;
+		s.request.method = method_names[m];
+		s.request.path.assign(uri, static_cast<size_t>(uri_len));
+		s.request.query = query_of(wsi);
+		s.request.tls = lws_is_ssl(wsi);
+		s.request.peer = peer_address(wsi);
+		s.head = s.request.method == "HEAD";
+		(void)in;
+		(void)len;
+		// A body is read before the request is handled.
+		char length[24] = {};
+		if (lws_hdr_copy(wsi, length, sizeof length, WSI_TOKEN_HTTP_CONTENT_LENGTH) > 0 ? std::atoll(length) > 0
+		                                                                              : lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING) > 0) {
+			s.body_expected = true;
+			return 0;
+		}
+		handle(wsi, s, *vd);
+		return respond(wsi, s);
+	}
+	case LWS_CALLBACK_HTTP_BODY:
+		if (pss && pss->session) {
+			// Bodies of the routes in this skeleton are small; streaming bodies come with uploads.
+			if (pss->session->request.body.size() + len > (8u << 20)) return -1;
+			pss->session->request.body.append(static_cast<const char *>(in), len);
+		}
+		return 0;
+	case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
+		auto *vd = static_cast<VhostData *>(lws_get_vhost_user(lws_get_vhost(wsi)));
+		if (!vd || !pss || !pss->session) return -1;
+		handle(wsi, *pss->session, *vd);
+		return respond(wsi, *pss->session);
+	}
+	case LWS_CALLBACK_HTTP_WRITEABLE:
+		if (!pss || !pss->session) return 0;
+		if (pss->session->fd >= 0) return write_file(wsi, *pss->session);
+		return write_body(wsi, *pss->session);
+	case LWS_CALLBACK_HTTP_FILE_COMPLETION:
+		return lws_http_transaction_completed(wsi) ? -1 : 0;
+	case LWS_CALLBACK_HTTP_DROP_PROTOCOL:
+	case LWS_CALLBACK_CLOSED_HTTP:
+		if (pss) {
+			delete pss->session;
+			pss->session = nullptr;
+		}
+		return 0;
+	default:
+		break;
+	}
+	return lws_callback_http_dummy(wsi, reason, user, in, len);
+}
+
+lws_protocols protocols[] = {
+	{"http", callback, sizeof(Pss), 0, 0, nullptr, 0},
+	LWS_PROTOCOL_LIST_TERM,
+};
+
+} // namespace
+
+int run(const config::Config &config, const Router &router)
+{
+	lws_set_log_level(LLL_ERR | LLL_WARN, nullptr);
+	lws_context_creation_info info{};
+	info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT | LWS_SERVER_OPTION_EXPLICIT_VHOSTS;
+	info.port = CONTEXT_PORT_NO_LISTEN;
+	context = lws_create_context(&info);
+	if (!context) {
+		log::error("cannot create the event loop");
+		return 1;
+	}
+	std::signal(SIGTERM, on_signal);
+	std::signal(SIGINT, on_signal);
+	std::signal(SIGPIPE, SIG_IGN);
+
+	const bool https = config.proto == "https";
+	static VhostData serve{Role::serve, nullptr, 0}, redirect{Role::redirect, nullptr, 0};
+	serve.router = &router;
+	redirect.https_port = config.port.https;
+	const config::Cert cert = config.cert.with_defaults();
+	const char *iface = config.host.empty() ? nullptr : config.host.c_str();
+
+	if (https) {
+		lws_context_creation_info v{};
+		v.vhost_name = "https";
+		v.port = config.port.https;
+		v.iface = iface;
+		v.protocols = protocols;
+		v.user = &serve;
+		v.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+		v.ssl_cert_filepath = cert.crt.c_str();
+		v.ssl_private_key_filepath = cert.key.c_str();
+		v.alpn = "h2,http/1.1";
+		v.tls1_3_plus_cipher_list = "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384";
+		v.ssl_options_set = SSL_OP_CIPHER_SERVER_PREFERENCE;
+		v.timeout_secs = 15;  // ReadHeaderTimeout
+		if (!lws_create_vhost(context, &v)) {
+			log::error("cannot listen on HTTPS port {}", config.port.https);
+			lws_context_destroy(context);
+			return 1;
+		}
+		log::info("HTTPS listening on port {}", config.port.https);
+	}
+	lws_context_creation_info h{};
+	h.vhost_name = "http";
+	h.port = config.port.http;
+	h.iface = iface;
+	h.protocols = protocols;
+	h.user = https ? &redirect : &serve;
+	h.timeout_secs = 15;
+	if (!lws_create_vhost(context, &h)) {
+		log::error("cannot listen on HTTP port {}", config.port.http);
+		lws_context_destroy(context);
+		return 1;
+	}
+	log::info("HTTP listening on port {}{}", config.port.http, https ? " (redirects to HTTPS)" : "");
+
+	while (!stopping)
+		if (lws_service(context, 0) < 0) break;
+	lws_context_destroy(context);
+	context = nullptr;
+	log::info("server stopped");
+	return 0;
+}
+
+} // namespace nkos::http

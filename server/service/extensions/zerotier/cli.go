@@ -148,8 +148,8 @@ func (c *Cli) ServiceRunning() (bool, error) {
 	if !isInstalled() || !openrcMayRun(serviceName) {
 		return false, nil
 	}
-	cmd := exec.Command("rc-service", serviceName, "status")
-	if err := cmd.Run(); err != nil {
+	// A stuck OpenRC times out rather than hold every status request.
+	if _, err := runProgramOutput(commandTimeout, "rc-service", serviceName, "status"); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return false, nil

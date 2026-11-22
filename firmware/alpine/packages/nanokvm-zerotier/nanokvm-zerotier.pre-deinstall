@@ -1,0 +1,7 @@
+#!/bin/sh
+[ -f /run/openrc/softlevel ] || exit 0
+rc-service --ifstarted zerotier-one stop >/dev/null 2>&1 || true
+rc-update del zerotier-one default >/dev/null 2>&1 || true
+# /var/lib/zerotier-one holds the identity and the joined networks: user
+# state, preserved by apk del.
+exit 0

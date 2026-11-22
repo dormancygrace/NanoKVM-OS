@@ -147,25 +147,7 @@ struct venc_tuning_t {
 };
 
 static const venc_tuning_t venc_tuning;
-// Longer than the encoder driver's own limit (2 s after its first poll that
-// timed out, osdrv patch 0029, plus a poll): the driver always ends the wait
-// first, with the frame or with its abort.
-static constexpr uint64_t venc_pending_limit_ms = 5000;
-// The encoder driver's status for a frame it gave up on (osdrv patch 0029):
-// the frame did not finish, the core was reset, and its stream never comes.
-#ifndef CVI_ERR_VENC_FRAME_ABORTED
-#define CVI_ERR_VENC_FRAME_ABORTED CVI_ERR_VENC_SYS_NOTREADY
-#endif
-// The same, when the core's reset did not complete: the core may still work
-// on the frame's buffers, and it takes no new channel.
-#ifndef CVI_ERR_VENC_CORE_FAILED
-#define CVI_ERR_VENC_CORE_FAILED CVI_ERR_VENC_NOT_PERM
-#endif
-// How a channel's submitted frame ended when the driver gave up on it (0
-// while it has not): nothing is left to drain, and teardown destroys the
-// channel before releasing the frame's input. After CVI_ERR_VENC_CORE_FAILED
-// the input and the channel's pool are kept instead.
-static int venc_frame_aborted[MMF_VENC_MAX_CHN];
+static constexpr uint64_t venc_pending_limit_ms = 3000;
 
 /*
  * Video memory shortage. The pools are sized to the measured peak, so their
@@ -258,9 +240,6 @@ static int vi_jpeg_ch = -1; // the output whose JPEG lease is vi_jpeg_frame
 // A channel number may be recycled during the JPEG hold -> vi_mutex handoff.
 // Generations belong to their frame slots and never reset on capture restart.
 static uint64_t vi_frame_generation[MMF_VI_MAX_CHN];
-// The capture channel's pool holds a frame given up to an encoder core whose
-// reset did not complete (_mmf_strand_vi_frame): the pool is never destroyed.
-static bool vi_pool_stranded[MMF_VI_MAX_CHN];
 static thread_local uint64_t own_jpeg_generation;
 static thread_local int own_jpeg_channel = -1;
 
@@ -700,25 +679,6 @@ static int _mmf_release_vi_frame(int ch)
  return CVI_SUCCESS;
 }
 
-// The frame in capture slot ch went to an encoder core whose reset did not
-// complete: the core may still read it, so it is never given back. It leaves
-// the slot, which takes new frames for the other encoder and the pictures,
-// and its pool stays (the kernel would not destroy a pool with a block out).
-// The driver keeps every pool past this process as well: after such a core
-// it refuses the last VB exit until the system restarts (osdrv patch 0029).
-static void _mmf_strand_vi_frame(int ch)
-{
- if (!priv.vi_frame_valid[ch]) return;
- // A CPU mapping of the frame stays too: a reader may still hold its address.
- if (!vi_frame_from_vi[ch] && priv.vi_chn_pool_id[ch] != (int)VB_INVALID_POOLID) vi_pool_stranded[ch] = true;
- memset(&priv.vi_frame[ch], 0, sizeof(priv.vi_frame[ch]));
- vi_frame_from_vi[ch] = false;
- priv.vi_frame_valid[ch] = false;
- priv.vi_frame_mapped[ch] = false;
- priv.vi_frame_deferred[ch] = false;
- _mmf_reclaim_disabled_pool(ch);
-}
-
 // A lower stream rate is VPSS frame-rate control on the output
 // (mmf_vpss_set_rate); the VI delivers every frame, so such an output stays
 // on VPSS.
@@ -1151,18 +1111,6 @@ static int _mmf_release_picture_pool(void)
 	return CVI_SUCCESS;
 }
 
-// Destroys capture channel ch's pool; one holding a stranded frame
-// (_mmf_strand_vi_frame) is left as it is instead, and the channel takes a
-// new pool when it needs one.
-static int _mmf_destroy_vi_pool(int ch)
-{
-    if (vi_pool_stranded[ch]) {
-        vi_pool_stranded[ch] = false;
-        return CVI_SUCCESS;
-    }
-    return _destroy_vb_pool(priv.vi_chn_pool_id[ch]);
-}
-
 // A disabled output has no VPSS producer. Return its private pool after the
 // last old VPSS lease, without touching the common pool used by VI/VENC.
 // Called on the capture lock; NV16 JPEG's independent release does not enter.
@@ -1178,7 +1126,7 @@ static int _mmf_reclaim_disabled_pool(int ch)
         if (result != CVI_SUCCESS) return result;
         priv.vi_pool_detached[ch] = true;
     }
-    const int result = _mmf_destroy_vi_pool(ch);
+    const int result = _destroy_vb_pool(pool);
     if (result != CVI_SUCCESS) return result; // retain ownership for retry
     priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
     priv.vi_pool_detached[ch] = false;
@@ -1259,8 +1207,6 @@ static void _mmf_sys_exit(void)
 		SAMPLE_COMM_VI_DestroyIsp(&g_stViConfig);
 		SAMPLE_COMM_VI_DestroyVi(&g_stViConfig);
 	}
-	// After a failed encoder core the driver refuses the last VB exit and
-	// keeps the pools (_mmf_vb_reset_stale).
 	SAMPLE_COMM_SYS_Exit();
 }
 
@@ -1460,11 +1406,6 @@ static int _vi_get_unused_ch() {
  * effect"), and a larger capture finds no pool for its frames (2560x1440
  * after a 1920x1080 start: "No valid pool for size(5529600)") until a
  * reboot. As the only media process, bring the count to zero before init.
- *
- * After an encoder core failed its reset (CVI_ERR_VENC_CORE_FAILED) the driver
- * refuses the last exit until the system restarts (osdrv patch 0029): the
- * core may still use blocks of those pools. The reset stops there, and this
- * start runs on the pools and configuration of the first one.
  */
 extern "C" int get_base_fd(void);
 extern "C" int vb_ioctl_exit(int fd);
@@ -1472,18 +1413,9 @@ static void _mmf_vb_reset_stale(void)
 {
 	const int fd = get_base_fd();
 	int exits = 0;
-	bool refused = false;
-	while (fd >= 0 && exits < 16 && CVI_VB_IsInited() != CVI_FALSE) {
-		refused = vb_ioctl_exit(fd) != 0;
-		if (refused) break;
-		++exits;
-	}
+	while (fd >= 0 && exits < 16 && CVI_VB_IsInited() != CVI_FALSE && vb_ioctl_exit(fd) == 0) ++exits;
 	if (exits) {
 		fprintf(stderr, "[kvm_mmf] released %d stale VB reference%s\n", exits, exits == 1 ? "" : "s");
-		fflush(stderr);
-	}
-	if (refused) {
-		fprintf(stderr, "[kvm_mmf] video memory kept until restart: an encoder core did not reset\n");
 		fflush(stderr);
 	}
 }
@@ -1912,7 +1844,7 @@ int mmf_del_vi_channel(int ch) {
   vi_direct_venc = -1;
  }
  vpss_chn_max_fps[ch] = 0; // a reopened channel may feed video
- result = _mmf_destroy_vi_pool(ch);
+ result = _destroy_vb_pool(priv.vi_chn_pool_id[ch]);
  if (result != CVI_SUCCESS) return result;
  // The disabled channel forgets the destroyed pool. A reopen enables the
  // channel before it attaches the new pool; with the old binding the driver
@@ -3222,13 +3154,9 @@ int mmf_del_venc_channel(int ch) {
 		int drained = CVI_SUCCESS;
 		if (!priv.venc_stream_acquired[ch]) {
 			drained = mmf_venc_pop(ch, &stream);
-			// An aborted frame (now or by an earlier read) left nothing to
-			// drain: the channel goes as a wedged one does.
-			if (drained != CVI_SUCCESS && drained != CVI_ERR_VENC_BUSY
-				&& drained != CVI_ERR_VENC_FRAME_ABORTED && drained != CVI_ERR_VENC_CORE_FAILED) return drained;
+			if (drained != CVI_SUCCESS && drained != CVI_ERR_VENC_BUSY) return drained;
 		}
-		if (drained == CVI_ERR_VENC_BUSY || drained == CVI_ERR_VENC_FRAME_ABORTED
-			|| drained == CVI_ERR_VENC_CORE_FAILED) {
+		if (drained == CVI_ERR_VENC_BUSY) {
 			fprintf(stderr, "[kvm_mmf] VENC channel %d is wedged; resetting it and releasing its input\n", ch);
 			fflush(stderr);
 			wedged = true;
@@ -3270,19 +3198,11 @@ int mmf_del_venc_channel(int ch) {
 		// and keep a wedged channel's input lease: it may still read it.
 		return destroyRet;
 	}
-	// A core that did not reset may still read the frame's input and write the
-	// channel's pool: the input, its copy and the pool stay taken, for good.
-	const bool core_failed = venc_frame_aborted[ch] == CVI_ERR_VENC_CORE_FAILED;
 	if (wedged) {
 		const int wedged_vi = priv.venc_input_vi_ch[ch];
 		info->is_running = 0;
 		priv.venc_input_vi_ch[ch] = -1;
-		if (wedged_vi >= 0 && core_failed) {
-			_mmf_strand_vi_frame(wedged_vi);
-			fprintf(stderr, "[kvm_mmf] input %d of VENC channel %d kept for good: its core did not reset\n",
-				wedged_vi, ch);
-			fflush(stderr);
-		} else if (wedged_vi >= 0) {
+		if (wedged_vi >= 0) {
 			const int released = _mmf_release_vi_frame(wedged_vi);
 			fprintf(stderr, "[kvm_mmf] released input %d of wedged VENC channel %d: %#x\n",
 				wedged_vi, ch, released);
@@ -3290,10 +3210,10 @@ int mmf_del_venc_channel(int ch) {
 		}
 	}
 
-	if (info->capture_frame && !core_failed) {
+	if (info->capture_frame) {
 		_mmf_free_frame(info->capture_frame);
+		info->capture_frame = NULL;
 	}
-	info->capture_frame = NULL;
 	/*
 	 * Do not release deferred VI frames here. Profile reconfiguration happens
 	 * after CameraCviMmf::read() has leased the next zero-copy frame, and that
@@ -3301,7 +3221,7 @@ int mmf_del_venc_channel(int ch) {
 	 * encoder. An outstanding frame owned by the old encoder is released by
 	 * mmf_venc_free() above when info->is_running is true.
 	 */
-	if (info->pool_id != VB_INVALID_POOLID && info->pool_id < VB_MAX_COMM_POOLS && !core_failed) {
+	if (info->pool_id != VB_INVALID_POOLID && info->pool_id < VB_MAX_COMM_POOLS) {
 		_destroy_vb_pool(info->pool_id);
 	}
 	free(venc_pack_storage[ch]);
@@ -3311,7 +3231,6 @@ int mmf_del_venc_channel(int ch) {
 	memset(info, 0, sizeof(venc_info_t));
 	priv.venc_stream_acquired[ch] = false;
 	priv.venc_input_vi_ch[ch] = -1;
-	venc_frame_aborted[ch] = 0;
 	if (vi_direct_venc == ch) _mmf_vi_direct_off_all();
 	fprintf(stderr, "[kvm_mmf] VENC channel %d destroyed\n", ch);
 	fflush(stderr);
@@ -3654,9 +3573,6 @@ int mmf_venc_pop(int ch, mmf_stream_t *stream) {
 		fflush(stderr);
 		return -1;
 	}
-	// The driver gave up on the submitted frame: asking again would wait for
-	// a stream that never comes.
-	if (venc_frame_aborted[ch]) return venc_frame_aborted[ch];
 	// One frame was already submitted. GetStream waits for that frame itself;
 	// an extra 80 ms select deadline can abandon it while the codec lock is
 	// still held. StopRecvFrame/ResetChn do not cancel H.26x encoding in this SDK.
@@ -3720,13 +3636,6 @@ int mmf_venc_pop(int ch, mmf_stream_t *stream) {
 			}
 			usleep(1000);
 		} while (true);
-		if (s32Ret == CVI_ERR_VENC_FRAME_ABORTED || s32Ret == CVI_ERR_VENC_CORE_FAILED) {
-			venc_frame_aborted[ch] = s32Ret;
-			fprintf(stderr, "[kvm_mmf] VENC channel %d frame aborted by the encoder reset%s\n", ch,
-				s32Ret == CVI_ERR_VENC_CORE_FAILED ? ", which did not complete" : "");
-			fflush(stderr);
-			return s32Ret;
-		}
 		if (s32Ret != CVI_SUCCESS) {
 			printf("CVI_VENC_GetStream failed with %#x\n", s32Ret);
 			return s32Ret;

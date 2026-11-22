@@ -501,7 +501,9 @@ int fd_callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in
 }
 
 lws_protocols protocols[] = {
-	{"http", callback, sizeof(Pss), 0, 0, nullptr, 0},
+	// A message goes to send() whole: with tx_packet_size 0 lws sends rx_buffer_size (4 KiB) at a time and buffers
+	// the rest, a video frame then costing dozens of TLS records, copies and loop turns (2.3x the CPU at 19 Mbit/s).
+	{"http", callback, sizeof(Pss), 0, 0, nullptr, 8u << 20},
 	{"nkos-fd", fd_callback, 0, 0, 0, nullptr, 0},
 	LWS_PROTOCOL_LIST_TERM,
 };

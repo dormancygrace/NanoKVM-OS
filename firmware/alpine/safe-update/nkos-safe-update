@@ -356,6 +356,16 @@ cmd_kernel_trial() {
 	cur=$(oncard /boot/boot.sd)
 	[ "$cur" = "$(cat /boot/boot.sd.sha256 2>/dev/null)" ] || die "boot.sd does not match its record; run $ACTIVATE first"
 	mkdir -p "${LOCK%/*}"; exec 9>> "$LOCK"; flock -n 9 || die "another update operation is in progress"
+	# The trial image is built from $payload. If the update also changes the kernel or its modules,
+	# the image must come from the NEW kernel package, which is not implemented yet (fetch, extract,
+	# pre-stage its modules). Refuse rather than trial the old kernel and install an unbooted one.
+	apk_ update -q > /dev/null 2>&1
+	apk_ "$@" --simulate > /tmp/nkos-ktrial.plan 2>&1 || { cat /tmp/nkos-ktrial.plan; die "apk $* would fail; nothing changed"; }
+	kpk=$(HELD="nanokvm-kernel nanokvm-kernel-sg2002 nanokvm-kmod nanokvm-kmod-sg2002" held_in_plan /tmp/nkos-ktrial.plan | tr '\n' ' ' | sed 's/ *$//')
+	rm -f /tmp/nkos-ktrial.plan
+	if [ -n "$kpk" ] && [ -z "${NKOS_SU_PAYLOAD:-}" ]; then
+		die "the update changes $kpk; a trial image of the new kernel is not built yet (prototype). Use 'nkos-safe-update kernel' for now."
+	fi
 
 	W=/var/tmp/nkos-ktrial; rm -rf "$W"; mkdir -p "$W/root"
 	sh "$payload/compose-fit" "$payload" "$profile" "$W/stock.sd" || die "compose-fit failed"
@@ -402,10 +412,14 @@ payload=%s
 prev=%s
 ' "$id" "$timeout" "$*" "$(cat "$payload/kernel.release")" "$cur" > "$KSTATE"
 	sync
-	echo "$id" > /boot/nkos-ktrial.armed && sync /boot || die "cannot arm the trial"
+	marker=$id
+	[ -z "${NKOS_SU_TEST_BAD_MARKER:-}" ] || marker=not-$id     # test hook: an armed marker that does not match
+	echo "$marker" > /boot/nkos-ktrial.armed && sync /boot || die "cannot arm the trial"
 	rm -f /boot/boot.sd.new; cp "$W/trial.sd" /boot/boot.sd.new && sync /boot/boot.sd.new &&
 		[ "$(oncard /boot/boot.sd.new)" = "$want" ] || { rm -f /boot/boot.sd.new /boot/nkos-ktrial.armed "$KSTATE"; sync; die "the trial image did not write back correctly"; }
-	mv /boot/boot.sd.new /boot/boot.sd && echo "$want" > /boot/boot.sd.sha256.new && mv /boot/boot.sd.sha256.new /boot/boot.sd.sha256 && sync /boot
+	# boot.sd.sha256 keeps the old record on purpose: if the trial image boots without demoting itself,
+	# activate-kernel must not take it for a good image and copy it over boot.prev.
+	mv /boot/boot.sd.new /boot/boot.sd && sync /boot
 	rm -rf "$W"
 	history "kernel trial $id armed: boot.sd ${want%"${want#????????????}"} (trial image), boot.prev ${cur%"${cur#????????????}"}"
 	log "kernel trial $id armed. Rebooting into it; confirm within $BOOT_MAX s + the update + $timeout s"

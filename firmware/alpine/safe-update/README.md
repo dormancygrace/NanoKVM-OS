@@ -134,10 +134,17 @@ This covers the kernel, its modules and userspace together, using the existing U
 - **A kernel that dies before `/init` runs** boots the same image again after the panic reset, a loop that
   needs a card reader to fix (delete `boot.sd`). Closing it needs U-Boot: for example, a `boot.once` that the
   bootcmd deletes (`fatrm`) before `bootm`, falling back to `boot.sd`.
+- **Arming keeps `boot.sd.sha256` at the old image.** If the trial image ever boots without demoting
+  itself, `activate-kernel` therefore won't take it for a good image and copy it over `boot.prev`.
 - **A kernel-package upgrade inside the trial** runs `activate-kernel`, which writes `boot.sd`. The tool moves
   that file aside until confirm, but NanoKVM OS should offer a way to skip activation during a trial.
-- **A new kernel payload has to be fetched and extracted** before `prepare`. The prototype uses the installed
-  payload (`NKOS_SU_PAYLOAD` overrides it).
+- **The new kernel payload isn't fetched yet.** The trial image is built from the installed kernel payload
+  (`NKOS_SU_PAYLOAD` overrides it). A real kernel update needs the image built from the *new* kernel package,
+  with its modules pre-staged, and that part is not written.
+  - So `kernel-trial` refuses a plan that changes `nanokvm-kernel` or `nanokvm-kmod` unless a payload is
+    given.
+  - Use `nkos-safe-update kernel` for kernel updates for now.
+  - Today it can trial the boot path plus a package update on the current kernel.
 - **Each kernel release presumably gets its own `/lib/modules` directory,** which this design relies on. That
   is unverified.
 
@@ -154,8 +161,8 @@ This covers the kernel, its modules and userspace together, using the existing U
 
 ## Test record: package trials
 
-Hardware: a NanoKVM Cube (beta board) on NanoKVM OS 4.2.1 (kernel 7.3.4), apk-tools 3.0.9, migrated from
-stock (7728 MiB root). "Scratch image" means an F2FS loop image on `/data`, not the root.
+Hardware: a NanoKVM on NanoKVM OS 4.2.1 (kernel 7.3.4), apk-tools 3.0.9, migrated from stock
+(7728 MiB root). NanoKVM OS selected the `lite` board profile; stock reported `beta`. "Scratch image" means an F2FS loop image on `/data`, not the root.
 
 | Test | Result |
 | --- | --- |
@@ -189,7 +196,7 @@ comparisons. The kernel-order test used a similar set built by hand. The overrid
 
 ## Test record: kernel trials
 
-Same Cube. Only kernel 4.2.0 is published (stable and beta), so every "new kernel" was the same kernel and
+Same unit. Only kernel 4.2.0 is published (stable and beta), so every "new kernel" was the same kernel and
 device tree in a rebuilt image with the trial initramfs. These tests exercise the mechanism, not a real kernel
 change.
 
@@ -202,6 +209,8 @@ change.
 | `kill -9` of the initramfs watcher | reset about 49 s later; rolled back |
 | Userspace never checks in (boot service disabled, 120 s limit) | watcher stopped feeding at 120 s; reset; `boot.prev` booted with markers left; running the boot step restored `boot.sd` |
 | `reboot -n -f` at step 90/165 of a 165-package reinstall in the trial boot | rolled back; no `.apk.*` leftovers; no F2FS errors |
+| Trial image armed with a marker that doesn't match its id (test hook) | the image booted like their stock init (no demotion, no watcher, watchdog daemon up); the boot service restored `boot.sd`; `boot.prev` kept its hash; a second `activate-kernel` wrote nothing |
+| `kernel-trial -- fix -r nanokvm-kernel` | refused (new-kernel payload not supported yet); nothing armed |
 | Power cut between the two confirm steps (test hook) | `boot.prev` booted with the committed root; the boot service finished installing `boot.sd` |
 | Package-trial regression on the final script: confirm, timeout, guard `kill -9` | all as before |
 

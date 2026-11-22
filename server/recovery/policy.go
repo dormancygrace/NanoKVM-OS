@@ -78,7 +78,11 @@ func allGroups() []string {
 func validGroups(names []string) error {
 	seen := map[string]bool{}
 	for _, name := range names {
-		if _, ok := groups[name]; !ok || seen[name] {
+		if _, ok := groups[name]; !ok {
+			// Groups are only added: an unknown one comes from a later release.
+			return errors.New("the backup holds settings of a later application version; install the same or a newer version before restoring")
+		}
+		if seen[name] {
 			return errors.New("invalid settings group")
 		}
 		seen[name] = true

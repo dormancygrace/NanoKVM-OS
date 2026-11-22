@@ -75,11 +75,19 @@ func (e Engine) applyFile(name string, f *File) error {
 	return write(e.Root, name, f)
 }
 func (e Engine) Snapshot() (Archive, error) {
-	a := Archive{Format: 1, Version: e.Version, Board: e.Board, Created: time.Now().UTC(), Covers: allGroups()}
+	a := Archive{Format: 1, Version: e.Version, Board: e.Board, Created: time.Now().UTC()}
 	var err error
 	a.Files, err = inventory(e.Root)
 	if err != nil {
 		return a, err
+	}
+	// A group without files is not covered: a backup made before ZeroTier ran
+	// says nothing about an identity made later, which no restore could bring
+	// back once deleted.
+	for _, g := range allGroups() {
+		if slices.ContainsFunc(a.Files, func(f File) bool { return group(f.Path) == g }) {
+			a.Covers = append(a.Covers, g)
+		}
 	}
 	world, err := read(e.Root, "etc/apk/world", MaxFile)
 	if err != nil {

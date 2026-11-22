@@ -1,6 +1,7 @@
 package recovery
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -71,11 +72,26 @@ func TestZerotierStateSurvivesOlderBackups(t *testing.T) {
 			t.Fatalf("covered=%v: identity %q, network %q", covered, contents(t, e, identity), contents(t, e, network))
 		}
 	}
+	// A backup covers ZeroTier only once the device has its state.
+	e := fixture(t)
+	if a, err := e.Snapshot(); err != nil || len(a.Covers) != 0 {
+		t.Fatalf("snapshot without ZeroTier covers %v, %v", a.Covers, err)
+	}
+	write(e.Root, identity, &File{Data: []byte("node-secret"), Mode: 0600})
+	if a, err := e.Snapshot(); err != nil || !slices.Equal(a.Covers, []string{"zerotier"}) {
+		t.Fatalf("snapshot with ZeroTier covers %v, %v", a.Covers, err)
+	}
 	// ZeroTier files only in an archive that covers them.
 	a := legacy
 	a.Files = append(a.Files, File{Path: identity, Data: []byte("x"), Mode: 0600})
 	if Validate(a) == nil {
 		t.Fatal("ZeroTier state accepted from an archive that does not cover it")
+	}
+	// A group of a later release asks for that release.
+	a = legacy
+	a.Covers = []string{"zerotier", "later"}
+	if err := Validate(a); err == nil || !strings.Contains(err.Error(), "later application version") {
+		t.Fatalf("unknown group: %v", err)
 	}
 	if p := (Plan{Options: Options{Action: "restore", Mode: "device"},
 		Changes: []Change{{Path: identity}}}); validatePlan(p) == nil || !strings.Contains(validatePlan(p).Error(), "groups") {

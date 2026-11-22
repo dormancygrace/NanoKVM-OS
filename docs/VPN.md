@@ -63,6 +63,7 @@ to join networks. The identity and joined networks live in
 an identity copied there before starting keeps its node ID. They are kept on
 uninstall unless you choose to delete them, and the settings backup includes
 them for **Restore this device**, never for migration: two devices with one
-identity disrupt each other. Managed routes are applied; default-route and
+identity disrupt each other. Restoring a backup taken before ZeroTier ran
+keeps the current identity and networks. Managed routes are applied; default-route and
 DNS settings pushed by a network are not (ZeroTier does not set DNS on
 Linux).

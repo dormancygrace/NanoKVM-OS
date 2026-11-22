@@ -102,13 +102,15 @@ jobs:
           fakeroot python3 scripts/build-zerotier-addon.py \
             --cc "$OUT/buildroot-output/host/bin/riscv64-buildroot-linux-musl-gcc" \
             --apk "$RUNNER_TEMP/apk" --output "$RUNNER_TEMP/addon" \
-            --package-revision "$REVISION" --source-url "$SOURCE_URL"
+            --package-revision "$REVISION" --source-url "$SOURCE_URL" \
+            --selftest "$RUNNER_TEMP/check/zerotier-selftest"
           (cd "$RUNNER_TEMP/addon" && sha256sum -- * > "$RUNNER_TEMP/SHA256SUMS" && mv "$RUNNER_TEMP/SHA256SUMS" .)
           ls -la "$RUNNER_TEMP/addon"
           cat "$RUNNER_TEMP/addon/SHA256SUMS"
 
-      # The package as Pages will check it, and its binary on the C906 model
-      # with Alpine 3.24's riscv64 musl and libstdc++.
+      # The package as Pages will check it, and its binary and ZeroTier's
+      # selftest on the C906 model with Alpine 3.24's riscv64 musl and
+      # libstdc++.
       - name: Check the package
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -116,7 +118,8 @@ jobs:
           SOURCE_URL: ${{ steps.version.outputs.url }}
         run: |
           a=$RUNNER_TEMP/addon
-          docker run --rm -v "$a:$a" -v "$PWD/scripts:/scripts:ro" -e VERSION -e REVISION -e SOURCE_URL alpine:3.24 sh -euc '
+          t=$RUNNER_TEMP/check
+          docker run --rm -v "$a:$a" -v "$t:$t:ro" -v "$PWD/scripts:/scripts:ro" -e VERSION -e REVISION -e SOURCE_URL alpine:3.24 sh -euc '
             apk add --no-cache alpine-keys file python3 qemu-riscv64 > /dev/null
             name=nanokvm-zerotier-$VERSION-r$REVISION.apk
             apk=$1/$name
@@ -144,7 +147,9 @@ jobs:
               --repositories-file /etc/apk/repositories --no-cache add musl libgcc libstdc++ > /dev/null
             [ "$(qemu-riscv64 -cpu thead-c906 -L "$rv" "$d/usr/sbin/zerotier-one" -v 2>/dev/null)" = "$VERSION" ]
             qemu-riscv64 -cpu thead-c906 -L "$rv" "$d/usr/sbin/zerotier-one" -h 2>/dev/null | grep -q "Mozilla Public License"
-            echo "package checked"' sh "$a"
+            # Nonzero when a test fails. Its socket tests use 127.0.0.1 only.
+            qemu-riscv64 -cpu thead-c906 -L "$rv" "$2/zerotier-selftest" 2>/dev/null
+            echo "package checked"' sh "$a" "$t"
 
       - uses: actions/upload-artifact@v7
         with:

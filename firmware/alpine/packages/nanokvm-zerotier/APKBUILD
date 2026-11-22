@@ -21,11 +21,17 @@ source="zerotier-one-$_ztver.tar.gz::https://github.com/zerotier/ZeroTierOne/arc
 	zerotier-one.initd
 	"
 builddir="$srcdir/ZeroTierOne-$_ztver"
-options="!check"
 
 build() {
 	# ZT_NONFREE unset: the MPL-2.0 agent only. No SSO (Rust, OpenSSL).
 	make ZT_NONFREE=0 ZT_SSO_SUPPORTED=0 one
+}
+
+check() {
+	# ZeroTier's own tests: crypto, packets, identities, certificates and
+	# local sockets, linked from the agent's objects.
+	make ZT_NONFREE=0 ZT_SSO_SUPPORTED=0 selftest
+	./zerotier-selftest
 }
 
 package() {

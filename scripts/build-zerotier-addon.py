@@ -90,6 +90,8 @@ def main():
     parser.add_argument('--archive', type=Path, help='the upstream archive, instead of downloading it')
     parser.add_argument('--package-revision', type=int, help='package revision; defaults to the recipe')
     parser.add_argument('--source-url', help='public URL of the Git tree this package revision is built from')
+    parser.add_argument('--selftest', type=Path,
+                        help="also build ZeroTier's selftest program (make selftest) and write it here, for the checks")
     parser.add_argument('-j', '--jobs', type=int, default=os.cpu_count() or 1)
     args = parser.parse_args()
     if args.source_url and not args.source_url.startswith('https://'):
@@ -152,8 +154,17 @@ def main():
             'ZT_NONFREE=0', 'ZT_SSO_SUPPORTED=0', 'ZT_OFFICIAL=0']
     with (work / 'build.log').open('w') as log:
         subprocess.run(make + ['one'], cwd=tree, env=env, check=True, stdout=log, stderr=subprocess.STDOUT)
+        if args.selftest:
+            # The same objects as the agent, linked with selftest.o.
+            subprocess.run(make + ['selftest'], cwd=tree, env=env, check=True, stdout=log, stderr=subprocess.STDOUT)
     binary = tree / 'zerotier-one'
     subprocess.run([strip, '--strip-unneeded', str(binary)], check=True)
+    if args.selftest:
+        selftest = args.selftest.resolve()
+        selftest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(tree / 'zerotier-selftest', selftest)
+        selftest.chmod(0o755)
+        subprocess.run([strip, '--strip-unneeded', str(selftest)], check=True)
     image = binary.read_bytes()
     for marker in NONFREE_MARKERS:
         if marker in image:

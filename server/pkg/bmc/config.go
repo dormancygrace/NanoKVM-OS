@@ -1,6 +1,5 @@
-// Package bmc holds what the server's Redfish service and the nkos-ipmi
-// daemon share: the settings file, the power logic and the internal ATX API
-// the daemon uses.
+// Package bmc holds what the server's Redfish and IPMI services share: the
+// settings file and the power logic.
 package bmc
 
 import (
@@ -16,14 +15,7 @@ import (
 const (
 	// ConfigPath is root-only: with IPMI on, the password is kept as written,
 	// since RMCP+ uses it as the key of its session handshake.
-	ConfigPath = "/etc/kvm/bmc/config.json"
-	// IPMIService is the OpenRC service of the IPMI daemon, nkos-ipmi. It is
-	// in the default runlevel only while IPMI is on.
-	IPMIService = "nanokvm-ipmi"
-	// IPMISocket is the daemon's API for the server, root only: its status
-	// and its login events.
-	IPMISocket = "/run/nanokvm/ipmi.sock"
-
+	ConfigPath      = "/etc/kvm/bmc/config.json"
 	DefaultIPMIPort = 623
 	// DefaultHoldSeconds is the power menu's long press
 	// (DEFAULT_POWER_LONG_DURATION_SECONDS in web/src/pages/desktop/menu/power/power-long.tsx).

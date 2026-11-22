@@ -1,51 +1,41 @@
 package ipmi
 
-import "time"
-
 // Event is a login or a lockout, for the security notifications the server
-// sends for the web and Redfish logins too. The server reads them through
-// the daemon's socket (GET /events).
+// sends for the web and Redfish logins too.
 type Event struct {
-	Seq  uint64 `json:"seq"`
-	Kind string `json:"kind"` // "login" or "lockout"
+	Kind string // "login" or "lockout"
 	// User is the IPMI user name of a login.
-	User    string `json:"user,omitempty"`
-	Address string `json:"address"`
+	User    string
+	Address string
 	// Attempts and Minutes describe a lockout: the logins counted (failed
 	// or not; each hands out a password hash), and how long further ones
 	// are refused. A lockout's address is the rate-limit key: an IPv6 /64.
-	Attempts int       `json:"attempts,omitempty"`
-	Minutes  int       `json:"minutes,omitempty"`
-	At       time.Time `json:"at"`
+	Attempts int
+	Minutes  int
 }
 
-// maxEvents is the backlog kept for the server, which reads it every few
-// seconds; older events are dropped.
+// maxEvents is how many events wait for OnEvent; beyond that an event is
+// dropped and logged.
 const maxEvents = 32
 
-// event records e; s.mu is held.
+// event queues e for OnEvent, off the packet path; s.mu is held.
 func (s *Server) event(e Event) {
-	s.eventSeq++
-	e.Seq = s.eventSeq
-	e.At = s.now()
-	if len(s.events) == maxEvents {
-		copy(s.events, s.events[1:])
-		s.events = s.events[:maxEvents-1]
+	if s.OnEvent == nil {
+		return
 	}
-	s.events = append(s.events, e)
+	select {
+	case s.events <- e:
+	default:
+		s.logf("IPMI: notification queue full, %s from %s not reported", e.Kind, e.Address)
+	}
 }
 
-// Events returns the events after sequence number after, oldest first, and
-// the newest sequence number.
-func (s *Server) Events(after uint64) ([]Event, uint64) {
-	s.init()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var out []Event
-	for _, e := range s.events {
-		if e.Seq > after {
-			out = append(out, e)
+// notify hands e to OnEvent; a panic there is logged.
+func (s *Server) notify(e Event) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logf("IPMI notification failed: %v", r)
 		}
-	}
-	return out, s.eventSeq
+	}()
+	s.OnEvent(e)
 }

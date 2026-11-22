@@ -117,25 +117,30 @@ type Server struct {
 	FirmwareMajor, FirmwareMinor byte
 	Power                        Power
 	Log                          func(format string, args ...any)
+	// Context is the parent of the power calls (the journal's actor); nil
+	// is context.Background().
+	Context context.Context
+	// OnEvent receives the logins and lockouts, for the security
+	// notifications, off the packet path.
+	OnEvent func(Event)
 
 	now func() time.Time
 	mu  sync.Mutex
 	// lastExpire is the last expiry scan: at most one a second, not one
 	// per packet (an unauthenticated sender chooses the packet rate).
-	lastExpire time.Time
-	sessions   map[uint32]*session
-	failed     map[string]*failures
-	actions    chan func(context.Context) error
-	start      sync.Once
+	lastExpire  time.Time
+	sessions    map[uint32]*session
+	failed      map[string]*failures
+	actions     chan func(context.Context) error
+	events      chan Event
+	eventWorker sync.WaitGroup
+	start       sync.Once
 	// The last power command accepted, for Stats.
 	lastCommand   string
 	lastCommandAt time.Time
-	// Logins and lockouts for the server's notifications (events.go).
-	events   []Event
-	eventSeq uint64
 }
 
-// Stats is what the BMC settings page shows of the running daemon.
+// Stats is what the BMC settings page shows of the running IPMI service.
 type Stats struct {
 	// Sessions is the number of established, unexpired IPMI sessions.
 	Sessions int `json:"sessions"`
@@ -147,10 +152,9 @@ type Stats struct {
 	LastCommandAt time.Time `json:"lastCommandAt,omitzero"`
 }
 
-// Status is GET /status of the daemon's socket (pkg/bmc.IPMISocket), which
-// the server's BMC service reads for the settings page.
+// Status is what the BMC settings page shows while IPMI runs.
 type Status struct {
-	// Port is the UDP port the daemon listens on.
+	// Port is the UDP port IPMI listens on.
 	Port int `json:"port"`
 	Stats
 }
@@ -188,29 +192,77 @@ func (s *Server) init() {
 		s.actions = make(chan func(context.Context) error, 1)
 		go func() {
 			for action := range s.actions {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-				if err := action(ctx); err != nil && s.Log != nil {
-					s.Log("IPMI power action failed: %v", err)
-				}
-				cancel()
+				s.runAction(action)
 			}
 		}()
+		// Notifications in the order of the logins, one at a time.
+		s.events = make(chan Event, maxEvents)
+		s.eventWorker.Go(func() {
+			for e := range s.events {
+				s.notify(e)
+			}
+		})
 	})
 }
 
-// Serve answers on conn until it is closed.
+// runAction runs one accepted power action; a panic in it is logged and
+// the worker goes on with the next.
+func (s *Server) runAction(action func(context.Context) error) {
+	ctx, cancel := context.WithTimeout(s.base(), time.Minute)
+	defer cancel()
+	defer func() {
+		if r := recover(); r != nil {
+			s.logf("IPMI power action failed: %v", r)
+		}
+	}()
+	if err := action(ctx); err != nil {
+		s.logf("IPMI power action failed: %v", err)
+	}
+}
+
+func (s *Server) logf(format string, args ...any) {
+	if s.Log != nil {
+		s.Log(format, args...)
+	}
+}
+
+func (s *Server) base() context.Context {
+	if s.Context != nil {
+		return s.Context
+	}
+	return context.Background()
+}
+
+// Serve answers on conn until it is closed; a Server serves once. A packet
+// whose handling panics gets no answer, and the server goes on.
 func (s *Server) Serve(conn net.PacketConn) error {
 	s.init()
+	// No more power actions or events after the last packet: the workers
+	// end once they have handled those already accepted.
+	// Deliver pending events before a replacement listener starts reporting logins.
+	defer s.eventWorker.Wait()
+	defer close(s.events)
+	defer close(s.actions)
 	buf := make([]byte, 1024)
 	for {
 		n, addr, err := conn.ReadFrom(buf)
 		if err != nil {
 			return err
 		}
-		if reply := s.Handle(buf[:n], addr.String()); reply != nil {
+		if reply := s.handleSafe(buf[:n], addr.String()); reply != nil {
 			_, _ = conn.WriteTo(reply, addr)
 		}
 	}
+}
+
+func (s *Server) handleSafe(pkt []byte, addr string) (reply []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			s.logf("IPMI: packet from %s: %v", addr, r)
+			reply = nil
+		}
+	}()
+	return s.Handle(pkt, addr)
 }
 
 func rmcpHeader(class byte) []byte { return []byte{rmcpVersion, 0x00, 0xFF, class} }
@@ -745,7 +797,7 @@ func (s *Server) command(se *session, req request) []byte {
 	case req.netFn == netFnApp && req.cmd == 0x3C: // Close Session
 		return req.reply(ccOK)
 	case req.netFn == netFnChassis && req.cmd == 0x01: // Get Chassis Status
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(s.base(), 2*time.Second)
 		defer cancel()
 		on, known, err := s.Power.Status(ctx)
 		if err != nil || !known {
@@ -785,7 +837,7 @@ func (s *Server) chassisControl(se *session, req request) []byte {
 	default:
 		return req.reply(ccInvalidField)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(s.base(), 2*time.Second)
 	defer cancel()
 	power, reset, err := s.Power.Available(ctx)
 	if err != nil || !power || (req.data[0]&0x0F == 0x03 && !reset) {

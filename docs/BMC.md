@@ -86,22 +86,21 @@ curl -k -u 'admin:<password>' -H 'Content-Type: application/json' -d '{}' \
   - Redfish refuses a client for a minute after 5 failed logins. The client is the connection's address (for IPv6, its /64); an `X-Forwarded-For` header is ignored. Each attempt is counted before the password is compared, so parallel requests cannot get more guesses. Behind a reverse proxy of your own (nginx, Tailscale Serve), all clients share the proxy's address and its limit.
   - Redfish refuses state-changing requests that are not JSON (`Content-Type: application/json`) or that a browser marks as cross-site, so another web page cannot use credentials the browser has cached.
   - IPMI refuses a client for a minute after 20 logins in a minute, failed or not. A wrong password shows only on the client's side, and each login hands out a hash. The table of clients is bounded, since UDP addresses can be forged.
-- **Security notifications** (Settings > Notifications, Logins) cover both protocols, as the web login: a lockout, and a login from an address the BMC user has not logged in from before (`admin (Redfish)`, `admin (IPMI)`). The IPMI daemon keeps its last 32 events; the server reads them from the daemon's socket every 5 s while it runs. Events from before the server started are not reported. The IPMI limit counts all logins (see above), so it has its own message: login attempts limited, not failed logins.
+- **Security notifications** (Settings > Notifications, Logins) cover both protocols, as the web login: a lockout, and a login from an address the BMC user has not logged in from before (`admin (Redfish)`, `admin (IPMI)`). The IPMI limit counts all logins (see above), so it has its own message: login attempts limited, not failed logins.
 - **Power control does not wait for the browser's input control.** A fence agent must be able to switch the host off whoever holds the keyboard.
 
 ## How it works
 
 - **Redfish** runs in the web server itself, on its port and certificate: no extra process. A change of settings applies at once and ends the open Redfish sessions; fence agents log in for each action.
-- **IPMI** runs in its own daemon, `nkos-ipmi` (OpenRC service `nanokvm-ipmi`, about 1 MiB of its own memory).
-  - It runs only while IPMI is switched on: switching it on adds the service to the default runlevel and starts it, switching it off stops it and takes it out again.
-  - It is apart from the server so that a fault in parsing untrusted UDP packets cannot stop the server and its video.
-  - It listens on UDP 623 (configurable).
-  - It reaches the buttons through the server's loopback-only `/api/internal/atx`, which takes the internal token. It submits complete power operations, including a cycle’s wait and second press, and never opens a GPIO line itself.
+- **IPMI** runs in the web server too, as a UDP listener that exists only while IPMI is switched on.
+  - It listens on UDP 623 (configurable). A change of the account, port or hold restarts it and ends its sessions; other changes leave it alone.
+  - A packet whose handling fails is dropped and logged; the server and its video go on.
+  - It presses the buttons through the same power logic as Redfish, and never opens a GPIO line itself.
   - A power action is answered at once and then carried out, since a forced power-off holds the button for longer than `ipmitool` waits.
 - **BMC operations are exclusive:** Redfish and IPMI share a server-side guard for the whole operation. An overlapping BMC action fails as busy; Redfish returns HTTP 503. IPMI acknowledges queued commands before execution, so execution failures appear in the application log.
 - **The buttons and LEDs are the web page's:** the same GPIO lines, pulse lock and LED monitor.
 
-The daemon and its service come with the `nanokvm-base` package, which also provides the name `nanokvm-ipmi`. NanoKVM Lite has no ATX lines: power requests fail there, and Redfish omits `PowerState`.
+The `nanokvm-base` package provides the name `nanokvm-ipmi` of the former add-on. NanoKVM Lite has no ATX lines: power requests fail there, and Redfish omits `PowerState`.
 
 ## Trying it
 
@@ -114,4 +113,4 @@ ipmitool -I lanplus -H <device> -U admin -P '<password>' chassis power status
 
 ## Source and development
 
-The IPMI daemon is `server/cmd/nkos-ipmi`, with the protocol and its tests in `server/internal/ipmi`; the OS build builds it with the server's other helpers, and its OpenRC script is `firmware/alpine/openrc/nanokvm-ipmi`. Shared configuration, power operations and the internal ATX client live in `server/pkg/bmc`; Redfish stays in `server/internal/bmc/redfish`. Both protocols use the same shared BMC implementation.
+The IPMI protocol and its tests are in `server/internal/ipmi`, its listener in `server/service/bmc/ipmi.go`. Shared configuration and power operations live in `server/pkg/bmc`; Redfish stays in `server/internal/bmc/redfish`. Both protocols use the same shared BMC implementation.

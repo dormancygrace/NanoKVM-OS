@@ -14,9 +14,11 @@ STATE=/var/lib/nkos-safe-update        # on the root: rolls back with it
 RUN=/run/nkos-safe-update              # tmpfs: this boot only
 LOCK=/kvmapp/.os-update/lock           # the update lock NanoKVM-Server uses
 WDT=/dev/watchdog0
-HELD="nanokvm-kernel nanokvm-kernel-sg2002 nanokvm-kmod nanokvm-kmod-sg2002 nanokvm-bootloader nanokvm-bootloader-sg2002"
-TIMEOUT=${NKOS_SU_TIMEOUT:-900}        # confirm window, seconds
-SPARE=${NKOS_SU_SPARE:-20}             # % of the root F2FS may leave unusable while disabled
+HELD=${NKOS_SU_HELD:-"nanokvm-kernel nanokvm-kernel-sg2002 nanokvm-kmod nanokvm-kmod-sg2002 nanokvm-bootloader nanokvm-bootloader-sg2002"}
+APKOPTS=${NKOS_SU_APK_OPTS:-}          # extra apk options (tests: a local repository)
+TIMEOUT=${NKOS_SU_TIMEOUT:-900}        # confirm window, seconds, counted from when the update is applied
+APPLY_MAX=${NKOS_SU_APPLY_MAX:-1800}   # longest the transaction itself may take before the trial rolls back
+SPARE=${NKOS_SU_SPARE:-20}             # % of the root F2FS may hide at disable time instead of running GC
 FEED=5                                 # watchdog feed interval (hardware timeout is 30 s)
 GRACE=120                              # time a timeout reboot may take before feeding stops
 
@@ -30,6 +32,9 @@ history() { mkdir -p "$STATE" && echo "$(date -Iseconds) $*" >> "$STATE/history"
 get() { sed -n "s/^$1=//p" "$2" 2>/dev/null; }
 # shellcheck disable=SC2048,SC2086 # split the stored command line into words
 short() { set -- $*; if [ $# -gt 6 ]; then echo "$1 $2 $3 $4 $5 $6 ... ($# args)"; else echo "$*"; fi; }
+# shellcheck disable=SC2086 # APKOPTS holds several options
+apk_() { apk "$@" $APKOPTS; }
+boot_changed() { boot_hash > "$RUN/boot.now"; ! cmp -s "$RUN/boot.before" "$RUN/boot.now"; }
 boot_hash() { find /boot -type f ! -name '*.log' -exec sha256sum {} + 2>/dev/null | sort -k2; }
 
 held_in_plan() {
@@ -56,7 +61,7 @@ preflight() {
 
 guard() {
 	# Detached; holds the update lock (fd 9) and the watchdog (fd 3) for the whole window.
-	deadline=$1
+	# The deadline is re-read every round: start moves it when the update is applied.
 	echo $$ > "$RUN/guard.pid"
 	rc-service nanokvm-watchdog stop >/dev/null 2>&1 || pkill -TERM -x watchdog 2>/dev/null
 	i=0
@@ -76,7 +81,7 @@ guard() {
 			rc-service nanokvm-watchdog start >/dev/null 2>&1
 			exit 0
 		fi
-		if [ -z "$rebooting" ] && ! cp_disabled; then
+		if [ -z "$rebooting" ] && [ ! -e "$RUN/confirming" ] && ! cp_disabled; then
 			# Something else re-enabled checkpointing: the update is committed without a confirm.
 			printf V >&3; exec 3>&- 9>&-
 			history "WARNING trial $(get id "$STATE/pending") committed outside confirm (checkpointing re-enabled)"
@@ -86,7 +91,8 @@ guard() {
 			exit 0
 		fi
 		t=$(now)
-		if [ -z "$rebooting" ] && { [ "$t" -ge "$deadline" ] || [ -e "$RUN/rollback" ]; }; then
+		deadline=$(cat "$RUN/deadline" 2>/dev/null || echo 0)
+		if [ -z "$rebooting" ] && [ ! -e "$RUN/confirming" ] && { [ "$t" -ge "$deadline" ] || [ -e "$RUN/rollback" ]; }; then
 			rebooting=$t
 			echo rebooting > "$RUN/guard.state"
 			log "not confirmed; rebooting to roll back"
@@ -103,6 +109,8 @@ guard() {
 
 cmd_start() {
 	# Run the trial detached, so a dropped SSH session cannot interrupt apk.
+	# Never clear the run directory under a live trial: the guard reads its deadline there.
+	if [ -e "$STATE/pending" ] || cp_disabled; then die "a trial is already running or unresolved (see: nkos-safe-update status)"; fi
 	mkdir -p "$RUN" && rm -f "$RUN"/*
 	setsid "$0" __start "$@" < /dev/null > "$RUN/start.log" 2>&1 &
 	w=$!
@@ -111,9 +119,11 @@ cmd_start() {
 }
 
 worker_start() {
+	partial=
 	while [ $# -gt 0 ]; do
 		case "$1" in
 			-t|--timeout) TIMEOUT=$2; shift 2 ;;
+			--partial) partial=1; shift ;;
 			--) shift; break ;;
 			*) die "unknown option $1" ;;
 		esac
@@ -127,20 +137,24 @@ worker_start() {
 	exec 9>> "$LOCK"
 	flock -n 9 || die "another update operation is in progress"
 
-	apk update -q >/dev/null 2>&1
-	apk "$@" --simulate > "$RUN/plan" 2>&1 || { cat "$RUN/plan"; die "apk $* would fail; nothing changed"; }
+	apk_ update -q >/dev/null 2>&1
+	apk_ "$@" --simulate > "$RUN/plan" 2>&1 || { cat "$RUN/plan"; die "apk $* would fail; nothing changed"; }
 	held=$(held_in_plan "$RUN/plan")
 	[ -z "$held" ] || die "the plan changes $held (kernel/bootloader live on /boot and cannot roll back); update those separately"
-	if [ -n "$default" ] && apk upgrade --simulate > "$RUN/plan.all" 2>&1; then
-		held=$(held_in_plan "$RUN/plan.all" | tr '\n' ' ')
-		[ -z "$held" ] || log "not included: $held(they replace files on /boot and cannot roll back; install them separately and reboot)"
+	if [ -n "$default" ] && apk_ upgrade --simulate > "$RUN/plan.all" 2>&1; then
+		held=$(held_in_plan "$RUN/plan.all" | tr '\n' ' ' | sed 's/ *$//')
+		if [ -n "$held" ] && [ -z "$partial" ]; then
+			die "this update also changes $held. Those replace files on /boot and cannot roll back, and without them the rest is a partial upgrade. Run 'nkos-safe-update kernel' first (reboot afterwards), then start again; or add --partial to trial the rest on the current kernel."
+		fi
+		[ -z "$held" ] || log "partial upgrade: not included: $held"
 	fi
 	grep -qE '^\([ 0-9/]+\) ' "$RUN/plan" || { tail -1 "$RUN/plan"; log "nothing to do"; exit 0; }
 	cat "$RUN/plan"
 	boot_hash > "$RUN/boot.before"
 
 	id=$(date +%Y%m%d-%H%M%S)-$$
-	deadline=$(( $(now) + TIMEOUT ))
+	deadline=$(( $(now) + APPLY_MAX ))
+	echo "$deadline" > "$RUN/deadline"
 	# Committed before checkpointing stops: after a rollback, boot finds "pending" without "applied".
 	printf 'id=%s\nstarted=%s\ndeadline=%s\nboot=%s\napk=%s\n' "$id" "$(now)" "$deadline" "$(boot_id)" "$*" > "$STATE/pending"
 	sync
@@ -148,7 +162,7 @@ worker_start() {
 	cp_disabled || { rm -f "$STATE/pending"; sync; die "checkpointing did not stop"; }
 	log "trial $id: checkpointing disabled; confirm within $TIMEOUT s"
 
-	setsid "$0" __guard "$deadline" < /dev/null > "$RUN/guard.log" 2>&1 &
+	setsid "$0" __guard < /dev/null > "$RUN/guard.log" 2>&1 &
 	i=0; while [ "$(cat "$RUN/guard.state" 2>/dev/null)" != armed ]; do
 		i=$((i + 1)); sleep 1
 		if [ "$i" -ge 15 ] || [ "$(cat "$RUN/guard.state" 2>/dev/null)" = failed ]; then
@@ -158,17 +172,18 @@ worker_start() {
 	done
 	exec 9>&-                                   # the guard keeps the lock
 
-	apk "$@" 9>&-; rc=$?
+	apk_ "$@" 9>&-; rc=$?
 	if [ "$rc" -ne 0 ]; then
 		log "apk failed ($rc); rolling back"
 		touch "$RUN/rollback"; exit "$rc"
 	fi
-	boot_hash > "$RUN/boot.after"
-	if ! cmp -s "$RUN/boot.before" "$RUN/boot.after"; then
+	if boot_changed; then
 		log "WARNING: /boot changed during the trial and will NOT roll back:"
-		diff "$RUN/boot.before" "$RUN/boot.after" | sed -n 's/^[<>] /  /p'
+		diff "$RUN/boot.before" "$RUN/boot.now" | sed -n 's/^[<>] /  /p'
 	fi
 	echo "id=$id" > "$STATE/applied"            # only exists if the trial is committed
+	deadline=$(( $(now) + TIMEOUT ))
+	echo "$deadline" > "$RUN/deadline"          # the confirm window starts now
 	log "trial $id applied. Check the device, then run: nkos-safe-update confirm"
 	log "without a confirm it rolls back at $(date -d "@$deadline" '+%H:%M:%S' 2>/dev/null || echo "+$TIMEOUT s")"
 }
@@ -179,13 +194,34 @@ cmd_confirm() {
 	[ "$(get boot "$STATE/pending")" = "$(boot_id)" ] || die "the trial belongs to another boot"
 	cp_disabled || die "checkpointing is already enabled"
 	id=$(get id "$STATE/pending")
-	mount -o remount,checkpoint=enable / || die "cannot re-enable checkpointing; the trial stays uncommitted"
+	if boot_changed; then
+		log "WARNING: /boot changed during the trial (it does not roll back either way):"
+		diff "$RUN/boot.before" "$RUN/boot.now" | sed -n 's/^[<>] /  /p'
+	fi
+	touch "$RUN/confirming"                     # the guard must not take this for an outside commit
+	mount -o remount,checkpoint=enable / || { rm -f "$RUN/confirming"; die "cannot re-enable checkpointing; the trial stays uncommitted"; }
 	! cp_disabled || die "checkpointing is still disabled"
 	rm -f "$STATE/pending" "$STATE/applied"
 	history "confirmed $id"                     # syncs; the update is now permanent
 	touch "$RUN/confirmed"
 	i=0; while [ "$(cat "$RUN/guard.state" 2>/dev/null)" != disarmed ] && [ "$i" -lt 15 ]; do sleep 1; i=$((i + 1)); done
 	log "trial $id confirmed and committed ($(cat "$RUN/guard.state" 2>/dev/null))"
+}
+
+cmd_kernel() {
+	# The kernel step: outside any trial, not reversible. boot.prev is the fallback if the new image fails to load.
+	preflight
+	mkdir -p "${LOCK%/*}"; exec 9>> "$LOCK"; flock -n 9 || die "another update operation is in progress"
+	apk_ update -q >/dev/null 2>&1
+	apk_ upgrade --simulate > /tmp/nkos-su-kernel.plan 2>&1 || { cat /tmp/nkos-su-kernel.plan; die "apk upgrade would fail"; }
+	held=$(held_in_plan /tmp/nkos-su-kernel.plan | tr '\n' ' ' | sed 's/ *$//')
+	rm -f /tmp/nkos-su-kernel.plan
+	[ -n "$held" ] || { log "no kernel, kmod or bootloader updates"; exit 0; }
+	log "upgrading $held (not covered by rollback)"
+	# shellcheck disable=SC2086 # one argument per package
+	apk_ upgrade $held 9>&- || die "apk failed"
+	history "kernel step: $held"
+	log "done. Reboot now, check the device, then run: nkos-safe-update start"
 }
 
 cmd_rollback() {
@@ -209,9 +245,10 @@ cmd_boot() {
 cmd_status() {
 	echo "root: $(cp_disabled && echo "checkpointing DISABLED (trial)" || echo "checkpointing enabled")"
 	if [ -e "$STATE/pending" ]; then
-		d=$(get deadline "$STATE/pending")
+		d=$(cat "$RUN/deadline" 2>/dev/null || echo 0)
 		echo "trial: $(get id "$STATE/pending") $( [ -e "$STATE/applied" ] && echo applied || echo applying)," \
 			"rolls back in $(( d - $(now) )) s unless confirmed; guard: $(cat "$RUN/guard.state" 2>/dev/null || echo none)"
+		! boot_changed || echo "WARNING: /boot changed since the trial started"
 	else
 		echo "trial: none"
 	fi
@@ -222,9 +259,10 @@ case "${1:-}" in
 	start) shift; cmd_start "$@" ;;
 	confirm) cmd_confirm ;;
 	rollback) cmd_rollback ;;
+	kernel) cmd_kernel ;;
 	status) cmd_status ;;
 	boot) cmd_boot ;;
 	__start) shift; worker_start "$@" ;;
-	__guard) guard "$2" ;;
-	*) echo "usage: nkos-safe-update start [-t SECONDS] [-- APK ARGS] | confirm | rollback | status" >&2; exit 2 ;;
+	__guard) guard ;;
+	*) echo "usage: nkos-safe-update start [-t SECONDS] [--partial] [-- APK ARGS] | confirm | rollback | status | kernel" >&2; exit 2 ;;
 esac

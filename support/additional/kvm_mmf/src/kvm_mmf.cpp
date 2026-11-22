@@ -1846,6 +1846,13 @@ int mmf_del_vi_channel(int ch) {
  vpss_chn_max_fps[ch] = 0; // a reopened channel may feed video
  result = _destroy_vb_pool(priv.vi_chn_pool_id[ch]);
  if (result != CVI_SUCCESS) return result;
+ // The disabled channel forgets the destroyed pool. A reopen enables the
+ // channel before it attaches the new pool; with the old binding the driver
+ // would ask a dead pool for blocks, or another channel's pool that reused
+ // its id. Unbound, the channel starts as on its first open after boot.
+ // Detaching only changes the binding; it fails only without the group,
+ // which then holds no binding either.
+ (void)CVI_VPSS_DetachVbPool(0, ch);
  priv.vi_chn_pool_id[ch] = VB_INVALID_POOLID;
  priv.vi_pool_detached[ch] = priv.vi_pool_reclaimed[ch] = false;
  priv.vi_chn_is_inited[ch] = false;

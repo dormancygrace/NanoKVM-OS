@@ -75,17 +75,6 @@ func allGroups() []string {
 	return names
 }
 
-// uncovered are the groups that an archive covering these does not.
-func uncovered(covers []string) []string {
-	var names []string
-	for _, name := range allGroups() {
-		if !slices.Contains(covers, name) {
-			names = append(names, name)
-		}
-	}
-	return names
-}
-
 func validGroups(names []string) error {
 	seen := map[string]bool{}
 	for _, name := range names {

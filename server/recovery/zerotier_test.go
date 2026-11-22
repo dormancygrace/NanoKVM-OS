@@ -33,8 +33,9 @@ func TestZerotierStatePolicy(t *testing.T) {
 }
 
 // A backup made before ZeroTier was backed up says nothing about it: restoring
-// one keeps the device's identity and networks, in the plan and at boot. A
-// backup that covers ZeroTier restores its recorded state, even an empty one.
+// one keeps the device's identity and networks, in the plan and at boot, as
+// does a restore journal queued by an earlier release. A backup that covers
+// ZeroTier restores its recorded state, even an empty one.
 func TestZerotierStateSurvivesOlderBackups(t *testing.T) {
 	identity := "var/lib/zerotier-one/identity.secret"
 	legacy := Archive{Format: 1, Version: "3.4.0", Board: "PCIE", Created: time.Now(),
@@ -52,6 +53,11 @@ func TestZerotierStateSurvivesOlderBackups(t *testing.T) {
 		}
 		if err = e.Stage(plan); err != nil {
 			t.Fatal(err)
+		}
+		// Without coverage the journal has the shape of one queued by a
+		// release before groups existed: no covers field.
+		if journal := contents(t, e, PendingPath); strings.Contains(journal, `"covers"`) == !covered {
+			t.Fatalf("covered=%v: journal %s", covered, journal[:min(len(journal), 200)])
 		}
 		// Written after the preview: the boot pass takes inventory again.
 		network := "var/lib/zerotier-one/networks.d/8056c2e21c000001.conf"
@@ -71,8 +77,8 @@ func TestZerotierStateSurvivesOlderBackups(t *testing.T) {
 	if Validate(a) == nil {
 		t.Fatal("ZeroTier state accepted from an archive that does not cover it")
 	}
-	if p := (Plan{Options: Options{Action: "restore", Mode: "device"}, Keep: []string{"zerotier"},
-		Changes: []Change{{Path: identity}}}); validatePlan(p) == nil || !strings.Contains(validatePlan(p).Error(), "kept") {
-		t.Fatal("journal change in a kept group accepted")
+	if p := (Plan{Options: Options{Action: "restore", Mode: "device"},
+		Changes: []Change{{Path: identity}}}); validatePlan(p) == nil || !strings.Contains(validatePlan(p).Error(), "groups") {
+		t.Fatal("journal change outside its groups accepted")
 	}
 }

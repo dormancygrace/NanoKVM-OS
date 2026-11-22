@@ -50,6 +50,8 @@ std::pair<int, int> idle_status(const http::Request &request, bool touch);
 
 // Recent password confirmation (5 minutes).
 void mark_recent_auth(const http::Request &request);
+void mark_recent_auth_key(const std::string &session_key);
+bool recent_auth(const http::Request &request);
 
 // Ends every open session of username (streams, sockets) and runs the revoke hooks.
 void revoke_user_sessions(const std::string &username);

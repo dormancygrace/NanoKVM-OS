@@ -7,6 +7,7 @@
 #include "auth/password.hpp"
 #include "auth/session.hpp"
 #include "auth/store.hpp"
+#include "auth/totp.hpp"
 #include "common/log.hpp"
 #include "common/loop.hpp"
 #include "config/config.hpp"
@@ -14,6 +15,10 @@
 #include <glaze/glaze.hpp>
 
 #include <chrono>
+#include <ctime>
+#include <map>
+#include <openssl/crypto.h>
+#include <openssl/rand.h>
 #include <cstdio>
 #include <memory>
 #include <sys/wait.h>
@@ -115,6 +120,146 @@ std::optional<std::string> trimmed_field(const api::Params &p, const std::string
 	return p.string(name, ok);
 }
 
+// --- two-factor sign-in -----------------------------------------------------------------------------------------
+
+constexpr const char *totp_issuer = "NanoKVM";
+constexpr auto challenge_lifetime = 5min;
+constexpr int challenge_attempts = 5;
+constexpr size_t max_challenges = 256;
+constexpr auto setup_lifetime = 10min;
+constexpr const char *clock_error = "the device clock is not set; use a recovery code or set the date and time";
+
+using Clock = std::chrono::system_clock;
+
+struct Challenge {
+	std::string username;
+	std::uint64_t token_version;
+	std::string client;
+	Clock::time_point expires;
+	int attempts = 0;
+};
+std::map<std::string, Challenge> challenges;
+
+void prune_challenges(Clock::time_point now)
+{
+	for (auto it = challenges.begin(); it != challenges.end();)
+		it = now >= it->second.expires ? challenges.erase(it) : std::next(it);
+}
+
+std::optional<std::string> new_challenge(const User &user, const std::string &client)
+{
+	unsigned char raw[32];
+	if (RAND_bytes(raw, sizeof raw) != 1) return std::nullopt;
+	static const char hex[] = "0123456789abcdef";
+	std::string id;
+	for (unsigned char b : raw) id += hex[b >> 4], id += hex[b & 15];
+	auto now = Clock::now();
+	prune_challenges(now);
+	if (challenges.size() >= max_challenges) {
+		auto oldest = challenges.begin();
+		for (auto it = challenges.begin(); it != challenges.end(); ++it)
+			if (it->second.expires < oldest->second.expires) oldest = it;
+		challenges.erase(oldest);
+	}
+	challenges[id] = Challenge{user.username, user.token_version, client, now + challenge_lifetime, 0};
+	return id;
+}
+
+// takeChallengeAttempt: a copy of the challenge of id for client, counting the attempt.
+std::optional<Challenge> take_challenge(const std::string &id, const std::string &client)
+{
+	prune_challenges(Clock::now());
+	auto it = challenges.find(id);
+	if (it == challenges.end() || it->second.client.size() != client.size() ||
+	    CRYPTO_memcmp(it->second.client.data(), client.data(), client.size()) != 0)
+		return std::nullopt;
+	it->second.attempts++;
+	Challenge copy = it->second;
+	if (it->second.attempts >= challenge_attempts) challenges.erase(it);
+	return copy;
+}
+
+bool clock_plausible()
+{
+	std::time_t t = std::time(nullptr);
+	std::tm g{};
+	gmtime_r(&t, &g);
+	return g.tm_year + 1900 >= 2025;
+}
+
+void second_factor_failed(const std::shared_ptr<Call> &call, const std::string &username)
+{
+	if (auto refused = record_login_failure(call->client, username)) return fail(call, 2 * penalty, refused->code, refused->message);
+	if (!clock_plausible()) return fail(call, 2 * penalty, -7, clock_error);
+	fail(call, 2 * penalty, -2, totp::invalid_code);
+}
+
+void log_recovery(const std::string &username, bool recovery, int left)
+{
+	if (recovery) log::warn("user {} signed in with a recovery code; {} left", username, left);
+}
+
+struct ChallengeRsp {
+	std::string challenge;
+};
+
+// requireSecondFactor: with a code, the code; without, a challenge for /api/auth/login/totp.
+void require_second_factor(const std::shared_ptr<Call> &call, const User &user, const std::string &otp)
+{
+	if (!otp.empty()) {
+		bool recovery = false;
+		int left = 0;
+		std::string error;
+		auto verified = totp::verify(user.username, user.token_version, otp, std::time(nullptr), recovery, left, error);
+		if (!verified && error == totp::account_changed) return login_failed(call, user.username);
+		if (!verified) return second_factor_failed(call, user.username);
+		log_recovery(verified->username, recovery, left);
+		return finish_login(call, *verified);
+	}
+	auto id = new_challenge(user, call->client);
+	if (!id) return fail(call, 0ms, -3, "authentication unavailable");
+	std::string data;
+	(void)glz::write_json(ChallengeRsp{*id}, data);
+	api::send(call->response, -6, "authentication code required", data);
+	finish(call);
+}
+
+void login_totp(Request &req, Response &res)
+{
+	res.set_header("Cache-Control", "no-store");
+	res.set_header("Vary", "X-NanoKVM-Return-Token");
+	auto call = start(req, res);
+	call->response.headers = res.headers;
+	if (auto refused = check_login_attempt(call->client)) return fail(call, 3 * penalty, refused->code, refused->message);
+	bool ok = true;
+	auto params = api::Params::bind(req);
+	std::optional<std::string> challenge, otp;
+	if (params) {
+		challenge = params->string("challenge", ok);
+		otp = params->string("otp", ok);
+	}
+	if (!params || !ok || !challenge || challenge->empty() || !otp || otp->empty())
+		return fail(call, 3 * penalty, -1, "invalid parameters");
+	begin_login_attempt(call->client, [call, id = *challenge, otp = *otp](std::optional<Refusal> refused) {
+		if (refused) return fail(call, 3 * penalty, refused->code, refused->message);
+		release_login(call->client);
+		auto c = take_challenge(id, call->client);
+		if (!c) return fail(call, 2 * penalty, -8, "the login expired; sign in again");
+		bool recovery = false;
+		int left = 0;
+		std::string error;
+		auto user = totp::verify(c->username, c->token_version, otp, std::time(nullptr), recovery, left, error);
+		if (!user && error == totp::account_changed) {
+			challenges.erase(id);
+			return fail(call, 0ms, -8, "the login expired; sign in again");
+		}
+		if (!user) return second_factor_failed(call, c->username);
+		challenges.erase(id);
+		log_recovery(user->username, recovery, left);
+		finish_login(call, *user);
+	});
+}
+
 void login(Request &req, Response &res)
 {
 	res.set_header("Cache-Control", "no-store");
@@ -152,11 +297,7 @@ void login(Request &req, Response &res)
 					return fail(call, 2 * penalty, -3, "authentication unavailable");
 				}
 				if (!user) return login_failed(call, username);
-				if (user->totp) {
-					// Two-factor sign-in comes with the TOTP part of this family.
-					log::warn("user {} has two-factor authentication, not handled yet", user->username);
-					return fail(call, 2 * penalty, -3, "authentication unavailable");
-				}
+				if (user->totp) return require_second_factor(call, *user, otp);
 				finish_login(call, *user);
 			});
 		});
@@ -489,16 +630,174 @@ void change_user_password_route(Request &req, Response &res)
 	});
 }
 
+// --- TOTP setup and checks --------------------------------------------------------------------------------------
+
+struct PendingSetup {
+	std::string secret;
+	Clock::time_point expires;
+};
+std::map<std::string, PendingSetup> setups;
+
+struct TotpSetupRsp {
+	std::string secret;
+	std::string uri;
+};
+struct RecoveryCodesRsp {
+	std::vector<std::string> recoveryCodes;
+};
+
+void totp_setup(Request &req, Response &res)
+{
+	res.set_header("Cache-Control", "no-store");
+	std::string error;
+	auto user = store().get(req.auth->username, error);
+	if (!user) return api::err(res, -1, "invalid session");
+	if (user->totp) return api::err(res, -2, totp::already_enabled);
+	auto secret = totp::new_secret();
+	if (!secret) return api::err(res, -3, "cannot create a secret");
+	setups[req.auth->username] = PendingSetup{*secret, Clock::now() + setup_lifetime};
+	api::ok(res, TotpSetupRsp{*secret, totp::uri(totp_issuer, req.auth->username, *secret)});
+}
+
+void totp_enable(Request &req, Response &res)
+{
+	res.set_header("Cache-Control", "no-store");
+	bool ok = true;
+	auto params = api::Params::bind(req);
+	std::optional<std::string> otp;
+	if (params) otp = params->string("otp", ok);
+	if (!params || !ok || !otp || otp->empty()) return api::err(res, -1, "invalid parameters");
+	std::string username = req.auth->username;
+	auto it = setups.find(username);
+	if (it == setups.end() || Clock::now() >= it->second.expires) return api::err(res, -2, "start the setup again");
+	auto step = totp::match(it->second.secret, *otp, std::time(nullptr), 0);
+	if (step == 0) {
+		auto call = start(req, res);
+		return fail(call, penalty, clock_plausible() ? -3 : -7, clock_plausible() ? totp::invalid_code : clock_error);
+	}
+	std::vector<std::string> codes, hashes;
+	if (!totp::new_recovery_codes(codes, hashes)) return api::err(res, -4, "cannot create recovery codes");
+	std::string error;
+	if (!totp::enable(username, it->second.secret, step, hashes, error)) return api::err(res, -4, error);
+	setups.erase(username);
+	log::info("two-factor authentication enabled for user: {}", username);
+	api::ok(res, RecoveryCodesRsp{codes});
+}
+
+// checkCredentials: the signed-in account's password and, when required (or the account has TOTP), its second
+// factor; then done(call, username). Errors answer the request.
+void check_credentials(Request &req, Response &res, bool otp_required, bool require_second_factor,
+                       std::function<void(const std::shared_ptr<Call> &, const std::string &)> done)
+{
+	bool ok = true;
+	auto params = api::Params::bind(req);
+	std::optional<std::string> password, encoding, otp;
+	if (params) {
+		password = params->string("password", ok);
+		encoding = params->string("passwordEncoding", ok);
+		otp = params->string("otp", ok);
+	}
+	if (!params || !ok || !password || password->empty() || (otp_required && (!otp || otp->empty())))
+		return api::err(res, -1, "invalid parameters");
+	if (!req.auth) return api::err(res, -1, "invalid session");
+	auto plain = decode_credential(*password, encoding.value_or(""));
+	if (!plain || plain->empty()) return api::err(res, -1, "invalid parameters");
+	auto call = start(req, res);
+	std::string username = req.auth->username;
+	begin_login_attempt(call->client, [call, username, plain = *plain, code = otp.value_or(""), require_second_factor,
+	                                   done](std::optional<Refusal> refused) {
+		if (refused) return fail(call, 3 * penalty, refused->code, refused->message);
+		loop::work([call, username, plain, code, require_second_factor, done] {
+			std::string error;
+			auto account = store().authenticate(username, plain, error);
+			loop::post([call, username, account, error, code, require_second_factor, done] {
+				release_login(call->client);
+				if (!error.empty()) return fail(call, 0ms, -4, "authentication unavailable");
+				if (!account) {
+					if (auto r = record_login_failure(call->client, username)) return fail(call, 2 * penalty, r->code, r->message);
+					return fail(call, 2 * penalty, -3, "current password is incorrect");
+				}
+				if (!require_second_factor && !account->totp) return done(call, username);
+				bool recovery = false;
+				int left = 0;
+				std::string verify_error;
+				auto verified = totp::verify(username, account->token_version, code, std::time(nullptr), recovery, left, verify_error);
+				if (!verified && verify_error == totp::account_changed) return fail(call, 0ms, -3, "current password is incorrect");
+				if (!verified && verify_error == totp::not_enabled) return fail(call, 0ms, -5, totp::not_enabled);
+				if (!verified) return second_factor_failed(call, username);
+				log_recovery(username, recovery, left);
+				done(call, username);
+			});
+		});
+	});
+}
+
+struct RecheckRsp {
+	bool fresh = false;
+	bool totp = false;
+};
+
+void recheck_state(Request &req, Response &res)
+{
+	std::string error;
+	auto account = store().get(req.auth->username, error);
+	if (!account) return api::err(res, -4, "authentication unavailable");
+	api::ok(res, RecheckRsp{recent_auth(req), account->totp.has_value()});
+}
+
+void reset_user_totp(Request &req, Response &res)
+{
+	std::string username = req.param("username"), error;
+	if (req.auth && username == req.auth->username) return api::err(res, -1, "turn off your own two-factor authentication in your account");
+	auto user = store().get(username, error);
+	if (!user) return api::err(res, -2, error);
+	if (user->system_account) return api::err(res, -3, "the device owner must turn off its own two-factor authentication");
+	bool was = false;
+	if (!totp::disable(username, was, error)) return api::err(res, -4, error);
+	if (was) log::info("two-factor authentication reset for user {} by {}", username, req.auth ? req.auth->username : "");
+	api::ok(res);
+}
+
 } // namespace
 
 void add_routes(http::Router &r)
 {
 	r.add("POST", "/api/auth/login", login);
-	r.add("POST", "/api/auth/login/totp", [](Request &, Response &res) {
-		// No challenges exist until two-factor sign-in is ported.
+	r.add("POST", "/api/auth/login/totp", login_totp);
+	r.add("POST", "/api/auth/totp/setup", guarded(totp_setup));
+	r.add("POST", "/api/auth/totp/enable", guarded(totp_enable));
+	r.add("POST", "/api/auth/totp/disable", guarded([](Request &req, Response &res) {
+		check_credentials(req, res, true, true, [](const std::shared_ptr<Call> &call, const std::string &username) {
+			bool was = false;
+			std::string error;
+			if (!totp::disable(username, was, error)) return fail(call, 0ms, -6, error);
+			log::info("two-factor authentication disabled by user: {}", username);
+			api::ok(call->response);
+			finish(call);
+		});
+	}));
+	r.add("POST", "/api/auth/totp/recovery-codes", guarded([](Request &req, Response &res) {
 		res.set_header("Cache-Control", "no-store");
-		api::err(res, -8, "the login expired; sign in again");
-	});
+		check_credentials(req, res, true, true, [](const std::shared_ptr<Call> &call, const std::string &username) {
+			std::vector<std::string> codes, hashes;
+			std::string error = "cannot create recovery codes";
+			if (!totp::new_recovery_codes(codes, hashes) || !totp::replace_recovery_codes(username, hashes, error))
+				return fail(call, 0ms, -6, error);
+			log::info("recovery codes replaced for user: {}", username);
+			api::ok(call->response, RecoveryCodesRsp{codes});
+			finish(call);
+		});
+	}));
+	r.add("GET", "/api/auth/recheck", guarded(recheck_state));
+	r.add("POST", "/api/auth/recheck", guarded([](Request &req, Response &res) {
+		std::string session_key = req.auth ? req.auth->session_key : "";
+		bool has_token = req.auth && req.auth->has_token;
+		check_credentials(req, res, false, false, [session_key, has_token](const std::shared_ptr<Call> &call, const std::string &) {
+			if (has_token) mark_recent_auth_key(session_key);
+			api::ok(call->response);
+			finish(call);
+		});
+	}));
 	r.add("GET", "/api/auth/password", guarded(password_updated));
 	r.add("GET", "/api/auth/account", guarded(account));
 	r.add("POST", "/api/auth/password", guarded(change_password));
@@ -514,6 +813,7 @@ void add_routes(http::Router &r)
 	r.add("PUT", "/api/auth/users/:username", guarded(update_user, admin_recent));
 	r.add("DELETE", "/api/auth/users/:username", guarded(delete_user, admin_recent));
 	r.add("POST", "/api/auth/users/:username/password", guarded(change_user_password_route, admin_recent));
+	r.add("DELETE", "/api/auth/users/:username/totp", guarded(reset_user_totp, admin_recent));
 }
 
 } // namespace nkos::auth

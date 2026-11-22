@@ -39,6 +39,7 @@ add_executable(NanoKVM-Server
   src/auth/routes.cpp
   src/auth/session.cpp
   src/auth/store.cpp
+  src/auth/totp.cpp
   src/config/yaml.cpp
   src/config/config.cpp
   src/http/server.cpp

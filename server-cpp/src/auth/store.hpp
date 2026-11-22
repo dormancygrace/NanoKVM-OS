@@ -76,9 +76,10 @@ public:
 	                                 const std::function<std::optional<std::string>(const User &)> &expect,
 	                                 const std::function<std::optional<std::string>()> &after_commit, std::string &error);
 	std::optional<User> revoke(const std::string &username, std::string &error);
-	// Replaces the TOTP of a user under the lock (TOTP enable/disable/use); nullopt totp removes it.
-	std::optional<User> modify(const std::string &username, const std::function<std::optional<std::string>(User &)> &change,
-	                           std::string &error);
+	// Changes a user under the lock; change sets save when the file must be written. An error from change is
+	// returned as is (TOTP enable/disable/use, revocation).
+	std::optional<User> modify(const std::string &username,
+	                           const std::function<std::optional<std::string>(User &, bool &save)> &change, std::string &error);
 
 private:
 	struct Database {

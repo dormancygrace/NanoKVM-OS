@@ -447,22 +447,24 @@ std::optional<User> Store::set_password(const std::string &username, const std::
 
 std::optional<User> Store::revoke(const std::string &username, std::string &error)
 {
-	return modify(username, [](User &u) -> std::optional<std::string> {
+	return modify(username, [](User &u, bool &save) -> std::optional<std::string> {
 		u.token_version++;
+		save = true;
 		return std::nullopt;
 	}, error);
 }
 
-std::optional<User> Store::modify(const std::string &username, const std::function<std::optional<std::string>(User &)> &change,
-                                  std::string &error)
+std::optional<User> Store::modify(const std::string &username,
+                                  const std::function<std::optional<std::string>(User &, bool &save)> &change, std::string &error)
 {
 	std::lock_guard lock(mutex_);
 	auto db = load(true, error);
 	if (!db) return std::nullopt;
 	int i = index_of(db->users, username);
 	if (i < 0) return error = errors::user_not_found, std::nullopt;
-	if (auto e = change(db->users[static_cast<size_t>(i)])) return error = *e, std::nullopt;
-	if (!save(*db, error)) return std::nullopt;
+	bool write = false;
+	if (auto e = change(db->users[static_cast<size_t>(i)], write)) return error = *e, std::nullopt;
+	if (write && !save(*db, error)) return std::nullopt;
 	return db->users[static_cast<size_t>(i)];
 }
 

@@ -213,6 +213,8 @@ constexpr auto recent_window = std::chrono::minutes(5);
 std::map<std::string, TimePoint> recent;
 std::vector<std::function<void(const std::string &)>> revoke_hooks;
 
+} // namespace
+
 bool recent_auth(const http::Request &request)
 {
 	if (!request.auth) return false;
@@ -220,6 +222,8 @@ bool recent_auth(const http::Request &request)
 	auto it = recent.find(request.auth->session_key);
 	return it != recent.end() && Clock::now() - it->second < recent_window;
 }
+
+namespace {
 
 // passwordChangeRoutes.
 bool password_change_route(const http::Request &r)
@@ -431,10 +435,15 @@ std::pair<int, int> idle_status(const http::Request &request, bool touch)
 void mark_recent_auth(const http::Request &request)
 {
 	if (!request.auth || !request.auth->has_token) return;
+	mark_recent_auth_key(request.auth->session_key);
+}
+
+void mark_recent_auth_key(const std::string &session_key)
+{
 	auto now = Clock::now();
 	for (auto it = recent.begin(); it != recent.end();)
 		it = now - it->second >= recent_window ? recent.erase(it) : std::next(it);
-	recent[request.auth->session_key] = now;
+	recent[session_key] = now;
 }
 
 void revoke_user_sessions(const std::string &username)

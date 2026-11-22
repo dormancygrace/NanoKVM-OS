@@ -126,7 +126,6 @@ unset udev_trigger udev_default
 for service in devfs procfs sysfs loopback hostname sysctl osclock udev-trigger; do
     conf=/etc/conf.d/$service
     if ! grep -q '^[[:space:]]*rc_keyword=' "$conf" 2>/dev/null; then
-        mkdir -p /etc/conf.d
         printf '\n%s\n' 'rc_keyword="-shutdown"' >> "$conf"
     fi
 done

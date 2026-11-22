@@ -63,12 +63,18 @@ nkos-safe-update status
 nkos-safe-update confirm
 nkos-safe-update rollback      # reboot now and discard the trial
 nkos-safe-update kernel        # upgrade only kernel, kmod and bootloader packages (no trial), then reboot
+nkos-safe-update kernel-trial [-t SECONDS] [-- APK ARGS]   # whole-system trial: boot a trial kernel once, update inside it
 ```
 
 `-t` sets the confirm window (default 900 s, minimum 60 s). The trial runs detached, so a dropped SSH session
 doesn't interrupt apk.
 
-Install with `sh install.sh`, outside a trial. It installs `/usr/sbin/nkos-safe-update` and the boot service.
+Install with `sh install.sh`, outside a trial. It installs:
+- `/usr/sbin/nkos-safe-update`;
+- the boot service;
+- the kernel-trial files in `/usr/lib/nkos-safe-update`: two initramfs fragments and their `boot.its`.
+
+`kernel-trial` also needs `apk add u-boot-tools dtc lz4`.
 
 ## Kernel updates
 
@@ -87,11 +93,53 @@ this order:
    - The current userspace keeps running on the new kernel.
 2. `nkos-safe-update start`: a normal trial of the rest, on the kernel it will run on.
 
-`--partial` overrides the refusal.
+`--partial` overrides the refusal. `kernel-trial` (below) covers the kernel too.
 
-A true kernel trial, one that also covers a kernel that boots and then hangs, needs a U-Boot change: for
-example, a `boot.once` image that the bootcmd deletes (`fatrm`) before `bootm`, so the next boot falls back to
-`boot.sd`.
+## Whole-system trial (`kernel-trial`)
+
+This covers the kernel, its modules and userspace together, using the existing U-Boot. The bootcmd tries
+`boot.sd`, then `boot.prev`, then resets; it has done so since 2026-10-23, bootloader 4.x.
+
+1. **Prepare**, on the running system:
+   - compose the board image from the kernel payload with their `compose-fit`;
+   - unpack its FIT and initramfs;
+   - insert two blocks into their `/init` (`ktrial-demote.sh`, `ktrial-watch.sh`) plus a trial id file;
+   - repack with lz4 legacy and `mkimage`, using their `boot.its`;
+   - check that kernel and device-tree bytes are identical and the structure matches.
+
+   It then:
+   - makes `boot.prev` a checked copy of the running `boot.sd`;
+   - writes the root record (committed) and then `/boot/nkos-ktrial.armed`;
+   - writes the trial image as `boot.sd` (via `.new` and a check on the card);
+   - reboots.
+2. **Boot-once:** early in the trial image's `/init`, and only when the armed marker carries the image's own
+   trial id, it renames `boot.sd` to `nkos-ktrial.sd` and the marker to `.running`. From then on, any reset
+   boots `boot.prev`, the old kernel. Without a matching marker, the init is their stock init.
+3. **Watcher:** just before `switch_root`, the init forks a shell that uses builtins only.
+   - It owns `/dev/watchdog0` and keeps feeding it only while userspace keeps its promises: checking in within
+     300 s, then meeting the deadline the guard writes to `/dev/.nkos-ktrial` (plus 120 s for a graceful reboot).
+   - After that it stops feeding, and the board resets onto `boot.prev`.
+4. **Trial boot:** the boot service checks in and starts a normal package trial (checkpointing disabled), with
+   the watcher instead of the guard owning the watchdog.
+5. **`confirm`:** commits the root, then installs the boot image with NanoKVM OS's `activate-kernel`.
+   `boot.sd` becomes their stock image of the installed kernel, and `boot.prev` stays the image the device ran
+   before. The watcher then disarms.
+6. **Any other ending** (timeout, power loss, hang, a killed watcher, no check-in): the next boot is `boot.prev`
+   with the root as it was.
+   - The boot service sees the markers, restores `boot.sd` with `activate-kernel`, and records the rollback.
+   - If power is lost between the two confirm steps, it sees "committed" instead and finishes installing the
+     boot image.
+
+**Gaps:**
+- **A kernel that dies before `/init` runs** boots the same image again after the panic reset, a loop that
+  needs a card reader to fix (delete `boot.sd`). Closing it needs U-Boot: for example, a `boot.once` that the
+  bootcmd deletes (`fatrm`) before `bootm`, falling back to `boot.sd`.
+- **A kernel-package upgrade inside the trial** runs `activate-kernel`, which writes `boot.sd`. The tool moves
+  that file aside until confirm, but NanoKVM OS should offer a way to skip activation during a trial.
+- **A new kernel payload has to be fetched and extracted** before `prepare`. The prototype uses the installed
+  payload (`NKOS_SU_PAYLOAD` overrides it).
+- **Each kernel release presumably gets its own `/lib/modules` directory,** which this design relies on. That
+  is unverified.
 
 ## Other limits
 
@@ -104,7 +152,7 @@ example, a `boot.once` image that the bootcmd deletes (`fatrm`) before `bootm`, 
   the trial rolls back, with a reboot.
 - **This kernel has no magic SysRq.** Hard paths therefore rely on the watchdog.
 
-## Test record
+## Test record: package trials
 
 Hardware: a NanoKVM Cube (beta board) on NanoKVM OS 4.2.1 (kernel 7.3.4), apk-tools 3.0.9, migrated from
 stock (7728 MiB root). "Scratch image" means an F2FS loop image on `/data`, not the root.
@@ -138,6 +186,24 @@ stock (7728 MiB root). "Scratch image" means an F2FS loop image on `/data`, not 
 versions and the network-breaking package. `tests/manifest.sh` hashes the whole root, for the byte-exact
 comparisons. The kernel-order test used a similar set built by hand. The overrides `NKOS_SU_HELD` and
 `NKOS_SU_APK_OPTS` point the tool at such a set.
+
+## Test record: kernel trials
+
+Same Cube. Only kernel 4.2.0 is published (stable and beta), so every "new kernel" was the same kernel and
+device tree in a rebuilt image with the trial initramfs. These tests exercise the mechanism, not a real kernel
+change.
+
+| Test | Result |
+| --- | --- |
+| `boot.sd` with 4 corrupted kernel bytes, good `boot.prev` | U-Boot booted `boot.prev` (28 s); `activate-kernel` restored `boot.sd`, and a second run wrote nothing |
+| Built trial image (`NKOS_SU_BUILD_ONLY=1`) | kernel and dtb byte-identical; same configuration name; `/init` differs from theirs only by the two blocks |
+| Trial (demo 1→2), `confirm`, normal reboot | trial boot demoted itself; watcher armed; check-in; package trial applied. Confirm: `boot.sd` and `boot.prev` match their records, trial files gone, watcher disarmed, watchdog daemon back; persisted |
+| Trial, no confirm (60 s window) | guard rebooted at the deadline; `boot.prev` booted; root rolled back; `boot.sd` restored; both rollbacks in the history |
+| `kill -9` of the initramfs watcher | reset about 49 s later; rolled back |
+| Userspace never checks in (boot service disabled, 120 s limit) | watcher stopped feeding at 120 s; reset; `boot.prev` booted with markers left; running the boot step restored `boot.sd` |
+| `reboot -n -f` at step 90/165 of a 165-package reinstall in the trial boot | rolled back; no `.apk.*` leftovers; no F2FS errors |
+| Power cut between the two confirm steps (test hook) | `boot.prev` booted with the committed root; the boot service finished installing `boot.sd` |
+| Package-trial regression on the final script: confirm, timeout, guard `kill -9` | all as before |
 
 **Not tested yet:**
 - a physical power pull during a trial, as opposed to `reboot -n -f`;

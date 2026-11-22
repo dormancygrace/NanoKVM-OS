@@ -285,9 +285,16 @@ readiness, the kernel-trial record and promotion. So these were re-run on the de
 | Kernel trial, no confirm (60 s) | rolled back; `boot.sd` restored and verified; both rollbacks in the history |
 | `tests/mkrepo.sh` on an existing repository | refused |
 
-The second review round (atomic decision file, `guard_step`, confirm deadline, boot service) was verified with
-the 37 host checks. A device re-run of the confirm, timeout and kernel-trial paths for that round is still to
-be done.
+Second review round (atomic decision file, `guard_step`, confirm deadline, boot service): the 37 host checks,
+plus these on the device:
+
+| Test | Result |
+| --- | --- |
+| Trial, `confirm` | committed; decision file `confirm <uptime>`; watchdog daemon back |
+| `rc-service nkos-safe-update restart` during a trial | trial untouched: `pending`/`applied` kept, same deadline, same guard; confirm afterwards works |
+| `confirm` at uptime = deadline, before the guard's next round (no decision yet) | refused ("the confirm window has closed"); nothing committed; rolled back |
+| Kernel trial, service restart in the trial boot, `confirm`, normal reboot | no second worker, same deadline and guard; committed; `boot.sd` installed and verified; persisted |
+| Kernel trial, no confirm (60 s) | rolled back; `boot.sd` restored and verified; boot service `started` |
 
 **Not tested yet:**
 - a physical power pull during a trial, as opposed to `reboot -n -f`;

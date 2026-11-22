@@ -2,11 +2,13 @@
 
 #include "common/log.hpp"
 #include "common/loop.hpp"
+#include "http/websocket.hpp"
 
 #include <libwebsockets.h>
 #include <openssl/ssl.h>
 
 #include <algorithm>
+#include <chrono>
 #include <arpa/inet.h>
 #include <csignal>
 #include <cstdlib>
@@ -47,7 +49,84 @@ struct Session {
 
 struct Pss {
 	Session *session;
+	WebSocket *ws;                         // an established WebSocket
+	std::shared_ptr<WsHandler> *upgrade;   // the handler of an accepted upgrade, until it is established
+	Request *upgrade_request;
 };
+
+static_assert(LWS_PRE <= websocket_headroom, "the message headroom must hold the WebSocket header");
+
+using SteadyClock = std::chrono::steady_clock;
+constexpr auto ping_period = std::chrono::seconds(15);
+constexpr auto pong_wait = std::chrono::seconds(30);
+
+std::map<std::uint64_t, WebSocket *> sockets;
+std::uint64_t next_socket_id = 1;
+bool ticking = false;
+
+// Pings and read timeouts of the WebSockets, once a second while there are any.
+void tick()
+{
+	if (sockets.empty()) {
+		ticking = false;
+		return;
+	}
+	auto now = SteadyClock::now();
+	for (auto &[id, ws] : sockets) {
+		if (now - ws->last_rx_ > pong_wait) {
+			lws_set_timeout(ws->wsi_, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
+			continue;
+		}
+		if (now - ws->last_ping_ >= ping_period) {
+			ws->last_ping_ = now;
+			ws->ping_due_ = true;
+			lws_callback_on_writable(ws->wsi_);
+		}
+	}
+	loop::after(std::chrono::seconds(1), tick);
+}
+
+void drop_upgrade(Pss *pss)
+{
+	delete pss->upgrade;
+	pss->upgrade = nullptr;
+	delete pss->upgrade_request;
+	pss->upgrade_request = nullptr;
+}
+
+int write_ws(lws *wsi, WebSocket &ws)
+{
+	// Messages queued before close() still go out first (the probe's instance message); the handler is not asked.
+	if (ws.closing_ && ws.queue_.empty()) {
+		lws_close_reason(wsi, static_cast<lws_close_status>(ws.close_code_),
+		                 reinterpret_cast<unsigned char *>(ws.close_reason_.data()), ws.close_reason_.size());
+		return -1;
+	}
+	if (ws.ping_due_ && !ws.closing_) {
+		ws.ping_due_ = false;
+		unsigned char buf[LWS_PRE + 1];
+		if (lws_write(wsi, buf + LWS_PRE, 0, LWS_WRITE_PING) < 0) return -1;
+		lws_callback_on_writable(wsi);
+		return 0;
+	}
+	std::optional<Message> m;
+	if (!ws.queue_.empty()) {
+		m = std::move(ws.queue_.front());
+		ws.queue_.pop_front();
+	} else {
+		m = ws.handler_->next(ws);
+		if (ws.closing_) return write_ws(wsi, ws);
+	}
+	if (!m) return 0;
+	if (lws_write(wsi, m->storage->data() + m->offset, m->size, m->binary ? LWS_WRITE_BINARY : LWS_WRITE_TEXT) < 0)
+		return -1;
+	lws_callback_on_writable(wsi);
+	return 0;
+}
+
+// Descriptors watched with watch_fd.
+std::map<int, std::function<void()>> watched;
+lws_vhost *serving_vhost;
 
 // The open requests by id, for complete(): a pending request is answered while its connection exists.
 std::map<std::uint64_t, std::pair<lws *, Session *>> open_requests;
@@ -298,6 +377,79 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 	case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
 		loop::drain();
 		return 0;
+	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION: {
+		auto *vd = static_cast<VhostData *>(lws_get_vhost_user(lws_get_vhost(wsi)));
+		if (!vd || !pss || vd->role != Role::serve) return 1;
+		drop_upgrade(pss);
+		auto request = std::make_unique<Request>();
+		const char *uri = nullptr;
+		int uri_len = 0;
+		if (lws_http_get_uri_and_method(wsi, const_cast<char **>(&uri), &uri_len) < 0 || !uri) return 1;
+		request->wsi = wsi;
+		request->method = "GET";
+		request->path.assign(uri, static_cast<size_t>(uri_len));
+		request->query = query_of(wsi);
+		request->tls = lws_is_ssl(wsi);
+		request->peer = peer_address(wsi);
+		Response refusal;
+		auto handler = vd->router->dispatch_ws(*request, refusal);
+		if (!handler) {
+			log::debug("websocket {} refused: {} {}", request->path, refusal.status, refusal.body);
+			return 1;
+		}
+		pss->upgrade = new std::shared_ptr<WsHandler>(std::move(handler));
+		pss->upgrade_request = request.release();
+		return 0;
+	}
+	case LWS_CALLBACK_ESTABLISHED: {
+		if (!pss || !pss->upgrade) return -1;
+		forget(pss);
+		auto *ws = new WebSocket(wsi, std::move(*pss->upgrade_request), std::move(*pss->upgrade));
+		drop_upgrade(pss);
+		ws->request_.wsi = nullptr;  // the upgrade request's headers are gone; only its values remain
+		pss->ws = ws;
+		sockets[ws->id_] = ws;
+		if (!ticking) {
+			ticking = true;
+			loop::after(std::chrono::seconds(1), tick);
+		}
+		ws->handler_->opened(*ws);
+		return 0;
+	}
+	case LWS_CALLBACK_RECEIVE: {
+		if (!pss || !pss->ws) return -1;
+		WebSocket &ws = *pss->ws;
+		ws.last_rx_ = SteadyClock::now();
+		if (lws_is_first_fragment(wsi)) ws.partial_.clear();
+		if (ws.partial_.size() + len > ws.max_message) {
+			lws_close_reason(wsi, LWS_CLOSE_STATUS_MESSAGE_TOO_LARGE, nullptr, 0);
+			return -1;
+		}
+		ws.partial_.append(static_cast<const char *>(in), len);
+		if (lws_is_final_fragment(wsi) && !ws.closing_) {
+			std::string data = std::move(ws.partial_);
+			ws.partial_.clear();
+			ws.handler_->received(ws, data, lws_frame_is_binary(wsi));
+		}
+		return 0;
+	}
+	case LWS_CALLBACK_RECEIVE_PONG:
+		if (pss && pss->ws) pss->ws->last_rx_ = SteadyClock::now();
+		return 0;
+	case LWS_CALLBACK_SERVER_WRITEABLE:
+		if (!pss || !pss->ws) return 0;
+		return write_ws(wsi, *pss->ws);
+	case LWS_CALLBACK_CLOSED:
+		if (pss && pss->ws) {
+			WebSocket *ws = pss->ws;
+			pss->ws = nullptr;
+			sockets.erase(ws->id_);
+			ws->handler_->closed(*ws);
+			delete ws;
+		}
+		if (pss) drop_upgrade(pss);
+		forget(pss);
+		return 0;
 	case LWS_CALLBACK_HTTP_BODY:
 		if (pss && pss->session && pss->session->body_expected) {
 			// Bodies of the routes in this skeleton are small; streaming bodies come with uploads.
@@ -324,6 +476,7 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 	case LWS_CALLBACK_HTTP_DROP_PROTOCOL:
 	case LWS_CALLBACK_CLOSED_HTTP:
 		forget(pss);
+		if (pss) drop_upgrade(pss);
 		return 0;
 	default:
 		break;
@@ -331,12 +484,81 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 	return lws_callback_http_dummy(wsi, reason, user, in, len);
 }
 
+int fd_callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
+{
+	switch (reason) {
+	case LWS_CALLBACK_RAW_RX_FILE: {
+		auto it = watched.find(lws_get_socket_fd(wsi));
+		if (it != watched.end()) it->second();
+		return 0;
+	}
+	case LWS_CALLBACK_RAW_CLOSE_FILE:
+		watched.erase(lws_get_socket_fd(wsi));
+		return 0;
+	default:
+		return lws_callback_http_dummy(wsi, reason, user, in, len);
+	}
+}
+
 lws_protocols protocols[] = {
 	{"http", callback, sizeof(Pss), 0, 0, nullptr, 0},
+	{"nkos-fd", fd_callback, 0, 0, 0, nullptr, 0},
 	LWS_PROTOCOL_LIST_TERM,
 };
 
 } // namespace
+
+Message make_message(std::string_view data, bool binary)
+{
+	Message m;
+	m.storage = std::make_shared<std::vector<unsigned char>>(websocket_headroom + data.size());
+	std::memcpy(m.storage->data() + websocket_headroom, data.data(), data.size());
+	m.offset = websocket_headroom;
+	m.size = data.size();
+	m.binary = binary;
+	return m;
+}
+
+WebSocket::WebSocket(lws *wsi, Request request, std::shared_ptr<WsHandler> handler)
+	: wsi_(wsi), request_(std::move(request)), handler_(std::move(handler)), id_(next_socket_id++),
+	  last_rx_(SteadyClock::now()), last_ping_(SteadyClock::now())
+{
+}
+
+void WebSocket::send(Message message)
+{
+	if (closing_) return;
+	queue_.push_back(std::move(message));
+	lws_callback_on_writable(wsi_);
+}
+
+void WebSocket::wake()
+{
+	if (!closing_) lws_callback_on_writable(wsi_);
+}
+
+void WebSocket::close(int code, std::string reason)
+{
+	if (closing_) return;
+	closing_ = true;
+	close_code_ = code;
+	close_reason_ = std::move(reason);
+	if (close_reason_.size() > 123) close_reason_.resize(123);
+	lws_callback_on_writable(wsi_);
+}
+
+bool watch_fd(int fd, std::function<void()> on_readable)
+{
+	if (!serving_vhost) return false;
+	watched[fd] = std::move(on_readable);
+	lws_sock_file_fd_type desc{};
+	desc.filefd = fd;
+	if (!lws_adopt_descriptor_vhost(serving_vhost, LWS_ADOPT_RAW_FILE_DESC, desc, "nkos-fd", nullptr)) {
+		watched.erase(fd);
+		return false;
+	}
+	return true;
+}
 
 void complete(std::uint64_t id, Response response)
 {
@@ -350,7 +572,7 @@ void complete(std::uint64_t id, Response response)
 	});
 }
 
-int run(const config::Config &config, const Router &router)
+int run(const config::Config &config, const Router &router, std::function<void()> on_ready, std::function<void()> on_stop)
 {
 	lws_set_log_level(LLL_ERR | LLL_WARN, nullptr);
 	lws_context_creation_info info{};
@@ -387,7 +609,8 @@ int run(const config::Config &config, const Router &router)
 		v.tls1_3_plus_cipher_list = "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384";
 		v.ssl_options_set = SSL_OP_CIPHER_SERVER_PREFERENCE;
 		v.timeout_secs = 15;  // ReadHeaderTimeout
-		if (!lws_create_vhost(context, &v)) {
+		serving_vhost = lws_create_vhost(context, &v);
+		if (!serving_vhost) {
 			log::error("cannot listen on HTTPS port {}", config.port.https);
 			lws_context_destroy(context);
 			return 1;
@@ -401,18 +624,23 @@ int run(const config::Config &config, const Router &router)
 	h.protocols = protocols;
 	h.user = https ? &redirect : &serve;
 	h.timeout_secs = 15;
-	if (!lws_create_vhost(context, &h)) {
+	lws_vhost *http_vhost = lws_create_vhost(context, &h);
+	if (!https) serving_vhost = http_vhost;
+	if (!http_vhost) {
 		log::error("cannot listen on HTTP port {}", config.port.http);
 		lws_context_destroy(context);
 		return 1;
 	}
 	log::info("HTTP listening on port {}{}", config.port.http, https ? " (redirects to HTTPS)" : "");
 
+	if (on_ready) on_ready();
 	while (!stopping)
 		if (lws_service(context, 0) < 0) break;
+	if (on_stop) on_stop();
 	loop::detach();
 	lws_context_destroy(context);
 	context = nullptr;
+	serving_vhost = nullptr;
 	log::info("server stopped");
 	return 0;
 }

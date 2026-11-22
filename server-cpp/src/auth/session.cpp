@@ -3,6 +3,7 @@
 #include "api/response.hpp"
 #include "auth/store.hpp"
 #include "common/log.hpp"
+#include "common/loop.hpp"
 #include "config/config.hpp"
 
 #include <arpa/inet.h>
@@ -446,9 +447,201 @@ void mark_recent_auth_key(const std::string &session_key)
 	recent[session_key] = now;
 }
 
+// --- WebSockets: origin, guard, session registry -------------------------------------------------------------------
+
+namespace {
+
+struct OpenSession {
+	std::string username;
+	std::uint64_t token_version = 0;
+	bool has_token = false;
+	std::string idle_key;
+	std::int64_t issued = 0, expires = 0;
+	bool stream = false;
+	http::WebSocket *ws = nullptr;
+};
+
+constexpr auto recheck_interval = std::chrono::seconds(5);
+std::map<std::uint64_t, OpenSession> open_sessions;
+bool rechecking = false;
+
+void end_session(http::WebSocket *ws) { ws->close(session_revoked_close_code, "session expired or revoked"); }
+
+// Every session whose token the store no longer accepts, or whose idle limit is over, ends; the store is asked
+// once per distinct token. It catches what revoke_user_sessions does not: an account file reset or edited.
+void recheck()
+{
+	if (open_sessions.empty()) {
+		rechecking = false;
+		return;
+	}
+	std::map<std::pair<std::string, std::uint64_t>, bool> valid;
+	auto now = Clock::now();
+	std::vector<http::WebSocket *> ended;
+	for (auto &[id, s] : open_sessions) {
+		if (s.stream && !s.idle_key.empty()) {
+			TimePoint issued = s.issued ? from_seconds(s.issued) : TimePoint{};
+			if (!idle_state(s.idle_key, issued, from_seconds(s.expires), false, now).first) {
+				ended.push_back(s.ws);
+				continue;
+			}
+		}
+		if (!s.has_token) continue;
+		auto key = std::make_pair(s.username, s.token_version);
+		auto it = valid.find(key);
+		if (it == valid.end()) {
+			std::string error;
+			it = valid.emplace(key, store().validate_token(s.username, s.token_version, error).has_value()).first;
+		}
+		if (!it->second) ended.push_back(s.ws);
+	}
+	for (auto *ws : ended) end_session(ws);
+	loop::after(recheck_interval, recheck);
+}
+
+// Registers the connection while it is open and passes everything on.
+struct RegisteredHandler : http::WsHandler {
+	std::shared_ptr<http::WsHandler> inner;
+	OpenSession session;
+	std::uint64_t id = 0;
+
+	void opened(http::WebSocket &ws) override
+	{
+		id = ws.id();
+		session.ws = &ws;
+		open_sessions[id] = session;
+		if (!rechecking) {
+			rechecking = true;
+			loop::after(recheck_interval, recheck);
+		}
+		inner->opened(ws);
+	}
+	void received(http::WebSocket &ws, std::string_view data, bool binary) override { inner->received(ws, data, binary); }
+	std::optional<http::Message> next(http::WebSocket &ws) override { return inner->next(ws); }
+	void closed(http::WebSocket &ws) override
+	{
+		open_sessions.erase(id);
+		inner->closed(ws);
+	}
+};
+
+std::pair<std::string, std::string> split_host_port(const std::string &value)
+{
+	if (!value.empty() && value.front() == '[') {
+		auto close = value.find(']');
+		if (close != std::string::npos && close + 1 < value.size() && value[close + 1] == ':')
+			return {value.substr(1, close - 1), value.substr(close + 2)};
+		std::string host = value;
+		std::erase(host, '[');
+		std::erase(host, ']');
+		return {host, ""};
+	}
+	auto colon = value.find(':');
+	if (colon != std::string::npos && value.find(':', colon + 1) == std::string::npos)
+		return {value.substr(0, colon), value.substr(colon + 1)};
+	return {value, ""};
+}
+
+std::string origin_scheme(const std::string &scheme)
+{
+	std::string s = lower(scheme);
+	if (s == "ws") return "http";
+	if (s == "wss") return "https";
+	return s;
+}
+
+std::string default_port(const std::string &scheme)
+{
+	std::string s = lower(scheme);
+	return s == "https" || s == "wss" ? "443" : "80";
+}
+
+struct Origin {
+	std::string scheme, host;
+};
+
+// An origin as url.Parse reads it and validOriginURL accepts it: http(s), a host, no user, no path beyond "/",
+// no query or fragment.
+std::optional<Origin> parse_origin(const std::string &text)
+{
+	auto sep = text.find("://");
+	if (sep == std::string::npos) return std::nullopt;
+	Origin o{text.substr(0, sep), ""};
+	std::string rest = text.substr(sep + 3);
+	if (rest.find_first_of("?#") != std::string::npos) return std::nullopt;
+	auto slash = rest.find('/');
+	std::string path = slash == std::string::npos ? "" : rest.substr(slash);
+	o.host = rest.substr(0, slash);
+	std::string s = lower(o.scheme);
+	if ((s != "http" && s != "https") || o.host.empty() || o.host.find('@') != std::string::npos ||
+	    (path != "" && path != "/"))
+		return std::nullopt;
+	return o;
+}
+
+bool equal_origin(const Origin &origin, const std::string &request_host, const std::string &request_scheme)
+{
+	if (origin_scheme(origin.scheme) != origin_scheme(request_scheme)) return false;
+	auto [ohost, oport] = split_host_port(origin.host);
+	auto [host, port] = split_host_port(request_host);
+	if (lower(ohost) != lower(host)) return false;
+	if (oport.empty()) oport = default_port(origin.scheme);
+	if (port.empty()) port = default_port(request_scheme);
+	return oport == port;
+}
+
+} // namespace
+
+bool check_websocket_origin(const http::Request &request)
+{
+	std::string text = request.header("origin");
+	auto first = text.find_first_not_of(" \t");
+	if (first == std::string::npos) return true;
+	text = text.substr(first, text.find_last_not_of(" \t") - first + 1);
+	auto origin = parse_origin(text);
+	if (!origin) return false;
+	auto [host, scheme] = external_address(request);
+	if (equal_origin(*origin, host, scheme)) return true;
+	for (const auto &allowed : config::get().security.allowed_origins) {
+		std::string a = allowed;
+		auto f = a.find_first_not_of(" \t");
+		if (f == std::string::npos) continue;
+		a = a.substr(f, a.find_last_not_of(" \t") - f + 1);
+		auto parsed = parse_origin(a);
+		if (parsed && equal_origin(*origin, parsed->host, parsed->scheme)) return true;
+	}
+	return false;
+}
+
+http::WsRoute guarded_ws(http::WsRoute route, Guard guard)
+{
+	guard.stream = true;
+	return [route = std::move(route), guard = std::move(guard)](http::Request &req,
+	                                                            http::Response &res) -> std::shared_ptr<http::WsHandler> {
+		if (!check_websocket_origin(req)) {
+			res.text(403, "Forbidden");
+			return nullptr;
+		}
+		bool allowed = false;
+		guarded([&allowed](http::Request &, http::Response &) { allowed = true; }, guard)(req, res);
+		if (!allowed) return nullptr;
+		auto inner = route(req, res);
+		if (!inner) return nullptr;
+		auto h = std::make_shared<RegisteredHandler>();
+		h->inner = std::move(inner);
+		const http::Auth &a = *req.auth;
+		h->session = OpenSession{a.username, a.token_version, a.has_token, a.has_token ? a.session_key : "",
+		                         a.issued, a.expires, true, nullptr};
+		return h;
+	};
+}
+
 void revoke_user_sessions(const std::string &username)
 {
-	// Open streams and sockets register with the session registry when they are ported.
+	std::vector<http::WebSocket *> ended;
+	for (auto &[id, s] : open_sessions)
+		if (s.username == username) ended.push_back(s.ws);
+	for (auto *ws : ended) end_session(ws);
 	for (const auto &hook : revoke_hooks) hook(username);
 }
 

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -16,6 +17,8 @@
 struct lws;
 
 namespace nkos::http {
+
+struct WsHandler;
 
 // The signed-in account of a request, set by auth::authenticate.
 struct Auth {
@@ -80,8 +83,12 @@ class Router {
 public:
 	void use(Handler middleware);
 	void add(std::string_view method, std::string_view path, Handler handler);
+	// A WebSocket route: decides the upgrade (http/websocket.hpp).
+	void ws(std::string_view path, std::function<std::shared_ptr<WsHandler>(Request &, Response &)> route);
 	// Runs the middlewares, then the matching route, or a 404 like Gin's.
 	void dispatch(Request &request, Response &response) const;
+	// The same for an upgrade request: the handler of the connection, or nullptr with the refusal in response.
+	std::shared_ptr<WsHandler> dispatch_ws(Request &request, Response &response) const;
 
 private:
 	struct Route {
@@ -91,6 +98,7 @@ private:
 	static bool match(const std::string &pattern, const std::string &path, std::map<std::string, std::string> &params);
 	std::vector<Handler> middlewares_;
 	std::vector<Route> routes_;
+	std::vector<std::pair<std::string, std::function<std::shared_ptr<WsHandler>(Request &, Response &)>>> ws_routes_;
 };
 
 } // namespace nkos::http

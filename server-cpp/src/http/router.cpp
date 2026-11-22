@@ -201,4 +201,25 @@ void Router::dispatch(Request &request, Response &response) const
 	response.text(404, "404 page not found");
 }
 
+void Router::ws(std::string_view path, std::function<std::shared_ptr<WsHandler>(Request &, Response &)> route)
+{
+	ws_routes_.emplace_back(std::string(path), std::move(route));
+}
+
+std::shared_ptr<WsHandler> Router::dispatch_ws(Request &request, Response &response) const
+{
+	for (const auto &m : middlewares_) {
+		m(request, response);
+		if (response.done || response.pending) return nullptr;
+	}
+	for (const auto &[path, route] : ws_routes_) {
+		if (!match(path, request.path, request.params)) continue;
+		auto handler = route(request, response);
+		if (!handler && !response.done) response.text(400, "Bad Request");
+		return handler;
+	}
+	response.text(404, "404 page not found");
+	return nullptr;
+}
+
 } // namespace nkos::http

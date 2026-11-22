@@ -6,6 +6,8 @@
 #include "http/router.hpp"
 #include "http/server.hpp"
 #include "http/static_files.hpp"
+#include "video/routes.hpp"
+#include "video/vision.hpp"
 
 #include <climits>
 #include <string>
@@ -45,6 +47,11 @@ int main()
 	router.use(http::static_files(web));
 
 	auth::add_routes(router);
+	video::add_routes(router);
 
-	return http::run(conf, router);
+	// The capture starts before the listeners, as the Go server's main does.
+	if (!video::vision::init()) log::error("video capture is unavailable");
+	int status = http::run(conf, router);
+	video::vision::deinit();
+	return status;
 }

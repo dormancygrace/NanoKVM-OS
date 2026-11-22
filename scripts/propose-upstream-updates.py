@@ -227,6 +227,30 @@ def pin_changes(source, result, root=ROOT):
                     files[path] = updated
         if build != (root / build_path).read_text():
             files[build_path] = build
+        if name == 'openssl':
+            # Only the versioned virtual packages track upstream. Leave SONAMEs and revisions alone.
+            path = 'firmware/alpine/packages/nanokvm-openssl/APKBUILD'
+            text = (root / path).read_text()
+            provides = re.findall(r'^provides="([^"\n]*)"$', text, re.MULTILINE)
+            if len(provides) != 1:
+                raise ValueError('Expected one provides assignment in ' + path)
+            entries = provides[0].split()
+            for package in ('openssl', 'openssl3', 'libcrypto3', 'libssl3', 'cmd:openssl'):
+                matches = [i for i, entry in enumerate(entries) if entry.partition('=')[0] == package]
+                if len(matches) != 1:
+                    raise ValueError('Expected one provider for ' + package + ' in ' + path)
+                i = matches[0]
+                version = entries[i].partition('=')[2]
+                if not re.fullmatch(re.escape(current) + r'-r[0-9]+', version):
+                    raise ValueError('Unexpected provider version for ' + package + ': ' + version)
+                entries[i] = package + '=' + latest + version[len(current):]
+            files[path] = publisher.replace_once(text, r'^provides="[^"\n]*"$',
+                                                'provides="' + ' '.join(entries) + '"')
+            for path in ('README.md', 'platform/README.md', 'firmware/alpine/packages/README.md',
+                         'docs/COMPONENT-BUILD-PROFILES.md'):
+                text = (root / path).read_text()
+                files[path] = publisher.replace_once(text, re.escape('OpenSSL ' + current + ' LTS'),
+                                                     'OpenSSL ' + latest + ' LTS')
         evidence = dict(archive=url, sha256=checksum)
     files[lock_path] = re.sub(r'^' + re.escape(name) + r'[ \t]+.+$', lambda _: replacement,
                               original, flags=re.MULTILINE)

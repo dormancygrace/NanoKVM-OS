@@ -15,7 +15,7 @@ spec = importlib.util.spec_from_file_location('kernel_proposals', ROOT / 'script
 publisher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(publisher)
 upstream = publisher.upstream
-MODES = {'archive-pin', 'git-pin', 'review'}
+MODES = {'archive-pin', 'apkbuild-pin', 'git-pin', 'review'}
 CHANGED = {'update available', 'upstream changes', 'review module release',
            'review branch divergence', 'review upstream replacement'}
 
@@ -34,7 +34,10 @@ def policies(root=ROOT):
         if policy['mode'] not in MODES or not re.fullmatch(r'[a-z0-9-]+', policy['id']):
             raise ValueError('Invalid PR policy: ' + source['name'])
         ids.append(policy['id'])
-        if policy['mode'] != 'review' and 'lock_entry' not in source:
+        if policy['mode'] == 'apkbuild-pin':
+            if not source['path'].endswith('/APKBUILD'):
+                raise ValueError('An APKBUILD pin update requires the recipe path')
+        elif policy['mode'] != 'review' and 'lock_entry' not in source:
             raise ValueError('A pin update requires a source-lock entry')
     if len(ids) != len(set(ids)):
         raise ValueError('Duplicate upstream PR identifiers')
@@ -51,11 +54,11 @@ class HTTPSRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def archive_hash(url):
+def archive_hash(url, algorithm='sha256'):
     """Hash bytes only: no archive extraction, package code or credentials."""
     if urllib.parse.urlparse(url).scheme != 'https':
         raise ValueError('Expected an HTTPS source archive')
-    digest = hashlib.sha256()
+    digest = hashlib.new(algorithm)
     size = 0
     with urllib.request.build_opener(HTTPSRedirect).open(url, timeout=40) as response:
         while chunk := response.read(1024 * 1024):
@@ -113,7 +116,43 @@ def git_target(source, result):
                            urllib.parse.quote(ref, safe=''))['sha']
 
 
+def apkbuild_changes(source, result, root=ROOT):
+    """An APKBUILD whose first source is the upstream archive: pkgver, pkgrel 0
+    and that archive's sha512 for the new release. The recipe is read as text,
+    never run."""
+    path = source['path']
+    text = (root / path).read_text()
+    current, latest = result['current'], result['latest']
+    if len(re.findall(r'^pkgver=' + re.escape(current) + r'$', text, re.MULTILINE)) != 1:
+        raise ValueError('Expected a single pkgver=' + current + ' in ' + path)
+    entry = re.search(r'^source="(\S+)::(https://\S+)$', text, re.MULTILINE)
+    if not entry:
+        raise ValueError('Expected the upstream archive as the first source of ' + path)
+    variables = dict(re.findall(r'^([A-Za-z_]\w*)=([^\s"$]*(?:\$\{?\w+\}?[^\s"$]*)*)$', text, re.MULTILINE))
+
+    def expand(value, version):
+        known = dict(variables, pkgver=version)
+        for _ in range(4):
+            value = re.sub(r'\$\{?([A-Za-z_]\w*)\}?', lambda m: known.get(m[1], m[0]), value)
+        if '$' in value:
+            raise ValueError('Cannot expand ' + value)
+        return value
+
+    old_name, new_name = expand(entry[1], current), expand(entry[1], latest)
+    url = expand(entry[2], latest)
+    checksum = archive_hash(url, 'sha512')
+    line = re.compile(r'^[0-9a-f]{128}  ' + re.escape(old_name) + r'$', re.MULTILINE)
+    if len(line.findall(text)) != 1:
+        raise ValueError('Expected a single sha512 line for ' + old_name)
+    text = line.sub(lambda _: checksum + '  ' + new_name, text)
+    text = re.sub(r'^pkgver=' + re.escape(current) + r'$', 'pkgver=' + latest, text, flags=re.MULTILINE)
+    text = re.sub(r'^pkgrel=[0-9]+$', 'pkgrel=0', text, flags=re.MULTILINE)
+    return {path: text}, dict(archive=url, sha512=checksum)
+
+
 def pin_changes(source, result, root=ROOT):
+    if source['pull_request']['mode'] == 'apkbuild-pin':
+        return apkbuild_changes(source, result, root)
     lock_path = 'platform/sources.lock'
     original = (root / lock_path).read_text()
     name = source['lock_entry']

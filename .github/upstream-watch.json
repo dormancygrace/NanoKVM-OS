@@ -193,7 +193,11 @@
       "pattern": "^pkgver=([0-9.]+)$",
       "kind": "github-tags",
       "repo": "zerotier/ZeroTierOne",
-      "upstream_pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+)$"
+      "upstream_pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "pull_request": {
+        "id": "zerotier",
+        "mode": "apkbuild-pin"
+      }
     },
     {
       "name": "exfatprogs",

@@ -1,105 +1,150 @@
 #!/bin/sh
 # Host tests for nkos-safe-update's failure paths (no device, no root). Run: sh tests/host-test.sh
-# The tool is sourced with NKOS_SU_LIB=1; mount, reboot, rc-service and pgrep are stubs, and
-# /boot, the state and the run directories are temporary.
+# The tool is sourced with NKOS_SU_LIB=1. mount, reboot, rc-service, pgrep and setsid are stubs;
+# /boot, the state and the run directories are temporary. The guard is driven one step at a time
+# with an explicit uptime, so nothing depends on timing.
 # shellcheck disable=SC2016,SC2034,SC2015,SC2115 # checks are eval'd strings that read these variables; T is never empty
 set -u
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 T=$(mktemp -d)
-trap 'kill $(jobs -p) 2> /dev/null; rm -rf "$T"' EXIT
-mkdir -p "$T/bin" "$T/boot" "$T/state" "$T/run" "$T/kt" "$T/lib"
+trap 'rm -rf "$T"' EXIT
+mkdir -p "$T/bin"
 for c in rc-service pgrep pkill logger; do printf '#!/bin/sh\nexit 1\n' > "$T/bin/$c"; done
-printf '#!/bin/sh\necho "$*" >> "%s/reboot.calls"\n' "$T" > "$T/bin/reboot"
-# mount: record whether the kernel-trial intent was already written, then flip the checkpoint flag
+printf '#!/bin/sh\necho "$*" >> "%s/setsid.calls"\n' "$T" > "$T/bin/setsid"
+# mount: note whether the kernel-trial intent is on the root at the commit, then (unless told
+# otherwise) clear the checkpoint flag the way a successful checkpoint=enable does
 cat > "$T/bin/mount" <<EOF
 #!/bin/sh
-case "\$*" in *checkpoint=enable*) grep -q '^promote=1' "$T/state/ktrial" 2> /dev/null && echo yes > "$T/promote-before-commit"; rm -f "$T/cp.disabled" ;; esac
+echo "\$*" >> "$T/mount.calls"
+case "\$*" in *checkpoint=enable*)
+	grep -q '^promote=1' "$T/state/ktrial" 2> /dev/null && echo yes > "$T/promote-before-commit"
+	[ -e "$T/mount.keeps-disabled" ] || rm -f "$T/cp.disabled" ;;
+esac
 EOF
 chmod 755 "$T/bin"/*
 export PATH="$T/bin:$PATH" NKOS_SU_LIB=1 NKOS_SU_STATE="$T/state" NKOS_SU_RUN="$T/run" NKOS_SU_BOOT="$T/boot" \
-	NKOS_SU_KT="$T/kt" NKOS_SU_LOCK="$T/lock" NKOS_SU_WDT="$T/wdt" NKOS_SU_FEED=1 NKOS_SU_ACTIVATE="$T/activate"
+	NKOS_SU_KT="$T/kt" NKOS_SU_LOCK="$T/lock" NKOS_SU_WDT="$T/wdt" NKOS_SU_ACTIVATE="$T/activate" NKOS_SU_WATCHER_WAIT=0
 # shellcheck source=/dev/null
 . "$HERE/nkos-safe-update"
-export LIB="$HERE"                                  # the fragments next to the script
+export LIB="$HERE"
+NOW=1000
+up() { echo "$NOW"; }
 cp_disabled() { [ -e "$T/cp.disabled" ]; }
-oncard() { sha256sum < "$1" | cut -d ' ' -f 1; }
+# oncard.bad: the next read-back of the card returns garbage (once)
+oncard() { if [ -e "$T/oncard.bad" ]; then rm -f "$T/oncard.bad"; echo bad; else sha256sum < "$1" | cut -d ' ' -f 1; fi; }
 boot_id() { echo test-boot; }
+feed() { echo "$1" >> "$T/feed.calls"; }
+do_reboot() { echo reboot >> "$T/reboot.calls"; }
+disarm() { echo disarm >> "$T/disarm.calls"; }
+sync() { :; }
 
 fails=0
-ok() { echo "ok   $1"; }
-bad() { echo "FAIL $1"; fails=$((fails + 1)); }
-check() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
-reset_run() { rm -rf "${T:?}/run" "$T/kt" "$T/state" "$T/boot" "$T/reboot.calls" "$T/promote-before-commit"; mkdir -p "$T/run" "$T/kt" "$T/state" "$T/boot"; }
+check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fails=$((fails + 1)); fi; }
+calls() { if [ -e "$T/$1.calls" ]; then wc -l < "$T/$1.calls" | tr -d ' '; else echo 0; fi; }
+reset() {
+	rm -rf "$T/run" "$T/kt" "$T/state" "$T/boot" "$T"/*.calls "$T/promote-before-commit" "$T/cp.disabled" \
+		"$T/mount.keeps-disabled" "$T/oncard.bad"
+	mkdir -p "$T/run" "$T/kt" "$T/state" "$T/boot"
+	NOW=1000 own=1 rebooting=
+}
 activate_ok() { printf '#!/bin/sh\necho good > "%s/boot/boot.sd"; sha256sum < "%s/boot/boot.sd" | cut -d " " -f 1 > "%s/boot/boot.sd.sha256"\n' "$T" "$T" "$T" > "$T/activate"; chmod 755 "$T/activate"; }
 activate_fail() { printf '#!/bin/sh\nexit 1\n' > "$T/activate"; chmod 755 "$T/activate"; }
 activate_badwrite() { printf '#!/bin/sh\necho good > "%s/boot/boot.sd"; echo 0000 > "%s/boot/boot.sd.sha256"\n' "$T" "$T" > "$T/activate"; chmod 755 "$T/activate"; }
+trial() { touch "$T/cp.disabled"; printf 'id=%s\nboot=test-boot\n' "$1" > "$T/state/pending"; echo "id=$1" > "$T/state/applied"; }
+ktrial() { echo "$1" > "$T/kt/id"; printf 'id=%s\npayload=x\n' "$1" > "$T/state/ktrial"; echo "$1" > "$T/boot/nkos-ktrial.running"; }
 
-# --- confirm vs rollback are decided once -------------------------------------------------------
-reset_run
-decide confirm; check "the first decision wins" '[ "$(decision)" = confirm ]'
-check "a later rollback loses" '! decide rollback'
-check "the decision is unchanged" '[ "$(decision)" = confirm ]'
+# --- decisions: published complete, first wins, only the winner may change it ----------------------
+reset
+check "a decision is published with its time" 'decide confirm 950 && [ "$(decision)" = confirm ] && [ "$(decision 2)" = 950 ]'
+check "a second decision loses" '! decide rollback && [ "$(decision)" = confirm ]'
+check "the winner can hand over to rollback" 'redecide rollback && [ "$(decision)" = rollback ]'
+reset; echo "confi" > "$T/run/decision.4242"         # an interrupted claim: a private file only
+check "an interrupted claim is not a decision" '[ -z "$(decision)" ] && decide rollback && [ "$(decision)" = rollback ]'
 
-# --- the guard: a won confirm that never finishes stops the feeding ------------------------------
-reset_run; touch "$T/cp.disabled"; : > "$T/wdt"; echo $(( $(up) + 10000 )) > "$T/run/deadline"
-mkdir "$T/run/decision"; echo "confirm $(( $(up) - CONFIRM_MAX - 5 ))" > "$T/run/decision/what"
-( guard ) > /dev/null 2>&1 & g=$!
-sleep 3; s1=$(wc -c < "$T/wdt"); sleep 3; s2=$(wc -c < "$T/wdt"); kill "$g" 2> /dev/null; wait "$g" 2> /dev/null
-check "a stalled confirm stops feeding the watchdog" '[ "$s1" = "$s2" ] && [ "$(cat "$T/run/guard.state")" = stalled ]'
-check "a stalled confirm does not reboot (the watchdog does)" '[ ! -e "$T/reboot.calls" ]'
+# --- guard_step: one round at a given uptime --------------------------------------------------------
+reset; touch "$T/cp.disabled"; echo 2000 > "$T/run/deadline"
+guard_step 1500; r=$?
+check "before the deadline: feed up to the deadline" '[ "$r" = 0 ] && [ "$(cat "$T/feed.calls")" = 2000 ] && [ "$(calls reboot)" = 0 ]'
+reset; touch "$T/cp.disabled"; echo 2000 > "$T/run/deadline"
+guard_step 2000
+check "at the deadline: rollback is decided and the board reboots once" '[ "$(decision)" = rollback ] && [ "$(calls reboot)" = 1 ]'
+guard_step 2010
+check "while rebooting: no second reboot, feed until reboot+GRACE" '[ "$(calls reboot)" = 1 ] && [ "$(tail -1 "$T/feed.calls")" = $((2000 + GRACE)) ]'
+n=$(calls feed); guard_step $((2000 + GRACE))
+check "a shutdown that hangs past GRACE: feeding stops" '[ "$(calls feed)" = "$n" ]'
+reset; touch "$T/cp.disabled"; echo 2000 > "$T/run/deadline"; decide confirm 1990
+guard_step 2005
+check "deadline passed after a won confirm: no rollback, feed for the confirm" '[ "$(calls reboot)" = 0 ] && [ "$(decision)" = confirm ] && [ "$(cat "$T/feed.calls")" = $((1990 + CONFIRM_MAX)) ]'
+n=$(calls feed); guard_step $((1990 + CONFIRM_MAX))
+check "a confirm that stalls past CONFIRM_MAX: feeding stops, no reboot" '[ "$(calls feed)" = "$n" ] && [ "$(cat "$T/run/guard.state")" = stalled ] && [ "$(calls reboot)" = 0 ]'
+touch "$T/run/confirmed"; guard_step $((1990 + CONFIRM_MAX + 5)); r=$?
+check "a finished confirm: disarm and stop" '[ "$r" = 1 ] && [ "$(calls disarm)" = 1 ] && [ "$(cat "$T/run/guard.state")" = disarmed ]'
+reset; echo 2000 > "$T/run/deadline"                  # checkpointing is on: committed behind our back
+printf 'id=x\nboot=test-boot\n' > "$T/state/pending"
+guard_step 1500; r=$?
+check "checkpointing re-enabled by someone else: warning, disarm, stop" '[ "$r" = 1 ] && [ "$(calls disarm)" = 1 ] && grep -q WARNING "$T/state/history"'
 
-# --- the guard: deadline passed while a confirm is running -> no reboot ---------------------------
-reset_run; touch "$T/cp.disabled"; : > "$T/wdt"; echo 1 > "$T/run/deadline"
-mkdir "$T/run/decision"; echo "confirm $(up)" > "$T/run/decision/what"
-( guard ) > /dev/null 2>&1 & g=$!
-sleep 3; kill "$g" 2> /dev/null; wait "$g" 2> /dev/null
-check "a deadline after a won confirm does not roll back" '[ ! -e "$T/reboot.calls" ] && [ -s "$T/wdt" ]'
+# --- guard_setup: the watcher is trusted only once it reports armed -----------------------------------
+reset; : > "$T/wdt"; echo k0 > "$T/kt/id"; echo id=k0 > "$T/state/ktrial"
+( guard_setup && cat "$T/run/guard.state" ) > "$T/out" 2>&1
+check "a watcher that never arms: the guard takes the watchdog itself" '[ "$(cat "$T/out")" = "armed watchdog" ]'
+reset; echo k0 > "$T/kt/id"; echo id=k0 > "$T/state/ktrial"; echo armed > "$T/kt/watcher"
+( guard_setup && cat "$T/run/guard.state" ) > "$T/out" 2>&1
+check "an armed watcher: the guard leaves the watchdog to it" '[ "$(cat "$T/out")" = "armed watcher" ]'
 
-# --- the guard in a kernel trial trusts the watcher only once it reports "armed" ----------------------
-reset_run; touch "$T/cp.disabled"; : > "$T/wdt"; echo $(( $(up) + 10000 )) > "$T/run/deadline"
-echo k0 > "$T/kt/id"; echo id=k0 > "$T/state/ktrial"            # watcher never reports armed
-( guard ) > /dev/null 2>&1 & g=$!
-sleep 20; kill "$g" 2> /dev/null; wait "$g" 2> /dev/null
-check "a watcher that never arms: the guard takes the watchdog itself" '[ "$(cat "$T/run/guard.state")" = "armed watchdog" ] && [ -s "$T/wdt" ]'
-reset_run; touch "$T/cp.disabled"; : > "$T/wdt"; echo $(( $(up) + 10000 )) > "$T/run/deadline"
-echo k0 > "$T/kt/id"; echo id=k0 > "$T/state/ktrial"; echo armed > "$T/kt/watcher"
-( guard ) > /dev/null 2>&1 & g=$!
-sleep 3; kill "$g" 2> /dev/null; wait "$g" 2> /dev/null
-check "an armed watcher: the guard leaves the watchdog to it" '[ "$(cat "$T/run/guard.state")" = "armed watcher" ] && [ ! -s "$T/wdt" ] && [ "$(cat "$T/kt/deadline")" = "$(cat "$T/run/deadline")" ]'
-
-# --- the guard: deadline passed, nobody decided -> rollback wins, a late confirm loses -------------
-reset_run; touch "$T/cp.disabled"; : > "$T/wdt"; echo 1 > "$T/run/deadline"
-( guard ) > /dev/null 2>&1 & g=$!
-sleep 3; kill "$g" 2> /dev/null; wait "$g" 2> /dev/null
-check "the deadline decides rollback and reboots" '[ "$(decision)" = rollback ] && [ -s "$T/reboot.calls" ]'
-printf 'id=t1\nboot=test-boot\n' > "$T/state/pending"; echo id=t1 > "$T/state/applied"
-check "confirm after the rollback decision is refused" '! (cmd_confirm) > /dev/null 2>&1 && [ -e "$T/cp.disabled" ]'
-
-# --- confirm in a kernel trial: intent written before the commit; failed promotion propagates -------
-reset_run; touch "$T/cp.disabled"; activate_fail
-echo k1 > "$T/kt/id"; printf 'id=k1\npayload=x\n' > "$T/state/ktrial"; echo k1 > "$T/boot/nkos-ktrial.running"
-printf 'id=t2\nboot=test-boot\n' > "$T/state/pending"; echo id=t2 > "$T/state/applied"
-( cmd_confirm ) > "$T/out" 2>&1; rc=$?
+# --- confirm ------------------------------------------------------------------------------------------
+reset; trial t1; echo 99 > "$T/run/deadline"; NOW=100
+( cmd_confirm ) > /dev/null 2>&1; r=$?
+check "confirm after the deadline (before the guard notices) is refused" '[ "$r" != 0 ] && [ -z "$(decision)" ] && [ "$(calls mount)" = 0 ]'
+reset; trial t1; echo 2000 > "$T/run/deadline"; decide rollback 1500
+( cmd_confirm ) > /dev/null 2>&1; r=$?
+check "confirm after a rollback decision is refused" '[ "$r" != 0 ] && [ "$(decision)" = rollback ] && [ "$(calls mount)" = 0 ]'
+reset; trial t2; ktrial k1; echo 2000 > "$T/run/deadline"; chmod 555 "$T/state"
+( cmd_confirm ) > /dev/null 2>&1; r=$?; chmod 755 "$T/state"
+check "an intent that cannot be written: nothing claimed, nothing committed" '[ "$r" != 0 ] && [ -z "$(decision)" ] && [ "$(calls mount)" = 0 ]'
+reset; trial t3; echo 2000 > "$T/run/deadline"; touch "$T/mount.keeps-disabled"
+( cmd_confirm ) > /dev/null 2>&1; r=$?
+check "a remount that leaves checkpointing disabled hands over to rollback" '[ "$r" != 0 ] && [ "$(decision)" = rollback ]'
+reset; trial t4; ktrial k2; echo 2000 > "$T/run/deadline"; activate_fail; echo disarmed > "$T/run/guard.state"
+( cmd_confirm ) > "$T/out" 2>&1; r=$?
 check "promote=1 is on the root before checkpointing is re-enabled" '[ -e "$T/promote-before-commit" ]'
-check "a failed boot-image install makes confirm fail" '[ "$rc" != 0 ] && grep -q "BOOT IMAGE NOT INSTALLED" "$T/out"'
-check "the retry state is kept" '[ -f "$T/state/ktrial" ] && [ -e "$T/boot/nkos-ktrial.running" ]'
-activate_ok
-( cmd_kernel_finish ) > /dev/null 2>&1
-check "kernel-finish installs the boot image and clears the state" '[ ! -f "$T/state/ktrial" ] && [ ! -e "$T/boot/nkos-ktrial.running" ]'
+check "a failed boot-image install makes confirm fail, and the retry state is kept" '[ "$r" != 0 ] && grep -q "BOOT IMAGE NOT INSTALLED" "$T/out" && [ -f "$T/state/ktrial" ] && [ -e "$T/boot/nkos-ktrial.running" ]'
+activate_ok; ( cmd_kernel_finish ) > /dev/null 2>&1
+check "kernel-finish (root committed) installs the boot image and clears the state" '[ ! -f "$T/state/ktrial" ] && [ ! -e "$T/boot/nkos-ktrial.running" ]'
+reset; trial t5; ktrial k3; echo promote=1 >> "$T/state/ktrial"; activate_ok
+( cmd_kernel_finish ) > /dev/null 2>&1; r=$?
+check "kernel-finish during an uncommitted trial is refused, even with promote=1" '[ "$r" != 0 ] && [ -f "$T/state/ktrial" ] && [ ! -e "$T/boot/boot.sd" ]'
 
-# --- rollback boot: records stay until the restored boot.sd is verified ----------------------------
+# --- boot entry ---------------------------------------------------------------------------------------
 for mode in fail badwrite ok; do
-	reset_run; rm -rf "$T/kt"; activate_$mode
-	printf 'id=k2\npayload=x\n' > "$T/state/ktrial"; echo k2 > "$T/boot/nkos-ktrial.running"; echo trial > "$T/boot/nkos-ktrial.sd"
-	( kt_boot ) > /dev/null 2>&1
+	reset; rm -rf "$T/kt"; activate_$mode
+	printf 'id=k4\npayload=x\n' > "$T/state/ktrial"; echo k4 > "$T/boot/nkos-ktrial.running"; echo trial > "$T/boot/nkos-ktrial.sd"
+	( cmd_boot ) > /dev/null 2>&1; r=$?
 	if [ "$mode" = ok ]; then
-		check "restore ($mode): records removed after a verified boot.sd" '[ ! -f "$T/state/ktrial" ] && [ ! -e "$T/boot/nkos-ktrial.running" ]'
+		check "boot, restore ($mode): records removed, service succeeds" '[ "$r" = 0 ] && [ ! -f "$T/state/ktrial" ] && [ ! -e "$T/boot/nkos-ktrial.running" ]'
 	else
-		check "restore ($mode): records kept for the next boot" '[ -f "$T/state/ktrial" ] && [ -e "$T/boot/nkos-ktrial.running" ]'
+		check "boot, restore ($mode): records kept, service fails" '[ "$r" != 0 ] && [ -f "$T/state/ktrial" ] && [ -e "$T/boot/nkos-ktrial.running" ]'
 	fi
 done
+reset; trial t6; echo 2000 > "$T/run/deadline"
+( cmd_boot ) > /dev/null 2>&1
+check "a service restart during this boot's trial leaves it alone" '[ -e "$T/state/pending" ] && [ -e "$T/state/applied" ] && [ ! -e "$T/state/history" ]'
+reset; ktrial k5; echo 2000 > "$T/run/deadline"
+( cmd_boot ) > /dev/null 2>&1; echo 2000 > "$T/run/deadline"; ( cmd_boot ) > /dev/null 2>&1
+check "the trial boot is claimed once: one worker, the run directory kept" '[ "$(calls setsid)" = 1 ] && [ "$(cat "$T/run/deadline")" = 2000 ]'
+reset; printf 'id=t7\nboot=earlier-boot\n' > "$T/state/pending"
+( cmd_boot ) > /dev/null 2>&1
+check "a trial from an earlier boot is recorded as rolled back" '[ ! -e "$T/state/pending" ] && grep -q "rolled back t7" "$T/state/history"'
 
-# --- the trial init: anchors and blocks exactly once ---------------------------------------------
+# --- arming: the final install step ----------------------------------------------------------------------
+reset; activate_ok; printf 'id=k6\npayload=x\n' > "$T/state/ktrial"; echo k6 > "$T/boot/nkos-ktrial.armed"; echo trial > "$T/boot/boot.sd.new"; touch "$T/oncard.bad"
+( kt_install_image "$(sha256sum < "$T/boot/boot.sd.new" | cut -d ' ' -f 1)" ) > /dev/null 2>&1; r=$?
+check "a failed final install: nothing stays armed; restored and verified, records removed" '[ "$r" != 0 ] && [ ! -e "$T/boot/nkos-ktrial.armed" ] && [ ! -e "$T/boot/nkos-ktrial.failed" ] && [ ! -f "$T/state/ktrial" ] && [ -f "$T/boot/boot.sd" ]'
+reset; activate_fail; printf 'id=k7\npayload=x\n' > "$T/state/ktrial"; echo k7 > "$T/boot/nkos-ktrial.armed"; echo trial > "$T/boot/boot.sd.new"; touch "$T/oncard.bad"
+( kt_install_image x ) > "$T/out" 2>&1; r=$?
+check "a failed final install whose restore fails: records kept, marker disarmed" '[ "$r" != 0 ] && [ -f "$T/state/ktrial" ] && [ -e "$T/boot/nkos-ktrial.failed" ] && [ ! -e "$T/boot/nkos-ktrial.armed" ] && grep -q "could not be restored" "$T/out"'
+
+# --- the trial init: anchors and blocks exactly once --------------------------------------------------
 printf '#!/busybox sh\nmount -o ro /dev/mmcblk0p1 /boot\numount /boot\nexec switch_root /realroot /sbin/init\n' > "$T/init.ok"
 check "a stock-shaped init gets both blocks" 'kt_patch_init "$T/init.ok" "$T/init.new" 2> /dev/null'
 printf '#!/busybox sh\numount /boot\nexec  switch_root /realroot /sbin/init\n' > "$T/init.ws"
@@ -107,12 +152,12 @@ check "a different switch_root line is refused" '! kt_patch_init "$T/init.ws" "$
 printf '#!/busybox sh\numount /boot\numount /boot\nexec switch_root /realroot /sbin/init\n' > "$T/init.twice"
 check "a duplicated anchor is refused" '! kt_patch_init "$T/init.twice" "$T/init.new3" 2> /dev/null'
 
-# --- the kernel trial record must be written before /boot changes ---------------------------------
-reset_run
-check "the record is written and read back" 'kt_record k3 600 "upgrade" rel abc && [ "$(get id "$KSTATE")" = k3 ]'
+# --- the kernel trial record must be written before /boot changes ----------------------------------------
+reset
+check "the record is written and read back" 'kt_record k8 600 "upgrade" rel abc && [ "$(get id "$KSTATE")" = k8 ]'
 rm -rf "$T/state"; touch "$T/state"                 # STATE is not a directory: the write fails
-check "a failed record write is reported" '! kt_record k4 600 "upgrade" rel abc 2> /dev/null'
+check "a failed record write is reported" '! kt_record k9 600 "upgrade" rel abc 2> /dev/null'
 rm -f "$T/state"
 
 echo
-[ "$fails" = 0 ] && echo "all host tests passed" || { echo "$fails host test(s) failed"; exit 1; }
+if [ "$fails" = 0 ]; then echo "all host tests passed"; else echo "$fails host test(s) failed"; exit 1; fi

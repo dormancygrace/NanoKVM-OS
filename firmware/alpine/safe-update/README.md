@@ -50,11 +50,20 @@ checkpointing stopped. (Android uses the same mechanism for userdata during OTA 
 
    The result is appended to `/var/lib/nkos-safe-update/history`.
 
-**Confirm or rollback is decided once.** The first of `confirm`, `rollback`, a failed apk or the deadline to
-create `/run/nkos-safe-update/decision` (an atomic `mkdir`) wins, and the other side backs off. A late
-`confirm` therefore can't commit after a rollback has started. A confirm that wins but then dies or stalls,
-for example in the remount, gets 120 s; after that the guard stops feeding and the watchdog resets the board.
-The next boot shows from `applied` whether the root was committed.
+**Confirm or rollback is decided once.**
+- `confirm`, `rollback`, a failed apk and the deadline race to publish `/run/nkos-safe-update/decision`. It's
+  written to a private file and linked into place with `ln`, which fails if the file exists. A decision is
+  therefore only ever visible complete, and the first one wins; the other side backs off.
+- `confirm` checks the deadline itself before claiming, so it can't win in the seconds before the guard's
+  next round. A late `confirm` can't commit after a rollback has started.
+- If `confirm` wins but can't commit (the remount leaves checkpointing disabled), it hands its decision over
+  to a graceful rollback.
+- A confirm that dies or stalls gets 120 s; after that the guard stops feeding and the watchdog resets the
+  board. The next boot shows from `applied` whether the root was committed.
+
+**The boot service is safe to restart.** It only acts on a trial from an earlier boot. It also claims the
+kernel-trial boot once, so a restart never clears a running trial or starts a second worker. A kernel-trial
+recovery that fails makes the service fail, and the records stay for the next boot.
 
 All deadlines are in seconds of uptime, so clock changes (NTP) can't move them.
 
@@ -220,9 +229,18 @@ v4.2.0 installer (7728 MiB root). NanoKVM OS selected the `lite` board profile; 
 | NanoKVM-Server's update lock during a trial | held by the guard |
 | `remount,checkpoint=enable` by hand during a trial | detected within one feed interval; warning in the history; watchdog daemon restored |
 
-`tests/host-test.sh` runs on any Linux host (no device, no root). It sources the script with stubs and
-checks the failure paths: the confirm/rollback decision, a stalled confirm, the watcher readiness check,
-confirm with a failed boot-image install, the restore records, the init patching, and the record write.
+`tests/host-test.sh` runs on any Linux host in about a second, with no device and no root. It sources the
+script with stubs, and drives the guard one round at a time (`guard_step NOW`) with explicit uptimes, so
+nothing depends on timing. It checks:
+- the decision rules;
+- every guard branch: deadline, confirm in progress, stalled confirm, hung shutdown, outside commit;
+- the watcher readiness check;
+- confirm: past the deadline, after a rollback, an unwritable intent, a remount that doesn't commit, a
+  failed boot-image install;
+- `kernel-finish` gating;
+- the boot service: restore outcomes, restarts, a trial from an earlier boot;
+- the arming failure path;
+- the init patching and the record write.
 
 `tests/mkrepo.sh` builds the unsigned test repository on the device (apk 3 `mkpkg`/`mkndx`): the demo package
 versions and the network-breaking package. `tests/manifest.sh` hashes the whole root, for the byte-exact
@@ -266,6 +284,10 @@ readiness, the kernel-trial record and promotion. So these were re-run on the de
 | Kernel trial, `confirm` | guard reported `armed watcher`; root committed and boot image installed; trial files gone; watcher disarmed |
 | Kernel trial, no confirm (60 s) | rolled back; `boot.sd` restored and verified; both rollbacks in the history |
 | `tests/mkrepo.sh` on an existing repository | refused |
+
+The second review round (atomic decision file, `guard_step`, confirm deadline, boot service) was verified with
+the 37 host checks. A device re-run of the confirm, timeout and kernel-trial paths for that round is still to
+be done.
 
 **Not tested yet:**
 - a physical power pull during a trial, as opposed to `reboot -n -f`;

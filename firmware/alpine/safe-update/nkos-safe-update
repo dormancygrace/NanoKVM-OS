@@ -58,9 +58,16 @@ kt_markers() { ls "$BOOT"/nkos-ktrial.* > /dev/null 2>&1; }
 kt_deadline() { echo "$1" > "$KT/deadline.new" && mv "$KT/deadline.new" "$KT/deadline"; }
 put() { printf '%s\n' "$2" > "$RUN/$1.new" && mv "$RUN/$1.new" "$RUN/$1"; }
 
-# Confirm and rollback are decided once: the first mkdir wins, the other side must back off.
-decide() { mkdir "$RUN/decision" 2> /dev/null && echo "$1 $(up)" > "$RUN/decision/what"; }
-decision() { cut -d ' ' -f "${1:-1}" "$RUN/decision/what" 2> /dev/null; }
+# Confirm and rollback are decided once. A decision is written to a private file and published
+# with ln, which fails if one exists: it is visible only complete, and the first one wins.
+decide() {
+	printf '%s %s\n' "$1" "${2:-$(up)}" > "$RUN/decision.$$" || return 1
+	if ln "$RUN/decision.$$" "$RUN/decision" 2> /dev/null; then rm -f "$RUN/decision.$$"; return 0; fi
+	rm -f "$RUN/decision.$$"; return 1
+}
+# Only the side that won may change its own decision (a confirm that cannot commit hands over to rollback).
+redecide() { printf '%s %s\n' "$1" "$(up)" > "$RUN/decision.$$" && mv -f "$RUN/decision.$$" "$RUN/decision"; }
+decision() { cut -d ' ' -f "${1:-1}" "$RUN/decision" 2> /dev/null; }
 
 # Take the shared update lock on fd 9 before looking at any state.
 lock() {
@@ -91,24 +98,21 @@ preflight() {
 		die "root has $(( $2 / 1024 )) MiB free; a trial needs at least $(( SPARE + 10 ))% free"
 }
 
-guard() {
-	# Detached; holds the update lock (fd 9) and the watchdog (fd 3) for the whole window.
-	# The deadline is re-read every round: start moves it when the update is applied.
-	# In a kernel trial the initramfs watcher already owns the watchdog: the guard then
-	# only passes its deadline on, and the watcher enforces it (+GRACE). The watcher is
-	# trusted only once it has reported "armed"; otherwise the guard takes the watchdog.
-	echo $$ > "$RUN/guard.pid"
+guard_setup() {
+	# Choose who feeds the watchdog. In a kernel trial the initramfs watcher already owns it: the
+	# guard then only passes its deadline on, and the watcher enforces it (+GRACE). The watcher
+	# is trusted only once it has reported "armed"; otherwise the guard takes the watchdog.
 	own=1
 	if in_ktrial; then
 		i=0
-		while [ "$(cat "$KT/watcher" 2> /dev/null)" != armed ] && [ "$i" -lt 15 ]; do sleep 1; i=$((i + 1)); done
+		while [ "$(cat "$KT/watcher" 2> /dev/null)" != armed ] && [ "$i" -lt "${NKOS_SU_WATCHER_WAIT:-15}" ]; do sleep 1; i=$((i + 1)); done
 		[ "$(cat "$KT/watcher" 2> /dev/null)" != armed ] || own=
 	fi
 	if [ -n "$own" ]; then
 		rc-service nanokvm-watchdog stop > /dev/null 2>&1 || pkill -TERM -x watchdog 2> /dev/null
 		i=0
 		while pgrep -x watchdog > /dev/null; do
-			i=$((i + 1)); [ "$i" -lt 10 ] || { put guard.state failed; exit 1; }
+			i=$((i + 1)); [ "$i" -lt 10 ] || { put guard.state failed; return 1; }
 			sleep 1
 		done
 		put guard.state failed                  # a failed open below ends this shell
@@ -116,62 +120,76 @@ guard() {
 	fi
 	put guard.state "armed $( [ -n "$own" ] && echo watchdog || echo watcher)"
 	rebooting=
-	disarm() {
-		if [ -n "$own" ]; then
-			printf V >&3; exec 3>&-
-		else
-			touch "$KT/confirmed"
-			i=0; while [ "$(cat "$KT/watcher" 2> /dev/null)" != disarmed ] && [ "$i" -lt 15 ]; do sleep 1; i=$((i + 1)); done
-		fi
-		exec 9>&-
-		rc-service nanokvm-watchdog start > /dev/null 2>&1
-	}
-	feed() { if [ -n "$own" ]; then printf x >&3; else kt_deadline "$1"; fi; }
-	while :; do
-		t=$(up)
-		deadline=$(cat "$RUN/deadline" 2> /dev/null || echo 0)
-		case "$(decision)" in
-			confirm)
-				# A confirm won. It gets CONFIRM_MAX to finish; a confirm that dies or stalls
-				# (for example in the remount) stops the feeding and the watchdog resets the
-				# board: the next boot shows whether the root was committed ("applied").
-				if [ -e "$RUN/confirmed" ]; then
-					disarm; put guard.state disarmed; exit 0
-				fi
-				if [ $((t - $(decision 2))) -lt "$CONFIRM_MAX" ]; then
-					feed $((t + CONFIRM_MAX))
-				else
-					[ "$(cat "$RUN/guard.state")" = stalled ] || { put guard.state stalled; log "confirm stalled; letting the watchdog reset"; }
-					[ -n "$own" ] || kt_deadline 0
-				fi
-				;;
-			rollback)
-				if [ -z "$rebooting" ]; then
-					rebooting=$t
-					put guard.state rebooting
-					log "not confirmed; rebooting to roll back"
-					sync
-					reboot &
-				fi
-				# A shutdown that hangs: stop feeding and let the watchdog reset the board.
-				if [ $((t - rebooting)) -lt "$GRACE" ]; then feed "$((rebooting + GRACE))"; fi
-				;;
-			*)
-				if ! cp_disabled; then
-					# Something else re-enabled checkpointing: committed without a confirm.
-					history "WARNING trial $(get id "$STATE/pending") committed outside confirm (checkpointing re-enabled)"
-					rm -f "$STATE/pending" "$STATE/applied"; sync
-					disarm; put guard.state committed-externally; exit 0
-				fi
-				if [ "$t" -ge "$deadline" ]; then
-					decide rollback || continue     # a confirm got there first: handled above
-					continue
-				fi
-				feed "$deadline"
-				;;
-		esac
-		sleep "$FEED"
-	done
+}
+
+feed() { if [ -n "$own" ]; then printf x >&3; else kt_deadline "$1"; fi; }
+do_reboot() { reboot & }
+disarm() {
+	if [ -n "$own" ]; then
+		printf V >&3; exec 3>&-
+	else
+		touch "$KT/confirmed"
+		i=0; while [ "$(cat "$KT/watcher" 2> /dev/null)" != disarmed ] && [ "$i" -lt 15 ]; do sleep 1; i=$((i + 1)); done
+	fi
+	exec 9>&-
+	rc-service nanokvm-watchdog start > /dev/null 2>&1
+}
+
+guard_step() {
+	# One round of the guard at uptime $1. Returns 1 when the guard is done.
+	t=$1
+	deadline=$(cat "$RUN/deadline" 2> /dev/null || echo 0)
+	case "$(decision)" in
+		confirm)
+			# A confirm won. It gets CONFIRM_MAX to finish; a confirm that dies or stalls (for
+			# example in the remount) stops the feeding and the watchdog resets the board: the
+			# next boot shows whether the root was committed ("applied").
+			if [ -e "$RUN/confirmed" ]; then
+				disarm; put guard.state disarmed; return 1
+			fi
+			claimed=$(decision 2)
+			if [ $((t - claimed)) -lt "$CONFIRM_MAX" ]; then
+				feed $((claimed + CONFIRM_MAX))
+			else
+				[ "$(cat "$RUN/guard.state" 2> /dev/null)" = stalled ] || { put guard.state stalled; log "confirm stalled; letting the watchdog reset"; }
+				[ -n "$own" ] || kt_deadline 0
+			fi
+			;;
+		rollback)
+			if [ -z "$rebooting" ]; then
+				rebooting=$t
+				put guard.state rebooting
+				log "not confirmed; rebooting to roll back"
+				sync
+				do_reboot
+			fi
+			# A shutdown that hangs: stop feeding and let the watchdog reset the board.
+			if [ $((t - rebooting)) -lt "$GRACE" ]; then feed "$((rebooting + GRACE))"; fi
+			;;
+		*)
+			if ! cp_disabled; then
+				# Something else re-enabled checkpointing: committed without a confirm.
+				history "WARNING trial $(get id "$STATE/pending") committed outside confirm (checkpointing re-enabled)"
+				rm -f "$STATE/pending" "$STATE/applied"; sync
+				disarm; put guard.state committed-externally; return 1
+			fi
+			if [ "$t" -ge "$deadline" ]; then
+				decide rollback "$t" || [ -n "$(decision)" ] || return 0
+				guard_step "$t"; return $?     # act on whichever decision now stands
+			fi
+			feed "$deadline"
+			;;
+	esac
+	return 0
+}
+
+guard() {
+	# Detached; holds the update lock (fd 9) and the watchdog (fd 3) for the whole window.
+	# The deadline is re-read every round: start moves it when the update is applied.
+	echo $$ > "$RUN/guard.pid"
+	guard_setup || exit 1
+	while guard_step "$(up)"; do sleep "$FEED"; done
+	exit 0
 }
 
 cmd_start() {
@@ -267,19 +285,26 @@ cmd_confirm() {
 	[ -e "$STATE/applied" ] || die "the update has not finished applying; nothing to confirm"
 	[ "$(get boot "$STATE/pending")" = "$(boot_id)" ] || die "the trial belongs to another boot"
 	cp_disabled || die "checkpointing is already enabled"
-	decide confirm || die "too late: the trial is already rolling back ($(decision))"
 	id=$(get id "$STATE/pending")
 	if boot_changed; then
 		log "WARNING: /boot changed during the trial (it does not roll back either way):"
 		diff "$RUN/boot.before" "$RUN/boot.now" | sed -n 's/^[<>] /  /p'
 	fi
-	if in_ktrial; then
+	if in_ktrial && [ "$(get promote "$KSTATE")" != 1 ]; then
 		# Written inside the trial: it survives exactly when the remount below commits the root,
-		# so every cut point leaves a distinguishable record for the boot service.
-		echo promote=1 >> "$KSTATE"
+		# so every cut point leaves a distinguishable record for the boot service. Checked
+		# before anything is claimed; it is lost with the root if the confirm does not happen.
+		{ cat "$KSTATE" && echo promote=1; } > "$KSTATE.new" && mv "$KSTATE.new" "$KSTATE" &&
+			[ "$(get promote "$KSTATE")" = 1 ] || { rm -f "$KSTATE.new"; die "cannot record the kernel-trial intent; nothing confirmed"; }
 	fi
-	mount -o remount,checkpoint=enable / || die "cannot re-enable checkpointing; the trial stays uncommitted (the guard resets the board)"
-	! cp_disabled || die "checkpointing is still disabled"
+	# The confirm window is enforced here too, not only by the guard's next round.
+	t=$(up)
+	[ "$t" -lt "$(cat "$RUN/deadline" 2> /dev/null || echo 0)" ] || die "too late: the confirm window has closed; the trial rolls back"
+	decide confirm "$t" || die "too late: $(decision) already decided"
+	if ! mount -o remount,checkpoint=enable / || cp_disabled; then
+		# Not committed: hand over to a graceful rollback rather than leaving the guard to wait.
+		if cp_disabled; then redecide rollback; die "cannot re-enable checkpointing; rolling back"; fi
+	fi
 	rm -f "$STATE/pending" "$STATE/applied"
 	history "confirmed $id"                     # syncs; the update is now permanent
 	rc=0
@@ -370,15 +395,18 @@ kt_finish() {
 
 kt_boot() {
 	if in_ktrial; then
-		# This is the trial boot: check in with the watcher and run the package trial.
+		# This is the trial boot: check in with the watcher and run the package trial, once per
+		# boot. A service restart must not clear the running trial or start a second worker.
+		mkdir "$KT/claimed" 2> /dev/null || { log "kernel trial already running in this boot"; return 0; }
 		echo booted > "$KT/booted"
 		kt_deadline $(( $(up) + APPLY_MAX ))
 		history "kernel trial $(get id "$KSTATE"): booted $(uname -r), watcher $(cat "$KT/watcher" 2> /dev/null)"
 		mkdir -p "$RUN" && chmod 0700 "$RUN" && rm -rf "${RUN:?}"/*
 		setsid "$0" __ktrial_apply < /dev/null > "$RUN/start.log" 2>&1 &
 	elif kt_markers || [ -f "$KSTATE" ]; then
-		kt_finish
+		kt_finish || return 1
 	fi
+	return 0
 }
 
 ktrial_apply() {
@@ -455,6 +483,19 @@ kt_patch_init() {
 	sh -n "$dst" || { echo "the trial init does not parse" >&2; return 1; }
 }
 
+kt_install_image() {
+	# Rename the checked boot.sd.new over boot.sd and verify it on the card ($1: its hash).
+	if ! { mv "$BOOT"/boot.sd.new "$BOOT"/boot.sd && sync "$BOOT" && [ "$(oncard "$BOOT"/boot.sd)" = "$1" ]; }; then
+		# boot.sd may now be anything. Make sure no trial can start from it (the init acts only on
+		# ".armed"), keep the records, and restore boot.sd; the records go only once it verifies.
+		mv -f "$BOOT"/nkos-ktrial.armed "$BOOT"/nkos-ktrial.failed 2> /dev/null; sync "$BOOT"
+		if kt_restore; then
+			die "installing the trial image failed; boot.sd restored and verified, nothing armed"
+		fi
+		die "installing the trial image failed and boot.sd could not be restored; boot.prev boots. The boot service retries at every boot (or: nkos-safe-update kernel-finish)"
+	fi
+}
+
 kt_record() {
 	# The kernel trial record on the root: written, synced and read back before /boot changes.
 	mkdir -p "$STATE" &&
@@ -521,17 +562,17 @@ cmd_kernel_trial() {
 		log "built $W/trial.sd ($want); nothing armed"; exit 0
 	fi
 
+	# Root record first (committed: checkpointing is on): nothing on /boot changes unless it is
+	# safely written. Then boot.prev, the marker and the image, each step checked.
+	kt_record "$id" "$timeout" "$*" "$(cat "$payload/kernel.release")" "$cur" || die "cannot write $KSTATE; nothing changed"
+	disarm_trial() { rm -f "$BOOT"/boot.sd.new "$BOOT"/nkos-ktrial.armed "$KSTATE"; sync; }
 	# boot.prev must be the image running now: it is what any reset of the trial boots.
 	if [ "$(oncard "$BOOT"/boot.prev 2> /dev/null)" != "$cur" ]; then
 		rm -f "$BOOT"/boot.prev.new; cp "$BOOT"/boot.sd "$BOOT"/boot.prev.new && sync "$BOOT"/boot.prev.new &&
 			[ "$(oncard "$BOOT"/boot.prev.new)" = "$cur" ] && mv "$BOOT"/boot.prev.new "$BOOT"/boot.prev &&
 			echo "$cur" > "$BOOT"/boot.prev.sha256.new && mv "$BOOT"/boot.prev.sha256.new "$BOOT"/boot.prev.sha256 && sync "$BOOT" ||
-			die "cannot make boot.prev a checked copy of boot.sd"
+			{ rm -f "$BOOT"/boot.prev.new "$BOOT"/boot.prev.sha256.new; disarm_trial; die "cannot make boot.prev a checked copy of boot.sd"; }
 	fi
-	# Root record first (committed: checkpointing is on), then the marker, then the image.
-	# Each step is checked; nothing on /boot changes unless the record is safely written.
-	kt_record "$id" "$timeout" "$*" "$(cat "$payload/kernel.release")" "$cur" || die "cannot write $KSTATE; nothing armed"
-	disarm_trial() { rm -f "$BOOT"/boot.sd.new "$BOOT"/nkos-ktrial.armed "$KSTATE"; sync; }
 	marker=$id
 	[ -z "${NKOS_SU_TEST_BAD_MARKER:-}" ] || marker=not-$id     # test hook: an armed marker that does not match
 	echo "$marker" > "$BOOT"/nkos-ktrial.armed && sync "$BOOT" || { disarm_trial; die "cannot arm the trial"; }
@@ -539,8 +580,7 @@ cmd_kernel_trial() {
 		[ "$(oncard "$BOOT"/boot.sd.new)" = "$want" ] || { disarm_trial; die "the trial image did not write back correctly"; }
 	# boot.sd.sha256 keeps the old record on purpose: if the trial image boots without demoting itself,
 	# activate-kernel must not take it for a good image and copy it over boot.prev.
-	mv "$BOOT"/boot.sd.new "$BOOT"/boot.sd && sync "$BOOT" && [ "$(oncard "$BOOT"/boot.sd)" = "$want" ] ||
-		{ disarm_trial; "$ACTIVATE" > /dev/null 2>&1; die "installing the trial image failed; boot.sd restored with activate-kernel"; }
+	kt_install_image "$want"
 	history "kernel trial $id armed: boot.sd ${want%"${want#????????????}"} (trial image), boot.prev ${cur%"${cur#????????????}"}"
 	log "kernel trial $id armed. Rebooting into it; check-in within $BOOT_MAX s, then the update, then $timeout s to confirm"
 	exec 9>&-
@@ -550,16 +590,23 @@ cmd_kernel_trial() {
 cmd_kernel_finish() {
 	# Retry what a kernel trial left to do (also done at every boot).
 	lock
-	# In the trial boot only once the root is committed (a confirm whose boot-image install failed).
-	if in_ktrial && [ "$(get promote "$KSTATE")" != 1 ]; then die "the kernel trial is still running; confirm it or let it roll back"; fi
+	# In the trial boot only once the root is committed (a confirm whose boot-image install failed):
+	# promote=1 alone is not enough, it is also written just before a confirm claims the decision.
+	if in_ktrial && { cp_disabled || [ -e "$STATE/pending" ] || [ "$(get promote "$KSTATE")" != 1 ]; }; then
+		die "the kernel trial is still running; confirm it or let it roll back"
+	fi
 	kt_markers || [ -f "$KSTATE" ] || { log "no kernel trial to finish"; return 0; }
 	kt_finish
 }
 
 cmd_boot() {
-	# Early in boot: report how the last trial ended.
-	kt_boot
-	[ -e "$STATE/pending" ] || return 0
+	# Early in boot: report how the last trial ended. A failed kernel-trial recovery fails the
+	# service (its records stay for the next boot). A trial started in this boot is running:
+	# a service restart leaves it alone.
+	rc=0
+	kt_boot || rc=1
+	[ -e "$STATE/pending" ] || return "$rc"
+	[ "$(get boot "$STATE/pending")" != "$(boot_id)" ] || return "$rc"
 	id=$(get id "$STATE/pending")
 	if [ -e "$STATE/applied" ]; then
 		history "committed $id (cleanup finished at boot)"
@@ -567,6 +614,7 @@ cmd_boot() {
 		history "rolled back $id (not confirmed: apk $(short "$(get apk "$STATE/pending")"))"
 	fi
 	rm -f "$STATE/pending" "$STATE/applied"; sync
+	return "$rc"
 }
 
 cmd_status() {

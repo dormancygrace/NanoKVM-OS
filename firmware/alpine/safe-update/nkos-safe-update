@@ -1,0 +1,230 @@
+#!/bin/sh
+# nkos-safe-update: package updates that roll back unless an administrator confirms them.
+#
+# The F2FS root is the transaction. Checkpointing is disabled before apk runs, so
+# nothing the update writes is committed. "confirm" re-enables checkpointing, which
+# commits it. Any other way out (the confirm timeout, power loss, panic, a hang,
+# this guard being killed) reboots, and the root mounts as it was before the update.
+#
+# Only the root rolls back: /boot (kernel, bootloader) and /data do not. Kernel,
+# kmod and bootloader packages are therefore held back by default (see HELD).
+set -u
+
+STATE=/var/lib/nkos-safe-update        # on the root: rolls back with it
+RUN=/run/nkos-safe-update              # tmpfs: this boot only
+LOCK=/kvmapp/.os-update/lock           # the update lock NanoKVM-Server uses
+WDT=/dev/watchdog0
+HELD="nanokvm-kernel nanokvm-kernel-sg2002 nanokvm-kmod nanokvm-kmod-sg2002 nanokvm-bootloader nanokvm-bootloader-sg2002"
+TIMEOUT=${NKOS_SU_TIMEOUT:-900}        # confirm window, seconds
+SPARE=${NKOS_SU_SPARE:-20}             # % of the root F2FS may leave unusable while disabled
+FEED=5                                 # watchdog feed interval (hardware timeout is 30 s)
+GRACE=120                              # time a timeout reboot may take before feeding stops
+
+log() { echo "nkos-safe-update: $*"; logger -t nkos-safe-update -- "$*" 2>/dev/null || true; }
+die() { echo "nkos-safe-update: $*" >&2; exit 1; }
+now() { date +%s; }
+boot_id() { cat /proc/sys/kernel/random/boot_id; }
+root_opts() { awk '$2 == "/" { print $4 }' /proc/mounts; }
+cp_disabled() { case ",$(root_opts)," in *,checkpoint=disable*) return 0 ;; esac; return 1; }
+history() { mkdir -p "$STATE" && echo "$(date -Iseconds) $*" >> "$STATE/history" && sync; }
+get() { sed -n "s/^$1=//p" "$2" 2>/dev/null; }
+# shellcheck disable=SC2048,SC2086 # split the stored command line into words
+short() { set -- $*; if [ $# -gt 6 ]; then echo "$1 $2 $3 $4 $5 $6 ... ($# args)"; else echo "$*"; fi; }
+boot_hash() { find /boot -type f ! -name '*.log' -exec sha256sum {} + 2>/dev/null | sort -k2; }
+
+held_in_plan() {
+	# a plan line such as "(3/5) Upgrading nanokvm-kernel (a -> b)"
+	for p in $HELD; do
+		grep -qE "^\([ 0-9/]+\) [A-Za-z]+ $p( |$)" "$1" && echo "$p"
+	done
+	return 0
+}
+
+preflight() {
+	[ "$(id -u)" = 0 ] || die "run as root"
+	awk '$2 == "/" && $1 == "/dev/mmcblk0p2" && $3 == "f2fs" { ok = 1 } END { exit !ok }' /proc/mounts ||
+		die "the root is not F2FS on /dev/mmcblk0p2"
+	! cp_disabled || die "checkpointing is already disabled on / (another trial is running?)"
+	[ ! -e "$STATE/pending" ] || die "an earlier trial is unresolved: $(tr '\n' ' ' < "$STATE/pending")"
+	[ ! -e /var/lib/nanokvm-recovery/pending.json ] || die "settings recovery is pending; reboot first"
+	[ -c "$WDT" ] || die "$WDT is missing; refusing a trial without a hardware watchdog"
+	# shellcheck disable=SC2046 # two numbers
+	set -- $(df -Pk / | awk 'NR == 2 { print $2, $4 }')
+	[ $(( $2 * 100 / $1 )) -ge $(( SPARE + 10 )) ] ||
+		die "root has $(( $2 / 1024 )) MiB free; a trial needs at least $(( SPARE + 10 ))% free"
+}
+
+guard() {
+	# Detached; holds the update lock (fd 9) and the watchdog (fd 3) for the whole window.
+	deadline=$1
+	echo $$ > "$RUN/guard.pid"
+	rc-service nanokvm-watchdog stop >/dev/null 2>&1 || pkill -TERM -x watchdog 2>/dev/null
+	i=0
+	while pgrep -x watchdog >/dev/null; do
+		i=$((i + 1)); [ "$i" -lt 10 ] || { echo failed > "$RUN/guard.state"; exit 1; }
+		sleep 1
+	done
+	echo failed > "$RUN/guard.state"            # a failed open below ends this shell
+	exec 3> "$WDT"
+	echo armed > "$RUN/guard.state"
+	rebooting=
+	while :; do
+		printf x >&3
+		if [ -e "$RUN/confirmed" ]; then
+			printf V >&3; exec 3>&- 9>&-
+			echo disarmed > "$RUN/guard.state"
+			rc-service nanokvm-watchdog start >/dev/null 2>&1
+			exit 0
+		fi
+		if [ -z "$rebooting" ] && ! cp_disabled; then
+			# Something else re-enabled checkpointing: the update is committed without a confirm.
+			printf V >&3; exec 3>&- 9>&-
+			history "WARNING trial $(get id "$STATE/pending") committed outside confirm (checkpointing re-enabled)"
+			rm -f "$STATE/pending" "$STATE/applied"; sync
+			echo committed-externally > "$RUN/guard.state"
+			rc-service nanokvm-watchdog start >/dev/null 2>&1
+			exit 0
+		fi
+		t=$(now)
+		if [ -z "$rebooting" ] && { [ "$t" -ge "$deadline" ] || [ -e "$RUN/rollback" ]; }; then
+			rebooting=$t
+			echo rebooting > "$RUN/guard.state"
+			log "not confirmed; rebooting to roll back"
+			sync
+			reboot &
+		fi
+		# A shutdown that hangs: stop feeding and let the watchdog reset the board.
+		if [ -n "$rebooting" ] && [ $((t - rebooting)) -ge "$GRACE" ]; then
+			while :; do sleep 60; done
+		fi
+		sleep "$FEED"
+	done
+}
+
+cmd_start() {
+	# Run the trial detached, so a dropped SSH session cannot interrupt apk.
+	mkdir -p "$RUN" && rm -f "$RUN"/*
+	setsid "$0" __start "$@" < /dev/null > "$RUN/start.log" 2>&1 &
+	w=$!
+	tail -n +1 -f --pid="$w" "$RUN/start.log" 2>/dev/null
+	wait "$w"
+}
+
+worker_start() {
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			-t|--timeout) TIMEOUT=$2; shift 2 ;;
+			--) shift; break ;;
+			*) die "unknown option $1" ;;
+		esac
+	done
+	[ "$TIMEOUT" -ge 60 ] 2>/dev/null || die "the confirm timeout must be at least 60 s"
+	default=
+	# shellcheck disable=SC2086 # one argument per package
+	[ $# -gt 0 ] || { default=1; set -- upgrade --ignore $HELD; }
+	preflight
+	mkdir -p "$STATE" "${LOCK%/*}"
+	exec 9>> "$LOCK"
+	flock -n 9 || die "another update operation is in progress"
+
+	apk update -q >/dev/null 2>&1
+	apk "$@" --simulate > "$RUN/plan" 2>&1 || { cat "$RUN/plan"; die "apk $* would fail; nothing changed"; }
+	held=$(held_in_plan "$RUN/plan")
+	[ -z "$held" ] || die "the plan changes $held (kernel/bootloader live on /boot and cannot roll back); update those separately"
+	if [ -n "$default" ] && apk upgrade --simulate > "$RUN/plan.all" 2>&1; then
+		held=$(held_in_plan "$RUN/plan.all" | tr '\n' ' ')
+		[ -z "$held" ] || log "not included: $held(they replace files on /boot and cannot roll back; install them separately and reboot)"
+	fi
+	grep -qE '^\([ 0-9/]+\) ' "$RUN/plan" || { tail -1 "$RUN/plan"; log "nothing to do"; exit 0; }
+	cat "$RUN/plan"
+	boot_hash > "$RUN/boot.before"
+
+	id=$(date +%Y%m%d-%H%M%S)-$$
+	deadline=$(( $(now) + TIMEOUT ))
+	# Committed before checkpointing stops: after a rollback, boot finds "pending" without "applied".
+	printf 'id=%s\nstarted=%s\ndeadline=%s\nboot=%s\napk=%s\n' "$id" "$(now)" "$deadline" "$(boot_id)" "$*" > "$STATE/pending"
+	sync
+	mount -o "remount,checkpoint=disable:$SPARE%" / || { rm -f "$STATE/pending"; sync; die "cannot disable checkpointing on /"; }
+	cp_disabled || { rm -f "$STATE/pending"; sync; die "checkpointing did not stop"; }
+	log "trial $id: checkpointing disabled; confirm within $TIMEOUT s"
+
+	setsid "$0" __guard "$deadline" < /dev/null > "$RUN/guard.log" 2>&1 &
+	i=0; while [ "$(cat "$RUN/guard.state" 2>/dev/null)" != armed ]; do
+		i=$((i + 1)); sleep 1
+		if [ "$i" -ge 15 ] || [ "$(cat "$RUN/guard.state" 2>/dev/null)" = failed ]; then
+			log "the guard did not arm the watchdog; rolling back"
+			sync; reboot; exit 1
+		fi
+	done
+	exec 9>&-                                   # the guard keeps the lock
+
+	apk "$@" 9>&-; rc=$?
+	if [ "$rc" -ne 0 ]; then
+		log "apk failed ($rc); rolling back"
+		touch "$RUN/rollback"; exit "$rc"
+	fi
+	boot_hash > "$RUN/boot.after"
+	if ! cmp -s "$RUN/boot.before" "$RUN/boot.after"; then
+		log "WARNING: /boot changed during the trial and will NOT roll back:"
+		diff "$RUN/boot.before" "$RUN/boot.after" | sed -n 's/^[<>] /  /p'
+	fi
+	echo "id=$id" > "$STATE/applied"            # only exists if the trial is committed
+	log "trial $id applied. Check the device, then run: nkos-safe-update confirm"
+	log "without a confirm it rolls back at $(date -d "@$deadline" '+%H:%M:%S' 2>/dev/null || echo "+$TIMEOUT s")"
+}
+
+cmd_confirm() {
+	[ -e "$STATE/pending" ] || die "no trial is running"
+	[ -e "$STATE/applied" ] || die "the update has not finished applying; nothing to confirm"
+	[ "$(get boot "$STATE/pending")" = "$(boot_id)" ] || die "the trial belongs to another boot"
+	cp_disabled || die "checkpointing is already enabled"
+	id=$(get id "$STATE/pending")
+	mount -o remount,checkpoint=enable / || die "cannot re-enable checkpointing; the trial stays uncommitted"
+	! cp_disabled || die "checkpointing is still disabled"
+	rm -f "$STATE/pending" "$STATE/applied"
+	history "confirmed $id"                     # syncs; the update is now permanent
+	touch "$RUN/confirmed"
+	i=0; while [ "$(cat "$RUN/guard.state" 2>/dev/null)" != disarmed ] && [ "$i" -lt 15 ]; do sleep 1; i=$((i + 1)); done
+	log "trial $id confirmed and committed ($(cat "$RUN/guard.state" 2>/dev/null))"
+}
+
+cmd_rollback() {
+	if [ ! -e "$STATE/pending" ] || ! cp_disabled; then die "no trial is running"; fi
+	log "rollback requested; rebooting"
+	touch "$RUN/rollback"
+}
+
+cmd_boot() {
+	# Early in boot: report how the last trial ended.
+	[ -e "$STATE/pending" ] || return 0
+	id=$(get id "$STATE/pending")
+	if [ -e "$STATE/applied" ]; then
+		history "committed $id (cleanup finished at boot)"
+	else
+		history "rolled back $id (not confirmed: apk $(short "$(get apk "$STATE/pending")"))"
+	fi
+	rm -f "$STATE/pending" "$STATE/applied"; sync
+}
+
+cmd_status() {
+	echo "root: $(cp_disabled && echo "checkpointing DISABLED (trial)" || echo "checkpointing enabled")"
+	if [ -e "$STATE/pending" ]; then
+		d=$(get deadline "$STATE/pending")
+		echo "trial: $(get id "$STATE/pending") $( [ -e "$STATE/applied" ] && echo applied || echo applying)," \
+			"rolls back in $(( d - $(now) )) s unless confirmed; guard: $(cat "$RUN/guard.state" 2>/dev/null || echo none)"
+	else
+		echo "trial: none"
+	fi
+	echo "history:"; tail -5 "$STATE/history" 2>/dev/null | sed 's/^/  /'
+}
+
+case "${1:-}" in
+	start) shift; cmd_start "$@" ;;
+	confirm) cmd_confirm ;;
+	rollback) cmd_rollback ;;
+	status) cmd_status ;;
+	boot) cmd_boot ;;
+	__start) shift; worker_start "$@" ;;
+	__guard) guard "$2" ;;
+	*) echo "usage: nkos-safe-update start [-t SECONDS] [-- APK ARGS] | confirm | rollback | status" >&2; exit 2 ;;
+esac

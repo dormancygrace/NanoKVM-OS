@@ -123,27 +123,35 @@ def apkbuild_changes(source, result, root=ROOT):
     path = source['path']
     text = (root / path).read_text()
     current, latest = result['current'], result['latest']
-    if len(re.findall(r'^pkgver=' + re.escape(current) + r'$', text, re.MULTILINE)) != 1:
+    if re.findall(r'^pkgver=(.*)$', text, re.MULTILINE) != [current]:
         raise ValueError('Expected a single pkgver=' + current + ' in ' + path)
+    revisions = re.findall(r'^pkgrel=(.*)$', text, re.MULTILINE)
+    if len(revisions) != 1 or not re.fullmatch(r'[0-9]+', revisions[0]):
+        raise ValueError('Expected a single numeric pkgrel in ' + path)
     entry = re.search(r'^source="(\S+)::(https://\S+)$', text, re.MULTILINE)
     if not entry:
         raise ValueError('Expected the upstream archive as the first source of ' + path)
-    variables = dict(re.findall(r'^([A-Za-z_]\w*)=([^\s"$]*(?:\$\{?\w+\}?[^\s"$]*)*)$', text, re.MULTILINE))
+    # Only simple, unquoted assignments are supported. Resolve references
+    # separately so repeated variable names never introduce parser backtracking.
+    variables = dict(re.findall(r'^([A-Za-z_]\w*)=([A-Za-z0-9_./+${}-]+)$', text, re.MULTILINE))
 
     def expand(value, version):
         known = dict(variables, pkgver=version)
         for _ in range(4):
-            value = re.sub(r'\$\{?([A-Za-z_]\w*)\}?', lambda m: known.get(m[1], m[0]), value)
+            value = re.sub(r'\$\{([A-Za-z_]\w*)\}|\$([A-Za-z_]\w*)',
+                           lambda m: known.get(m[1] or m[2], m[0]), value)
         if '$' in value:
             raise ValueError('Cannot expand ' + value)
         return value
 
     old_name, new_name = expand(entry[1], current), expand(entry[1], latest)
     url = expand(entry[2], latest)
-    checksum = archive_hash(url, 'sha512')
+    if current != latest and url == expand(entry[2], current):
+        raise ValueError('Archive URL does not change with pkgver in ' + path)
     line = re.compile(r'^[0-9a-f]{128}  ' + re.escape(old_name) + r'$', re.MULTILINE)
     if len(line.findall(text)) != 1:
         raise ValueError('Expected a single sha512 line for ' + old_name)
+    checksum = archive_hash(url, 'sha512')
     text = line.sub(lambda _: checksum + '  ' + new_name, text)
     text = re.sub(r'^pkgver=' + re.escape(current) + r'$', 'pkgver=' + latest, text, flags=re.MULTILINE)
     text = re.sub(r'^pkgrel=[0-9]+$', 'pkgrel=0', text, flags=re.MULTILINE)

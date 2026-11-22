@@ -26,46 +26,68 @@ export const Zerotier = ({ setIsLocked }: ZerotierProps) => {
   const [status, setStatus] = useState<api.ZerotierStatus>();
   const [errMsg, setErrMsg] = useState('');
   const errorText = errMsg === statusFailed ? t(statusFailed) : errMsg;
-  const requestId = useRef(0);
-  const isMounted = useRef(true);
+  // One status request at a time: a slow answer is not dropped by the next
+  // tick. A refresh asked for while one is on its way (after an action) reads
+  // once more after it; a poll tick is skipped. generation drops the answers
+  // that arrive after unmount.
+  const generation = useRef(0);
+  const inFlight = useRef(false);
+  const again = useRef(false);
 
-  const getStatus = useCallback(async () => {
-    const currentRequestId = ++requestId.current;
+  const read = useCallback(async () => {
+    const current = generation.current;
+    inFlight.current = true;
     setIsLoading(true);
     try {
-      const rsp = await api.getStatus();
-      if (!isMounted.current || currentRequestId !== requestId.current) return;
-      if (rsp.code !== 0) {
-        setErrMsg(rsp.msg);
-        return;
-      }
-      setErrMsg('');
-      setStatus(rsp.data);
-    } catch (err: any) {
-      if (!isMounted.current || currentRequestId !== requestId.current) return;
-      setErrMsg(err?.message || statusFailed);
+      do {
+        again.current = false;
+        try {
+          const rsp = await api.getStatus();
+          if (current !== generation.current) return;
+          if (rsp.code !== 0) {
+            setErrMsg(rsp.msg);
+          } else {
+            setErrMsg('');
+            setStatus(rsp.data);
+          }
+        } catch (err: any) {
+          if (current !== generation.current) return;
+          setErrMsg(err?.message || statusFailed);
+        }
+      } while (again.current);
     } finally {
-      if (isMounted.current && currentRequestId === requestId.current) {
+      if (current === generation.current) {
+        inFlight.current = false;
         setIsLoading(false);
       }
     }
   }, []);
 
+  const getStatus = useCallback(() => {
+    if (inFlight.current) {
+      again.current = true;
+      return;
+    }
+    void read();
+  }, [read]);
+
   useEffect(() => {
-    // Effects are mounted twice in development Strict Mode. Restore the guard
-    // here rather than allowing the first cleanup to suppress the real request.
-    isMounted.current = true;
-    void getStatus();
+    getStatus();
     // A joined network moves from requesting its configuration to OK or
     // access denied when the controller answers; follow it while visible.
-    const stopPolling = pollWhileVisible(() => void getStatus(), 5000);
+    const stopPolling = pollWhileVisible(() => {
+      if (!inFlight.current) void read();
+    }, 5000);
 
     return () => {
-      isMounted.current = false;
-      requestId.current += 1;
+      // Effects are mounted twice in development Strict Mode: the remount
+      // starts afresh instead of waiting for the dropped request.
+      generation.current += 1;
+      inFlight.current = false;
+      again.current = false;
       stopPolling();
     };
-  }, [getStatus]);
+  }, [getStatus, read]);
 
   const running = status?.state === 'running' || status?.state === 'connecting';
 

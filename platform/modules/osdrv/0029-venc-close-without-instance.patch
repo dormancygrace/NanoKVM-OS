@@ -1,0 +1,67 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] venc: close a channel without an instance without touching the VPU
+
+A channel whose start was refused or failed has no instance: only a
+successful start sets pTestEnc->coreIdx and takes a reference to the core,
+and a failed one releases what it took. Closing such a channel made VPU
+calls on core 0, the zero-initialized index, whatever its codec, down to
+VPU_DeInit(0) without owning a reference, which could take the HEVC core
+from a running channel. This happens without any core reset: libkvm
+destroys a channel whose rate-control query failed after CreateChn and
+before StartRecvFrame. cviVEncClose now frees only the CPU memory of a
+channel without an instance, and a failed start clears the handle once it
+has released its resources.
+---
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -2861,6 +2861,8 @@
+ 	cviCloseVpuEnc(pTestEnc);
+ INIT_ERR_ENC_INIT:
+ 	cviDeInitVpuEnc(pTestEnc);
++	/* Released: the channel's close must not release it again. */
++	pTestEnc->handle = NULL;
+ 	return NULL;
+ }
+ 
+@@ -5724,6 +5726,7 @@
+ 	stTestEncoder *pTestEnc = NULL;
+ 	UserDataList *userdataNode = NULL;
+ 	UserDataList *n;
++	bool hasInstance;
+ 
+ 	if (handle == NULL)
+ 		return -1;
+@@ -5731,6 +5734,15 @@
+ 
+ 	CVI_VC_IF("\n");
+ 
++	/* An instance exists only after a successful start, which also sets
++	 * pTestEnc->coreIdx and takes a reference to that core; a start that
++	 * failed released what it took and cleared the handle. A channel
++	 * without one (its start refused or failed) owns nothing of the VPU:
++	 * only its CPU memory goes. */
++	hasInstance = pTestEnc->handle != NULL;
++	if (!hasInstance)
++		goto FREE_CHANNEL;
++
+ 	EnterVcodecLock(pTestEnc->coreIdx);
+ 
+ 	ret = cviCheckAndCompareBitstream(pTestEnc);
+@@ -5752,6 +5764,7 @@
+ 	cviCloseVpuEnc(pTestEnc);
+ 	cviDeInitVpuEnc(pTestEnc);
+ 
++FREE_CHANNEL:
+ 	if (pTestEnc->encConfig.pusBitCode) {
+ #ifndef FIRMWARE_H
+ 		osal_free(pTestEnc->encConfig.pusBitCode);
+@@ -5769,7 +5782,8 @@
+ 	}
+ 	pTestEnc->encConfig.userDataBufSize = 0;
+ 
+-	LeaveVcodecLock(pTestEnc->coreIdx);
++	if (hasInstance)
++		LeaveVcodecLock(pTestEnc->coreIdx);
+ 
+ 	if (pTestEnc)
+ 		osal_free(pTestEnc);

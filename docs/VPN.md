@@ -43,3 +43,29 @@ TAP tunnel is encrypted by OpenVPN itself and is several times slower.
 ## Tailscale
 
 Open the Tailscale submenu to use its existing installation/login controls.
+
+## ZeroTier
+
+ZeroTier is the optional `nanokvm-zerotier` add-on from the NanoKVM
+repository. Install and start it over SSH:
+
+```sh
+apk add nanokvm-zerotier
+rc-update add zerotier-one default
+rc-service zerotier-one start
+zerotier-cli info
+zerotier-cli join NETWORK_ID
+```
+
+Then authorize the node ID that `zerotier-cli info` shows in the network's
+controller (ZeroTier Central or your own); until then `zerotier-cli
+listnetworks` shows the network as `ACCESS_DENIED`. ZeroTier can run alongside
+the other VPNs; avoid overlapping routes.
+
+The add-on is ZeroTier One's agent (MPL-2.0), built from ZeroTier's release
+for musl and the C906, without ZeroTier's network controller, which is
+source-available and not part of the package. A controller is not needed to
+join networks. The identity and joined networks live in
+`/var/lib/zerotier-one`, the same place as other ZeroTier installations, so
+an identity copied there before starting keeps its node ID. `apk del
+nanokvm-zerotier` stops the service and keeps that directory.

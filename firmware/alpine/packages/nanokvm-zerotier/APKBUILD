@@ -1,0 +1,75 @@
+# Optional package; deliberately absent from platform/packages.list.
+# ZeroTier One's MPL-2.0 agent, built without ZT_NONFREE: no network
+# controller, which is source-available, non-commercial only. ZeroTier's own
+# Linux packages are built with ZT_NONFREE=1 and are not redistributed here.
+#
+# scripts/build-zerotier-addon.py reads pkgver, _ztver and the archive checksum
+# from this recipe and cross-compiles with the NanoKVM toolchain; abuild on a
+# native riscv64 Alpine builds the same recipe.
+pkgname=nanokvm-zerotier
+pkgver=1.16.2
+pkgrel=0
+_ztver=$pkgver
+pkgdesc="ZeroTier One virtual network agent for NanoKVM OS"
+url="https://github.com/zerotier/ZeroTierOne"
+arch="riscv64"
+license="MPL-2.0 AND BSD-3-Clause AND MIT AND Apache-2.0"
+depends="nanokvm-os>=4.2.0 libgcc libstdc++ openrc"
+makedepends="linux-headers"
+install="$pkgname.post-upgrade $pkgname.pre-deinstall"
+source="zerotier-one-$_ztver.tar.gz::https://github.com/zerotier/ZeroTierOne/archive/refs/tags/$_ztver.tar.gz
+	zerotier-one.initd
+	cpp-httplib-0.15.3.LICENSE
+	"
+builddir="$srcdir/ZeroTierOne-$_ztver"
+
+build() {
+	# ZT_NONFREE unset: the MPL-2.0 agent only. No SSO (Rust, OpenSSL).
+	make ZT_NONFREE=0 ZT_SSO_SUPPORTED=0 one
+}
+
+check() {
+	# ZeroTier's own tests: crypto, packets, identities, certificates and
+	# local sockets, linked from the agent's objects.
+	make ZT_NONFREE=0 ZT_SSO_SUPPORTED=0 selftest
+	./zerotier-selftest
+}
+
+package() {
+	if grep -q EmbeddedNetworkController zerotier-one; then
+		error "zerotier-one contains the non-free network controller"
+		return 1
+	fi
+	install -Dm755 zerotier-one "$pkgdir"/usr/sbin/zerotier-one
+	ln -s zerotier-one "$pkgdir"/usr/sbin/zerotier-cli
+	ln -s zerotier-one "$pkgdir"/usr/sbin/zerotier-idtool
+	install -Dm755 "$srcdir"/zerotier-one.initd "$pkgdir"/etc/init.d/zerotier-one
+	local licenses="$pkgdir"/usr/share/licenses/$pkgname
+	install -Dm644 LICENSE-MPL.txt "$licenses"/LICENSE-MPL.txt
+	# The ext/ code compiled in or included (build-zerotier-addon.py derives
+	# this list from the build and refuses an unreviewed one).
+	install -Dm644 ext/miniupnpc/LICENSE "$licenses"/miniupnpc.LICENSE
+	install -Dm644 ext/libnatpmp/LICENSE "$licenses"/libnatpmp.LICENSE
+	install -Dm644 ext/http-parser/LICENSE-MIT "$licenses"/http-parser.LICENSE
+	install -Dm644 ext/nlohmann/LICENSE.MIT "$licenses"/nlohmann.LICENSE
+	install -Dm644 ext/inja/LICENSE "$licenses"/inja.LICENSE
+	install -Dm644 ext/prometheus-cpp-lite-1.0/LICENSE "$licenses"/prometheus-cpp-lite-1.0.LICENSE
+	install -Dm644 ext/opentelemetry-cpp-1.21.0/LICENSE "$licenses"/opentelemetry-cpp-api-only.LICENSE
+	# cpp-httplib is vendored as its header alone: its attribution, then
+	# upstream's license of that version.
+	grep -q '^#define CPPHTTPLIB_VERSION "0.15.3"' ext/cpp-httplib/httplib.h || {
+		error "cpp-httplib is not 0.15.3: add its upstream LICENSE"
+		return 1
+	}
+	{
+		# Its comment ends with an empty line.
+		sed -n '1,/^#/{/^\/\//s,^// *,,p}' ext/cpp-httplib/httplib.h
+		cat "$srcdir"/cpp-httplib-0.15.3.LICENSE
+	} > "$licenses"/cpp-httplib.LICENSE
+}
+
+sha512sums="
+c955fe75930cdecb806b766aa3ae07f18dd2b4ee772d69f20375e043bdd3473d8e12fe530cfb8663f194fe63d5a66c545983be93b4c81b171fe4da930062ad7b  zerotier-one-1.16.2.tar.gz
+17808e9230918e3e8b9c6b7f2459b0fe33edadc19bec30dcb1f0589f0a246a9e53a725ad7d37b09b2021b56830718c9735cef969939d364438fcbfc9c798d383  zerotier-one.initd
+1f25c039257837a151b74d988758bd40c7a2e64267446816246a051476299b6499710c947596b1130be3c977db5bca93ac82c8b179f7e8ad89471a31fd3da384  cpp-httplib-0.15.3.LICENSE
+"

@@ -214,21 +214,6 @@ def check(source, root=ROOT):
             result.update(latest=release['tag_name'] + ' (' + head[:12] + ')', link=release['html_url'],
                           status={'ahead': 'update available', 'identical': 'current',
                                   'behind': 'pinned ahead', 'diverged': 'review branch divergence'}[data['status']])
-        elif kind == 'launchpad-binary':
-            url = ('https://api.launchpad.net/1.0/ubuntu/+archive/primary?'
-                   + urllib.parse.urlencode({'ws.op': 'getPublishedBinaries', 'binary_name': source['package'],
-                       'exact_match': 'true', 'status': 'Published',
-                       'distro_arch_series': 'https://api.launchpad.net/1.0/ubuntu/' + source['series'] + '/amd64',
-                       'order_by_date': 'true', 'ws.size': '100'}))
-            data = json.loads(request(url))
-            versions = sorted({row['binary_package_version'] for row in data['entries']})
-            if not versions:
-                raise ValueError('No published Ubuntu binary versions')
-            # Debian version ordering is not numeric or lexical. Report candidates;
-            # never present a possibly older pocket version as an automatic upgrade.
-            result.update(latest=', '.join(versions), link='https://launchpad.net/ubuntu/' + source['series'] + '/+package/' + source['package'],
-                          status='review package versions' if any(v != current for v in versions) else 'current',
-                          detail='Published amd64 versions in the selected Ubuntu series; compare with dpkg before repinning')
         elif kind == 'alpine-rootfs':
             branch = '.'.join(current.split('.')[:2])
             arch = source.get('arch', 'riscv64')

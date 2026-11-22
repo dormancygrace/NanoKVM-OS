@@ -70,7 +70,6 @@ unset udev_trigger udev_default
 for service in devfs procfs sysfs loopback hostname sysctl osclock udev-trigger; do
     conf=/etc/conf.d/$service
     if ! grep -q '^[[:space:]]*rc_keyword=' "$conf" 2>/dev/null; then
-        mkdir -p /etc/conf.d
         printf '\n%s\n' 'rc_keyword="-shutdown"' >> "$conf"
     fi
 done
@@ -79,7 +78,6 @@ unset service conf
 # Fresh images are closed to SSH until the user enables it. Recovery restores
 # the complete old /etc/kvm directory, including the absence of this marker.
 mkdir -p /etc/kvm
-mkdir -p /etc/conf.d
 printf '%s\n' 'command_args="-f /etc/chrony.conf"' > /etc/conf.d/chronyd
 touch /etc/kvm/ssh_stop
 

@@ -729,7 +729,7 @@ server() {
         --hot-order "$repo/firmware/cpu/go-hot-order/server-webrtc.txt"
     cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
     cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$s/out/nkos-standby" \
-        "$s/out/nkos-ipmi" "$img/server/"
+        "$img/server/"
 }
 
 # Web UI. npm packages are checked against pnpm-lock.yaml.
@@ -1050,29 +1050,22 @@ in_userns() (
     exit "$status"
 )
 
-qemu=$out/qemu/qemu-riscv64-static
+# The build host's qemu-user (Ubuntu 26.04: static binaries). The binfmt entry
+# below opens it at registration, so it runs inside the chroots too.
+qemu=/usr/bin/qemu-riscv64
 # Our userspace code uses the C906's T-Head extensions (cpu-profile.json), which
 # qemu's default RISC-V CPU lacks, and the chroot steps run some of it: zlib-ng
 # as libz.so.1 in apk and kmod. qemu has no XTheadVector, which nothing loaded
 # there uses. (-cpu thead-c906 would warn on every program about zfa.)
 qemu_cpu=rv64,xtheadba=true,xtheadbb=true,xtheadbs=true,xtheadcmo=true,xtheadcondmov=true,xtheadfmemidx=true
 qemu_cpu=$qemu_cpu,xtheadmac=true,xtheadmemidx=true,xtheadmempair=true,xtheadsync=true
-prepare_qemu() {
-    local pin
-    pin=$(lock qemu | awk '{ print $3 }')
-    if [ ! -x "$qemu" ] || [ "$(cat "$out/qemu/.source-sha256" 2>/dev/null)" != "$pin" ]; then
-        rm -rf "$out/qemu"
-        mkdir -p "$out/qemu"
-        (cd "$out/qemu" && "${cross}ar" x "$dl/qemu-user-static_8.2.2+ds-0ubuntu1.19_amd64.deb" &&
-            "$host/zstd" -q -d -c data.tar.zst | tar -x ./usr/bin/qemu-riscv64-static)
-        mv "$out/qemu/usr/bin/qemu-riscv64-static" "$qemu"
-        printf '%s\n' "$pin" > "$out/qemu/.source-sha256"
-    fi
-}
 
 register_qemu() {
     local bfm
-    prepare_qemu
+    if [ ! -x "$qemu" ]; then
+        echo "The packages and rootfs steps need $qemu (package qemu-user); see platform/README.md." >&2
+        exit 1
+    fi
     # The mounts of the chroot steps stay in this namespace.
     mount --make-rprivate /
     bfm=$(mktemp -d)
@@ -1317,7 +1310,7 @@ rootfs() {
     for path in usr/sbin/nkos-usb-internet etc/init.d/nanokvm-usb-internet usr/sbin/iw usr/sbin/nanokvm_update_edid etc/init.d/nanokvm-policy \
                 usr/libexec/nanokvm/legacy/S50sshd usr/libexec/nanokvm/legacy/S38memory \
                 usr/libexec/nanokvm/legacy/S34mssclamp kvmapp/system/bin/usb-audio-capture \
-                usr/sbin/nkos-board-probe usr/sbin/nkos-board-select usr/sbin/nkos-ipmi etc/init.d/nanokvm-ipmi \
+                usr/sbin/nkos-board-probe usr/sbin/nkos-board-select \
                 usr/bin/nanokvm-rustdesk etc/init.d/nanokvm-rustdesk; do
         [ -x "$r/$path" ] || { echo "rootfs: missing $path" >&2; exit 1; }
     done

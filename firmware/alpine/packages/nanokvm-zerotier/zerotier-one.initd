@@ -1,0 +1,22 @@
+#!/sbin/openrc-run
+description="ZeroTier One virtual network service"
+command="/usr/sbin/zerotier-one"
+command_args="/var/lib/zerotier-one"
+supervisor="supervise-daemon"
+# Keep trying: it may be the only way back to the device.
+respawn_delay=10
+respawn_max=0
+output_logger="logger -t zerotier-one"
+error_logger="logger -t zerotier-one"
+
+depend() {
+    need localmount
+    use net dns logger
+    after firewall nanokvm-network nanokvm-storage
+}
+
+start_pre() {
+    [ -c /dev/net/tun ] || modprobe tun 2>/dev/null || true
+    # The identity and the joined networks; kept on uninstall unless purged.
+    checkpath --directory --mode 0700 --owner root:root /var/lib/zerotier-one
+}

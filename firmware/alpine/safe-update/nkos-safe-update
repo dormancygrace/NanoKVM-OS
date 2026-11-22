@@ -1,0 +1,678 @@
+#!/bin/sh
+# nkos-safe-update: package updates that roll back unless an administrator confirms them.
+#
+# The F2FS root is the transaction. Checkpointing is disabled before apk runs, so
+# nothing the update writes is committed. "confirm" re-enables checkpointing, which
+# commits it. Any other way out (the confirm timeout, power loss, panic, a hang,
+# this guard being killed) reboots, and the root mounts as it was before the update.
+#
+# Only the root rolls back: /boot (kernel, bootloader) and /data do not. Kernel,
+# kmod and bootloader packages are therefore held back (see HELD).
+#
+# "kernel-trial" extends this to the boot image: it boots a trial image once (its
+# initramfs renames boot.sd away, so any reset boots boot.prev) and runs the
+# package update as a normal trial inside that boot. "confirm" then commits
+# the root and installs the boot image with NanoKVM OS's activate-kernel.
+#
+# All deadlines are in seconds of uptime (monotonic, unaffected by clock changes).
+# shellcheck disable=SC2015,SC2012 # "a && b || die" chains are intended; marker names are fixed
+set -u
+
+STATE=${NKOS_SU_STATE:-/var/lib/nkos-safe-update}  # on the root: rolls back with it
+RUN=${NKOS_SU_RUN:-/run/nkos-safe-update}          # tmpfs: this boot only
+LOCK=${NKOS_SU_LOCK:-/kvmapp/.os-update/lock}      # the update lock NanoKVM-Server uses
+BOOT=${NKOS_SU_BOOT:-/boot}
+WDT=${NKOS_SU_WDT:-/dev/watchdog0}
+HELD=${NKOS_SU_HELD:-"nanokvm-kernel nanokvm-kernel-sg2002 nanokvm-kmod nanokvm-kmod-sg2002 nanokvm-bootloader nanokvm-bootloader-sg2002"}
+APKOPTS=${NKOS_SU_APK_OPTS:-}          # extra apk options (tests: a local repository)
+TIMEOUT=${NKOS_SU_TIMEOUT:-900}        # confirm window, counted from when the update is applied
+APPLY_MAX=${NKOS_SU_APPLY_MAX:-1800}   # longest the transaction itself may take before the trial rolls back
+CONFIRM_MAX=120                        # longest a confirm may take once it has won
+SPARE=${NKOS_SU_SPARE:-20}             # % of the root F2FS may hide at disable time instead of running GC
+FEED=${NKOS_SU_FEED:-5}                # watchdog feed interval (hardware timeout is 30 s)
+GRACE=120                              # time a timeout reboot may take before feeding stops
+LIB=/usr/lib/nkos-safe-update          # initramfs fragments and the FIT source
+KT=${NKOS_SU_KT:-/dev/.nkos-ktrial}    # created by the trial initramfs; shared with its watcher
+KSTATE=$STATE/ktrial                   # kernel trial record on the root
+BOOT_MAX=${NKOS_SU_BOOT_MAX:-300}      # kernel trial: userspace must check in within this
+ACTIVATE=${NKOS_SU_ACTIVATE:-/usr/libexec/nanokvm/activate-kernel}
+
+log() { echo "nkos-safe-update: $*"; logger -t nkos-safe-update -- "$*" 2>/dev/null || true; }
+die() { echo "nkos-safe-update: $*" >&2; exit 1; }
+up() { cut -d . -f 1 /proc/uptime; }
+boot_id() { cat /proc/sys/kernel/random/boot_id; }
+root_opts() { awk '$2 == "/" { print $4 }' /proc/mounts; }
+cp_disabled() { case ",$(root_opts)," in *,checkpoint=disable*) return 0 ;; esac; return 1; }
+history() { mkdir -p "$STATE" && echo "$(date -Iseconds) $*" >> "$STATE/history" && sync; }
+get() { sed -n "s/^$1=//p" "$2" 2>/dev/null; }
+# shellcheck disable=SC2048,SC2086 # split the stored command line into words
+short() { set -- $*; if [ $# -gt 6 ]; then echo "$1 $2 $3 $4 $5 $6 ... ($# args)"; else echo "$*"; fi; }
+# shellcheck disable=SC2086 # APKOPTS holds several options
+# --wait: the post-commit worker of an earlier transaction may still hold apk's lock.
+apk_() { apk --wait 120 "$@" $APKOPTS; }
+boot_hash() { find "$BOOT" -type f ! -name '*.log' -exec sha256sum {} + 2>/dev/null | sort -k2; }
+boot_changed() { boot_hash > "$RUN/boot.now"; ! cmp -s "$RUN/boot.before" "$RUN/boot.now"; }
+oncard() { dd if="$1" bs=64k iflag=direct 2>/dev/null | sha256sum | cut -d ' ' -f 1; }
+in_ktrial() { [ -f "$KT/id" ] && [ -f "$KSTATE" ] && [ "$(cat "$KT/id")" = "$(get id "$KSTATE")" ]; }
+kt_markers() { ls "$BOOT"/nkos-ktrial.* > /dev/null 2>&1; }
+kt_deadline() { echo "$1" > "$KT/deadline.new" && mv "$KT/deadline.new" "$KT/deadline"; }
+put() { printf '%s\n' "$2" > "$RUN/$1.new" && mv "$RUN/$1.new" "$RUN/$1"; }
+
+# Confirm and rollback are decided once. A decision is written to a private file and published
+# with ln, which fails if one exists: it is visible only complete, and the first one wins.
+decide() {
+	printf '%s %s\n' "$1" "${2:-$(up)}" > "$RUN/decision.$$" || return 1
+	if ln "$RUN/decision.$$" "$RUN/decision" 2> /dev/null; then rm -f "$RUN/decision.$$"; return 0; fi
+	rm -f "$RUN/decision.$$"; return 1
+}
+# Only the side that won may change its own decision (a confirm that cannot commit hands over to rollback).
+redecide() { printf '%s %s\n' "$1" "$(up)" > "$RUN/decision.$$" && mv -f "$RUN/decision.$$" "$RUN/decision"; }
+decision() { cut -d ' ' -f "${1:-1}" "$RUN/decision" 2> /dev/null; }
+
+# Take the shared update lock on fd 9 before looking at any state.
+lock() {
+	mkdir -p "${LOCK%/*}" || die "cannot create ${LOCK%/*}"
+	exec 9>> "$LOCK" || die "cannot open $LOCK"
+	flock -n 9 || die "another update operation is in progress"
+}
+
+held_in_plan() {
+	# a plan line such as "(3/5) Upgrading nanokvm-kernel (a -> b)"
+	for p in $HELD; do
+		grep -qE "^\([ 0-9/]+\) [A-Za-z]+ $p( |$)" "$1" && echo "$p"
+	done
+	return 0
+}
+
+preflight() {
+	[ "$(id -u)" = 0 ] || die "run as root"
+	awk '$2 == "/" && $1 == "/dev/mmcblk0p2" && $3 == "f2fs" { ok = 1 } END { exit !ok }' /proc/mounts ||
+		die "the root is not F2FS on /dev/mmcblk0p2"
+	! cp_disabled || die "checkpointing is already disabled on / (another trial is running?)"
+	[ ! -e "$STATE/pending" ] || die "an earlier trial is unresolved: $(tr '\n' ' ' < "$STATE/pending")"
+	[ ! -e /var/lib/nanokvm-recovery/pending.json ] || die "settings recovery is pending; reboot first"
+	[ -c "$WDT" ] || die "$WDT is missing; refusing a trial without a hardware watchdog"
+	# shellcheck disable=SC2046 # two numbers
+	set -- $(df -Pk / | awk 'NR == 2 { print $2, $4 }')
+	[ $(( $2 * 100 / $1 )) -ge $(( SPARE + 10 )) ] ||
+		die "root has $(( $2 / 1024 )) MiB free; a trial needs at least $(( SPARE + 10 ))% free"
+}
+
+guard_setup() {
+	# Choose who feeds the watchdog. In a kernel trial the initramfs watcher already owns it: the
+	# guard then only passes its deadline on, and the watcher enforces it (+GRACE). The watcher
+	# is trusted only once it has reported "armed"; otherwise the guard takes the watchdog.
+	own=1
+	if in_ktrial; then
+		i=0
+		while [ "$(cat "$KT/watcher" 2> /dev/null)" != armed ] && [ "$i" -lt "${NKOS_SU_WATCHER_WAIT:-15}" ]; do sleep 1; i=$((i + 1)); done
+		[ "$(cat "$KT/watcher" 2> /dev/null)" != armed ] || own=
+	fi
+	if [ -n "$own" ]; then
+		rc-service nanokvm-watchdog stop > /dev/null 2>&1 || pkill -TERM -x watchdog 2> /dev/null
+		i=0
+		while pgrep -x watchdog > /dev/null; do
+			i=$((i + 1)); [ "$i" -lt 10 ] || { put guard.state failed; return 1; }
+			sleep 1
+		done
+		put guard.state starting                # a failed open below ends this shell; the worker sees it exit
+		exec 3> "$WDT"
+	fi
+	put guard.state "armed $( [ -n "$own" ] && echo watchdog || echo watcher)"
+	rebooting=
+}
+
+feed() { if [ -n "$own" ]; then printf x >&3; else kt_deadline "$1"; fi; }
+do_reboot() { reboot & }
+disarm() {
+	if [ -n "$own" ]; then
+		printf V >&3; exec 3>&-
+	else
+		touch "$KT/confirmed"
+		i=0; while [ "$(cat "$KT/watcher" 2> /dev/null)" != disarmed ] && [ "$i" -lt 15 ]; do sleep 1; i=$((i + 1)); done
+	fi
+	exec 9>&-
+	rc-service nanokvm-watchdog start > /dev/null 2>&1
+}
+
+guard_step() {
+	# One round of the guard at uptime $1. Returns 1 when the guard is done.
+	t=$1
+	deadline=$(cat "$RUN/deadline" 2> /dev/null || echo 0)
+	case "$(decision)" in
+		confirm)
+			# A confirm won. It gets CONFIRM_MAX to finish; a confirm that dies or stalls (for
+			# example in the remount) stops the feeding and the watchdog resets the board: the
+			# next boot shows whether the root was committed ("applied").
+			if [ -e "$RUN/confirmed" ]; then
+				disarm; put guard.state disarmed; return 1
+			fi
+			claimed=$(decision 2)
+			if [ $((t - claimed)) -lt "$CONFIRM_MAX" ]; then
+				feed $((claimed + CONFIRM_MAX))
+			else
+				[ "$(cat "$RUN/guard.state" 2> /dev/null)" = stalled ] || { put guard.state stalled; log "confirm stalled; letting the watchdog reset"; }
+				[ -n "$own" ] || kt_deadline 0
+			fi
+			;;
+		rollback)
+			if [ -z "$rebooting" ]; then
+				rebooting=$t
+				put guard.state rebooting
+				log "not confirmed; rebooting to roll back"
+				sync
+				do_reboot
+			fi
+			# A shutdown that hangs: stop feeding and let the watchdog reset the board.
+			if [ $((t - rebooting)) -lt "$GRACE" ]; then feed "$((rebooting + GRACE))"; fi
+			;;
+		*)
+			if ! cp_disabled; then
+				# Something else re-enabled checkpointing: committed without a confirm.
+				history "WARNING trial $(get id "$STATE/pending") committed outside confirm (checkpointing re-enabled)"
+				rm -f "$STATE/pending" "$STATE/applied"; sync
+				disarm; put guard.state committed-externally; return 1
+			fi
+			if [ "$t" -ge "$deadline" ]; then
+				decide rollback "$t" || [ -n "$(decision)" ] || return 0
+				guard_step "$t"; return $?     # act on whichever decision now stands
+			fi
+			feed "$deadline"
+			;;
+	esac
+	return 0
+}
+
+guard() {
+	# Detached; holds the update lock (fd 9) and the watchdog (fd 3) for the whole window.
+	# The deadline is re-read every round: start moves it when the update is applied.
+	echo $$ > "$RUN/guard.pid"
+	guard_setup || exit 1
+	while guard_step "$(up)"; do sleep "$FEED"; done
+	exit 0
+}
+
+cmd_start() {
+	# Run the trial detached, so a dropped SSH session cannot interrupt apk. The lock is
+	# taken first and handed to the worker (and from it to the guard) on fd 9.
+	lock
+	if [ -e "$STATE/pending" ] || cp_disabled; then die "a trial is already running or unresolved (see: nkos-safe-update status)"; fi
+	mkdir -p "$RUN" && chmod 0700 "$RUN" && rm -rf "${RUN:?}"/*
+	NKOS_SU_LOCKED=1 setsid "$0" __start "$@" < /dev/null > "$RUN/start.log" 2>&1 &
+	w=$!
+	exec 9>&-
+	tail -n +1 -f --pid="$w" "$RUN/start.log" 2> /dev/null
+	wait "$w"
+}
+
+worker_start() {
+	partial=
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			-t|--timeout) TIMEOUT=$2; shift 2 ;;
+			--partial) partial=1; shift ;;
+			--) shift; break ;;
+			*) die "unknown option $1" ;;
+		esac
+	done
+	[ "$TIMEOUT" -ge 60 ] 2> /dev/null || die "the confirm timeout must be at least 60 s"
+	default=
+	# shellcheck disable=SC2086 # one argument per package
+	[ $# -gt 0 ] || { default=1; set -- upgrade --ignore $HELD; }
+	[ -n "${NKOS_SU_LOCKED:-}" ] || lock          # fd 9; otherwise inherited from cmd_start
+	preflight                                     # (re)checked under the lock
+	mkdir -p "$STATE" "$RUN" || die "cannot create $STATE"
+
+	apk_ update -q > /dev/null 2>&1
+	apk_ "$@" --simulate > "$RUN/plan" 2>&1 || { cat "$RUN/plan"; die "apk $* would fail; nothing changed"; }
+	held=$(held_in_plan "$RUN/plan" | tr '\n' ' ' | sed 's/ *$//')
+	[ -z "$held" ] || die "the plan changes $held (kernel/bootloader live on /boot and cannot roll back); update those separately"
+	if [ -n "$default" ] && apk_ upgrade --simulate > "$RUN/plan.all" 2>&1; then
+		held=$(held_in_plan "$RUN/plan.all" | tr '\n' ' ' | sed 's/ *$//')
+		if [ -n "$held" ] && [ -z "$partial" ]; then
+			die "this update also changes $held. Those replace files on /boot and cannot roll back, and without them the rest is a partial upgrade. Run 'nkos-safe-update kernel' first (reboot afterwards), then start again; or add --partial to trial the rest on the current kernel."
+		fi
+		[ -z "$held" ] || log "partial upgrade: not included: $held"
+	fi
+	grep -qE '^\([ 0-9/]+\) ' "$RUN/plan" || { tail -1 "$RUN/plan"; log "nothing to do"; exit 0; }
+	cat "$RUN/plan"
+	boot_hash > "$RUN/boot.before"
+
+	id=$(date +%Y%m%d-%H%M%S)-$$
+	put deadline $(( $(up) + APPLY_MAX ))
+	# Committed before checkpointing stops: after a rollback, boot finds "pending" without "applied".
+	printf 'id=%s\nstarted=%s\nboot=%s\napk=%s\n' "$id" "$(date +%s)" "$(boot_id)" "$*" > "$STATE/pending.new" &&
+		mv "$STATE/pending.new" "$STATE/pending" && sync || die "cannot write $STATE/pending"
+	mount -o "remount,checkpoint=disable:$SPARE%" / || { rm -f "$STATE/pending"; sync; die "cannot disable checkpointing on /"; }
+	cp_disabled || { rm -f "$STATE/pending"; sync; die "checkpointing did not stop"; }
+	log "trial $id: checkpointing disabled; confirm within $TIMEOUT s of the update being applied"
+
+	setsid "$0" __guard < /dev/null > "$RUN/guard.log" 2>&1 &
+	gpid=$!
+	i=0; while :; do
+		case "$(cat "$RUN/guard.state" 2> /dev/null)" in armed*) break ;; esac
+		# Failure is a reported "failed", the guard exiting (a failed open ends its shell), or a timeout.
+		if [ "$i" -ge 30 ] || [ "$(cat "$RUN/guard.state" 2> /dev/null)" = failed ] || ! kill -0 "$gpid" 2> /dev/null; then
+			log "the guard did not arm a watchdog; rolling back"
+			sync; reboot; exit 1
+		fi
+		i=$((i + 1)); sleep 1
+	done
+	exec 9>&-                                   # the guard keeps the lock
+
+	apk_ "$@" 9>&-; rc=$?
+	if [ "$rc" -ne 0 ]; then
+		log "apk failed ($rc); rolling back"
+		decide rollback; exit "$rc"
+	fi
+	if in_ktrial && [ -e "$BOOT"/boot.sd ]; then
+		# activate-kernel wrote boot.sd: a reset would boot it on the rolled-back root. Move it
+		# aside; confirm installs the boot image again. NanoKVM OS should get a way to skip
+		# activation during a trial instead.
+		mv "$BOOT"/boot.sd "$BOOT"/nkos-ktrial.activated.sd && sync "$BOOT"
+		log "kernel trial: moved the boot.sd written by activate-kernel aside until confirm"
+	fi
+	if boot_changed; then
+		log "WARNING: /boot changed during the trial and will NOT roll back:"
+		diff "$RUN/boot.before" "$RUN/boot.now" | sed -n 's/^[<>] /  /p'
+	fi
+	echo "id=$id" > "$STATE/applied"            # only exists if the trial is committed
+	put deadline $(( $(up) + TIMEOUT ))         # the confirm window starts now
+	log "trial $id applied. Check the device, then run: nkos-safe-update confirm"
+	log "without a confirm it rolls back in $TIMEOUT s"
+}
+
+cmd_confirm() {
+	[ -e "$STATE/pending" ] || die "no trial is running"
+	[ -e "$STATE/applied" ] || die "the update has not finished applying; nothing to confirm"
+	[ "$(get boot "$STATE/pending")" = "$(boot_id)" ] || die "the trial belongs to another boot"
+	cp_disabled || die "checkpointing is already enabled"
+	id=$(get id "$STATE/pending")
+	if boot_changed; then
+		log "WARNING: /boot changed during the trial (it does not roll back either way):"
+		diff "$RUN/boot.before" "$RUN/boot.now" | sed -n 's/^[<>] /  /p'
+	fi
+	if in_ktrial && [ "$(get promote "$KSTATE")" != 1 ]; then
+		# Written inside the trial: it survives exactly when the remount below commits the root,
+		# so every cut point leaves a distinguishable record for the boot service. Checked
+		# before anything is claimed; it is lost with the root if the confirm does not happen.
+		{ cat "$KSTATE" && echo promote=1; } > "$KSTATE.new" && mv "$KSTATE.new" "$KSTATE" &&
+			[ "$(get promote "$KSTATE")" = 1 ] || { rm -f "$KSTATE.new"; die "cannot record the kernel-trial intent; nothing confirmed"; }
+	fi
+	# The confirm window is enforced here too, not only by the guard's next round.
+	t=$(up)
+	[ "$t" -lt "$(cat "$RUN/deadline" 2> /dev/null || echo 0)" ] || die "too late: the confirm window has closed; the trial rolls back"
+	decide confirm "$t" || die "too late: $(decision) already decided"
+	# Time may have passed while the claim was published: re-check before committing.
+	if [ "$(up)" -ge "$(cat "$RUN/deadline" 2> /dev/null || echo 0)" ]; then
+		redecide rollback; die "too late: the confirm window closed while confirming; the trial rolls back"
+	fi
+	if ! mount -o remount,checkpoint=enable / || cp_disabled; then
+		# Not committed: hand over to a graceful rollback rather than leaving the guard to wait.
+		if cp_disabled; then redecide rollback; die "cannot re-enable checkpointing; rolling back"; fi
+	fi
+	rm -f "$STATE/pending" "$STATE/applied"
+	history "confirmed $id"                     # syncs; the update is now permanent
+	rc=0
+	if in_ktrial; then
+		[ -z "${NKOS_SU_TEST_CUT_AFTER_COMMIT:-}" ] || reboot -n -f   # test hook: cut between the commits
+		kid=$(get id "$KSTATE")
+		if kt_promote; then
+			log "kernel trial $kid committed: boot.sd is the new boot image"
+		else
+			rc=1
+			log "ROOT COMMITTED, BOOT IMAGE NOT INSTALLED: boot.prev (the previous image) boots until it is;" \
+				"retried at every boot, or now with: nkos-safe-update kernel-finish"
+		fi
+	fi
+	touch "$RUN/confirmed"                      # nothing can be rolled back any more
+	i=0; while [ "$(cat "$RUN/guard.state" 2> /dev/null)" != disarmed ] && [ "$i" -lt 15 ]; do sleep 1; i=$((i + 1)); done
+	log "trial $id confirmed and committed ($(cat "$RUN/guard.state" 2> /dev/null))"
+	return "$rc"
+}
+
+cmd_rollback() {
+	if [ ! -e "$STATE/pending" ] || ! cp_disabled; then die "no trial is running"; fi
+	decide rollback || die "too late: $(decision) already decided"
+	log "rollback requested; rebooting"
+}
+
+cmd_kernel() {
+	# The kernel step: outside any trial, not reversible. boot.prev is the fallback if the new image fails to load.
+	lock
+	preflight
+	T=$(mktemp -d /var/tmp/nkos-safe-update.XXXXXX) || die "cannot create a private work directory"
+	trap 'rm -rf "$T"' EXIT
+	apk_ update -q > /dev/null 2>&1
+	apk_ upgrade --simulate > "$T/plan" 2>&1 || { cat "$T/plan"; die "apk upgrade would fail"; }
+	held=$(held_in_plan "$T/plan" | tr '\n' ' ' | sed 's/ *$//')
+	[ -n "$held" ] || { log "no kernel, kmod or bootloader updates"; exit 0; }
+	log "upgrading $held (not covered by rollback)"
+	# shellcheck disable=SC2086 # one argument per package
+	apk_ upgrade $held 9>&- || die "apk failed"
+	history "kernel step: $held"
+	log "done. Reboot now, check the device, then run: nkos-safe-update start"
+}
+
+kt_promote() {
+	# Install the boot image of the installed kernel with NanoKVM OS's own writer, then
+	# drop the trial files. boot.prev stays the image the device ran before the trial.
+	# Every record stays until the new boot.sd is verified on the card.
+	if ! "$ACTIVATE" > /dev/null; then
+		history "ERROR kernel trial $(get id "$KSTATE"): activate-kernel failed; boot.prev boots until it succeeds"
+		return 1
+	fi
+	if [ ! -f "$BOOT"/boot.sd ] || [ "$(oncard "$BOOT"/boot.sd)" != "$(cat "$BOOT"/boot.sd.sha256 2> /dev/null)" ]; then
+		history "ERROR kernel trial $(get id "$KSTATE"): boot.sd does not match its record after activate-kernel"
+		return 1
+	fi
+	rm -f "$BOOT"/nkos-ktrial.*; sync "$BOOT"
+	# The running trial kernel is the one just installed when the payload did not change.
+	[ "$(get payload "$KSTATE")" != "$(cat /usr/lib/nanokvm/boot/kernel.release)" ] ||
+		rm -f /run/reboot-required /run/reboot-required.pkgs
+	history "kernel trial $(get id "$KSTATE") confirmed; boot.sd $(cut -c1-12 "$BOOT"/boot.sd.sha256), boot.prev $(cut -c1-12 "$BOOT"/boot.prev.sha256 2> /dev/null)"
+	rm -f "$KSTATE"; sync
+}
+
+kt_restore() {
+	# The trial ended without a commit: put boot.sd back with activate-kernel. The records
+	# stay (and the next boot retries) until the restored boot.sd is verified on the card.
+	if ! "$ACTIVATE" > /dev/null 2>&1; then
+		history "ERROR kernel trial $(get id "$KSTATE"): activate-kernel failed restoring boot.sd; boot.prev boots; retried at the next boot"
+		return 1
+	fi
+	if [ ! -f "$BOOT"/boot.sd ] || [ "$(oncard "$BOOT"/boot.sd)" != "$(cat "$BOOT"/boot.sd.sha256 2> /dev/null)" ]; then
+		history "ERROR kernel trial $(get id "$KSTATE"): restored boot.sd does not match its record; retried at the next boot"
+		return 1
+	fi
+	rm -f "$BOOT"/nkos-ktrial.*; sync "$BOOT"
+	history "kernel trial $(get id "$KSTATE") rolled back; boot.sd $(cut -c1-12 "$BOOT"/boot.sd.sha256)"
+	rm -f "$KSTATE"; sync
+}
+
+kt_finish() {
+	# Not the trial boot, but a trial was armed: finish it from the records.
+	if [ "$(get promote "$KSTATE")" = 1 ]; then
+		kt_promote && history "kernel trial: boot image installed after the root commit; reboot to use it"
+	else
+		kt_restore
+	fi
+}
+
+kt_boot() {
+	if in_ktrial; then
+		# This is the trial boot: check in with the watcher and run the package trial, once per
+		# boot. A service restart must not clear the running trial or start a second worker.
+		mkdir "$KT/claimed" 2> /dev/null || { log "kernel trial already running in this boot"; return 0; }
+		echo booted > "$KT/booted"
+		kt_deadline $(( $(up) + APPLY_MAX ))
+		history "kernel trial $(get id "$KSTATE"): booted $(uname -r), watcher $(cat "$KT/watcher" 2> /dev/null)"
+		mkdir -p "$RUN" && chmod 0700 "$RUN" && rm -rf "${RUN:?}"/*
+		setsid "$0" __ktrial_apply < /dev/null > "$RUN/start.log" 2>&1 &
+	elif kt_markers || [ -f "$KSTATE" ]; then
+		# Never race the process that arms a trial: recovery takes the update lock (its own open
+		# file description) and rechecks. A trial armed in this boot is waiting for its reboot,
+		# not for recovery, unless arming itself failed (".failed").
+		mkdir -p "${LOCK%/*}"
+		exec 8>> "$LOCK"
+		flock -n 8 || { exec 8>&-; log "an update operation holds the lock; kernel-trial recovery skipped"; return 0; }
+		if ! kt_markers && [ ! -f "$KSTATE" ]; then exec 8>&-; return 0; fi
+		if kt_armed_here; then
+			exec 8>&-; log "a kernel trial is armed and waits for its reboot"; return 0
+		fi
+		kt_finish; r=$?
+		exec 8>&-
+		return "$r"
+	fi
+	return 0
+}
+
+# A trial armed in this boot and still waiting for its reboot (arming did not fail).
+kt_armed_here() { [ -f "$KSTATE" ] && [ "$(get armed_boot "$KSTATE")" = "$(boot_id)" ] && [ ! -e "$BOOT"/nkos-ktrial.failed ]; }
+
+ktrial_apply() {
+	# In the trial boot: wait for the network if the update needs it, then run the package trial.
+	# Kernel and kmod stay excluded: the trial image was built from the payload installed at
+	# arming time, and the index may have changed since. Only an exact, staged package set
+	# tied to the image could allow them, and that is not implemented.
+	timeout=$(get timeout "$KSTATE")
+	apkargs=$(get apk "$KSTATE")
+	i=0; until apk_ update -q > /dev/null 2>&1 || [ "$i" -ge 12 ]; do i=$((i + 1)); sleep 10; done
+	# shellcheck disable=SC2086 # the stored apk arguments
+	( worker_start -t "$timeout" -- $apkargs ); rc=$?
+	if [ ! -e "$STATE/pending" ]; then
+		log "kernel trial: the package trial did not start (rc $rc); rebooting to the previous boot image"
+		sync; reboot
+	fi
+}
+
+lz4_frame_len() {
+	# Length of the LZ4 frame starting at byte $2 of file $1 (header, blocks, end mark, checksum).
+	f=$1 o=$2
+	flg=$(od -An -tu1 -j "$((o + 4))" -N 1 "$f" | tr -d ' ')
+	[ -n "$flg" ] || return 1
+	p=$((o + 7))
+	[ $((flg & 8)) = 0 ] || p=$((p + 8))      # content size
+	[ $((flg & 1)) = 0 ] || p=$((p + 4))      # dictionary id
+	size=$(wc -c < "$f") n=0
+	while [ "$n" -lt 4096 ] && [ "$p" -lt "$size" ]; do
+		b=$(od -An -tu4 -j "$p" -N 4 "$f" | tr -d ' ')
+		[ -n "$b" ] || return 1
+		p=$((p + 4))
+		if [ "$b" = 0 ]; then
+			[ $((flg & 4)) = 0 ] || p=$((p + 4))  # content checksum
+			echo $((p - o)); return 0
+		fi
+		p=$((p + (b & 0x7fffffff)))
+		[ $((flg & 16)) = 0 ] || p=$((p + 4)) # block checksum
+		n=$((n + 1))
+	done
+	return 1
+}
+
+loader_has_fallback() {
+	# The installed U-Boot (LZ4 inside fip.bin) must try boot.prev when boot.sd is missing; some
+	# earlier loaders only try boot.sd, and a demoted trial would then not boot at all. Each frame
+	# is cut out exactly: lz4 exits with an error on trailing bytes and may then drop its output.
+	f="$BOOT"/fip.bin
+	offs=$(od -An -v -tx1 "$f" | awk '
+		{ for (i = 1; i <= NF; i++) { a = b; b = c; c = d; d = $i; if (a == "04" && b == "22" && c == "4d" && d == "18") print n - 3; n++ } }')
+	for o in $offs; do
+		len=$(lz4_frame_len "$f" "$o") || continue
+		tail -c +$((o + 1)) "$f" | head -c "$len" | lz4 -dc 2> /dev/null | grep -a -q 'for image in boot.sd boot.prev; do' && return 0
+	done
+	return 1
+}
+
+kt_patch_init() {
+	# $1: their /init, $2: the trial init. Both anchors exactly once in theirs, both blocks
+	# exactly once in ours; every step is checked on its own (no pipeline hides a failure).
+	src=$1 dst=$2
+	[ "$(grep -c -x 'umount /boot' "$src")" = 1 ] &&
+		[ "$(grep -c -x 'exec switch_root /realroot /sbin/init' "$src")" = 1 ] ||
+		{ echo "the init anchors were not found exactly once" >&2; return 1; }
+	awk -v d="$LIB/ktrial-demote.sh" -v w="$LIB/ktrial-watch.sh" '
+		$0 == "umount /boot" { while ((getline l < d) > 0) print l; a++ }
+		$0 == "exec switch_root /realroot /sbin/init" { while ((getline l < w) > 0) print l; b++ }
+		{ print }
+		END { exit !(a == 1 && b == 1) }' "$src" > "$dst.awk" || { echo "inserting the trial blocks failed" >&2; return 1; }
+	sed "s/@BOOT_MAX@/$BOOT_MAX/g; s/@GRACE@/$GRACE/g" "$dst.awk" > "$dst" || return 1
+	rm -f "$dst.awk"
+	[ "$(grep -c -x '# --- nkos-safe-update kernel trial: boot-once (inserted before "umount /boot") ---' "$dst")" = 1 ] &&
+		[ "$(grep -c -x '# --- nkos-safe-update kernel trial: watchdog (inserted before "exec switch_root") ---' "$dst")" = 1 ] &&
+		! grep -q '@[A-Z_]*@' "$dst" || { echo "the trial init does not hold both blocks exactly once" >&2; return 1; }
+	sh -n "$dst" || { echo "the trial init does not parse" >&2; return 1; }
+}
+
+kt_install_image() {
+	# Rename the checked boot.sd.new over boot.sd and verify it on the card ($1: its hash).
+	if ! { mv "$BOOT"/boot.sd.new "$BOOT"/boot.sd && sync "$BOOT" && [ "$(oncard "$BOOT"/boot.sd)" = "$1" ]; }; then
+		# boot.sd may now be anything. Make sure no trial can start from it (the init acts only on
+		# ".armed"), keep the records, and restore boot.sd; the records go only once it verifies.
+		mv -f "$BOOT"/nkos-ktrial.armed "$BOOT"/nkos-ktrial.failed 2> /dev/null; sync "$BOOT"
+		if kt_restore; then
+			die "installing the trial image failed; boot.sd restored and verified, nothing armed"
+		fi
+		die "installing the trial image failed and boot.sd could not be restored; boot.prev boots. The boot service retries at every boot (or: nkos-safe-update kernel-finish)"
+	fi
+}
+
+kt_record() {
+	# The kernel trial record on the root: written, synced and read back before /boot changes.
+	mkdir -p "$STATE" &&
+		printf 'id=%s\ntimeout=%s\napk=%s\npayload=%s\nprev=%s\narmed_boot=%s\n' "$1" "$2" "$3" "$4" "$5" "$(boot_id)" > "$KSTATE.new" &&
+		mv "$KSTATE.new" "$KSTATE" && sync && [ "$(get id "$KSTATE")" = "$1" ] || { rm -f "$KSTATE.new"; return 1; }
+}
+
+cmd_kernel_trial() {
+	timeout=$TIMEOUT
+	while [ $# -gt 0 ]; do
+		case "$1" in
+			-t|--timeout) timeout=$2; shift 2 ;;
+			--) shift; break ;;
+			*) die "unknown option $1" ;;
+		esac
+	done
+	[ "$timeout" -ge 60 ] 2> /dev/null || die "the confirm timeout must be at least 60 s"
+	# shellcheck disable=SC2086 # one argument per package
+	[ $# -gt 0 ] || set -- upgrade --ignore $HELD
+	lock
+	preflight                                     # under the lock
+	! kt_markers && [ ! -f "$KSTATE" ] || die "a kernel trial is already armed or unresolved"
+	for c in mkimage dumpimage dtc lz4 cpio od; do command -v "$c" > /dev/null || die "$c is missing (apk add u-boot-tools dtc lz4)"; done
+	for f in ktrial-demote.sh ktrial-watch.sh boot.its; do [ -f "$LIB/$f" ] || die "$LIB/$f is missing"; done
+	loader_has_fallback || die "the installed bootloader ($BOOT/fip.bin) does not fall back to boot.prev; refusing"
+	payload=${NKOS_SU_PAYLOAD:-/usr/lib/nanokvm/boot}
+	profile=$(tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)
+	case "$profile" in alpha|beta|pcie|lite) ;; *) die "unsupported board profile '$profile'" ;; esac
+	cur=$(oncard "$BOOT"/boot.sd)
+	[ "$cur" = "$(cat "$BOOT"/boot.sd.sha256 2> /dev/null)" ] || die "boot.sd does not match its record; run $ACTIVATE first"
+	W=$(mktemp -d /var/tmp/nkos-ktrial.XXXXXX) || die "cannot create a private work directory"
+	trap 'rm -rf "$W"' EXIT
+	mkdir "$W/root"
+	# The trial image is built from $payload, so the update must not change the kernel or its
+	# modules (see ktrial_apply). Refuse rather than trial one kernel and install another.
+	apk_ update -q > /dev/null 2>&1
+	apk_ "$@" --simulate > "$W/plan" 2>&1 || { cat "$W/plan"; die "apk $* would fail; nothing changed"; }
+	kpk=$(held_in_plan "$W/plan" | tr '\n' ' ' | sed 's/ *$//')
+	[ -z "$kpk" ] || die "the update changes $kpk; a trial image of a new kernel is not built yet (prototype). Use 'nkos-safe-update kernel' for now."
+
+	sh "$payload/compose-fit" "$payload" "$profile" "$W/stock.sd" || die "compose-fit failed"
+	( cd "$W" && dumpimage -T flat_dt -p 0 -o Image.lz4 stock.sd && dumpimage -T flat_dt -p 1 -o orig.cpio.lz4 stock.sd &&
+		dumpimage -T flat_dt -p 2 -o board.dtb stock.sd ) > /dev/null || die "cannot unpack the boot image"
+	[ "$(head -c 4 "$W/orig.cpio.lz4" | od -An -tx1 | tr -d ' ')" = 02214c18 ] || die "unexpected initramfs format"
+	lz4 -dc "$W/orig.cpio.lz4" | ( cd "$W/root" && cpio -id 2> /dev/null ) || die "cannot unpack the initramfs"
+	[ -c "$W/root/dev/console" ] && [ -f "$W/root/init" ] || die "unexpected initramfs contents"
+	id=$(date +%Y%m%d-%H%M%S)-$$
+	kt_patch_init "$W/root/init" "$W/init.new" || die "cannot build the trial init (see above)"
+	install -m 0755 "$W/init.new" "$W/root/init"
+	echo "$id" > "$W/root/nkos-ktrial.id"
+	( cd "$W/root" && find . -mindepth 1 | sort | cpio -o -H newc 2> /dev/null ) | lz4 -l -9 -q > "$W/initramfs.cpio.lz4" ||
+		die "cannot pack the initramfs"
+	cp "$LIB/boot.its" "$W/boot.its"
+	( cd "$W" && mkimage -f boot.its trial.sd ) > "$W/mkimage.log" 2>&1 || { cat "$W/mkimage.log"; die "mkimage failed"; }
+	( cd "$W" && dumpimage -T flat_dt -p 0 -o k.chk trial.sd && dumpimage -T flat_dt -p 1 -o r.chk trial.sd &&
+		dumpimage -T flat_dt -p 2 -o d.chk trial.sd ) > /dev/null || die "cannot read the trial image back"
+	cmp -s "$W/k.chk" "$W/Image.lz4" && cmp -s "$W/d.chk" "$W/board.dtb" && cmp -s "$W/r.chk" "$W/initramfs.cpio.lz4" ||
+		die "the trial image does not hold the same kernel and device tree"
+	[ "$(dumpimage -l "$W/trial.sd" | grep -c -E 'Image [0-9]|Configuration 0 \(config-sg2002_licheervnano_sd_minimal\)')" = 4 ] ||
+		die "the trial image structure differs"
+	want=$(sha256sum < "$W/trial.sd" | cut -d ' ' -f 1)
+	if [ -n "${NKOS_SU_BUILD_ONLY:-}" ]; then
+		trap - EXIT
+		log "built $W/trial.sd ($want); nothing armed"; exit 0
+	fi
+
+	# Root record first (committed: checkpointing is on): nothing on /boot changes unless it is
+	# safely written. Then boot.prev, the marker and the image, each step checked.
+	kt_record "$id" "$timeout" "$*" "$(cat "$payload/kernel.release")" "$cur" || die "cannot write $KSTATE; nothing changed"
+	disarm_trial() { rm -f "$BOOT"/boot.sd.new "$BOOT"/nkos-ktrial.armed "$KSTATE"; sync; }
+	# boot.prev must be the image running now: it is what any reset of the trial boots.
+	if [ "$(oncard "$BOOT"/boot.prev 2> /dev/null)" != "$cur" ]; then
+		rm -f "$BOOT"/boot.prev.new; cp "$BOOT"/boot.sd "$BOOT"/boot.prev.new && sync "$BOOT"/boot.prev.new &&
+			[ "$(oncard "$BOOT"/boot.prev.new)" = "$cur" ] && mv "$BOOT"/boot.prev.new "$BOOT"/boot.prev &&
+			echo "$cur" > "$BOOT"/boot.prev.sha256.new && mv "$BOOT"/boot.prev.sha256.new "$BOOT"/boot.prev.sha256 && sync "$BOOT" ||
+			{ rm -f "$BOOT"/boot.prev.new "$BOOT"/boot.prev.sha256.new; disarm_trial; die "cannot make boot.prev a checked copy of boot.sd"; }
+	fi
+	marker=$id
+	[ -z "${NKOS_SU_TEST_BAD_MARKER:-}" ] || marker=not-$id     # test hook: an armed marker that does not match
+	echo "$marker" > "$BOOT"/nkos-ktrial.armed && sync "$BOOT" || { disarm_trial; die "cannot arm the trial"; }
+	rm -f "$BOOT"/boot.sd.new; cp "$W/trial.sd" "$BOOT"/boot.sd.new && sync "$BOOT"/boot.sd.new &&
+		[ "$(oncard "$BOOT"/boot.sd.new)" = "$want" ] || { disarm_trial; die "the trial image did not write back correctly"; }
+	# boot.sd.sha256 keeps the old record on purpose: if the trial image boots without demoting itself,
+	# activate-kernel must not take it for a good image and copy it over boot.prev.
+	kt_install_image "$want"
+	history "kernel trial $id armed: boot.sd ${want%"${want#????????????}"} (trial image), boot.prev ${cur%"${cur#????????????}"}"
+	log "kernel trial $id armed. Rebooting into it; check-in within $BOOT_MAX s, then the update, then $timeout s to confirm"
+	exec 9>&-
+	sync; reboot
+}
+
+cmd_kernel_finish() {
+	# Retry what a kernel trial left to do (also done at every boot).
+	lock
+	# In the trial boot only once the root is committed (a confirm whose boot-image install failed):
+	# promote=1 alone is not enough, it is also written just before a confirm claims the decision.
+	if in_ktrial && { cp_disabled || [ -e "$STATE/pending" ] || [ "$(get promote "$KSTATE")" != 1 ]; }; then
+		die "the kernel trial is still running; confirm it or let it roll back"
+	fi
+	kt_markers || [ -f "$KSTATE" ] || { log "no kernel trial to finish"; return 0; }
+	! kt_armed_here || die "a kernel trial is armed and waits for its reboot; nothing to finish"
+	kt_finish
+}
+
+cmd_boot() {
+	# Early in boot: report how the last trial ended. A failed kernel-trial recovery fails the
+	# service (its records stay for the next boot). A trial started in this boot is running:
+	# a service restart leaves it alone.
+	rc=0
+	kt_boot || rc=1
+	[ -e "$STATE/pending" ] || return "$rc"
+	[ "$(get boot "$STATE/pending")" != "$(boot_id)" ] || return "$rc"
+	id=$(get id "$STATE/pending")
+	if [ -e "$STATE/applied" ]; then
+		history "committed $id (cleanup finished at boot)"
+	else
+		history "rolled back $id (not confirmed: apk $(short "$(get apk "$STATE/pending")"))"
+	fi
+	rm -f "$STATE/pending" "$STATE/applied"; sync
+	return "$rc"
+}
+
+cmd_status() {
+	echo "root: $(cp_disabled && echo "checkpointing DISABLED (trial)" || echo "checkpointing enabled")"
+	if [ -e "$STATE/pending" ]; then
+		d=$(cat "$RUN/deadline" 2> /dev/null || echo 0)
+		echo "trial: $(get id "$STATE/pending") $( [ -e "$STATE/applied" ] && echo applied || echo applying)," \
+			"rolls back in $(( d - $(up) )) s unless confirmed; guard: $(cat "$RUN/guard.state" 2> /dev/null || echo none)" \
+			"$( [ -z "$(decision)" ] || echo "; decided: $(decision)")"
+		! boot_changed || echo "WARNING: /boot changed since the trial started"
+	else
+		echo "trial: none"
+	fi
+	if in_ktrial; then
+		echo "kernel trial: $(get id "$KSTATE") running $(uname -r); watcher: $(cat "$KT/watcher" 2> /dev/null)," \
+			"resets in $(( $(cat "$KT/deadline" 2> /dev/null || echo 0) + GRACE - $(up) )) s unless confirmed"
+	elif kt_markers || [ -f "$KSTATE" ]; then
+		echo "kernel trial: unfinished ($(ls "$BOOT"/nkos-ktrial.* 2> /dev/null | tr '\n' ' ')); see: nkos-safe-update kernel-finish"
+	fi
+	echo "history:"; tail -6 "$STATE/history" 2> /dev/null | sed 's/^/  /'
+}
+
+# Tests source this file with NKOS_SU_LIB=1 to call the functions directly.
+[ -z "${NKOS_SU_LIB:-}" ] || return 0 2> /dev/null || exit 0
+
+case "${1:-}" in
+	start) shift; cmd_start "$@" ;;
+	confirm) cmd_confirm ;;
+	rollback) cmd_rollback ;;
+	kernel) cmd_kernel ;;
+	kernel-trial) shift; cmd_kernel_trial "$@" ;;
+	kernel-finish) cmd_kernel_finish ;;
+	status) cmd_status ;;
+	boot) cmd_boot ;;
+	__start) shift; worker_start "$@" ;;
+	__guard) guard ;;
+	__ktrial_apply) ktrial_apply ;;
+	*) echo "usage: nkos-safe-update start [-t SECONDS] [--partial] [-- APK ARGS] | kernel-trial [-t SECONDS] [-- APK ARGS] | confirm | rollback | status | kernel | kernel-finish" >&2; exit 2 ;;
+esac

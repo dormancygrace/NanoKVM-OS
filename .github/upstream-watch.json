@@ -188,6 +188,18 @@
       }
     },
     {
+      "name": "ZeroTier One",
+      "path": "firmware/alpine/packages/nanokvm-zerotier/APKBUILD",
+      "pattern": "^pkgver=([0-9.]+)$",
+      "kind": "github-tags",
+      "repo": "zerotier/ZeroTierOne",
+      "upstream_pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "pull_request": {
+        "id": "zerotier",
+        "mode": "apkbuild-pin"
+      }
+    },
+    {
       "name": "exfatprogs",
       "path": "platform/sources.lock",
       "pattern": "exfatprogs-([0-9.]+)\\.tar",
@@ -388,15 +400,6 @@
       "arch": "x86_64"
     },
     {
-      "name": "QEMU Ubuntu build helper",
-      "lock_entry": "qemu",
-      "path": "platform/sources.lock",
-      "pattern": "qemu-user-static_([^/]+)_amd64\\.deb",
-      "kind": "launchpad-binary",
-      "package": "qemu-user-static",
-      "series": "noble"
-    },
-    {
       "name": "RustDesk protocol reference",
       "path": "addons/rustdesk/upstream.json",
       "pattern": "\"rustdesk_version\":\\s*\"([0-9.]+)\"",
@@ -451,7 +454,7 @@
       "upstream_pattern": "openssl-(3\\.5\\.[0-9]+)\\.tar\\.gz",
       "pull_request": {
         "id": "openssl-35-lts",
-        "mode": "review"
+        "mode": "archive-pin"
       }
     },
     {

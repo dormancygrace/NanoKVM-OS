@@ -30,6 +30,10 @@ jobs:
       poly1305: ${{ steps.areas.outputs.poly1305 }}
       web: ${{ steps.areas.outputs.web }}
       rustdesk: ${{ steps.areas.outputs.rustdesk }}
+      assembly: ${{ steps.areas.outputs.assembly }}
+      openssl: ${{ steps.areas.outputs.openssl }}
+      signing: ${{ steps.areas.outputs.signing }}
+      safe_update: ${{ steps.areas.outputs.safe_update }}
     steps:
       - id: areas
         env:
@@ -52,6 +56,10 @@ jobs:
             echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/(go-crypto-c906|sysmon-runtime|go-bytes-index)/|^tests/test-c906-poly1305\.py$')"
             echo "web=$(changed '^web/|^\.nvmrc$')"
             echo "rustdesk=$(changed '^addons/rustdesk/')"
+            echo "assembly=$(changed '^(firmware/(cpu/(go-crypto-c906|go-websocket-c906|sysmon-runtime)|crypto/openssl-c906)|server/(logs|internal/(annexb|sha1mb)))/|^addons/rustdesk/src/(poly1305|salsa20)_c906[.]S$|^platform/kernel/[0-9]+-crypto-')"
+            echo "openssl=$(changed '^firmware/crypto/openssl-c906/|^platform/sources[.]lock$|^tests/test-openssl-source[.]py$')"
+            echo "signing=$(changed '^firmware/alpine/(packages/|release[.]env$)|^scripts/(build-alpine-packages|check-ec-key)[.]sh$|^tests/test-ecdsa-packages[.]py$')"
+            echo "safe_update=$(changed '^firmware/alpine/safe-update/')"
           } | tee -a "$GITHUB_OUTPUT"
 
   test-budget:
@@ -90,7 +98,7 @@ jobs:
       - name: Test
         run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
       - name: IPMI race checks
-        run: go test -race -tags teststub,nomsgpack ./internal/ipmi ./cmd/nkos-ipmi
+        run: go test -race -tags teststub,nomsgpack ./internal/ipmi ./service/bmc
       - name: NanoKVM tests of the patched pion modules
         run: |
           for m in pion-dtls pion-ice pion-sctp pion-srtp; do
@@ -154,6 +162,7 @@ jobs:
 
   scripts:
     name: Init scripts and tooling
+    needs: changes
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -169,10 +178,16 @@ jobs:
           xargs -0 shellcheck -S error < "$RUNNER_TEMP/shell-scripts"
       - name: Python syntax
         run: git ls-files -z '*.py' | xargs -0 python3 -m py_compile
+      - name: Generated OLED font is up to date
+        run: python3 scripts/gen-oled-web-font.py --check
+      - name: Safe update failure paths
+        if: needs.changes.outputs.safe_update == 'true'
+        run: sh firmware/alpine/safe-update/tests/host-test.sh
       # Check C906 .4byte/WORD encodings against GNU as/objdump for XTheadVector.
       # The GHASH generator also runs its output against a bit-serial GHASH, the
       # vector Poly1305 generator against a big-integer Poly1305.
       - name: Generated C906 assembly is up to date
+        if: needs.changes.outputs.assembly == 'true'
         run: |
           sudo apt-get install -y binutils-riscv64-linux-gnu
           cd firmware/cpu/go-crypto-c906
@@ -199,7 +214,6 @@ jobs:
           python3 gen_aes_c906.py --selftest 30 --name aes_c906 --flavor linux --check ../../../platform/kernel/0080-crypto-riscv-c906-aes.patch lib/crypto/riscv/aes-riscv64-c906.S
           python3 gen_aes_c906.py --name aes_c906 --flavor go --binutils riscv64-linux-gnu- --check-file aes_c906_riscv64.s
           python3 gen_ghash_table.py --flavor go --tables 2 --name ghashBlocksC906 --binutils riscv64-linux-gnu- --check-file ghash_c906_riscv64.s
-          python3 ../../../scripts/gen-oled-web-font.py --check
           curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"
           python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
           curl -fsSL "$(python3 gen_poly1305_c906.py --print-url)" -o "$RUNNER_TEMP/poly1305-riscv.pl"
@@ -210,6 +224,7 @@ jobs:
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --linux --check ../../../platform/kernel/0077-crypto-riscv-xtheadvector-poly1305.patch
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --openssl --check ../../crypto/openssl-c906/0012-poly1305-c906.patch
       - name: OpenSSL pinned patches and C906 SHA-256/GHASH arithmetic
+        if: needs.changes.outputs.openssl == 'true'
         run: |
           # The Azure mirror can stall on the large cross-toolchain packages.
           if [ -f /etc/apt/apt-mirrors.txt ]; then
@@ -220,16 +235,19 @@ jobs:
       - name: Independent add-on repository index
         run: python3 tests/test-index-apk-repo.py
       - name: ECDSA package signing and upgrade
+        if: needs.changes.outputs.signing == 'true'
         run: |
           docker run --rm -v "$PWD:/src:ro" -w /src alpine:3.24 sh -ec '
             apk add --no-cache alpine-sdk alpine-keys python3 openssl coreutils > /dev/null
             python3 tests/test-ecdsa-packages.py'
 
       - uses: actions/setup-go@v7
+        if: needs.changes.outputs.server == 'true'
         with:
           go-version: '1.27.x'
           cache-dependency-path: server/go.sum
       - name: RISC-V log sanitizer and Annex-B search ABI and test build
+        if: needs.changes.outputs.server == 'true'
         working-directory: server
         env:
           GOOS: linux

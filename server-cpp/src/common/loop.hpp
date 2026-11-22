@@ -1,0 +1,30 @@
+#pragma once
+
+// Work off and back onto the event loop. The loop thread runs every request handler; anything slow (password
+// hashing, files, commands) goes to the worker thread, and the result comes back with post(). Delays use the
+// loop's timers, never a sleep.
+
+#include <chrono>
+#include <functional>
+
+struct lws_context;
+
+namespace nkos::loop {
+
+// Called once by the server with its context; post() and after() are usable from then on.
+void attach(lws_context *context);
+void detach();
+
+// Runs fn on the loop thread, soon. Safe from any thread.
+void post(std::function<void()> fn);
+
+// Runs fn on the loop thread after delay. Loop thread only.
+void after(std::chrono::milliseconds delay, std::function<void()> fn);
+
+// Runs fn on the worker thread (one, in order). Safe from any thread.
+void work(std::function<void()> fn);
+
+// The loop calls this when lws_cancel_service woke it: runs the posted functions.
+void drain();
+
+} // namespace nkos::loop

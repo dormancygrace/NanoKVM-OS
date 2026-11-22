@@ -1,0 +1,448 @@
+#include "auth/session.hpp"
+
+#include "api/response.hpp"
+#include "auth/store.hpp"
+#include "common/log.hpp"
+#include "config/config.hpp"
+
+#include <arpa/inet.h>
+#include <cerrno>
+#include <chrono>
+#include <cstdio>
+#include <cstring>
+#include <map>
+#include <optional>
+#include <unistd.h>
+
+namespace nkos::auth {
+
+namespace {
+
+using Clock = std::chrono::system_clock;
+using TimePoint = Clock::time_point;
+
+// --- addresses ---------------------------------------------------------------------------------------------------
+
+struct Addr {
+	bool v4 = false;
+	unsigned char b[16] = {};
+};
+
+std::string strip_brackets(std::string s)
+{
+	if (!s.empty() && s.front() == '[') s.erase(0, 1);
+	if (!s.empty() && s.back() == ']') s.pop_back();
+	return s;
+}
+
+// netip.ParseAddr: an IPv4 literal is IPv4; an IPv6 literal (also ::ffff:a.b.c.d) is IPv6.
+std::optional<Addr> parse_addr(const std::string &text)
+{
+	Addr a;
+	if (inet_pton(AF_INET, text.c_str(), a.b) == 1) {
+		a.v4 = true;
+		return a;
+	}
+	if (inet_pton(AF_INET6, text.c_str(), a.b) == 1) return a;
+	return std::nullopt;
+}
+
+bool prefix_contains(const std::string &prefix, const Addr &addr)
+{
+	auto slash = prefix.find('/');
+	if (slash == std::string::npos) return false;
+	auto net = parse_addr(prefix.substr(0, slash));
+	if (!net || net->v4 != addr.v4) return false;
+	int bits = std::atoi(prefix.c_str() + slash + 1);
+	int max = addr.v4 ? 32 : 128;
+	if (bits < 0 || bits > max) return false;
+	for (int i = 0; i < bits; i++) {
+		int byte = i / 8, bit = 7 - i % 8;
+		if (((net->b[byte] >> bit) & 1) != ((addr.b[byte] >> bit) & 1)) return false;
+	}
+	return true;
+}
+
+// isTrustedProxy: remote is "host" or "host:port"; trusted entries are prefixes or single addresses.
+bool trusted_proxy(const std::string &remote)
+{
+	auto addr = parse_addr(strip_brackets(remote));
+	if (!addr) return false;
+	for (const auto &entry : config::get().security.trusted_proxies) {
+		std::string value = entry;
+		while (!value.empty() && value.front() == ' ') value.erase(0, 1);
+		while (!value.empty() && value.back() == ' ') value.pop_back();
+		if (value.empty()) continue;
+		if (prefix_contains(value, *addr)) return true;
+		auto single = parse_addr(value);
+		if (single && single->v4 == addr->v4 && std::memcmp(single->b, addr->b, 16) == 0) return true;
+	}
+	return false;
+}
+
+std::string single_forwarded(const std::string &value)
+{
+	if (value.find(',') != std::string::npos) return {};
+	std::string v = value;
+	while (!v.empty() && (v.front() == ' ' || v.front() == '\t')) v.erase(0, 1);
+	while (!v.empty() && (v.back() == ' ' || v.back() == '\t')) v.pop_back();
+	return v;
+}
+
+std::string lower(std::string s)
+{
+	for (auto &c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	return s;
+}
+
+// --- cookies -----------------------------------------------------------------------------------------------------
+
+std::optional<std::string> cookie(const http::Request &request, const std::string &name)
+{
+	for (const auto &header : request.header_values("cookie")) {
+		std::string_view rest = header;
+		while (!rest.empty()) {
+			auto semi = rest.find(';');
+			std::string_view part = rest.substr(0, semi);
+			while (!part.empty() && part.front() == ' ') part.remove_prefix(1);
+			auto eq = part.find('=');
+			if (eq != std::string_view::npos && part.substr(0, eq) == name) {
+				std::string_view value = part.substr(eq + 1);
+				if (value.size() >= 2 && value.front() == '"' && value.back() == '"') value = value.substr(1, value.size() - 2);
+				return http::url_decode(value);
+			}
+			if (semi == std::string_view::npos) break;
+			rest = rest.substr(semi + 1);
+		}
+	}
+	return std::nullopt;
+}
+
+// net/http Cookie.String() as gin's SetCookie makes it: SameSite=Strict, path "/", HttpOnly.
+std::string cookie_line(const std::string &name, const std::string &value, int max_age, bool secure)
+{
+	std::string line = name + "=" + value + "; Path=/";
+	if (max_age > 0) line += "; Max-Age=" + std::to_string(max_age);
+	else if (max_age < 0) line += "; Max-Age=0";
+	line += "; HttpOnly";
+	if (secure) line += "; Secure";
+	line += "; SameSite=Strict";
+	return line;
+}
+
+// --- idle sign-out -----------------------------------------------------------------------------------------------
+
+constexpr const char *idle_limit_file = "/etc/kvm/idle-signout";
+
+struct IdleClock {
+	TimePoint last;
+	bool over = false;
+	TimePoint token_until;
+};
+
+struct Idle {
+	bool loaded = false;
+	std::chrono::seconds limit{0};
+	TimePoint since = Clock::now();
+	TimePoint dead_before{};
+	std::map<std::string, IdleClock> clocks;
+} idle;
+
+bool valid_idle_limit(int seconds)
+{
+	for (int v : idle_limits)
+		if (v == seconds) return true;
+	return false;
+}
+
+void load_idle_limit()
+{
+	if (idle.loaded) return;
+	idle.loaded = true;
+	FILE *f = std::fopen(idle_limit_file, "r");
+	if (!f) return;
+	char buf[32] = {};
+	size_t n = std::fread(buf, 1, sizeof buf - 1, f);
+	std::fclose(f);
+	std::string text(buf, n);
+	while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back()))) text.pop_back();
+	while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) text.erase(0, 1);
+	char *end = nullptr;
+	long seconds = std::strtol(text.c_str(), &end, 10);
+	if (text.empty() || *end != '\0' || !valid_idle_limit(static_cast<int>(seconds))) {
+		log::warn("ignoring {}: not a limit that can be set", idle_limit_file);
+		return;
+	}
+	idle.limit = std::chrono::seconds(seconds);
+}
+
+TimePoint from_seconds(std::int64_t s) { return TimePoint(std::chrono::seconds(s)); }
+
+// idleStateOf: alive, and the time left.
+std::pair<bool, std::chrono::nanoseconds> idle_state(const std::string &key, TimePoint issued, TimePoint until, bool touch,
+                                                     TimePoint now)
+{
+	load_idle_limit();
+	auto it = idle.clocks.find(key);
+	if (it != idle.clocks.end() && it->second.over) return {false, {}};
+	if (it == idle.clocks.end() && issued != TimePoint{} && issued <= idle.dead_before) return {false, {}};
+	if (idle.limit.count() == 0) return {true, {}};
+	if (it == idle.clocks.end()) {
+		for (auto c = idle.clocks.begin(); c != idle.clocks.end();)
+			c = c->second.token_until <= now ? idle.clocks.erase(c) : std::next(c);
+		TimePoint start = idle.since;
+		if (issued > start) start = issued;
+		if (start > now) start = now;
+		it = idle.clocks.emplace(key, IdleClock{start, false, until}).first;
+	}
+	auto left = std::chrono::duration_cast<std::chrono::nanoseconds>(idle.limit) - (now - it->second.last);
+	if (left.count() <= 0) {
+		it->second.over = true;
+		return {false, {}};
+	}
+	if (touch) {
+		it->second.last = now;
+		left = idle.limit;
+	}
+	return {true, left};
+}
+
+// --- recent authentication, revocation ---------------------------------------------------------------------------
+
+constexpr auto recent_window = std::chrono::minutes(5);
+std::map<std::string, TimePoint> recent;
+std::vector<std::function<void(const std::string &)>> revoke_hooks;
+
+bool recent_auth(const http::Request &request)
+{
+	if (!request.auth) return false;
+	if (!request.auth->has_token) return true;  // authentication disabled
+	auto it = recent.find(request.auth->session_key);
+	return it != recent.end() && Clock::now() - it->second < recent_window;
+}
+
+// passwordChangeRoutes.
+bool password_change_route(const http::Request &r)
+{
+	static const std::pair<const char *, const char *> routes[] = {
+		{"GET", "/api/auth/account"}, {"GET", "/api/auth/password"}, {"POST", "/api/auth/password"},
+		{"POST", "/api/auth/logout"}, {"GET", "/api/auth/idle"},     {"POST", "/api/auth/activity"},
+		{"GET", "/api/vm/web-title"},
+	};
+	for (auto [m, p] : routes)
+		if (r.method == m && r.path == p) return true;
+	return false;
+}
+
+// bearerToken: (token, supplied). A malformed header counts as supplied with no token.
+std::pair<std::string, bool> bearer(const std::string &header)
+{
+	if (header.empty()) return {"", false};
+	constexpr std::string_view prefix = "bearer ";
+	if (header.size() <= prefix.size() || lower(header.substr(0, prefix.size())) != prefix) return {"", true};
+	std::string token = header.substr(prefix.size());
+	while (!token.empty() && std::isspace(static_cast<unsigned char>(token.front()))) token.erase(0, 1);
+	while (!token.empty() && std::isspace(static_cast<unsigned char>(token.back()))) token.pop_back();
+	if (token.empty() || token.find_first_of(" \t\r\n") != std::string::npos) return {"", true};
+	return {token, true};
+}
+
+} // namespace
+
+std::string client_address(const http::Request &request)
+{
+	std::string peer = request.peer;
+	if (!trusted_proxy(peer)) return peer;
+	std::vector<std::string> entries;
+	for (const auto &value : request.header_values("x-forwarded-for")) {
+		std::string_view rest = value;
+		for (;;) {
+			auto comma = rest.find(',');
+			entries.emplace_back(rest.substr(0, comma));
+			if (comma == std::string_view::npos) break;
+			rest = rest.substr(comma + 1);
+		}
+	}
+	for (auto it = entries.rbegin(); it != entries.rend(); ++it) {
+		std::string e = *it;
+		while (!e.empty() && std::isspace(static_cast<unsigned char>(e.front()))) e.erase(0, 1);
+		while (!e.empty() && std::isspace(static_cast<unsigned char>(e.back()))) e.pop_back();
+		auto addr = parse_addr(e);
+		if (!addr) return peer;
+		// Unmap ::ffff:a.b.c.d to a.b.c.d.
+		static const unsigned char mapped[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff};
+		if (!addr->v4 && std::memcmp(addr->b, mapped, 12) == 0) {
+			char text[INET_ADDRSTRLEN];
+			inet_ntop(AF_INET, addr->b + 12, text, sizeof text);
+			e = text;
+		} else {
+			char text[INET6_ADDRSTRLEN];
+			inet_ntop(addr->v4 ? AF_INET : AF_INET6, addr->b, text, sizeof text);
+			e = text;
+		}
+		if (!trusted_proxy(e)) return e;
+	}
+	return peer;
+}
+
+std::pair<std::string, std::string> external_address(const http::Request &request)
+{
+	std::string host = request.header("host");
+	std::string scheme = lower(config::get().proto);
+	if (scheme != "https") scheme = "http";
+	if (request.tls) scheme = "https";
+	if (!trusted_proxy(request.peer)) return {host, scheme};
+	std::string forwarded = single_forwarded(request.header("x-forwarded-host"));
+	if (!forwarded.empty() && forwarded.find_first_of("/?#@ \t\r\n") == std::string::npos) host = forwarded;
+	std::string proto = lower(single_forwarded(request.header("x-forwarded-proto")));
+	if (proto == "http" || proto == "https") scheme = proto;
+	return {host, scheme};
+}
+
+std::string session_cookie_name(const http::Request &request)
+{
+	return external_address(request).second == "https" ? cookie_name : http_cookie_name;
+}
+
+void set_session_cookie(const http::Request &request, http::Response &response, const std::string &token)
+{
+	std::string name = session_cookie_name(request);
+	bool secure = name == cookie_name;
+	if (secure) response.add_header("Set-Cookie", cookie_line(http_cookie_name, "", -1, true));
+	else response.add_header("Set-Cookie", cookie_line(cookie_name, "", -1, false));
+	response.add_header("Set-Cookie", cookie_line(name, token, static_cast<int>(config::get().jwt.refresh_token_duration), secure));
+}
+
+void clear_session_cookie(const http::Request &request, http::Response &response)
+{
+	bool secure = session_cookie_name(request) == cookie_name;
+	for (const char *name : {cookie_name, http_cookie_name}) response.add_header("Set-Cookie", cookie_line(name, "", -1, secure));
+}
+
+bool authenticate(http::Request &request, bool &idle_over)
+{
+	idle_over = false;
+	const auto &conf = config::get();
+	if (conf.authentication == "disable") {
+		request.auth = http::Auth{"admin", "admin", false, false, 0, {}, 0, 0};
+		return true;
+	}
+	auto [raw, supplied] = bearer(request.header("authorization"));
+	if (!supplied) {
+		std::string name = session_cookie_name(request);
+		auto value = cookie(request, name);
+		if (!value && name == http_cookie_name) value = cookie(request, cookie_name);
+		if (!value) return false;
+		raw = *value;
+	}
+	if (raw.empty()) return false;
+	auto token = parse(raw);
+	if (!token) return false;
+	std::string error;
+	auto user = store().validate_token(token->username, token->token_version, error);
+	if (!user) {
+		log::debug("validate session for \"{}\": {}", token->username, error);
+		return false;
+	}
+	std::string key = session_key(*token);
+	TimePoint issued = token->issued ? from_seconds(token->issued) : TimePoint{};
+	if (!idle_state(key, issued, from_seconds(token->expires), supplied, Clock::now()).first) {
+		idle_over = true;
+		return false;
+	}
+	request.auth = http::Auth{user->username, user->role, user->must_change_password, true, token->token_version,
+	                          key, token->issued, token->expires};
+	return true;
+}
+
+http::Handler guarded(http::Handler handler, Guard guard)
+{
+	return [handler = std::move(handler), guard = std::move(guard)](http::Request &req, http::Response &res) {
+		bool idle_over = false;
+		if (!authenticate(req, idle_over)) {
+			if (idle_over) clear_session_cookie(req, res);
+			api::plain_json(res, 401, "unauthorized");
+			return;
+		}
+		if (req.auth->must_change_password && !password_change_route(req)) {
+			res.json(403, "{\"code\":-10,\"msg\":\"password change required\"}");
+			return;
+		}
+		if (!guard.roles.empty() && std::find(guard.roles.begin(), guard.roles.end(), req.auth->role) == guard.roles.end()) {
+			api::plain_json(res, 403, "forbidden");
+			return;
+		}
+		if (guard.recent_auth && !recent_auth(req)) {
+			res.json(403, "{\"code\":-11,\"msg\":\"confirm your password to continue\"}");
+			return;
+		}
+		handler(req, res);
+	};
+}
+
+int idle_limit_seconds()
+{
+	load_idle_limit();
+	return static_cast<int>(idle.limit.count());
+}
+
+std::optional<std::string> set_idle_limit(int seconds)
+{
+	if (!valid_idle_limit(seconds)) return std::string("not a limit that can be set");
+	auto prior = std::chrono::seconds(idle_limit_seconds());
+	auto next = std::chrono::seconds(seconds);
+	if (prior == next) return std::nullopt;
+	if (seconds == 0) {
+		if (::unlink(idle_limit_file) != 0 && errno != ENOENT) return std::string(std::strerror(errno));
+	} else if (!config::atomic_write(idle_limit_file, std::to_string(seconds) + "\n", 0644)) {
+		return std::string(std::strerror(errno));
+	}
+	auto now = Clock::now();
+	if (prior.count() > 0) {
+		for (auto &[key, clock] : idle.clocks)
+			if (now - clock.last >= prior) clock.over = true;
+		auto dead = now - prior;
+		if (idle.since <= dead && dead > idle.dead_before) idle.dead_before = dead;
+	}
+	idle.limit = next;
+	idle.since = now;
+	for (auto it = idle.clocks.begin(); it != idle.clocks.end();) {
+		if (it->second.token_until <= now) {
+			it = idle.clocks.erase(it);
+			continue;
+		}
+		if (!it->second.over) it->second.last = now;
+		++it;
+	}
+	return std::nullopt;
+}
+
+std::pair<int, int> idle_status(const http::Request &request, bool touch)
+{
+	int seconds = idle_limit_seconds();
+	if (!request.auth || !request.auth->has_token || seconds == 0) return {seconds, 0};
+	auto [alive, left] = idle_state(request.auth->session_key, request.auth->issued ? from_seconds(request.auth->issued) : TimePoint{},
+	                                from_seconds(request.auth->expires), touch, Clock::now());
+	(void)alive;
+	auto secs = std::chrono::duration_cast<std::chrono::seconds>(left + std::chrono::nanoseconds(999'999'999)).count();
+	return {seconds, static_cast<int>(secs)};
+}
+
+void mark_recent_auth(const http::Request &request)
+{
+	if (!request.auth || !request.auth->has_token) return;
+	auto now = Clock::now();
+	for (auto it = recent.begin(); it != recent.end();)
+		it = now - it->second >= recent_window ? recent.erase(it) : std::next(it);
+	recent[request.auth->session_key] = now;
+}
+
+void revoke_user_sessions(const std::string &username)
+{
+	// Open streams and sockets register with the session registry when they are ported.
+	for (const auto &hook : revoke_hooks) hook(username);
+}
+
+void on_user_revoked(std::function<void(const std::string &)> hook) { revoke_hooks.push_back(std::move(hook)); }
+
+} // namespace nkos::auth

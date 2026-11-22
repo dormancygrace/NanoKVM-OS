@@ -1,6 +1,7 @@
 #include "http/server.hpp"
 
 #include "common/log.hpp"
+#include "common/loop.hpp"
 
 #include <libwebsockets.h>
 #include <openssl/ssl.h>
@@ -11,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
+#include <map>
 #include <memory>
 #include <string>
 #include <sys/stat.h>
@@ -47,6 +49,18 @@ struct Pss {
 	Session *session;
 };
 
+// The open requests by id, for complete(): a pending request is answered while its connection exists.
+std::map<std::uint64_t, std::pair<lws *, Session *>> open_requests;
+std::uint64_t next_id = 1;
+
+void forget(Pss *pss)
+{
+	if (!pss || !pss->session) return;
+	open_requests.erase(pss->session->request.id);
+	delete pss->session;
+	pss->session = nullptr;
+}
+
 volatile std::sig_atomic_t stopping = 0;
 lws_context *context;
 
@@ -58,7 +72,10 @@ std::string peer_address(lws *wsi)
 {
 	char ip[64] = {};
 	lws_get_peer_simple(wsi, ip, sizeof ip);
-	return ip;
+	// An IPv4 client on the dual-stack socket: its plain address, as Go reports it.
+	std::string peer = ip;
+	if (peer.starts_with("::ffff:") && peer.find('.') != std::string::npos) peer.erase(0, 7);
+	return peer;
 }
 
 std::string query_of(lws *wsi)
@@ -249,9 +266,11 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 	case LWS_CALLBACK_HTTP: {
 		auto *vd = static_cast<VhostData *>(lws_get_vhost_user(lws_get_vhost(wsi)));
 		if (!vd || !pss) return -1;
-		delete pss->session;
+		forget(pss);
 		pss->session = new Session;
 		Session &s = *pss->session;
+		s.request.id = next_id++;
+		open_requests[s.request.id] = {wsi, pss->session};
 		const char *uri = nullptr;
 		int uri_len = 0;
 		int m = lws_http_get_uri_and_method(wsi, const_cast<char **>(&uri), &uri_len);
@@ -273,10 +292,14 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 			return 0;
 		}
 		handle(wsi, s, *vd);
+		if (s.response.pending) return 0;
 		return respond(wsi, s);
 	}
+	case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
+		loop::drain();
+		return 0;
 	case LWS_CALLBACK_HTTP_BODY:
-		if (pss && pss->session) {
+		if (pss && pss->session && pss->session->body_expected) {
 			// Bodies of the routes in this skeleton are small; streaming bodies come with uploads.
 			if (pss->session->request.body.size() + len > (8u << 20)) return -1;
 			pss->session->request.body.append(static_cast<const char *>(in), len);
@@ -285,7 +308,11 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 	case LWS_CALLBACK_HTTP_BODY_COMPLETION: {
 		auto *vd = static_cast<VhostData *>(lws_get_vhost_user(lws_get_vhost(wsi)));
 		if (!vd || !pss || !pss->session) return -1;
+		// Also sent for a request without a body, which was answered already.
+		if (!pss->session->body_expected) return 0;
+		pss->session->body_expected = false;
 		handle(wsi, *pss->session, *vd);
+		if (pss->session->response.pending) return 0;
 		return respond(wsi, *pss->session);
 	}
 	case LWS_CALLBACK_HTTP_WRITEABLE:
@@ -296,10 +323,7 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 		return lws_http_transaction_completed(wsi) ? -1 : 0;
 	case LWS_CALLBACK_HTTP_DROP_PROTOCOL:
 	case LWS_CALLBACK_CLOSED_HTTP:
-		if (pss) {
-			delete pss->session;
-			pss->session = nullptr;
-		}
+		forget(pss);
 		return 0;
 	default:
 		break;
@@ -314,6 +338,18 @@ lws_protocols protocols[] = {
 
 } // namespace
 
+void complete(std::uint64_t id, Response response)
+{
+	loop::post([id, response = std::move(response)]() mutable {
+		auto it = open_requests.find(id);
+		if (it == open_requests.end()) return;
+		auto [wsi, session] = it->second;
+		session->response = std::move(response);
+		session->response.pending = false;
+		if (respond(wsi, *session) < 0) lws_set_timeout(wsi, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
+	});
+}
+
 int run(const config::Config &config, const Router &router)
 {
 	lws_set_log_level(LLL_ERR | LLL_WARN, nullptr);
@@ -325,6 +361,7 @@ int run(const config::Config &config, const Router &router)
 		log::error("cannot create the event loop");
 		return 1;
 	}
+	loop::attach(context);
 	std::signal(SIGTERM, on_signal);
 	std::signal(SIGINT, on_signal);
 	std::signal(SIGPIPE, SIG_IGN);
@@ -373,6 +410,7 @@ int run(const config::Config &config, const Router &router)
 
 	while (!stopping)
 		if (lws_service(context, 0) < 0) break;
+	loop::detach();
 	lws_context_destroy(context);
 	context = nullptr;
 	log::info("server stopped");

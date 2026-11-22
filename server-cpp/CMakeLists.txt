@@ -31,6 +31,14 @@ configure_file(${RYML_HEADER} ${CMAKE_BINARY_DIR}/third_party/ryml_all.hpp COPYO
 add_executable(NanoKVM-Server
   src/main.cpp
   src/common/log.cpp
+  src/common/loop.cpp
+  src/api/request.cpp
+  src/auth/brute_force.cpp
+  src/auth/jwt.cpp
+  src/auth/password.cpp
+  src/auth/routes.cpp
+  src/auth/session.cpp
+  src/auth/store.cpp
   src/config/yaml.cpp
   src/config/config.cpp
   src/http/server.cpp

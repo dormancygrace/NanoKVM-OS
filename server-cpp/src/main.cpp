@@ -1,5 +1,6 @@
 // NanoKVM-Server: the NanoKVM web server, in C++. Same files, API and behaviour as the Go server it replaces.
 
+#include "auth/routes.hpp"
 #include "common/log.hpp"
 #include "config/config.hpp"
 #include "http/router.hpp"
@@ -42,6 +43,8 @@ int main()
 	router.use(http::index_no_store());
 	router.use(http::assets(web));
 	router.use(http::static_files(web));
+
+	auth::add_routes(router);
 
 	return http::run(conf, router);
 }

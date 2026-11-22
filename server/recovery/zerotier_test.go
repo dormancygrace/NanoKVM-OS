@@ -82,3 +82,34 @@ func TestZerotierStateSurvivesOlderBackups(t *testing.T) {
 		t.Fatal("journal change outside its groups accepted")
 	}
 }
+
+// A factory reset requested now deletes the ZeroTier state, also state written
+// after the preview. One queued by a release before groups existed, which
+// kept ZeroTier's files, still keeps them when the boot pass takes inventory.
+func TestZerotierStateSurvivesQueuedResets(t *testing.T) {
+	identity := "var/lib/zerotier-one/identity.secret"
+	for _, legacy := range []bool{false, true} {
+		e := fixture(t)
+		write(e.Root, "etc/kvm/web-title", &File{Data: []byte("custom"), Mode: 0600})
+		plan, _, err := e.Prepare(nil, Options{Action: "reset", KeepUsers: true, KeepApps: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if legacy {
+			plan.Covers = nil
+		}
+		if err = e.Stage(plan); err != nil {
+			t.Fatal(err)
+		}
+		if journal := contents(t, e, PendingPath); strings.Contains(journal, `"covers"`) == legacy {
+			t.Fatalf("legacy=%v: journal %s", legacy, journal[:min(len(journal), 200)])
+		}
+		write(e.Root, identity, &File{Data: []byte("node-secret"), Mode: 0600})
+		if err = e.Resume(func([]string) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+		if got := contents(t, e, identity); contents(t, e, "etc/kvm/web-title") != "" || (got == "node-secret") != legacy {
+			t.Fatalf("legacy=%v: identity %q, web title %q", legacy, got, contents(t, e, "etc/kvm/web-title"))
+		}
+	}
+}

@@ -39,9 +39,10 @@ type Plan struct {
 	Changes        []Change `json:"changes"`
 	RemovePackages []string `json:"removePackages"`
 	// The settings groups (groups in policy.go) the plan may change: those the
-	// restored archive covers, or all for a reset. A journal without them, as
-	// one queued by a release before groups existed, changes no file of any
-	// group: neither in the plan nor when the boot pass takes inventory.
+	// restored archive covers, or all for a reset requested now. A journal
+	// without them, as a restore or reset queued by a release before groups
+	// existed, changes no file of any group: neither in the plan nor when the
+	// boot pass takes inventory again.
 	Covers []string `json:"covers,omitempty"`
 	// The source world is checked again at boot: do not execute a stale removal.
 	World []byte `json:"world"`
@@ -491,6 +492,11 @@ func (e Engine) Resume(remove func([]string) error) (result error) {
 			if err != nil {
 				return err
 			}
+			// Prepare covers every group this release knows; a reset changes
+			// only those recorded when it was queued. One queued before groups
+			// existed resets none of them.
+			next.Covers = p.Covers
+			next.Changes = slices.DeleteFunc(next.Changes, func(c Change) bool { return !next.covers(c.Path) })
 			next.World = p.World
 			next.RemovePackages = p.RemovePackages
 			p = next

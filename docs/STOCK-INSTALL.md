@@ -35,7 +35,8 @@ disconnect USB networking for you. `--check` leaves mounts and USB media unchang
 
 **Migration package version matters.** The v4.2.0 migration package kept partition
 3 in place and used the remaining space in the old stock root for the new
-F2FS root. A migrated root of about 7.5 GiB is expected with that package.
+F2FS root. For example, a stock root of 7792 MiB starting on a 4 MiB boundary
+produces a 7728 MiB root.
 Updating the installed system to 4.2.1 with APK keeps this layout.
 
 **With the 768 MiB layout described below, files on partition 3 (`/data`) are erased.** The installer stages its
@@ -78,8 +79,11 @@ partition 3, install the full SD image instead.
 If the preflight reports that partition 3 is not mounted as exFAT at
 `/data`, check the mount first. If a USB host installed Ventoy on the
 exported virtual disk, partition 3 may contain a nested partition table.
-Back up any files you want to keep, restore a single exFAT filesystem on
-**partition 3 only**, and mount it at `/data` on stock before retrying.
+If exFAT is intact, mount it at `/data` and retry. If it was replaced,
+back up any files you want to keep, eject the virtual disk on the USB host
+and detach it in the stock UI. Unmount any filesystems on partition 3 before
+restoring a single exFAT filesystem on **partition 3 only**. Mount it at
+`/data` on stock and retry.
 
 ## Recovery progress
 

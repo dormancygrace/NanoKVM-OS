@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// ATX is the server's ATX API as the daemon sees it (Client, or a double).
+// ATX is the host's power buttons and LED (service/vm.ATX, or a double).
 type ATX interface {
 	State(ctx context.Context) (ATXState, error)
 	Press(ctx context.Context, button string, durationMs int) error

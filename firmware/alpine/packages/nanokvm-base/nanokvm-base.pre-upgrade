@@ -1,0 +1,12 @@
+#!/bin/sh
+# IPMI moved into NanoKVM-Server (after 4.2.1). The daemon of the release
+# being replaced is stopped while its init script still exists, and leaves
+# the runlevel, so it frees UDP port 623 for the new server; IPMI that is on
+# stays on (/etc/kvm/bmc/config.json).
+if [ -x /etc/init.d/nanokvm-ipmi ]; then
+    if [ -f /run/openrc/softlevel ] && rc-service nanokvm-ipmi status >/dev/null 2>&1; then
+        rc-service nanokvm-ipmi stop >/dev/null 2>&1 || echo "The IPMI daemon did not stop; IPMI starts after the next boot." >&2
+    fi
+    rc-update del nanokvm-ipmi default >/dev/null 2>&1 || true
+fi
+exit 0

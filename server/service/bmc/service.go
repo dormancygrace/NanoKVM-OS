@@ -1,14 +1,10 @@
-// Package bmc runs the server's Redfish service and switches the IPMI daemon
-// (nkos-ipmi, OpenRC service nanokvm-ipmi): one settings page, one BMC
-// account for both protocols.
+// Package bmc runs the server's Redfish and IPMI services: one settings page,
+// one BMC account for both protocols.
 package bmc
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,7 +14,6 @@ import (
 
 	"NanoKVM-Server/internal/bmc/redfish"
 	"NanoKVM-Server/internal/ipmi"
-	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/journal"
 	"NanoKVM-Server/pkg/bmc"
 	"NanoKVM-Server/service/notify"
@@ -30,8 +25,8 @@ type Status struct {
 	Redfish     bool `json:"redfish"`
 	IPMI        bool `json:"ipmi"`
 	IPMIRunning bool `json:"ipmiRunning"`
-	// IPMIDaemon is what the running daemon reports: its sessions, lockouts
-	// and last power command. Absent while it does not run or answer.
+	// IPMIDaemon is what running IPMI reports: its sessions, lockouts and
+	// last power command. Absent while it does not run.
 	IPMIDaemon  *ipmi.Status `json:"ipmiDaemon,omitempty"`
 	Username    string       `json:"username"`
 	PasswordSet bool         `json:"passwordSet"`
@@ -62,15 +57,12 @@ type Settings struct {
 type Service struct {
 	mu         sync.Mutex
 	configPath string
-	// The service's link in the default runlevel, set by rc-update add.
-	runlevelLink string
-	// daemon reads the running IPMI daemon's status.
-	daemon  ipmiDaemon
-	atx     bmc.ATX
-	drive   Drive
-	sensors redfish.Sensors
-	info    redfish.Info
-	run     func(name string, args ...string) error
+	atx        bmc.ATX
+	drive      Drive
+	sensors    redfish.Sensors
+	info       redfish.Info
+	// IPMI while it runs (ipmi.go); s.mu guards it.
+	ipmi *ipmiRun
 
 	// The Redfish handler of the current settings; nil while Redfish is off.
 	redfish atomic.Pointer[redfish.Handler]
@@ -78,50 +70,21 @@ type Service struct {
 
 func NewService(atx bmc.ATX, drive Drive, sensors redfish.Sensors) *Service {
 	s := &Service{
-		drive:        drive,
-		sensors:      sensors,
-		configPath:   bmc.ConfigPath,
-		runlevelLink: "/etc/runlevels/default/" + bmc.IPMIService,
-		// The settings page polls the status: a short limit for the
-		// daemon's answer.
-		daemon: newIPMIDaemon(bmc.IPMISocket, 2*time.Second),
-		atx:    atx,
-		info:   redfish.Info{UUID: deviceUUID(), FirmwareVersion: firmwareVersion()},
-		run: func(name string, args ...string) error {
-			return exec.Command(name, args...).Run()
-		},
+		drive:      drive,
+		sensors:    sensors,
+		configPath: bmc.ConfigPath,
+		atx:        atx,
+		info:       redfish.Info{UUID: deviceUUID(), FirmwareVersion: firmwareVersion()},
 	}
 	if config, err := bmc.Load(s.configPath); err != nil {
 		log.Errorf("BMC settings: %v", err)
 	} else {
 		s.useRedfish(config)
 		if config.IPMI {
-			// Off the start path: rc-service waits for nanokvm-app, which
-			// is this server starting.
-			go s.restoreIPMI()
+			go s.keepIPMI()
 		}
 	}
 	return s
-}
-
-// restoreIPMI puts the daemon of IPMI that is on back into the default
-// runlevel, and starts it, when something other than this service took the
-// link away: the removal script of a separate nanokvm-ipmi package does so
-// when nanokvm-base takes over its files. With the link in place it does
-// nothing, so a server restart leaves the daemon and its sessions alone.
-func (s *Service) restoreIPMI() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	config, err := bmc.Load(s.configPath)
-	if err != nil || !config.IPMI {
-		return
-	}
-	if _, err := os.Lstat(s.runlevelLink); err == nil {
-		return
-	}
-	if err := s.applyIPMI(config); err != nil {
-		log.Errorf("IPMI: %v", err)
-	}
 }
 
 func (s *Service) useRedfish(config bmc.Config) {
@@ -158,30 +121,21 @@ func (s *Service) ServeRedfish(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) Status() (Status, error) {
-	status, err := s.settingsStatus()
-	if err != nil || !status.IPMIRunning {
-		return status, err
-	}
-	// Outside s.mu: a daemon slow to answer must not hold up a change of
-	// settings. Without an answer the page shows the switch alone.
-	var daemon ipmi.Status
-	if err := s.daemon.get(context.Background(), "/status", &daemon); err == nil {
-		status.IPMIDaemon = &daemon
-	}
-	return status, nil
-}
-
-func (s *Service) settingsStatus() (Status, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	config, err := bmc.Load(s.configPath)
 	if err != nil {
 		return Status{}, err
 	}
+	var running *ipmi.Status
+	if s.ipmi.running() {
+		running = &ipmi.Status{Port: s.ipmi.config.IPMIPort, Stats: s.ipmi.server.Stats()}
+	}
 	return Status{
 		Redfish:           config.Redfish,
 		IPMI:              config.IPMI,
-		IPMIRunning:       s.run("rc-service", bmc.IPMIService, "status") == nil,
+		IPMIRunning:       running != nil,
+		IPMIDaemon:        running,
 		Username:          config.Username,
 		PasswordSet:       config.Password != "",
 		IPMIPort:          config.IPMIPort,
@@ -191,8 +145,7 @@ func (s *Service) settingsStatus() (Status, error) {
 	}, nil
 }
 
-// Configure stores the settings, switches Redfish at once and starts,
-// restarts or stops the IPMI daemon.
+// Configure stores the settings and switches Redfish and IPMI at once.
 func (s *Service) Configure(settings Settings) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -220,37 +173,6 @@ func (s *Service) Configure(settings Settings) error {
 	}
 	s.useRedfish(config)
 	return s.applyIPMI(config)
-}
-
-func (s *Service) applyIPMI(config bmc.Config) error {
-	if !config.IPMI {
-		return s.stopIPMI()
-	}
-	if err := s.run("rc-update", "add", bmc.IPMIService, "default"); err != nil {
-		return errors.New("cannot enable the IPMI service at boot")
-	}
-	// Without the server's OOM protection, which it would otherwise inherit.
-	argv := oomscore.Unprotected("rc-service", bmc.IPMIService, "restart")
-	if err := s.run(argv[0], argv[1:]...); err != nil {
-		return errors.New("the IPMI service did not start; see the application log")
-	}
-	return nil
-}
-
-// stopIPMI stops the daemon and takes it out of the default runlevel. The
-// daemon does not reread its settings: IPMI is off only once its status says
-// it is not running, whatever the stop command returned.
-func (s *Service) stopIPMI() error {
-	_ = s.run("rc-service", bmc.IPMIService, "stop")
-	if s.run("rc-service", bmc.IPMIService, "status") == nil {
-		return errors.New("the IPMI service did not stop; see the application log")
-	}
-	if _, err := os.Lstat(s.runlevelLink); err == nil {
-		if err = s.run("rc-update", "del", bmc.IPMIService, "default"); err != nil {
-			return errors.New("cannot disable the IPMI service at boot")
-		}
-	}
-	return nil
 }
 
 // deviceUUID is /etc/machine-id, the device's random identity, as a UUID.

@@ -59,9 +59,6 @@ assert (root/'etc/kvm/ssh_stop').is_file()
 # mDNS off on a new root comes with the rootfs archive (platform/build.sh).
 assert (root/'etc/kvm/mdns_disabled').is_file()
 assert not (root/'etc/runlevels/default/nanokvm-mdns').is_symlink()
-# IPMI is off on a new root: its daemon is in no runlevel until the BMC
-# settings switch it on (server/service/bmc).
-assert not list(root.glob('etc/runlevels/*/nanokvm-ipmi'))
 udev_trigger = root/'etc/conf.d/udev-trigger'
 assert udev_trigger.is_file() and ': "${rc_coldplug:=${RC_COLDPLUG:-NO}}"' in udev_trigger.read_text(), 'udev coldplug not limited'
 assert not list((root/'root').glob('.ssh/*'))

@@ -55,7 +55,7 @@ both historical and current image filenames.
 
 ## Build
 
-On a Linux x86-64 host (tested on Ubuntu 24.04) with:
+On a Linux x86-64 host (Ubuntu 26.04 in CI) with:
 - the [Buildroot requirements](https://buildroot.org/downloads/manual/manual.html#requirement), plus `git` 2.27 or newer, `curl`, `openssl`, `libssl-dev`, `flex` and `bison`;
 - `libatomic` for the official Node.js 26 binaries (on Ubuntu: `libatomic1`);
 - OpenSSL 3.5 or newer on the host: the kernel configuration records whether the host OpenSSL supports ML-DSA (`CONFIG_OPENSSL_SUPPORTS_ML_DSA`), so an older one fails the `kernel` step's configuration check. The pins come from Ubuntu 26.04;

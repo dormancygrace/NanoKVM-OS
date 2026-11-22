@@ -12,12 +12,12 @@ import subprocess
 
 
 # Add-ons published apart from NanoKVM OS, with NAME-VERSION-rN version tags: RustDesk by the RustDesk add-on
-# workflow, the others by the add-on workflow (addon.yml). Pages indexes
+# workflow, ZeroTier by the ZeroTier add-on workflow (zerotier.yml), the others by the add-on workflow (addon.yml). Pages indexes
 # them without an OS release; BASE below are part of every NanoKVM OS. No published release pins one from the
 # archived NanoKVM-OS-packages repository.
 ADDONS = ('nanokvm-rustdesk', 'nanokvm-model-ocr', 'nanokvm-model-ocr-latin',
           'nanokvm-model-ocr-cyrillic', 'nanokvm-model-ocr-chinese', 'nanokvm-model-screen',
-          'nanokvm-host-sensors')
+          'nanokvm-host-sensors', 'nanokvm-zerotier')
 # Packages that an OS package provides and replaces, and that are no longer
 # built. Pages keeps serving their last releases: a device on a release whose
 # OS packages lack them installs them from there, and a rollback to such a
@@ -36,7 +36,8 @@ TAG = re.compile('(' + '|'.join(map(re.escape, ADDONS + RETIRED)) + r')-(\d+\.\d
 # them too (assemble-apk-repo.py), for devices without that repository line.
 BASE = ('nanokvm-rustdesk', 'nanokvm-host-sensors', 'nanokvm-model-screen')
 MODEL_ADDONS = tuple(name for name in ADDONS if name.startswith('nanokvm-model-'))
-BUILD_ADDONS = tuple(name for name in ADDONS if name != 'nanokvm-rustdesk')
+# The add-ons addon.yml builds; RustDesk and ZeroTier have workflows of their own.
+BUILD_ADDONS = tuple(name for name in ADDONS if name not in ('nanokvm-rustdesk', 'nanokvm-zerotier'))
 
 
 def selected_builds(paths, changed_pins=()):

@@ -213,4 +213,11 @@ target_link_libraries(NanoKVM-Server PRIVATE
   pthread
 )
 
-install(TARGETS NanoKVM-Server RUNTIME DESTINATION .)
+# The apk commit hooks' helper: applies a package transaction to the running services. On its own, without the
+# server's libraries (it runs from apk while those may be replaced).
+add_executable(nkos-apply-updates tools/nkos-apply-updates.cpp)
+target_include_directories(nkos-apply-updates PRIVATE src ${GLAZE_ROOT}/include)
+target_compile_options(nkos-apply-updates PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
+target_link_options(nkos-apply-updates PRIVATE -static-libstdc++ -static-libgcc)
+
+install(TARGETS NanoKVM-Server nkos-apply-updates RUNTIME DESTINATION .)

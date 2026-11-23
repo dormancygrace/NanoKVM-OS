@@ -13,6 +13,7 @@ project(nanokvm_server CXX C)
 #                (built by the system build; installed next to the server as dl_lib/)
 #   TURBOJPEG_ROOT libjpeg-turbo (static, scalar: its RVV code needs RVV 1.0), SPNG_SRC libspng source,
 #                ZLIB_ROOT the image's zlib-ng (/usr/lib/libz.so.1 on the device)
+#   CURL_INCLUDE, CURL_LIB  libcurl headers and the image's libcurl.so.4 (Alpine's, on nanokvm-openssl)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,8 +30,10 @@ set(KVM_LIB_DIR "" CACHE PATH "libkvm.so directory")
 set(TURBOJPEG_ROOT "" CACHE PATH "libjpeg-turbo install (include/turbojpeg.h, lib/libturbojpeg.a)")
 set(SPNG_SRC "" CACHE PATH "libspng source directory (spng.c, spng.h)")
 set(ZLIB_ROOT "" CACHE PATH "zlib-ng build (zlib.h, zconf.h, libz.so)")
+set(CURL_INCLUDE "" CACHE PATH "libcurl headers (curl/curl.h)")
+set(CURL_LIB "" CACHE FILEPATH "the image's libcurl.so.4")
 
-foreach(v LWS_ROOT OPENSSL_ROOT GLAZE_ROOT RYML_HEADER KVM_INCLUDE KVM_LIB_DIR TURBOJPEG_ROOT SPNG_SRC ZLIB_ROOT)
+foreach(v LWS_ROOT OPENSSL_ROOT GLAZE_ROOT RYML_HEADER KVM_INCLUDE KVM_LIB_DIR TURBOJPEG_ROOT SPNG_SRC ZLIB_ROOT CURL_INCLUDE CURL_LIB)
   if(NOT ${v})
     message(FATAL_ERROR "${v} is not set")
   endif()
@@ -56,6 +59,7 @@ add_executable(NanoKVM-Server
   src/common/process.cpp
   src/common/tz.cpp
   src/common/image.cpp
+  src/common/http_client.cpp
   ${SPNG_SRC}/spng.c
   src/api/multipart.cpp
   src/api/request.cpp
@@ -135,6 +139,7 @@ target_include_directories(NanoKVM-Server PRIVATE
   ${TURBOJPEG_ROOT}/include
   ${SPNG_SRC}
   ${ZLIB_ROOT}
+  ${CURL_INCLUDE}
 )
 # libspng is C, built with the server; it is quiet only without the C++ warnings.
 set_source_files_properties(${SPNG_SRC}/spng.c PROPERTIES COMPILE_OPTIONS "-w")
@@ -144,7 +149,9 @@ target_compile_options(NanoKVM-Server PRIVATE -Wall -Wextra -Wno-missing-field-i
 # to the server, so that libkvm (C++ too) keeps the system's runtime. libkvm is found next to the server.
 target_link_options(NanoKVM-Server PRIVATE -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL
   "-Wl,-rpath,\$ORIGIN/dl_lib" -Wl,--enable-new-dtags -Wl,-rpath-link,${KVM_LIB_DIR}
-  -Wl,--version-script,${CMAKE_CURRENT_SOURCE_DIR}/exports.map)
+  -Wl,--version-script,${CMAKE_CURRENT_SOURCE_DIR}/exports.map
+  # libcurl's own dependencies (nghttp2, brotli, ...) are the image's; the build has only libcurl itself.
+  -Wl,--allow-shlib-undefined)
 
 find_library(LWS_LIB websockets PATHS ${LWS_ROOT}/lib NO_DEFAULT_PATH REQUIRED)
 target_link_libraries(NanoKVM-Server PRIVATE
@@ -154,6 +161,7 @@ target_link_libraries(NanoKVM-Server PRIVATE
   ${KVM_LIB_DIR}/libkvm.so
   ${TURBOJPEG_ROOT}/lib/libturbojpeg.a
   ${ZLIB_ROOT}/libz.so
+  ${CURL_LIB}
   pthread
 )
 

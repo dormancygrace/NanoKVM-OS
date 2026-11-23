@@ -69,6 +69,7 @@ add_executable(NanoKVM-Server
   src/video/capture_status.cpp
   src/video/capture_worker.c
   src/video/direct.cpp
+  src/video/edid_profiles.cpp
   src/video/encoder.cpp
   src/video/frame.cpp
   src/video/hdmi.cpp

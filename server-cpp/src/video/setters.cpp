@@ -1,10 +1,8 @@
 // POST /api/vm/screen (one setting) and POST /api/vm/video (a set applied together), as the Go server's
-// service/vm/screen.go and video.go: every setting is checked before any changes, then they apply in order. Loop
-// thread; the MJPEG chroma goes through the device thread with the stream paused, and requests are served one at a
-// time.
-//
-// Not yet here: the monitor settings (monitor, portrait, portrait_resolution, monitor_power_cycle_ack,
-// monitorIdentity) and the EDID refresh that follows a changed frame rate; they write the HDMI receiver's EDID.
+// service/vm/screen.go and video.go: every setting is checked before any changes, then the stream settings apply in
+// order and the monitor (EDID) settings make one final state after them, written once. A changed stream rate
+// rewrites the EDID when the monitor refresh follows it. Loop thread; the MJPEG chroma and the EDID go through the
+// device thread with the stream paused, and requests are served one at a time.
 
 #include "video/settings.hpp"
 
@@ -40,7 +38,7 @@ constexpr const char *mjpeg_blocked_message =
 constexpr const char *h264_blocked_message =
 	"H.264 takes at most 2560x1440 (1080x1920 in portrait): use H.265 or a stream resolution of 1440 or lower "
 	"(1080 or lower in portrait)";
-constexpr const char *monitor_unavailable = "monitor (EDID) settings are not available in this build yet";
+constexpr const char *power_cycle_message = "Physical power cycle required after EDID programming; confirm before writing";
 constexpr const char *transport_file = "/kvmapp/kvm/transport";
 constexpr const char *hevc_direct_file = "/etc/kvm/hevc_vi_direct";
 
@@ -55,10 +53,7 @@ struct Failure {
 	std::string msg;
 };
 
-bool monitor_setting(const std::string &type)
-{
-	return type == "monitor" || type == "portrait" || type == "portrait_resolution" || type == "monitor_power_cycle_ack";
-}
+using Done = std::function<void(std::optional<Failure>, std::string)>;
 
 const char *screen_file(const std::string &type)
 {
@@ -105,32 +100,115 @@ std::pair<int, int> monitor_target_size()
 	return {w, h};
 }
 
-std::optional<Failure> validate(const Setting &s, std::optional<int> batch_height)
+struct MonitorIdentityReq {
+	bool custom = false;
+	std::string manufacturer;
+	std::uint16_t productCode = 0;
+	std::string name;
+	std::optional<std::uint32_t> serialNumber;
+	std::string serialText;
+	std::uint8_t week = 0;
+	std::uint16_t year = 0;
+
+	// The requested identity, nullopt for NanoKVM's own.
+	std::optional<edid::Identity> identity() const
+	{
+		if (!custom) return std::nullopt;
+		return edid::Identity{manufacturer, productCode, name, serialNumber, serialText, week, year};
+	}
+};
+
+struct VideoSettingsReq {
+	bool confirmPowerCycle = false;
+	std::optional<int> type, quality, bitRate, mjpegChroma, hevcDirect, height, fps, portraitResolution, monitor;
+	std::optional<bool> portrait;
+	std::optional<MonitorIdentityReq> monitorIdentity;
+	std::optional<std::string> transport;
+
+	monitor::Settings monitor_settings() const
+	{
+		monitor::Settings m;
+		m.portrait = portrait;
+		m.sync_refresh = fps.has_value();
+		if (monitor) m.resolution = static_cast<std::uint16_t>(*monitor);
+		if (portraitResolution) m.portrait_resolution = static_cast<std::uint16_t>(*portraitResolution);
+		if (monitorIdentity) {
+			m.set_identity = true;
+			m.identity = monitorIdentity->identity();
+		}
+		return m;
+	}
+};
+
+// The input a batch leads to, when it sets the monitor (batchMonitorInput).
+std::optional<std::pair<int, int>> batch_monitor_input(const VideoSettingsReq *batch)
 {
-	if (monitor_setting(s.type)) return Failure{-4, monitor_unavailable};
-	const auto pool = booted_video_pool();
+	if (!batch || (!batch->portrait && !batch->portraitResolution && !batch->monitor)) return std::nullopt;
+	for (const auto *v : {&batch->portraitResolution, &batch->monitor})
+		if (*v && (**v < 0 || **v > 65535)) return std::nullopt;
+	auto state = monitor::state_after(batch->monitor_settings());
+	if (state.portrait) return std::pair<int, int>{monitor::portrait_width(state.portrait_resolution), state.portrait_resolution};
+	auto id = state.resolution == 0 ? monitor::auto_height() : state.resolution;
+	if (id == 0) return std::nullopt;
+	auto [w, h] = monitor::size(id);
+	return std::pair<int, int>{w, h};
+}
+
+std::optional<Failure> validate(const Setting &s, const VideoSettingsReq *batch, const VideoPool &pool)
+{
+	// Portrait profiles also write receiver flash on a Cube or Lite: checked before any setting changes.
+	if ((s.type == "monitor" || s.type == "portrait" || s.type == "portrait_resolution") && monitor::requires_power_cycle() &&
+	    !s.confirm)
+		return Failure{-5, power_cycle_message};
 	if (s.type == "mjpeg_chroma") {
 		if (s.value != 420 && s.value != 422) return Failure{-1, "MJPEG chroma must be 420 or 422"};
 	} else if (s.type == "hevc_direct") {
 		if (s.value != 0 && s.value != 1) return Failure{-1, "hevc_direct must be 0 or 1"};
+	} else if (s.type == "monitor_power_cycle_ack") {
+		if (!s.confirm) return Failure{-1, "power cycle confirmation required"};
+	} else if (s.type == "portrait") {
+		if (s.value != 0 && s.value != 1) return Failure{-1, "portrait must be 0 or 1"};
+	} else if (s.type == "portrait_resolution") {
+		if (s.value != 1280 && s.value != 1920 && s.value != 2560) return Failure{-1, "unsupported portrait monitor resolution"};
+		if (s.value == 2560 && !monitor::portrait_max_supported_for(pool))
+			return Failure{-3, "maximum portrait monitor profile is unavailable"};
+		if (s.value != 2560 && !monitor::portrait_supported_for(pool)) return Failure{-3, "portrait monitor profile is unavailable"};
+	} else if (s.type == "monitor") {
+		if (s.value < 0 || s.value > 65535 || !monitor::valid_profile(static_cast<std::uint16_t>(s.value)))
+			return Failure{-1, "unsupported monitor profile"};
+		auto id = static_cast<std::uint16_t>(s.value);
+		if (monitor::fits_video_pool({id, false, monitor::portrait_default}, pool)) {
+			auto [w, h] = monitor::size(id);
+			std::string memory = monitor::pool_need(id) == "uhd" ? "the UHD" : "the QHD or UHD";
+			return Failure{-3, std::format("{}x{} requires {} video memory mode (Settings > Memory)", w, h, memory)};
+		}
+		if (monitor::wider_profile(id) && !monitor::wider_profile_offered(id))
+			return Failure{-3, "this HDMI receiver does not take that 16:10 or 21:9 monitor profile"};
 	} else if (s.type == "resolution") {
-		if (s.value < 0 || s.value > 2160 || (s.value > 1440 && !pool.uhd()))
-			return Failure{-1, "unsupported stream limit"};
-		if (s.value != 0 && resolution_width(static_cast<std::uint16_t>(s.value)) == 0)
-			return Failure{-1, "unsupported stream limit"};
+		if (s.value < 0 || s.value > 2160 || (s.value > 1440 && !pool.uhd())) return Failure{-1, "unsupported stream limit"};
+		if (!edid::resolution_map.count(static_cast<std::uint16_t>(s.value))) return Failure{-1, "unsupported stream limit"};
 	} else if (s.type == "fps") {
 		if (s.value < 10 || s.value > 120) return Failure{-1, "FPS must be between 10 and 120"};
 	} else if (s.type == "type") {
 		if (s.value < 0 || s.value > 2) return Failure{-1, "stream type must be MJPEG, H.264, or H.265"};
-		auto [w, h] = capture_input_size();
-		if (s.value == 0 && std::max(w, h) > mjpeg_max_long_side) return Failure{-3, mjpeg_blocked_message};
-		if (s.value == 1) {
+		auto target = batch_monitor_input(batch);
+		if (s.value == 0) {
+			auto [w, h] = target ? *target : capture_input_size();
+			if (std::max(w, h) > mjpeg_max_long_side) return Failure{-3, mjpeg_blocked_message};
+		} else if (s.value == 1) {
 			std::uint16_t limit = screen().height;
-			if (batch_height && *batch_height >= 0 && *batch_height <= 65535) limit = static_cast<std::uint16_t>(*batch_height);
-			bool allowed = h264_allowed_for(w, h, limit);
-			if (!allowed) {
-				auto [tw, th] = monitor_target_size();
-				allowed = tw > 0 && th > 0 && h264_allowed_for(tw, th, limit);
+			if (batch && batch->height && *batch->height >= 0 && *batch->height <= 65535)
+				limit = static_cast<std::uint16_t>(*batch->height);
+			bool allowed;
+			if (target) {
+				allowed = h264_allowed_for(target->first, target->second, limit);
+			} else {
+				auto [w, h] = capture_input_size();
+				allowed = h264_allowed_for(w, h, limit);
+				if (!allowed) {
+					auto [tw, th] = monitor_target_size();
+					allowed = tw > 0 && th > 0 && h264_allowed_for(tw, th, limit);
+				}
 			}
 			if (!allowed) return Failure{-3, h264_blocked_message};
 		}
@@ -142,9 +220,17 @@ std::optional<Failure> validate(const Setting &s, std::optional<int> batch_heigh
 	return std::nullopt;
 }
 
+void apply_monitor(monitor::Settings settings, std::function<void(std::optional<Failure>)> done)
+{
+	monitor::apply(std::move(settings), screen().fps, [done](std::string error) {
+		if (!error.empty()) return done(Failure{-4, error});
+		done(std::nullopt);
+	});
+}
+
 // Applies one validated setting; done gets the failure or the response data of the single-setting route ("" for
 // none).
-void apply(const Setting &s, std::function<void(std::optional<Failure>, std::string)> done)
+void apply(const Setting &s, Done done)
 {
 	if (s.type == "mjpeg_chroma") {
 		std::uint16_t previous = screen().mjpeg_chroma;
@@ -161,6 +247,17 @@ void apply(const Setting &s, std::function<void(std::optional<Failure>, std::str
 		});
 		return;
 	}
+	if (s.type == "monitor_power_cycle_ack") {
+		if (auto e = monitor::clear_power_cycle_pending(); !e.empty()) return done(Failure{-4, e}, "");
+		return done(std::nullopt, "");
+	}
+	if (s.type == "portrait" || s.type == "portrait_resolution" || s.type == "monitor") {
+		monitor::Settings m;
+		if (s.type == "portrait") m.portrait = s.value == 1;
+		else if (s.type == "portrait_resolution") m.portrait_resolution = static_cast<std::uint16_t>(s.value);
+		else m.resolution = static_cast<std::uint16_t>(s.value);
+		return apply_monitor(m, [done](std::optional<Failure> f) { done(f, ""); });
+	}
 	if (s.type == "hevc_direct") {
 		// libkvm follows the file within a second.
 		if (!write_screen(s.type, std::to_string(s.value))) return done(Failure{-2, "update screen failed"}, "");
@@ -175,14 +272,20 @@ void apply(const Setting &s, std::function<void(std::optional<Failure>, std::str
 	done(std::nullopt, "");
 }
 
-// Applies settings in order, stopping at the first failure.
-void apply_all(std::shared_ptr<std::vector<Setting>> list, std::size_t i,
-               std::function<void(std::optional<Failure>, std::string)> done)
+bool monitor_setting(const std::string &type)
 {
-	if (i == list->size()) return done(std::nullopt, "");
-	apply((*list)[i], [list, i, done](std::optional<Failure> f, std::string data) {
-		if (f || i + 1 == list->size()) return done(f, data);
-		apply_all(list, i + 1, done);
+	return type == "monitor" || type == "portrait" || type == "portrait_resolution";
+}
+
+// Applies the stream settings of a batch in order (the monitor ones make one state after them), stopping at the
+// first failure.
+void apply_stream(std::shared_ptr<std::vector<Setting>> list, std::size_t i, std::function<void(std::optional<Failure>)> done)
+{
+	while (i < list->size() && monitor_setting((*list)[i].type)) i++;
+	if (i == list->size()) return done(std::nullopt);
+	apply((*list)[i], [list, i, done](std::optional<Failure> f, std::string) {
+		if (f) return done(f);
+		apply_stream(list, i + 1, done);
 	});
 }
 
@@ -207,22 +310,11 @@ void run_serialized(std::function<void(std::function<void()> finished)> job)
 	else start();
 }
 
-struct VideoSettingsReq {
-	bool confirmPowerCycle = false;
-	std::optional<int> type, quality, bitRate, mjpegChroma, hevcDirect, height, fps, portraitResolution, monitor;
-	std::optional<bool> portrait;
-	std::optional<glz::raw_json> monitorIdentity;
-	std::optional<std::string> transport;
-};
-
 bool valid_transport(const std::string &t) { return t == "direct" || t == "webrtc" || t == "mjpeg"; }
 
 bool store_transport(const std::string &t)
 {
-	if (stream_transport() == t) {
-		std::ifstream in(transport_file);
-		if (in) return true;
-	}
+	if (stream_transport() == t && std::ifstream(transport_file)) return true;
 	return config::atomic_write(transport_file, t + "\n", 0644);
 }
 
@@ -233,6 +325,17 @@ void respond(std::uint64_t id, std::optional<Failure> f, std::string data)
 	else if (data.empty()) api::ok(out);
 	else api::send(out, 0, "success", data);
 	http::complete(id, std::move(out));
+}
+
+// A monitor identity in a request: checked before any setting is applied. Like a profile change it writes the EDID.
+std::optional<Failure> validate_identity(const VideoSettingsReq &r)
+{
+	if (!r.monitorIdentity) return std::nullopt;
+	if (!monitor::profile_supported()) return Failure{-1, "EDID programming is unsupported on this board/HDMI chip"};
+	if (monitor::requires_power_cycle() && !r.confirmPowerCycle) return Failure{-5, power_cycle_message};
+	if (auto id = r.monitorIdentity->identity())
+		if (auto e = edid::validate(*id)) return Failure{-1, *e};
+	return std::nullopt;
 }
 
 } // namespace
@@ -256,48 +359,70 @@ void add_setter_routes(http::Router &router)
 		Setting s{*type, static_cast<int>(value.value_or(0)), confirm.value_or(false)};
 		res.pending = true;
 		run_serialized([s, id = req.id](std::function<void()> finished) {
-			if (auto f = validate(s, std::nullopt)) {
+			if (auto f = validate(s, nullptr, booted_video_pool())) {
 				respond(id, f, "");
 				return finished();
 			}
-			apply(s, [id, finished](std::optional<Failure> f, std::string data) {
-				respond(id, f, data);
-				finished();
+			apply(s, [s, id, finished](std::optional<Failure> f, std::string data) {
+				if (f || s.type != "fps") {
+					respond(id, f, data);
+					return finished();
+				}
+				// The saved EDID refresh follows the stream rate (a new profile only when the rate selects one).
+				monitor::Settings sync;
+				sync.sync_refresh = true;
+				apply_monitor(sync, [id, data, finished](std::optional<Failure> f) {
+					respond(id, f, f ? "" : data);
+					finished();
+				});
 			});
 		});
 	}, admin));
 
 	router.add("POST", "/api/vm/video", auth::guarded([](http::Request &req, http::Response &res) {
 		if (!system::failsafe::require_video(res)) return;
-		VideoSettingsReq r;
-		if (glz::read<glz::opts{.error_on_unknown_keys = false}>(r, req.body)) return api::err(res, -1, "invalid arguments");
-		if (r.quality && (*r.quality < 1 || *r.quality > 100)) return api::err(res, -1, "MJPEG quality must be 1-100");
-		if (r.bitRate && (*r.bitRate <= 100 || *r.bitRate > max_quality))
+		auto r = std::make_shared<VideoSettingsReq>();
+		if (glz::read<glz::opts{.error_on_unknown_keys = false}>(*r, req.body)) return api::err(res, -1, "invalid arguments");
+		if (r->quality && (*r->quality < 1 || *r->quality > 100)) return api::err(res, -1, "MJPEG quality must be 1-100");
+		if (r->bitRate && (*r->bitRate <= 100 || *r->bitRate > max_quality))
 			return api::err(res, -1, "bitrate must be 101-20000 kbit/s");
-		if (r.transport && !valid_transport(*r.transport)) return api::err(res, -1, "transport must be direct, webrtc or mjpeg");
-		if (r.monitorIdentity || r.monitor || r.portrait || r.portraitResolution) return api::err(res, -4, monitor_unavailable);
+		if (r->transport && !valid_transport(*r->transport)) return api::err(res, -1, "transport must be direct, webrtc or mjpeg");
+		if (auto f = validate_identity(*r)) return api::err(res, f->code, f->msg);
 		auto list = std::make_shared<std::vector<Setting>>();
 		auto add = [&](const char *name, const std::optional<int> &v) {
-			if (v) list->push_back({name, *v, r.confirmPowerCycle});
+			if (v) list->push_back({name, *v, r->confirmPowerCycle});
 		};
-		add("type", r.type);
-		add("quality", r.quality);
-		add("quality", r.bitRate);
-		add("mjpeg_chroma", r.mjpegChroma);
-		add("hevc_direct", r.hevcDirect);
-		add("resolution", r.height);
-		add("fps", r.fps);
+		add("type", r->type);
+		add("quality", r->quality);
+		add("quality", r->bitRate);
+		add("mjpeg_chroma", r->mjpegChroma);
+		add("hevc_direct", r->hevcDirect);
+		add("resolution", r->height);
+		add("fps", r->fps);
+		add("portrait_resolution", r->portraitResolution);
+		if (r->portrait) {
+			int v = *r->portrait ? 1 : 0;
+			add("portrait", v);
+		}
+		add("monitor", r->monitor);
 		res.pending = true;
-		run_serialized([list, height = r.height, transport = r.transport, id = req.id](std::function<void()> finished) {
+		run_serialized([list, r, id = req.id](std::function<void()> finished) {
+			auto pool = booted_video_pool();
 			for (const auto &s : *list)
-				if (auto f = validate(s, height)) {
+				if (auto f = validate(s, r.get(), pool)) {
 					respond(id, f, "");
 					return finished();
 				}
-			apply_all(list, 0, [id, transport, finished](std::optional<Failure> f, std::string) {
-				if (!f && transport && !store_transport(*transport)) f = Failure{-2, "write transport failed"};
-				respond(id, f, f ? "" : video_capabilities_json());
-				finished();
+			apply_stream(list, 0, [r, id, finished](std::optional<Failure> f) {
+				if (f) {
+					respond(id, f, "");
+					return finished();
+				}
+				apply_monitor(r->monitor_settings(), [r, id, finished](std::optional<Failure> f) {
+					if (!f && r->transport && !store_transport(*r->transport)) f = Failure{-2, "write transport failed"};
+					respond(id, f, f ? "" : video_capabilities_json());
+					finished();
+				});
 			});
 		});
 	}, admin));

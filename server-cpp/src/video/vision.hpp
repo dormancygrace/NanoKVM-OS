@@ -61,6 +61,8 @@ struct Jpeg {
 void read_mjpeg(std::uint16_t width, std::uint16_t height, std::uint16_t quality, std::function<void(Jpeg)> done);
 void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t quality, bool key,
                       std::uint16_t max_tiles, std::function<void(Jpeg)> done);
+// Runs fn on the device thread with the stream paused (receiver maintenance: the EDID tool).
+void run_paused(std::function<void()> fn);
 // The MJPEG chroma (420 or 422; set_mjpeg_chroma with the stream paused); done gets the native result.
 void set_mjpeg_chroma(std::uint16_t chroma, std::function<void(int result)> done);
 // Lets the JPEG buffers go (no viewers left).

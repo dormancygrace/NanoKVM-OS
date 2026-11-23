@@ -311,6 +311,18 @@ void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t q
 	}, std::move(done));
 }
 
+void run_paused(std::function<void()> fn)
+{
+	loop::device([fn = std::move(fn)] {
+		if (initialized && worker) {
+			Paused paused;
+			fn();
+		} else {
+			fn();
+		}
+	});
+}
+
 void set_mjpeg_chroma(std::uint16_t chroma, std::function<void(int)> done)
 {
 	if (!initialized || (chroma != 420 && chroma != 422)) {

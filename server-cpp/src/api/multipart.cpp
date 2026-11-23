@@ -65,11 +65,14 @@ std::string base_name(std::string name)
 
 std::optional<std::vector<Part>> multipart(const http::Request &request)
 {
-	std::string type = request.header("content-type");
-	if (lower(trim(std::string_view(type).substr(0, type.find(';')))) != "multipart/form-data") return std::nullopt;
+	return multipart(request.header("content-type"), request.body);
+}
+
+std::optional<std::vector<Part>> multipart(std::string_view type, std::string_view body)
+{
+	if (lower(trim(type.substr(0, type.find(';')))) != "multipart/form-data") return std::nullopt;
 	auto boundary = header_param(type, "boundary");
 	if (!boundary || boundary->empty()) return std::nullopt;
-	std::string_view body = request.body;
 	std::string delimiter = "--" + *boundary;
 	std::size_t pos = body.find(delimiter);
 	if (pos == std::string_view::npos) return std::nullopt;

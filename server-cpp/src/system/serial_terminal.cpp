@@ -255,7 +255,7 @@ struct Page : http::WsHandler {
 		if (ended) return;
 		if (binary) {
 			WinSize size;
-			if (!glz::read<lenient>(size, data)) return;
+			if (!glz::read<lenient>(size, std::string(data))) return;
 		}
 		if (input.size() + data.size() > max_pending_input) return finish();
 		bool idle = input.empty();

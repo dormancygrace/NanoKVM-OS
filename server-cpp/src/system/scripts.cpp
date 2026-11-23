@@ -330,9 +330,14 @@ std::optional<std::string> run_foreground(const std::vector<std::string> &argv, 
 		}
 	}
 	::close(child.output);
-	if (!exited) {
-		while (::waitpid(child.pid, &status, 0) < 0 && errno == EINTR) {
+	while (!exited) {
+		pid_t r = ::waitpid(child.pid, &status, WNOHANG);
+		if (r == child.pid || (r < 0 && errno != EINTR)) break;
+		if (!stopped && std::chrono::steady_clock::now() - start >= run_limit) {
+			stopped = true;
+			::kill(-child.pid, SIGKILL);
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 	if (cut) output += "\n[output cut after " + std::to_string(output_limit >> 10) + " KiB]";
 	if (stopped) {

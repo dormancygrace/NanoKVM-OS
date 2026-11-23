@@ -20,6 +20,8 @@ struct Part {
 
 // The parts of a multipart/form-data request, or nullopt when it is none or does not parse.
 std::optional<std::vector<Part>> multipart(const http::Request &request);
+// The same for a Content-Type and a body (the parts point into body).
+std::optional<std::vector<Part>> multipart(std::string_view content_type, std::string_view body);
 
 // The first file part of field, or nullptr.
 const Part *form_file(const std::vector<Part> &parts, std::string_view field);

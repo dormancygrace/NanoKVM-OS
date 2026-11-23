@@ -567,7 +567,7 @@ void Page::received(http::WebSocket &, std::string_view data, bool binary)
 	// with ESC.
 	if (!binary || (!data.empty() && data[0] == 0x1b)) return queue_input(s, data);
 	PageMessage message;
-	if (glz::read<lenient>(message, data)) return;
+	if (glz::read<lenient>(message, std::string(data))) return;
 	// Answers reach the shell together with the end of the output they answer: those of a page already replaced
 	// were dropped above, and the next page's hello counts what was recorded here.
 	if (message.ack) {

@@ -513,6 +513,10 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 	}
 	case LWS_CALLBACK_HTTP_WRITEABLE:
 		if (!pss || !pss->session) return 0;
+		// Nothing to write before the response exists: the body is still read, or the answer comes later. HTTP/2
+		// calls this whenever the peer opens its window (curl does at once), and an empty body written now would
+		// end the stream before its headers.
+		if (pss->session->body_expected || pss->session->response.pending) return 0;
 		if (pss->session->fd >= 0) return write_file(wsi, *pss->session);
 		if (auto stream = pss->session->response.stream) {
 			if (!stream->queue_.empty()) {

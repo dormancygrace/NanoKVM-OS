@@ -3,6 +3,8 @@
 // A JSON string as Go 1.27's encoding/json (JSON v2) writes it: \b and \f as such, <, > and & as <, >, &, U+2028 and U+2029 escaped,
 // invalid UTF-8 as a raw U+FFFD. For files the Go server also writes, so that both write the same bytes.
 
+#include <charconv>
+#include <cmath>
 #include <string>
 #include <string_view>
 
@@ -57,6 +59,41 @@ inline std::string quote(std::string_view s)
 		i += n;
 	}
 	return out + "\"";
+}
+
+// A float64 as encoding/json writes it: the shortest digits that read back the same; exponent form below 1e-6 and
+// from 1e21 (e-07 written e-7), else plain decimal digits (1.2345678901234567e19 is 12345678901234567000).
+inline std::string number(double f)
+{
+	char buf[64];
+	double a = f < 0 ? -f : f;
+	auto r = std::to_chars(buf, buf + sizeof buf, f, std::chars_format::scientific);
+	std::string sci(buf, r.ptr);
+	if (a != 0 && (a < 1e-6 || a >= 1e21)) {
+		std::size_t n = sci.size();
+		if (n >= 4 && sci[n - 4] == 'e' && sci[n - 3] == '-' && sci[n - 2] == '0') sci.erase(n - 2, 1);
+		return sci;
+	}
+	if (a == 0) return std::signbit(f) ? "-0" : "0";
+	// d.ddddde±XX -> the digits and the exponent.
+	std::size_t e = sci.find('e');
+	std::string mant = sci.substr(0, e);
+	int exp = std::stoi(sci.substr(e + 1));
+	bool neg = mant[0] == '-';
+	if (neg) mant.erase(0, 1);
+	std::string digits;
+	for (char c : mant)
+		if (c != '.') digits += c;
+	std::string out;
+	int point = exp + 1;  // digits before the decimal point
+	if (point <= 0) {
+		out = "0." + std::string(static_cast<std::size_t>(-point), '0') + digits;
+	} else if (point >= static_cast<int>(digits.size())) {
+		out = digits + std::string(static_cast<std::size_t>(point) - digits.size(), '0');
+	} else {
+		out = digits.substr(0, static_cast<std::size_t>(point)) + "." + digits.substr(static_cast<std::size_t>(point));
+	}
+	return neg ? "-" + out : out;
 }
 
 } // namespace nkos::gojson

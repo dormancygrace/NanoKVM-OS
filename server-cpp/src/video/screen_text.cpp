@@ -248,21 +248,7 @@ std::vector<Box> parse_output(const std::string &out, int dx, int dy, std::strin
 }
 
 // Go's encoding/json float64.
-std::string go_float(double v)
-{
-	char buf[64];
-	double a = std::fabs(v);
-	std::to_chars_result r;
-	if (a != 0 && (a < 1e-6 || a >= 1e21)) {
-		r = std::to_chars(buf, buf + sizeof buf, v, std::chars_format::scientific);
-		std::string s(buf, r.ptr);
-		// encoding/json writes e-07 as e-7 (e+21 stays).
-		if (auto n = s.size(); n >= 4 && s[n - 4] == 'e' && s[n - 3] == '-' && s[n - 2] == '0') s.erase(n - 2, 1);
-		return s;
-	}
-	r = std::to_chars(buf, buf + sizeof buf, v, std::chars_format::fixed);
-	return std::string(buf, r.ptr);
-}
+std::string go_float(double v) { return gojson::number(v); }
 
 bool busy = false;
 

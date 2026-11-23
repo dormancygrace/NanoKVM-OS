@@ -29,6 +29,7 @@
 #include "system/device_settings.hpp"
 #include "system/failsafe.hpp"
 #include "system/memory.hpp"
+#include "system/diagnostics.hpp"
 #include "system/info.hpp"
 #include "system/journal.hpp"
 #include "system/logs.hpp"
@@ -183,6 +184,7 @@ int main(int argc, char **argv)
 	video::webrtc::add_routes(router);
 	video::audio::add_routes(router);
 	system::add_memory_routes(router);
+	system::diagnostics::add_routes(router);
 	system::add_dashboard_routes(router);
 	system::add_device_settings_routes(router);
 	system::add_bluetooth_routes(router);

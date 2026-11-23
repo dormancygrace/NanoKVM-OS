@@ -336,22 +336,7 @@ std::optional<double> parse_float(std::string_view s)
 	return value;
 }
 
-std::string json_float(double f)
-{
-	// encoding/json: 'f' format with the shortest representation, 'e' for very large or small magnitudes.
-	double a = std::fabs(f);
-	char buf[64];
-	if (a != 0 && (a < 1e-6 || a >= 1e21)) {
-		auto [ptr, ec] = std::to_chars(buf, buf + sizeof buf, f, std::chars_format::scientific);
-		std::string s(buf, ptr);
-		// e-07 -> e-7 as Go writes it.
-		std::size_t n = s.size();
-		if (n >= 4 && s[n - 4] == 'e' && s[n - 3] == '-' && s[n - 2] == '0') s.erase(n - 2, 1);
-		return s;
-	}
-	auto [ptr, ec] = std::to_chars(buf, buf + sizeof buf, f, std::chars_format::fixed);
-	return std::string(buf, ptr);
-}
+std::string json_float(double f) { return gojson::number(f); }
 
 // --- errors and files ------------------------------------------------------------------------------------------------
 

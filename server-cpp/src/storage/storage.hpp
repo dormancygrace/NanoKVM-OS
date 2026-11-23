@@ -45,6 +45,9 @@ struct Medium {
 std::optional<Medium> medium(std::string &error);
 // Images(): the images of /data a drive may take.
 std::vector<std::string> images(std::string &error);
+// MountedImage(): the image on the virtual disk and whether it is a CD-ROM; error set without USB storage or when the
+// state cannot be read.
+std::string mounted_image_file(bool &cdrom, std::string &error);
 // MountImageFile(name, cdrom): "" ejects. Empty on success, else the message.
 std::string mount_image_file(const std::string &name, bool cdrom);
 // InsertImageFile: only into an empty drive. drive_in_use is set for ErrDriveInUse.

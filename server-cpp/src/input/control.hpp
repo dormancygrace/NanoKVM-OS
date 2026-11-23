@@ -182,4 +182,9 @@ void unlock_write_lane();
 // Manual input is active or cooling down: AI input (MCP, PicoClaw, the jiggler) waits.
 bool manual_active();
 
+// Whether a PicoClaw session holds the input (set by the AI routes): manual input then yields while the mode is
+// picoclaw (the allow function of the browser's input, paste and key sequences).
+inline std::function<bool()> ai_session_holds_input;
+inline bool allow_manual(Mode mode) { return mode != Mode::picoclaw || !ai_session_holds_input || !ai_session_holds_input(); }
+
 } // namespace nkos::input::control

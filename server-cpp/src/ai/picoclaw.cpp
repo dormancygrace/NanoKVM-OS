@@ -1858,17 +1858,20 @@ void update_model_config(http::Request &req, http::Response &res)
 void update_host_tools(http::Request &req, http::Response &res)
 {
 	Value body;
-	std::optional<bool> enabled;
+	bool has = false, on = false;
 	bool ok = !json::parse(req.body, body) && (body.is_object() || body.is_null());
 	if (ok)
 		for (const auto &[k, x] : body.obj) {
 			if (json::to_lower(k) != "enabled") continue;
-			if (x.is_null()) enabled.reset();
-			else if (x.is_bool()) enabled = x.b;
-			else ok = false;
+			if (x.is_null()) has = false;
+			else if (x.is_bool()) {
+				has = true;
+				on = x.b;
+			} else {
+				ok = false;
+			}
 		}
-	if (!ok || !enabled) return write_error(res, make_error(code_invalid_action, "invalid host tools payload"));
-	bool on = *enabled;
+	if (!ok || !has) return write_error(res, make_error(code_invalid_action, "invalid host tools payload"));
 	bool applied = apply_config_change(res, "host tools setting", "host_tools", !on, [&]() -> std::optional<Error> {
 		if (auto e = intent_set_host_tools(on, "host_tools"); !e.empty())
 			return make_error(code_runtime_unavailable, "failed to store the host tools setting: " + e);
@@ -1900,6 +1903,72 @@ void update_agent_profile(http::Request &req, http::Response &res)
 	(void)sync_config();
 	(void)ensure_ready(true, nullptr);
 	write_success(res, "{\"profile\":" + json::quote(profile) + ",\"status\":" + current_status_json(true) + "}");
+}
+
+void runtime_update_install(const std::function<void(InstallState &)> &update)
+{
+	InstallState st;
+	update(st);
+	runtime_update([&](RuntimeStatus &s) {
+		s.ready = false;
+		s.installed = false;
+		s.installing = true;
+		s.install_progress = st.progress;
+		s.install_stage = st.stage;
+		s.status = "installing";
+		s.last_error.clear();
+		s.checked_at = WallClock::now();
+	});
+}
+
+void finish_install(bool ok, const std::string &status, const std::string &message)
+{
+	RuntimeStatus s;
+	s.installed = ok;
+	s.install_progress = ok ? 100 : 0;
+	s.install_stage = status;
+	s.status = status;
+	s.last_error = message;
+	s.checked_at = WallClock::now();
+	runtime_set(s);
+}
+
+std::string begin_install()
+{
+	std::lock_guard lifecycle(lifecycle_mu);
+	if (runtime_get().installing) return "picoclaw installation is already in progress";
+	bool installed = false;
+	std::string error;
+	if (installed_state(installed, error) && installed) {
+		RuntimeStatus s;
+		s.installed = true;
+		s.install_progress = 100;
+		s.install_stage = "installed";
+		if (auto settings = load_gateway_settings(error)) {
+			s.model_configured = settings->model_configured;
+			s.model_name = settings->model_name;
+		}
+		s.status = "installed";
+		s.checked_at = WallClock::now();
+		runtime_set(s);
+		return "picoclaw is already installed";
+	}
+	RuntimeStatus s;
+	s.installing = true;
+	s.install_stage = "preparing";
+	s.status = "installing";
+	s.checked_at = WallClock::now();
+	runtime_set(s);
+	return {};
+}
+
+std::string install_result_json(const std::string &output)
+{
+	auto current = runtime_get();
+	std::string out = std::string("{\"installed\":") + (current.installed && !current.installing ? "true" : "false") +
+	                  ",\"binary\":" + json::quote(binary_path) + ",\"download\":" + json::quote(download_url);
+	if (!output.empty()) out += ",\"output\":" + json::quote(output);
+	return out + ",\"status\":" + current_status_json() + "}";
 }
 
 void list_sessions(http::Request &req, http::Response &res) { sessions_list(req, res); }
@@ -2423,7 +2492,7 @@ void update_task_lease(const std::string &source, const std::string &session_id,
 	}
 }
 
-std::optional<Refusal> open_gateway(const std::string &requested, std::string &session_out)
+std::optional<Refusal> admit_gateway(const std::string &requested, std::string &session_out)
 {
 	std::string error;
 	auto mode = control::mode_status(&error);
@@ -2453,10 +2522,17 @@ std::optional<Refusal> open_gateway(const std::string &requested, std::string &s
 		s->state = "connecting";
 		sessions[id] = s;
 	}
+	session_out = id;
+	return std::nullopt;
+}
+
+bool connect_gateway(const std::string &id)
+{
+	std::string error;
 	auto session = session_get(id);
 	if (auto e = sync_config()) {
 		close_session(session, 4002, e->message);
-		return Refusal{200, {}};
+		return false;
 	}
 	auto cfg = config_get();
 	std::string url;
@@ -2469,7 +2545,7 @@ std::optional<Refusal> open_gateway(const std::string &requested, std::string &s
 			s.current_session = lock_get_owner();
 		});
 		close_session(session, 4002, error);
-		return Refusal{200, {}};
+		return false;
 	}
 	int status = -1;
 	std::shared_ptr<Link> up;
@@ -2511,7 +2587,7 @@ std::optional<Refusal> open_gateway(const std::string &requested, std::string &s
 			}
 		});
 		close_session(session, 4002, "gateway is unavailable");
-		return Refusal{200, {}};
+		return false;
 	}
 	runtime_update([&](RuntimeStatus &s) {
 		s.ready = true;
@@ -2525,7 +2601,13 @@ std::optional<Refusal> open_gateway(const std::string &requested, std::string &s
 		std::lock_guard lock(sessions_mu);
 		session->upstream = up;
 	}
-	session_out = id;
+	return true;
+}
+
+std::optional<Refusal> open_gateway(const std::string &requested, std::string &session_out)
+{
+	if (auto refusal = admit_gateway(requested, session_out)) return refusal;
+	if (!connect_gateway(session_out)) return Refusal{200, {}};
 	return std::nullopt;
 }
 

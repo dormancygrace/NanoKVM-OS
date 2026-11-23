@@ -123,8 +123,14 @@ struct Refusal {
 	int status = 200;
 	std::string body;
 };
-// Registers the session and dials the gateway; on success the relay's downstream link is attached with attach().
-std::optional<Refusal> open_gateway(const std::string &session_id, std::string &session_out);
+// Checks the mode and the session lock and registers the session (fast, on the loop thread): nullopt with the
+// session's id, or the refusal.
+std::optional<Refusal> admit_gateway(const std::string &requested, std::string &session_out);
+// Dials the gateway for an admitted session (blocking); false when it is unavailable (the session is then closed
+// with 4002).
+bool connect_gateway(const std::string &session_id);
+// Both (the refusal of a failed dial is an empty 200).
+std::optional<Refusal> open_gateway(const std::string &requested, std::string &session_out);
 // The downstream is up: messages flow both ways from now on.
 void attach_downstream(const std::string &session_id, std::shared_ptr<Link> downstream);
 // A message from the web page.

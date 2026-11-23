@@ -53,6 +53,9 @@ struct Request {
 	// A request header; names are case-insensitive. Empty when absent.
 	std::string header(std::string_view name) const;
 	std::vector<std::string> header_values(std::string_view name) const;
+	// A copy for another thread: the named headers kept (read from header_copy once wsi is gone). Loop thread.
+	Request detached(std::initializer_list<std::string_view> names) const;
+	std::vector<std::pair<std::string, std::string>> header_copy;
 };
 
 // A response body written while the request stays open (server-sent events, progress): headers go out without a

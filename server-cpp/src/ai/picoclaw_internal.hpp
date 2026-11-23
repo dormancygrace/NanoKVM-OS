@@ -127,6 +127,21 @@ std::string intent_set_desired(bool desired, const std::string &by);
 std::string intent_set_host_tools(bool enabled, const std::string &by);
 std::string intent_set_last_error(const std::string &message);
 
+// --- Installation (picoclaw_install.cpp with the runtime status of picoclaw.cpp) ---
+
+struct InstallState {
+	std::string stage;
+	int progress = 0;
+};
+// setInstallProgress.
+void runtime_update_install(const std::function<void(InstallState &)> &update);
+// The end of an installation: installed, or failed with status (install_failed, install_timeout) and message.
+void finish_install(bool ok, const std::string &status, const std::string &message);
+// installRuntime's start: "" when the installation thread is to run, else the output to answer with.
+std::string begin_install();
+// RuntimeInstallResult with output.
+std::string install_result_json(const std::string &output);
+
 // --- Sessions (session_history.go) ---
 
 void sessions_list(http::Request &request, http::Response &response);

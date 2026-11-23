@@ -277,7 +277,7 @@ void Client::received(http::WebSocket &, std::string_view data, bool)
 void Client::queue_manual_report(control::ReportKind kind, std::vector<std::uint8_t> report, bool held, bool start_cooldown)
 {
 	if (hold.closed) return;
-	auto reservation = manual->reserve(kind, held, start_cooldown);
+	auto reservation = manual->reserve(kind, held, start_cooldown, control::allow_manual);
 	if (!reservation) {
 		log::debug("manual HID input dropped: the control mode is changing");
 		return;

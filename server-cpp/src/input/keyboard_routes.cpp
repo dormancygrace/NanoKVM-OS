@@ -371,7 +371,7 @@ void add_keyboard_routes(http::Router &router)
 			return api::err(res, -2, std::format("the text is too long for this speed: at most {} characters",
 			                                     speed.limit.count() / (speed.hold + speed.gap).count()));
 		auto run = std::make_shared<KeyRun>();
-		run->reservation = run->manual->reserve(control::ReportKind::keyboard, false, true);
+		run->reservation = run->manual->reserve(control::ReportKind::keyboard, false, true, control::allow_manual);
 		if (!run->reservation) {
 			log::error("manual paste failed to acquire HID control");
 			return api::err(res, -3, "HID control is busy");
@@ -464,7 +464,7 @@ void add_keyboard_routes(http::Router &router)
 		sequences.duration = duration;
 		auto run = std::make_shared<KeyRun>();
 		run->steps = std::move(steps);
-		run->reservation = run->manual->reserve(control::ReportKind::keyboard, true, true);
+		run->reservation = run->manual->reserve(control::ReportKind::keyboard, true, true, control::allow_manual);
 		if (!run->reservation) {
 			end_sequence("manual input is blocked");
 			log::error("key sequence {} failed to acquire HID control", *sequence);

@@ -171,6 +171,26 @@ std::vector<std::string> images(std::string &error)
 	return list;
 }
 
+std::string mounted_image_file(bool &cdrom, std::string &error)
+{
+	cdrom = false;
+	error.clear();
+	if (require_active_usb_storage()) {
+		error = "USB storage is off: enable it in Settings > USB Gadget";
+		return {};
+	}
+	std::string image;
+	if (auto e = mounted_image(image)) {
+		error = e.text;
+		return image;
+	}
+	if (image.empty()) return image;
+	std::string flag;
+	if (auto e = go::read_file(cdrom_flag, flag)) error = e.text;
+	cdrom = go::trim_space(flag) == "1";
+	return image;
+}
+
 std::string mount_image_file(const std::string &name, bool cdrom)
 {
 	std::string file;

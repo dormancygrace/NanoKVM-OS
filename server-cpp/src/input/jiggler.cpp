@@ -42,25 +42,35 @@ void update()
 	if (state.running) state.last_updated = Clock::now();
 }
 
-void write_mouse(std::vector<std::uint8_t> report)
+void write_mouse(std::vector<std::uint8_t> report, const std::shared_ptr<control::Cancel> &operation)
 {
 	if (!state.lane) return;
 	hid::Report r;
 	r.data = std::move(report);
+	// Manual input cancels the jiggle: its reports stop at the write lane.
+	r.reservation = control::Reservation::for_operation(operation);
+	r.complete_reservation = false;
 	state.lane->mouse(std::move(r));
 }
 
 // One jiggle: there and, 100 ms later, back unless manual input has started meanwhile (it then owns the pointer).
+// The jiggle takes the AI operation slot (BeginBackground): it is skipped while MCP or manual input works.
 void move()
 {
 	if (control::manual_active() || control::mode_status().transitioning) return;
+	std::string busy;
+	auto operation = control::begin_operation(control::OperationKind::hid, busy);
+	if (!operation) return;
 	bool absolute = state.mode == "absolute";
 	write_mouse(absolute ? std::vector<std::uint8_t>{0x00, 0x00, 0x3f, 0x00, 0x3f, 0x00}
-	                     : std::vector<std::uint8_t>{0x00, 0x0a, 0x0a, 0x00});
-	loop::after(move_time, [absolute] {
-		if (control::manual_active()) return;
-		write_mouse(absolute ? std::vector<std::uint8_t>{0x00, 0xff, 0x3f, 0xff, 0x3f, 0x00}
-		                     : std::vector<std::uint8_t>{0x00, 0xf6, 0xf6, 0x00});
+	                     : std::vector<std::uint8_t>{0x00, 0x0a, 0x0a, 0x00},
+	            operation);
+	loop::after(move_time, [absolute, operation] {
+		if (!control::manual_active())
+			write_mouse(absolute ? std::vector<std::uint8_t>{0x00, 0xff, 0x3f, 0xff, 0x3f, 0x00}
+			                     : std::vector<std::uint8_t>{0x00, 0xf6, 0xf6, 0x00},
+			            operation);
+		control::end_operation(operation);
 	});
 }
 

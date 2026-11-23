@@ -52,7 +52,11 @@ std::string Request::header(std::string_view name) const
 std::vector<std::string> Request::header_values(std::string_view name) const
 {
 	std::vector<std::string> out;
-	if (!wsi) return out;
+	if (!wsi) {
+		for (const auto &[k, v] : header_copy)
+			if (iequals(k, name)) out.push_back(v);
+		return out;
+	}
 	for (const auto &t : tokens) {
 		if (!iequals(name, t.name)) continue;
 		lws_token_indexes index = t.index;
@@ -76,6 +80,16 @@ std::vector<std::string> Request::header_values(std::string_view name) const
 	v.resize(static_cast<size_t>(len));
 	out.push_back(std::move(v));
 	return out;
+}
+
+Request Request::detached(std::initializer_list<std::string_view> names) const
+{
+	Request copy = *this;
+	copy.header_copy.clear();
+	for (auto name : names)
+		for (auto &v : header_values(name)) copy.header_copy.emplace_back(std::string(name), std::move(v));
+	copy.wsi = nullptr;
+	return copy;
 }
 
 void Response::set_header(std::string_view name, std::string_view value)

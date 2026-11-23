@@ -200,6 +200,14 @@ std::optional<std::string> render_index_schedule(const std::string &data, const 
 // read-modify-write of /etc/crontabs/root.
 std::mutex &crontab_mutex();
 
+// ---- The nkos-update helper's work ----
+
+// RunAPK: check, install or rollback (or reboot) with the update lock already held; the state is saved for the
+// page, a failure as "failed" with its message.
+Error run_apk(const std::string &action);
+// RunScheduledIndexRefresh: the cron job's index refresh when the schedule is on, logged like a manual one.
+Error run_scheduled_index_refresh();
+
 // ---- Rollback recovery ----
 
 bool rollback_constraint_installed();

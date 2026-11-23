@@ -344,4 +344,86 @@ std::optional<std::vector<File>> inventory(const std::string &root, Error &error
 	return files;
 }
 
+Error retire_pending(const std::string &root)
+{
+	std::string base;
+	PathErr perr;
+	Fd dir(parent(root, pending_path, false, base, perr));
+	if (dir.fd < 0) return perr.message();
+	if (::renameat(dir.fd, base.c_str(), dir.fd, "failed.json") != 0) return errno_text(errno);
+	return ::fsync(dir.fd) == 0 ? "" : errno_text(errno);
+}
+
+// Only the known acme.sh program tree goes, never its parent or configuration; nothing is followed, and links or
+// other non-regular entries refuse the whole deletion before anything is deleted.
+Error remove_acme_binaries(const std::string &root)
+{
+	struct Entry {
+		std::string name;
+		bool dir;
+	};
+	std::vector<Entry> paths;
+	std::function<Error(const std::string &)> collect = [&](const std::string &name) -> Error {
+		std::string base;
+		PathErr perr;
+		Fd p(parent(root, name, false, base, perr));
+		if (p.fd < 0) {
+			if (perr.text.empty() && perr.err == ENOENT) return "";
+			return perr.message();
+		}
+		int n = ::openat(p.fd, base.c_str(), dir_flags);
+		if (n < 0) {
+			if (errno == ENOENT) return "";
+			return errno_text(errno);
+		}
+		DIR *d = ::fdopendir(n);
+		if (!d) {
+			int e = errno;
+			::close(n);
+			return errno_text(e);
+		}
+		std::vector<std::pair<std::string, unsigned char>> entries;
+		while (dirent *ent = ::readdir(d)) {
+			std::string entry = ent->d_name;
+			if (entry == "." || entry == "..") continue;
+			unsigned char type = ent->d_type;
+			if (type == DT_UNKNOWN) {
+				struct stat st{};
+				if (::fstatat(::dirfd(d), entry.c_str(), &st, AT_SYMLINK_NOFOLLOW) == 0)
+					type = S_ISDIR(st.st_mode) ? DT_DIR : S_ISREG(st.st_mode) ? DT_REG : DT_LNK;
+			}
+			entries.emplace_back(entry, type);
+			if (entries.size() >= 4097) break;
+		}
+		::closedir(d);
+		paths.push_back({name, true});
+		for (const auto &[entry, type] : entries) {
+			if (paths.size() > 4096 || std::count(name.begin(), name.end(), '/') > 12) return "excessive acme.sh program tree";
+			std::string child = name + "/" + entry;
+			if (type == DT_DIR) {
+				if (auto e = collect(child); !e.empty()) return e;
+			} else {
+				if (type != DT_REG) return "unsafe acme.sh program entry";
+				paths.push_back({child, false});
+			}
+		}
+		return "";
+	};
+	if (auto e = collect("etc/kvm/acme/bin"); !e.empty()) return e;
+	for (std::size_t i = paths.size(); i-- > 0;) {
+		const auto &item = paths[i];
+		if (!item.dir) {
+			if (auto e = write(root, item.name, nullptr); !e.empty()) return e;
+			continue;
+		}
+		std::string base;
+		PathErr perr;
+		Fd p(parent(root, item.name, false, base, perr));
+		if (p.fd < 0) return perr.message();
+		if (::unlinkat(p.fd, base.c_str(), AT_REMOVEDIR) != 0) return errno_text(errno);
+		if (::fsync(p.fd) != 0) return errno_text(errno);
+	}
+	return "";
+}
+
 } // namespace nkos::recovery

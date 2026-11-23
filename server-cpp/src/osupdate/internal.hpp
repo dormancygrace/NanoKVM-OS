@@ -22,6 +22,10 @@ inline constexpr auto check_timeout = std::chrono::seconds(130);
 Error write_repositories(const std::string &data);
 Error save_notice(const UpdateNotice &n);
 Error save_apk_status_idle();
+Error save_apk_status(const ApkStatus &s);
+Error remove_rollback_recovery();
+// exec.Command(argv...).Run(): stdin, stdout and stderr /dev/null; Go's error text.
+Error run_wait(const std::vector<std::string> &argv);
 Error save_software_status(const SoftwareStatus &s);
 
 // lockNotice: the notice transaction's lock (/run/nanokvm-apk-ui/notice.lock). Without wait, a lock held elsewhere

@@ -44,7 +44,8 @@ struct Result {
 	bool not_started = false;  // apk never ran: error says why (and is the output of combined_output)
 	bool ok = false;           // ran and exited with 0
 	std::string error;         // Go's error text: "exit status 1", "signal: killed", a start or not-started error
-	std::string output;        // combined_output: stdout and stderr
+	std::string output;        // combined_output: stdout and stderr; output_split: stdout
+	std::string stderr_output; // output_split: stderr (with the reason a run did not start)
 	bool cancelled = false;    // ended by cancel (not by the deadline)
 };
 
@@ -57,5 +58,8 @@ Result run(const Cmd &cmd);
 
 // Cmd.Run with neither stdout nor stderr (Go's nil: /dev/null); the reason a run did not start is not written.
 Result run_quiet(const Cmd &cmd);
+
+// Cmd.Run with stdout and stderr into separate buffers (output, stderr_output).
+Result output_split(const Cmd &cmd);
 
 } // namespace nkos::apkrun

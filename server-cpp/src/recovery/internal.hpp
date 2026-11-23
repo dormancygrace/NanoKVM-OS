@@ -2,6 +2,7 @@
 
 // Shared between the files of src/recovery (not for other families).
 
+#include "osupdate/godecode.hpp"
 #include "recovery/recovery.hpp"
 
 #include <functional>
@@ -21,6 +22,10 @@ bool portable(const std::string &p);
 // ^[A-Za-z0-9_.][A-Za-z0-9+_.-]{0,127}$
 bool package_name(const std::string &s);
 // versionPattern: ^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-._][A-Za-z0-9.-]+)?$ with its three groups.
+Error retire_pending(const std::string &root);
+Error remove_acme_binaries(const std::string &root);
+// Options.UnmarshalJSON on a decoded value.
+bool decode_options_value(const godecode::Value &v, Options &o);
 bool version_pattern(const std::string &s, std::string &major, std::string &minor, std::string &patch);
 
 } // namespace nkos::recovery

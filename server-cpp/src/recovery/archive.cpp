@@ -252,7 +252,9 @@ bool decode_archive(const godecode::Value &v, Archive &a)
 }
 
 // Options.UnmarshalJSON: the plain fields, and for a reset explicit keepUsers and keepApps (exact keys, not null).
-bool options_value(const godecode::Value &v, Options &o)
+} // namespace
+
+bool decode_options_value(const godecode::Value &v, Options &o)
 {
 	using K = godecode::Value::Kind;
 	if (v.kind == K::null) return true;
@@ -278,8 +280,6 @@ bool options_value(const godecode::Value &v, Options &o)
 	return true;
 }
 
-} // namespace
-
 bool decode_request(const std::string &body, Request &r)
 {
 	std::string error;
@@ -293,7 +293,7 @@ bool decode_request(const std::string &body, Request &r)
 		if (godecode::key_matches(k, "password")) ok = godecode::get(m, r.password) && ok;
 		else if (godecode::key_matches(k, "archivePassword")) ok = godecode::get(m, r.archive_password) && ok;
 		else if (godecode::key_matches(k, "archive")) ok = godecode::get_bytes(m, r.archive) && ok;
-		else if (godecode::key_matches(k, "options")) ok = options_value(m, r.options) && ok;
+		else if (godecode::key_matches(k, "options")) ok = decode_options_value(m, r.options) && ok;
 		else if (godecode::key_matches(k, "token")) ok = godecode::get(m, r.token) && ok;
 	}
 	return ok;
@@ -302,7 +302,7 @@ bool decode_request(const std::string &body, Request &r)
 bool decode_options(const std::string &json, Options &o)
 {
 	auto doc = godecode::parse_document(json);
-	return doc && options_value(*doc, o);
+	return doc && decode_options_value(*doc, o);
 }
 
 std::optional<Archive> decode_manifest(const std::string &plain, Error &error)

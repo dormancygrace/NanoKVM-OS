@@ -766,21 +766,6 @@ void decode_apk_status(const std::string &data, ApkStatus &s)
 	}
 }
 
-Error save_apk_status(const ApkStatus &s)
-{
-	if (auto e = files::mkdir_all(apk_state_dir, 0700); !e.empty()) return e;
-	std::string tmp = std::string(apk_state_dir) + "/state.tmp";
-	int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
-	if (fd < 0) return goerr::path_error("open", tmp, errno);
-	std::string data = to_json(s);
-	Error e;
-	if (::write(fd, data.data(), data.size()) != static_cast<ssize_t>(data.size())) e = goerr::path_error("write", tmp, errno);
-	::close(fd);
-	if (!e.empty()) return e;
-	if (::rename(tmp.c_str(), (std::string(apk_state_dir) + "/state.json").c_str()) != 0)
-		return "rename " + tmp + " " + apk_state_dir + "/state.json: " + goerr::errno_text(errno);
-	return "";
-}
 
 std::string read_tail(const std::string &name, std::size_t limit, bool &ok)
 {
@@ -803,6 +788,22 @@ std::string read_tail(const std::string &name, std::size_t limit, bool &ok)
 }
 
 } // namespace
+
+Error save_apk_status(const ApkStatus &s)
+{
+	if (auto e = files::mkdir_all(apk_state_dir, 0700); !e.empty()) return e;
+	std::string tmp = std::string(apk_state_dir) + "/state.tmp";
+	int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+	if (fd < 0) return goerr::path_error("open", tmp, errno);
+	std::string data = to_json(s);
+	Error e;
+	if (::write(fd, data.data(), data.size()) != static_cast<ssize_t>(data.size())) e = goerr::path_error("write", tmp, errno);
+	::close(fd);
+	if (!e.empty()) return e;
+	if (::rename(tmp.c_str(), (std::string(apk_state_dir) + "/state.json").c_str()) != 0)
+		return "rename " + tmp + " " + apk_state_dir + "/state.json: " + goerr::errno_text(errno);
+	return "";
+}
 
 Error save_apk_status_idle() { return save_apk_status(ApkStatus{}); }
 
@@ -1156,9 +1157,7 @@ Error recover_interrupted_rollback()
 	cmd.deadline = apkrun::Clock::now() + check_timeout;
 	auto r = run_quiet(cmd);
 	if (!r.ok) return r.error;
-	for (const char *path : {"/etc/runlevels/boot/nanokvm-rollback-recovery", "/etc/init.d/nanokvm-rollback-recovery"})
-		if (int e = files::remove(path); e && e != ENOENT) return goerr::path_error("remove", path, e);
-	return "";
+	return remove_rollback_recovery();
 }
 
 } // namespace nkos::osupdate

@@ -7,6 +7,7 @@
 // component by component without following symbolic links. Blocking: call off the event loop.
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -100,7 +101,15 @@ struct Engine {
 	bool pending() const;
 	Status status() const;
 	Error stage(const Plan &plan) const;
+	// Resume: applies a staged plan at early boot with the services stopped (nkos-update recovery-resume). A power
+	// loss leaves the durable plan for replay; a write failure restores all previous settings. remove deletes the
+	// approved APK world roots of a factory package reset (they are not undone).
+	Error resume(const std::function<Error(const std::vector<std::string> &)> &remove) const;
 };
+
+// Boot: nkos-update recovery-resume: resumes a pending recovery under the recovery lock, refused while
+// NanoKVM-Server runs; a package reset runs apk del and removes picoclaw and the acme.sh program tree.
+Error boot();
 
 // Live: the device (root /, the installed version, the board of /etc/kvm/hw).
 Engine live();
@@ -109,7 +118,7 @@ bool available();
 // Reboot: nkos-update recovery-reboot, detached.
 Error reboot();
 
-// Filesystem access without following links (exposed for the differential check).
+// A settings file under root, read or written (nullptr deletes) without following links, bounded to limit bytes.
 std::optional<File> read(const std::string &root, const std::string &name, std::size_t limit, Error &error);
 Error write(const std::string &root, const std::string &name, const File *value);
 

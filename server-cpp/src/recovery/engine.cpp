@@ -9,7 +9,10 @@
 #include "osupdate/files.hpp"
 #include "osupdate/godecode.hpp"
 #include "osupdate/gostr.hpp"
+#include "osupdate/apkrun.hpp"
 #include "osupdate/osupdate.hpp"
+
+#include <dirent.h>
 
 #include <openssl/sha.h>
 #include <sys/stat.h>
@@ -401,6 +404,234 @@ Error reboot()
 	Error e;
 	if (!osupdate::start_detached({osupdate::helper, "recovery-reboot"}, -1, -1, e)) return e;
 	return "";
+}
+
+namespace {
+
+// json.Unmarshal into a Plan (a staged journal): Go's syntax error text, or a type error.
+bool decode_file_value(const godecode::Value &v, std::optional<File> &out)
+{
+	using K = godecode::Value::Kind;
+	if (v.kind == K::null) {
+		out.reset();
+		return true;
+	}
+	if (v.kind != K::object) return false;
+	if (!out) out = File{};
+	bool ok = true;
+	for (const auto &[k, m] : v.members) {
+		if (godecode::key_matches(k, "path")) ok = godecode::get(m, out->path) && ok;
+		else if (godecode::key_matches(k, "data")) ok = godecode::get_bytes(m, out->data) && ok;
+		else if (godecode::key_matches(k, "mode")) {
+			std::uint64_t mode = out->mode;
+			ok = godecode::get_uint(m, mode, UINT32_MAX) && ok;
+			out->mode = static_cast<std::uint32_t>(mode);
+		}
+	}
+	return ok;
+}
+
+bool decode_plan(const std::string &data, Plan &p, Error &error)
+{
+	auto doc = godecode::unmarshal(data, error);
+	if (!doc) return false;
+	using K = godecode::Value::Kind;
+	if (doc->kind == K::null) return true;
+	if (doc->kind != K::object) return error = "json: cannot unmarshal " + godecode::kind_name(*doc) + " into Go value of type recovery.Plan", false;
+	bool ok = true;
+	for (const auto &[k, m] : doc->members) {
+		if (godecode::key_matches(k, "rollingBack")) ok = godecode::get(m, p.rolling_back) && ok;
+		else if (godecode::key_matches(k, "started")) ok = godecode::get(m, p.started) && ok;
+		else if (godecode::key_matches(k, "options")) {
+			Options o = p.options;
+			ok = decode_options_value(m, o) && ok;
+			p.options = o;
+		} else if (godecode::key_matches(k, "changes")) {
+			if (m.kind == K::null) {
+				p.changes.reset();
+			} else if (m.kind != K::array) {
+				ok = false;
+			} else {
+				std::vector<Change> list;
+				for (std::size_t i = 0; i < m.items.size(); i++) {
+					Change c = p.changes && i < p.changes->size() ? (*p.changes)[i] : Change{};
+					const auto &item = m.items[i];
+					if (item.kind == K::object) {
+						for (const auto &[ck, cv] : item.members) {
+							if (godecode::key_matches(ck, "path")) ok = godecode::get(cv, c.path) && ok;
+							else if (godecode::key_matches(ck, "before")) ok = decode_file_value(cv, c.before) && ok;
+							else if (godecode::key_matches(ck, "after")) ok = decode_file_value(cv, c.after) && ok;
+						}
+					} else if (item.kind != K::null) {
+						ok = false;
+					}
+					list.push_back(std::move(c));
+				}
+				p.changes = std::move(list);
+			}
+		} else if (godecode::key_matches(k, "removePackages")) ok = godecode::get_strings(m, p.remove_packages) && ok;
+		else if (godecode::key_matches(k, "world")) ok = godecode::get_bytes(m, p.world) && ok;
+	}
+	if (!ok) error = "json: cannot unmarshal the recovery journal into recovery.Plan";
+	return ok;
+}
+
+std::string truncate_3000(std::string s)
+{
+	if (s.size() > 3000) s.resize(3000);
+	return s;
+}
+
+// remainingRemovals: a retry may find fewer optional roots, never new or changed ones.
+std::optional<std::vector<std::string>> remaining_removals(const std::string &original, const std::string &current,
+                                                           const std::vector<std::string> &approved, Error &error)
+{
+	if (!removable(current, error)) return std::nullopt;
+	std::set<std::string> old;
+	for (const auto &line : gostr::fields(original)) old.insert(line);
+	std::set<std::string> present;
+	for (const auto &line : gostr::fields(current)) {
+		if (!old.count(line)) return error = "APK world changed after recovery was queued", std::nullopt;
+		present.insert(gostr::fields_ascii(line, "<>=~@")[0]);
+	}
+	std::vector<std::string> result;
+	for (const auto &name : approved)
+		if (present.count(name)) result.push_back(name);
+	return result;
+}
+
+} // namespace
+
+Error Engine::resume(const std::function<Error(const std::vector<std::string> &)> &remove) const
+{
+	// Only a fully decoded, unstarted journal proves that settings are untouched; corrupt or started journals stay
+	// pending (networking still permits repair).
+	bool safe_to_abandon = false;
+	auto finish = [&](Error result) -> Error {
+		if (!result.empty() && safe_to_abandon) {
+			std::string message = truncate_3000("Recovery cancelled before settings were changed: " + result);
+			// abandon: a bounded failed journal replaces the previous one; it is never replayed.
+			File status{"", to_json(Status{"failed", message}), 0600};
+			Error e = write(root, status_path, &status);
+			if (e.empty()) e = retire_pending(root);
+			return e.empty() ? Error() : result + "\n" + e;
+		}
+		return result;
+	};
+	Error error;
+	auto f = read(root, pending_path, 2 * max_archive, error);
+	if (!error.empty()) return finish(error);
+	if (!f) return "";
+	Plan p;
+	if (!decode_plan(f->data.value_or(""), p, error)) return finish(error);
+	safe_to_abandon = !p.started && !p.rolling_back;
+	if (auto e = validate_plan(p); !e.empty()) return finish(e);
+	// Services may flush their settings while shutting down: that final state is captured once, before packages or
+	// files change, and kept for a replay after a crash.
+	if (!p.started) {
+		if (p.options.action == "reset") {
+			Plan next;
+			Preview preview;
+			if (!prepare(nullptr, p.options, next, preview, error)) return finish(error);
+			next.world = p.world;
+			next.remove_packages = p.remove_packages;
+			p = std::move(next);
+		} else {
+			std::set<std::string> seen;
+			if (p.changes)
+				for (auto &c : *p.changes) {
+					seen.insert(c.path);
+					c.before = read(root, c.path, max_file, error);
+					if (!error.empty()) return finish(error);
+				}
+			auto current = inventory(root, error);
+			if (!current) return finish(error);
+			for (auto &cf : *current) {
+				if (seen.count(cf.path) || (p.options.mode == "migrate" && !portable(cf.path))) continue;
+				if (!p.changes) p.changes = std::vector<Change>{};
+				p.changes->push_back(Change{cf.path, cf, std::nullopt});
+			}
+		}
+		if (p.options.action == "reset" && !p.options.keep_apps) {
+			auto world = read(root, "etc/apk/world", max_file, error);
+			if (!error.empty()) return finish(error);
+			if (!world) return finish("APK world missing during recovery");
+			if (world->data.value_or("") != p.world.value_or("")) return finish("APK world changed after recovery was queued");
+		}
+		p.started = true;
+		if (auto e = validate_plan(p); !e.empty()) return finish(e);
+		File journal{"", to_json(p), 0600};
+		if (auto e = write(root, pending_path, &journal); !e.empty()) return finish(e);
+	}
+	safe_to_abandon = false;
+	Error operation;
+	if (p.rolling_back) operation = "resuming interrupted rollback";
+	if (!p.rolling_back && p.options.action == "reset" && !p.options.keep_apps) {
+		auto world = read(root, "etc/apk/world", max_file, error);
+		if (!error.empty()) return error;
+		// After an interrupted deletion APK may have removed some roots already: only approved names are replayed.
+		if (!world) return "APK world missing during recovery";
+		Error e;
+		auto names = remaining_removals(p.world.value_or(""), world->data.value_or(""), p.remove_packages.value_or(std::vector<std::string>{}), e);
+		operation = names ? remove(*names) : e;
+	}
+	if (operation.empty() && p.changes)
+		for (const auto &c : *p.changes)
+			if (auto e = write(root, c.path, c.after ? &*c.after : nullptr); !e.empty()) {
+				operation = c.path + ": " + e;
+				break;
+			}
+	if (!operation.empty()) {
+		if (!p.rolling_back) {
+			p.rolling_back = true;
+			File journal{"", to_json(p), 0600};
+			if (auto e = write(root, pending_path, &journal); !e.empty()) return e;
+		}
+		if (p.changes)
+			for (const auto &c : *p.changes)
+				if (auto e = write(root, c.path, c.before ? &*c.before : nullptr); !e.empty())
+					return "recovery and rollback failed at " + c.path + ": " + e;
+	}
+	Status status{"complete", "Recovery completed."};
+	if (!operation.empty())
+		status = Status{"failed", "Settings restored after a recovery error: " + operation + ". Some optional packages may have been removed."};
+	status.message = truncate_3000(status.message);
+	File status_file{"", to_json(status), 0600};
+	if (auto e = write(root, status_path, &status_file); !e.empty()) return e;
+	return write(root, pending_path, nullptr);
+}
+
+Error boot()
+{
+	Engine e = live();
+	if (!e.pending()) return "";
+	// The pending marker deliberately blocks normal lock() callers.
+	if (DIR *d = ::opendir("/proc")) {
+		bool server = false;
+		while (dirent *ent = ::readdir(d)) {
+			std::string pid = ent->d_name;
+			if (pid.empty() || pid.find_first_not_of("0123456789") != std::string::npos) continue;
+			if (gostr::trim_space(osupdate::files::read("/proc/" + pid + "/comm").value_or("")) == "NanoKVM-Server") server = true;
+		}
+		::closedir(d);
+		if (server) return "recovery-resume is only for early boot; reboot the device";
+	}
+	Error error;
+	auto lock = osupdate::recovery_lock(error);
+	if (!lock) return error;
+	return e.resume([](const std::vector<std::string> &names) -> Error {
+		if (!names.empty()) {
+			apkrun::Cmd cmd;
+			cmd.path = "/sbin/apk";
+			cmd.args = {"del", "--no-network", "--no-progress"};
+			cmd.args.insert(cmd.args.end(), names.begin(), names.end());
+			cmd.deadline = apkrun::Clock::now() + std::chrono::minutes(5);
+			auto r = apkrun::combined_output(cmd);
+			if (!r.ok) return "APK reset failed: " + r.error + " (" + gostr::trim_space(r.output) + ")";
+		}
+		if (auto e2 = write("/", "usr/bin/picoclaw", nullptr); !e2.empty()) return e2;
+		return remove_acme_binaries("/");
+	});
 }
 
 } // namespace nkos::recovery

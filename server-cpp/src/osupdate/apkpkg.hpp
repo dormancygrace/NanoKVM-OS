@@ -37,7 +37,8 @@ bool world_selected(const std::string &world, const std::string &name);
 // off. Starts a thread; nothing when /etc/kvm/base-packages exists.
 void start();
 
-// The pieces of EnsureBasePackages, for the differential check.
+// The pieces of EnsureBasePackages: one attempt (the marker written when every base package is complete), and the
+// plan of apk fix and apk add for a world and the packages missing or broken.
 std::string install_base();
 void base_plan(const std::vector<std::string> &missing, const std::vector<std::string> &broken, const std::string &world,
                std::vector<std::string> &fix, std::vector<std::string> &add);

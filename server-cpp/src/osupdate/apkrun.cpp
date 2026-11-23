@@ -200,11 +200,12 @@ void set_oom_and_priority(pid_t pid, int priority)
 	::setpriority(PRIO_PROCESS, static_cast<id_t>(pid), priority);
 }
 
-enum class Output { capture, inherit, null };
+enum class Output { capture, split, inherit, null };
 
 Result execute(const Cmd &cmd, Output mode)
 {
-	bool capture = mode == Output::capture;
+	bool capture = mode == Output::capture || mode == Output::split;
+	bool split = mode == Output::split;
 	Result r;
 	Class kind = classify(cmd.args);
 	Fd lock;
@@ -232,10 +233,10 @@ Result execute(const Cmd &cmd, Output mode)
 		if (!deadline || t < *deadline) deadline = t;
 	}
 
-	int out[2] = {-1, -1}, report[2] = {-1, -1};
-	if ((capture && ::pipe2(out, O_CLOEXEC) != 0) || ::pipe2(report, O_CLOEXEC) != 0) {
+	int out[2] = {-1, -1}, err[2] = {-1, -1}, report[2] = {-1, -1};
+	if ((capture && ::pipe2(out, O_CLOEXEC) != 0) || (split && ::pipe2(err, O_CLOEXEC) != 0) || ::pipe2(report, O_CLOEXEC) != 0) {
 		r.error = goerr::errno_text(errno);
-		for (int fd : {out[0], out[1], report[0], report[1]})
+		for (int fd : {out[0], out[1], err[0], err[1], report[0], report[1]})
 			if (fd >= 0) ::close(fd);
 		return r;
 	}
@@ -246,7 +247,7 @@ Result execute(const Cmd &cmd, Output mode)
 	pid_t pid = ::fork();
 	if (pid < 0) {
 		r.error = goerr::start_error(cmd.path, errno);
-		for (int fd : {out[0], out[1], report[0], report[1]})
+		for (int fd : {out[0], out[1], err[0], err[1], report[0], report[1]})
 			if (fd >= 0) ::close(fd);
 		return r;
 	}
@@ -256,7 +257,7 @@ Result execute(const Cmd &cmd, Output mode)
 		::dup2(null, 0);
 		if (capture) {
 			::dup2(out[1], 1);
-			::dup2(out[1], 2);
+			::dup2(split ? err[1] : out[1], 2);
 		} else if (mode == Output::null) {
 			::dup2(null, 1);
 			::dup2(null, 2);
@@ -274,6 +275,7 @@ Result execute(const Cmd &cmd, Output mode)
 		::_exit(127);
 	}
 	if (capture) ::close(out[1]);
+	if (split) ::close(err[1]);
 	::close(report[1]);
 	int exec_errno = 0;
 	bool failed = ::read(report[0], &exec_errno, sizeof exec_errno) == sizeof exec_errno;
@@ -283,6 +285,7 @@ Result execute(const Cmd &cmd, Output mode)
 		while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
 		}
 		if (capture) ::close(out[0]);
+		if (split) ::close(err[0]);
 		r.error = goerr::start_error(cmd.path, exec_errno);
 		return r;
 	}
@@ -298,8 +301,9 @@ Result execute(const Cmd &cmd, Output mode)
 	bool reaped = false;
 	if (capture) {
 		::fcntl(out[0], F_SETFL, O_NONBLOCK);
-		bool open = true;
-		while (open) {
+		if (split) ::fcntl(err[0], F_SETFL, O_NONBLOCK);
+		bool open = true, err_open = split;
+		while (open || err_open) {
 			if (!killed && (cancelled(cmd) || (deadline && Clock::now() >= *deadline))) {
 				kill_it();
 				killed = true;
@@ -308,21 +312,26 @@ Result execute(const Cmd &cmd, Output mode)
 				if (kind != Class::transaction) drain_until = Clock::now() + wait_delay;
 			}
 			if (drain_until && Clock::now() >= *drain_until) break;
-			pollfd p{out[0], POLLIN, 0};
-			if (::poll(&p, 1, 100) < 0 && errno != EINTR) break;
+			pollfd p[2] = {{open ? out[0] : -1, POLLIN, 0}, {err_open ? err[0] : -1, POLLIN, 0}};
+			if (::poll(p, 2, 100) < 0 && errno != EINTR) break;
 			char buf[8192];
-			for (;;) {
-				ssize_t got = ::read(out[0], buf, sizeof buf);
-				if (got > 0) {
-					r.output.append(buf, static_cast<std::size_t>(got));
-					continue;
+			auto drain = [&](int fd, std::string &into, bool &is_open) {
+				while (is_open) {
+					ssize_t got = ::read(fd, buf, sizeof buf);
+					if (got > 0) {
+						into.append(buf, static_cast<std::size_t>(got));
+						continue;
+					}
+					if (got == 0) is_open = false;
+					else if (errno != EAGAIN && errno != EINTR) is_open = false;
+					break;
 				}
-				if (got == 0) open = false;
-				else if (errno != EAGAIN && errno != EINTR) open = false;
-				break;
-			}
+			};
+			drain(out[0], r.output, open);
+			if (split) drain(err[0], r.stderr_output, err_open);
 		}
 		::close(out[0]);
+		if (split) ::close(err[0]);
 	} else {
 		for (;;) {
 			pid_t w = ::waitpid(pid, &status, WNOHANG);
@@ -372,5 +381,12 @@ Result run(const Cmd &cmd)
 }
 
 Result run_quiet(const Cmd &cmd) { return execute(cmd, Output::null); }
+
+Result output_split(const Cmd &cmd)
+{
+	Result r = execute(cmd, Output::split);
+	if (r.not_started) r.stderr_output = r.error + "\n";
+	return r;
+}
 
 } // namespace nkos::apkrun

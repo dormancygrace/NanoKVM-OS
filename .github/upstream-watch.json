@@ -202,6 +202,79 @@
       "lock_entry": "rapidyaml"
     },
     {
+      "name": "libdatachannel",
+      "path": "platform/sources.lock",
+      "pattern": "^libdatachannel\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-release-commit",
+      "repo": "paullouisageneau/libdatachannel",
+      "lock_entry": "libdatachannel"
+    },
+    {
+      "name": "libjuice",
+      "path": "platform/sources.lock",
+      "pattern": "^libjuice\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-release-commit",
+      "repo": "paullouisageneau/libjuice",
+      "lock_entry": "libjuice"
+    },
+    {
+      "name": "libsrtp",
+      "path": "platform/sources.lock",
+      "pattern": "^libsrtp\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "cisco/libsrtp",
+      "branch": null,
+      "lock_entry": "libsrtp",
+      "cadence": "quarterly"
+    },
+    {
+      "name": "usrsctp (libdatachannel fork)",
+      "path": "platform/sources.lock",
+      "pattern": "^usrsctp\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "paullouisageneau/usrsctp",
+      "branch": null,
+      "lock_entry": "usrsctp",
+      "cadence": "quarterly"
+    },
+    {
+      "name": "plog",
+      "path": "platform/sources.lock",
+      "pattern": "^plog\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "SergiusTheBest/plog",
+      "branch": null,
+      "lock_entry": "plog",
+      "cadence": "quarterly"
+    },
+    {
+      "name": "libjpeg-turbo",
+      "path": "platform/sources.lock",
+      "pattern": "libjpeg-turbo-([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "libjpeg-turbo/libjpeg-turbo",
+      "upstream_pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "libjpeg-turbo"
+    },
+    {
+      "name": "libspng",
+      "path": "platform/sources.lock",
+      "pattern": "libspng/archive/refs/tags/v([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "randy408/libspng",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "libspng"
+    },
+    {
+      "name": "curl",
+      "path": "platform/sources.lock",
+      "pattern": "curl-([0-9.]+)\\.tar\\.xz",
+      "kind": "index",
+      "url": "https://curl.se/download/",
+      "upstream_pattern": "curl-([0-9]+\\.[0-9]+\\.[0-9]+)\\.tar\\.xz",
+      "lock_entry": "curl"
+    },
+    {
       "name": "ZeroTier One",
       "path": "firmware/alpine/packages/nanokvm-zerotier/APKBUILD",
       "pattern": "^pkgver=([0-9.]+)$",

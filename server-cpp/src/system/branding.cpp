@@ -2,6 +2,8 @@
 
 #include "api/response.hpp"
 #include "auth/session.hpp"
+#include "common/image.hpp"
+#include "common/loop.hpp"
 #include "config/config.hpp"
 
 #include <glaze/glaze.hpp>
@@ -183,6 +185,50 @@ void remove(http::Response &res, const char *name, bool favicon)
 	status(res);
 }
 
+// A PNG or JPEG of at most 1024 x 1024, made a fresh PNG (no metadata, no other chunks) off the loop; saved and
+// answered on the loop, where the other branding changes run.
+void upload(http::Request &req, http::Response &res, const char *name, bool favicon)
+{
+	if (req.body.size() > (2u << 20)) return api::err(res, -1, "Logo must be at most 2 MiB");
+	res.pending = true;
+	loop::blocking([id = req.id, body = std::move(req.body), name, favicon] {
+		std::optional<std::string> png;
+		if (auto size = image::size(body); size && size->width >= 1 && size->height >= 1 && size->width <= 1024 &&
+		                                     size->height <= 1024)
+			if (auto decoded = image::decode(body, 1024, 1024)) png = image::encode_png(*decoded);
+		loop::post([id, png = std::move(png), name, favicon] {
+			http::Response out;
+			if (!png) {
+				api::err(out, -1, "Use a PNG or JPEG image up to 1024 x 1024");
+				return http::complete(id, std::move(out));
+			}
+			::mkdir(dir, 0700);
+			std::string file = std::string(dir) + "/" + name;
+			bool saved = false;
+			{
+				std::ofstream f(file + ".tmp", std::ios::trunc | std::ios::binary);
+				saved = static_cast<bool>(f << *png);
+			}
+			::chmod((file + ".tmp").c_str(), 0600);
+			if (!saved || ::rename((file + ".tmp").c_str(), file.c_str()) != 0) {
+				api::err(out, -1, "Could not save logo");
+				return http::complete(id, std::move(out));
+			}
+			Config c = read_config();
+			if (favicon) {
+				c.faviconRevision = sha256_hex(*png);
+				c.faviconCustom = true;
+			} else {
+				c.logoRevision = sha256_hex(*png);
+				c.logoCustom = true;
+			}
+			if (!save_config(c)) api::err(out, -1, "Could not save branding");
+			else status(out);
+			http::complete(id, std::move(out));
+		});
+	});
+}
+
 struct ColorReq {
 	std::string color;
 };
@@ -201,6 +247,8 @@ void add_branding_routes(http::Router &router)
 	router.add("GET", "/api/branding/logo", [](http::Request &req, http::Response &res) { image(req, res, "logo.png"); });
 	router.add("GET", "/api/branding/favicon", [](http::Request &req, http::Response &res) { image(req, res, "favicon.png"); });
 	auth::Guard admin{{"admin"}};
+	router.add("POST", "/api/branding/logo", auth::guarded([](http::Request &req, http::Response &res) { upload(req, res, "logo.png", false); }, admin));
+	router.add("POST", "/api/branding/favicon", auth::guarded([](http::Request &req, http::Response &res) { upload(req, res, "favicon.png", true); }, admin));
 	router.add("DELETE", "/api/branding/logo", auth::guarded([](http::Request &, http::Response &res) { remove(res, "logo.png", false); }, admin));
 	router.add("DELETE", "/api/branding/favicon", auth::guarded([](http::Request &, http::Response &res) { remove(res, "favicon.png", true); }, admin));
 	router.add("POST", "/api/branding/button-color", auth::guarded([](http::Request &req, http::Response &res) {

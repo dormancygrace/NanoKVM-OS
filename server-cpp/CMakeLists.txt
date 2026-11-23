@@ -11,6 +11,8 @@ project(nanokvm_server CXX C)
 #   RYML_HEADER  rapidyaml single header
 #   KVM_ROOT     the native capture library: include/kvm_vision.h (support/additional/kvm) and dl_lib/libkvm.so
 #                (built by the system build; installed next to the server as dl_lib/)
+#   TURBOJPEG_ROOT libjpeg-turbo (static, scalar: its RVV code needs RVV 1.0), SPNG_SRC libspng source,
+#                ZLIB_ROOT the image's zlib-ng (/usr/lib/libz.so.1 on the device)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,8 +26,11 @@ set(GLAZE_ROOT "" CACHE PATH "glaze source tree")
 set(RYML_HEADER "" CACHE FILEPATH "rapidyaml single header")
 set(KVM_INCLUDE "" CACHE PATH "kvm_vision.h directory")
 set(KVM_LIB_DIR "" CACHE PATH "libkvm.so directory")
+set(TURBOJPEG_ROOT "" CACHE PATH "libjpeg-turbo install (include/turbojpeg.h, lib/libturbojpeg.a)")
+set(SPNG_SRC "" CACHE PATH "libspng source directory (spng.c, spng.h)")
+set(ZLIB_ROOT "" CACHE PATH "zlib-ng build (zlib.h, zconf.h, libz.so)")
 
-foreach(v LWS_ROOT OPENSSL_ROOT GLAZE_ROOT RYML_HEADER KVM_INCLUDE KVM_LIB_DIR)
+foreach(v LWS_ROOT OPENSSL_ROOT GLAZE_ROOT RYML_HEADER KVM_INCLUDE KVM_LIB_DIR TURBOJPEG_ROOT SPNG_SRC ZLIB_ROOT)
   if(NOT ${v})
     message(FATAL_ERROR "${v} is not set")
   endif()
@@ -50,6 +55,8 @@ add_executable(NanoKVM-Server
   src/common/loop.cpp
   src/common/process.cpp
   src/common/tz.cpp
+  src/common/image.cpp
+  ${SPNG_SRC}/spng.c
   src/api/multipart.cpp
   src/api/request.cpp
   src/auth/brute_force.cpp
@@ -122,7 +129,12 @@ target_include_directories(NanoKVM-Server PRIVATE
   ${OPENSSL_ROOT}/include
   ${GLAZE_ROOT}/include
   ${KVM_INCLUDE}
+  ${TURBOJPEG_ROOT}/include
+  ${SPNG_SRC}
+  ${ZLIB_ROOT}
 )
+# libspng is C, built with the server; it is quiet only without the C++ warnings.
+set_source_files_properties(${SPNG_SRC}/spng.c PROPERTIES COMPILE_OPTIONS "-w")
 
 target_compile_options(NanoKVM-Server PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
 # The C++ runtime of our GCC is newer than the one Alpine installs: link it into the server, and keep its symbols
@@ -137,6 +149,8 @@ target_link_libraries(NanoKVM-Server PRIVATE
   ${OPENSSL_ROOT}/libssl.so
   ${OPENSSL_ROOT}/libcrypto.so
   ${KVM_LIB_DIR}/libkvm.so
+  ${TURBOJPEG_ROOT}/lib/libturbojpeg.a
+  ${ZLIB_ROOT}/libz.so
   pthread
 )
 

@@ -100,6 +100,7 @@ add_executable(NanoKVM-Server
   src/system/serial_terminal.cpp
   src/system/terminal.cpp
   src/system/scripts.cpp
+  src/system/startpriority.cpp
   src/system/cron.cpp
   src/usb/composition.cpp
   src/usb/storage_reads.cpp

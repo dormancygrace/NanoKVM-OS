@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
+#include <string>
 
 namespace nkos::http {
 
@@ -16,6 +18,10 @@ namespace nkos::http {
 // on_stop when a signal ended the loop, before the connections are closed.
 int run(const config::Config &config, const Router &router, std::function<void()> on_ready = {},
         std::function<void()> on_stop = {});
+
+// The interface the request's connection arrived on, as the kernel saw it (IP_PKTINFO of its last packet), not the
+// destination address the peer chose; nullopt when it cannot be read. Loop thread, during the request.
+std::optional<std::string> ingress_interface(const Request &request);
 
 // A descriptor on the event loop (an eventfd, a pipe, a pty). The server takes it over: lws closes it once the watch
 // ends, by unwatch_fd or because the far end hung up (closed then runs, and the watch is gone). The callbacks run

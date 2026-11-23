@@ -10,6 +10,9 @@
 #include <algorithm>
 #include <chrono>
 #include <arpa/inet.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -702,6 +705,43 @@ void unwatch_fd(FdWatch watch, std::function<void()> after_close)
 		watched.erase(it);
 	}
 	lws_set_timeout(wsi, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
+}
+
+std::optional<std::string> ingress_interface(const Request &request)
+{
+	if (!request.wsi) return std::nullopt;
+	lws *net = lws_get_network_wsi(request.wsi);
+	int fd = lws_get_socket_fd(net ? net : request.wsi);
+	if (fd < 0) return std::nullopt;
+	int family = 0;
+	socklen_t len = sizeof family;
+	if (::getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &family, &len) != 0) return std::nullopt;
+	int level = IPPROTO_IP, enable = IP_PKTINFO, options = IP_PKTOPTIONS, report = IP_PKTINFO;
+	if (family == AF_INET6) {
+		level = IPPROTO_IPV6;
+		enable = IPV6_RECVPKTINFO;
+		options = 6;  // IPV6_2292PKTOPTIONS
+		report = IPV6_PKTINFO;
+	}
+	int on = 1;
+	if (::setsockopt(fd, level, enable, &on, sizeof on) != 0) return std::nullopt;
+	alignas(cmsghdr) unsigned char buf[512];
+	socklen_t size = sizeof buf;
+	if (::getsockopt(fd, level, options, buf, &size) != 0) return std::nullopt;
+	msghdr msg{};
+	msg.msg_control = buf;
+	msg.msg_controllen = size;
+	for (cmsghdr *c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
+		if (c->cmsg_level != level || c->cmsg_type != report) continue;
+		unsigned index = 0;
+		if (family == AF_INET6 && c->cmsg_len >= CMSG_LEN(sizeof(in6_pktinfo)))
+			index = reinterpret_cast<in6_pktinfo *>(CMSG_DATA(c))->ipi6_ifindex;
+		else if (family == AF_INET && c->cmsg_len >= CMSG_LEN(sizeof(in_pktinfo)))
+			index = static_cast<unsigned>(reinterpret_cast<in_pktinfo *>(CMSG_DATA(c))->ipi_ifindex);
+		char name[IF_NAMESIZE];
+		if (index > 0 && ::if_indextoname(index, name)) return std::string(name);
+	}
+	return std::nullopt;
 }
 
 bool request_open(std::uint64_t id) { return open_requests.count(id) != 0; }

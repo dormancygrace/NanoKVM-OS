@@ -25,6 +25,7 @@
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
 #include "system/scripts.hpp"
+#include "system/startpriority.hpp"
 #include "system/terminal.hpp"
 #include "usb/composition.hpp"
 #include "usb/storage_reads.hpp"
@@ -36,6 +37,10 @@
 #include "video/preview.hpp"
 #include "video/watermark.hpp"
 
+#include <cerrno>
+#include <sys/stat.h>
+#include <set>
+#include <fstream>
 #include <climits>
 #include <string>
 #include <unistd.h>
@@ -57,6 +62,8 @@ std::string web_root()
 int main()
 {
 	using namespace nkos;
+	// Ahead of the other services while it starts (every thread created later inherits it).
+	system::startpriority::raise();
 	const config::Config &conf = config::load();
 	log::set_level(conf.logger.level);
 	system::logs::init();
@@ -69,6 +76,45 @@ int main()
 		res.set_header("Content-Security-Policy", "frame-ancestors 'none'");
 		res.set_header("X-Content-Type-Options", "nosniff");
 		res.set_header("Referrer-Policy", "no-referrer");
+	});
+	// middleware.USBHostGate: on a connection that arrived over usb0 the managed computer reaches only the sensors
+	// agent's report and the serial console helper, unless it was given access to everything (usb.host_access).
+	router.use([](http::Request &req, http::Response &res) {
+		auto ingress = http::ingress_interface(req);
+		if (!ingress || *ingress != "usb0") return;
+		if ((req.method == "POST" && req.path == "/api/host-sensors") ||
+		    (req.method == "GET" && req.path == "/nanokvm-serial-console.sh"))
+			return;
+		struct stat st{};
+		bool layout = ::stat("/usr/share/nanokvm/usb-flags-layout", &st) == 0 && ::stat("/etc/kvm/usb/.layout-v1", &st) == 0;
+		if (::stat(layout ? "/etc/kvm/usb/usb.host_access" : "/boot/usb.host_access", &st) == 0) return;
+		res.status = 403;
+		res.done = true;
+	});
+	// Settings recovery waits for its reboot: only signing in and out and the reboot change anything.
+	router.use([](http::Request &req, http::Response &res) {
+		if (req.method == "GET" || req.method == "HEAD" || req.method == "OPTIONS") return;
+		static const std::set<std::string> allowed{"/api/system/recovery/reboot", "/api/auth/login", "/api/auth/login/totp",
+		                                           "/api/auth/logout", "/api/auth/activity"};
+		if (allowed.count(req.path)) return;
+		struct stat st{};
+		if (::lstat("/var/lib/nanokvm-recovery/pending.json", &st) != 0 && errno == ENOENT) return;
+		res.json(409, R"({"code":-1,"msg":"Settings recovery pending; reboot before changing settings."})");
+		res.done = true;
+	});
+	// middleware.LimitRequestBody: 1 MiB, except the routes that take uploads with their own limits (the server
+	// reads at most 8 MiB of any body).
+	router.use([](http::Request &req, http::Response &res) {
+		if (req.body.size() <= (1u << 20)) return;
+		static const std::set<std::string> own{"/api/download/file", "/api/storage/user-disk/files/upload",
+		                                       "/api/branding/logo", "/api/branding/favicon",
+		                                       "/api/extensions/openvpn/import", "/api/extensions/wireguard/import",
+		                                       "/api/vm/script/upload", "/api/vm/video/watermark",
+		                                       "/api/picoclaw/actions", "/api/picoclaw/mcp", "/api/picoclaw/load-image"};
+		if (own.count(req.path) || req.path.rfind("/api/system/recovery/", 0) == 0)
+			return;
+		res.json(413, R"({"code":-1,"msg":"request body too large"})");
+		res.done = true;
 	});
 	const std::string web = web_root();
 	router.use(http::index_no_store());
@@ -123,6 +169,8 @@ int main()
 		system::start_device_settings();
 		system::logs::start();
 		system::scripts::start_autostart();
+		// nanokvm-app waits for this: the server accepts connections.
+		if (!std::ofstream("/run/nanokvm/listening")) log::error("cannot mark the server listening");
 	});
 	system::atx::stop();
 	input::jiggler::stop();

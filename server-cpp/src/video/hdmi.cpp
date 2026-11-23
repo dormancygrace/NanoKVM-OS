@@ -1,6 +1,7 @@
 #include "video/hdmi.hpp"
 
 #include "system/oled_state.hpp"
+#include "system/startpriority.hpp"
 #include "api/request.hpp"
 #include "api/response.hpp"
 #include "auth/session.hpp"
@@ -221,6 +222,7 @@ void set_viewers(const std::string &source, int count)
 	auto &current = viewers[source];
 	if (current == count) return;
 	current = count;
+	if (count > 0) system::startpriority::viewer_connected();
 	viewer_total = 0;
 	for (auto &[name, n] : viewers) viewer_total += n;
 	system::oled::publish_viewers(viewer_total);

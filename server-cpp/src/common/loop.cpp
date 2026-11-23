@@ -73,6 +73,8 @@ void attach(lws_context *context)
 		w->thread = std::thread([shared] { shared->run(); });
 		pool.push_back(w);
 	}
+	// Functions posted before the loop existed run at its first turn.
+	lws_cancel_service(ctx);
 }
 
 void detach()

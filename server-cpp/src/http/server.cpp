@@ -139,6 +139,8 @@ struct Watched {
 std::map<FdWatch, Watched> watched;
 FdWatch next_watch = 1;
 lws_vhost *serving_vhost;
+// The pair the HTTPS vhost was created with (its identity for lws_tls_cert_updated).
+std::string vhost_crt, vhost_key;
 
 Watched *watched_of(lws *wsi)
 {
@@ -770,6 +772,19 @@ std::optional<std::string> ingress_interface(const Request &request)
 	return std::nullopt;
 }
 
+void use_certificate_files(std::string crt, std::string key)
+{
+	vhost_crt = std::move(crt);
+	vhost_key = std::move(key);
+}
+
+bool serve_certificate(const std::string &cert_pem, const std::string &key_pem)
+{
+	if (!context || vhost_crt.empty()) return false;
+	return lws_tls_cert_updated(context, vhost_crt.c_str(), vhost_key.c_str(), cert_pem.data(), cert_pem.size(),
+	                            key_pem.data(), key_pem.size()) == 0;
+}
+
 bool request_open(std::uint64_t id) { return open_requests.count(id) != 0; }
 
 // The router of the serving vhost, for hooks of responses answered later.
@@ -809,7 +824,13 @@ int run(const config::Config &config, const Router &router, std::function<void()
 	serve.router = &router;
 	active_router = &router;
 	redirect.https_port = config.port.https;
-	const config::Cert cert = config.cert.with_defaults();
+	config::Cert cert = config.cert.with_defaults();
+	if (!vhost_crt.empty()) {
+		cert.crt = vhost_crt;
+		cert.key = vhost_key;
+	}
+	vhost_crt = cert.crt;
+	vhost_key = cert.key;
 	const char *iface = config.host.empty() ? nullptr : config.host.c_str();
 
 	if (https) {

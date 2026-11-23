@@ -19,6 +19,13 @@ namespace nkos::http {
 int run(const config::Config &config, const Router &router, std::function<void()> on_ready = {},
         std::function<void()> on_stop = {});
 
+// The certificate pair the HTTPS listener starts with, when it is not the configuration's (a custom pair that cannot
+// be used: the generated one stands in). Before run().
+void use_certificate_files(std::string crt, std::string key);
+// Serves a new pair (PEM) from now on, without disturbing the open connections; false when it cannot be loaded (the
+// old one is kept). Loop thread.
+bool serve_certificate(const std::string &cert_pem, const std::string &key_pem);
+
 // The interface the request's connection arrived on, as the kernel saw it (IP_PKTINFO of its last packet), not the
 // destination address the peer chose; nullopt when it cannot be read. Loop thread, during the request.
 std::optional<std::string> ingress_interface(const Request &request);

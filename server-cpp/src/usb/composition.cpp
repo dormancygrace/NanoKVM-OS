@@ -9,6 +9,7 @@
 #include "usb/core_hooks.hpp"
 #include "usb/gadget.hpp"
 #include "usb/gotext.hpp"
+#include "usb/remote_access.hpp"
 #include "usb/requests.hpp"
 #include "usb/usbinternet.hpp"
 #include "video/audio.hpp"
@@ -226,6 +227,42 @@ void set_network_flag(http::Request &req, http::Response &res, const std::string
 } // namespace
 
 std::string state_json() { return live_json(live()); }
+
+// EnableRemoteAccessUSB: RustDesk turned on switches USB to its preset.
+std::string enable_remote_access_usb(bool with_audio)
+{
+	std::lock_guard lock(storage::gadget_mutex());
+	Composition current = live();
+	return enable_remote_access(remote_access_marker_path, current, with_audio, [&current](const Composition &candidate) {
+		if (current == candidate) return verify_composition_at(gadget_root, candidate);
+		return apply_live(current, candidate).error;
+	});
+}
+
+// EnsureRemoteAccessUSB: sound turned on while RustDesk runs adds what it needs; other functions stay.
+std::string ensure_remote_access_usb(bool with_audio)
+{
+	std::lock_guard lock(storage::gadget_mutex());
+	Composition current = live();
+	Composition candidate = remote_access_defaults(current, with_audio);
+	if (auto e = validate(candidate); !e.empty()) return e;
+	if (current == candidate) return verify_composition_at(gadget_root, candidate);
+	return follow_remote_access_marker(remote_access_marker_path, current, candidate,
+	                                   [&current](const Composition &next) { return apply_live(current, next).error; });
+}
+
+// RestoreUSBAfterRemoteAccess: the composition RustDesk replaced comes back.
+std::string restore_usb_after_remote_access()
+{
+	std::lock_guard lock(storage::gadget_mutex());
+	Composition current = live();
+	return restore_remote_access(remote_access_marker_path, current, [&current](const Composition &b) {
+		Composition before = b;
+		// The user disk image may have been deleted while RustDesk was on.
+		if (before.user_disk && !storage::user_disk_exists()) before.user_disk = false;
+		return apply_live(current, before).error;
+	});
+}
 
 void add_routes(http::Router &router)
 {

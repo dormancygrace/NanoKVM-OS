@@ -1,4 +1,6 @@
 #include "system/scripts.hpp"
+#include "osupdate/apkpkg.hpp"
+#include "osupdate/osupdate.hpp"
 
 #include "api/multipart.hpp"
 #include "api/request.hpp"
@@ -479,7 +481,8 @@ const std::string task_marker = "# nanokvm-task";
 const std::string task_runner = "/usr/libexec/nanokvm/run-task";
 const std::string task_run_dir = "/run/nanokvm/tasks";
 const std::string crontab_path = "/etc/crontabs/root";
-std::mutex crontab_mutex;
+// Shared with the APK index refresh schedule (osupdate): one lock for every rewrite of root's crontab.
+std::mutex &crontab_mutex = osupdate::crontab_mutex();
 
 bool valid_task_id(const std::string &id)
 {
@@ -802,6 +805,21 @@ void add_routes(http::Router &router)
 			}
 			api::ok(out, ScriptsRsp{*files, *autostart, autostart_status(*autostart)});
 		});
+	}, admin));
+
+	// InstallPython: Python 3 from the Alpine repositories for .py scripts (apkpkg.Run under the update lock; an
+	// install can take minutes, so a thread of its own).
+	router.add("POST", "/api/vm/script/python", auth::guarded([](http::Request &req, http::Response &res) {
+		res.pending = true;
+		std::thread([id = req.id, headers = res.headers] {
+			http::Response out;
+			out.headers = headers;
+			std::string error;
+			if (!executable(python_interpreter)) error = apkpkg::run("install", "python3");
+			if (error.empty()) api::ok(out);
+			else out.json(200, "{\"code\":-1,\"msg\":" + gojson::quote("Python installation failed: " + error) + ",\"data\":null}");
+			http::complete(id, std::move(out));
+		}).detach();
 	}, admin));
 
 	router.add("POST", "/api/vm/script/upload", auth::guarded([](http::Request &req, http::Response &res) {

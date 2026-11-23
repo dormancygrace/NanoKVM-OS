@@ -15,6 +15,7 @@ extern "C" {
 #include <chrono>
 #include <cstring>
 #include <fstream>
+#include <format>
 #include <string>
 #include <unistd.h>
 
@@ -318,6 +319,29 @@ void read_bgr_scaled(std::uint16_t width, std::uint16_t height, std::function<vo
 		int r = initialized ? kvmv_read_bgr_scaled(width, height, planes.data(), static_cast<std::uint32_t>(planes.size())) : -9;
 		loop::post([r, planes = std::move(planes), done = std::move(done)]() mutable { done(r, std::move(planes)); });
 	});
+}
+
+void read_bgr_planar(std::uint16_t width, std::uint16_t height, std::function<void(int, std::vector<unsigned char>)> done)
+{
+	loop::device([=, done = std::move(done)]() mutable {
+		std::vector<unsigned char> planes(std::size_t(width) * height * 3);
+		int r = initialized ? kvmv_read_bgr_planar(width, height, planes.data(), static_cast<std::uint32_t>(planes.size())) : -9;
+		loop::post([r, planes = std::move(planes), done = std::move(done)]() mutable { done(r, std::move(planes)); });
+	});
+}
+
+std::string planar_error(int result)
+{
+	switch (result) {
+	case -9: return "planar screen pictures are unavailable";
+	case -3: return "no picture of the screen in time";
+	case -10: return "no HDMI signal";
+	case -11: return "the capture is not ready";
+	case -12: return "the capture cannot run at the input's resolution";
+	case -13: return "the input size changed";
+	case -14: return "the input is larger than Full HD";
+	default: return std::format("no picture of the screen ({})", result);
+	}
 }
 
 void run_paused(std::function<void()> fn)

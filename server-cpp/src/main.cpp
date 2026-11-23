@@ -1,6 +1,10 @@
 // NanoKVM-Server: the NanoKVM web server, in C++. Same files, API and behaviour as the Go server it replaces.
 
 #include "auth/routes.hpp"
+#include "osupdate/apkpkg.hpp"
+#include "osupdate/routes.hpp"
+#include "recovery/routes.hpp"
+#include "system/cli.hpp"
 #include "common/log.hpp"
 #include "config/config.hpp"
 #include "http/router.hpp"
@@ -27,6 +31,7 @@
 #include "system/time_settings.hpp"
 #include "system/scripts.hpp"
 #include "system/serial_console.hpp"
+#include "usb/host_sensors.hpp"
 #include "system/startpriority.hpp"
 #include "system/ssh_keys.hpp"
 #include "system/tls.hpp"
@@ -39,6 +44,7 @@
 #include "video/routes.hpp"
 #include "video/vision.hpp"
 #include "video/preview.hpp"
+#include "video/screen_text.hpp"
 #include "video/watermark.hpp"
 #include "video/audio.hpp"
 #include "video/webrtc.hpp"
@@ -70,6 +76,8 @@ int main(int argc, char **argv)
 	// The SMB reader is this binary started again with --nanokvm-smb-reader: it runs before anything else.
 	if (int code = nkos::storage::run_smb_helper_if_requested(argc, argv); code >= 0) return code;
 	using namespace nkos;
+	// totp-reset USER, factory-reset: command-line modes that exit.
+	if (int status = system::run_cli(argc, argv); status >= 0) return status;
 	// Ahead of the other services while it starts (every thread created later inherits it).
 	system::startpriority::raise();
 	const config::Config &conf = config::load();
@@ -142,6 +150,7 @@ int main(int argc, char **argv)
 	input::add_keyboard_routes(router);
 	input::jiggler::add_routes(router);
 	usb::add_routes(router);
+	usb::add_host_sensors_routes(router);
 	storage::add_routes(router);
 	system::add_info_routes(router);
 	system::logs::add_routes(router);
@@ -150,6 +159,7 @@ int main(int argc, char **argv)
 	system::scripts::add_routes(router);
 	system::serial_console::add_routes(router);
 	video::preview::add_routes(router);
+	video::screen_text::add_routes(router);
 	video::watermark::add_routes(router);
 	video::webrtc::add_routes(router);
 	video::audio::add_routes(router);
@@ -159,6 +169,8 @@ int main(int argc, char **argv)
 	system::add_bluetooth_routes(router);
 	system::add_oled_routes(router);
 	system::add_cpufreq_routes(router);
+	osupdate::add_routes(router);
+	recovery::add_routes(router);
 	system::tls::add_routes(router);
 	system::ssh_keys::add_routes(router);
 	network::add_routes(router);
@@ -176,6 +188,8 @@ int main(int argc, char **argv)
 		else video::watermark::apply_at_start();
 	}
 	network::publish_discovery();
+	osupdate::start();
+	apkpkg::start();
 	system::journal::record_start();
 	storage::cleanup_at_start();
 	storage::start_downloads();
@@ -194,6 +208,7 @@ int main(int argc, char **argv)
 		input::hid::start();
 		input::jiggler::start();
 		system::atx::start();
+		usb::start_host_sensors();
 		system::start_dashboard();
 		system::start_device_settings();
 		system::logs::start();

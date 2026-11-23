@@ -65,6 +65,12 @@ void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t q
 // channel of its own (kvmv_read_bgr_scaled, with the watermark); on the device thread, beside a running stream. done
 // gets the native result (0 a picture) and the planes, on the loop thread.
 void read_bgr_scaled(std::uint16_t width, std::uint16_t height, std::function<void(int, std::vector<unsigned char>)> done);
+// The whole input unscaled (width x height: its size with even sides, up to Full HD) as B, G and R planes, from VPSS
+// channel 2 (kvmv_read_bgr_planar); on the device thread, beside a running stream. done gets the native result (0 a
+// picture) and the planes, on the loop thread. Hold a capture lease while reading.
+void read_bgr_planar(std::uint16_t width, std::uint16_t height, std::function<void(int, std::vector<unsigned char>)> done);
+// A planar read's result as the Go server's errors say it.
+std::string planar_error(int result);
 // Runs fn on the device thread with the stream paused (receiver maintenance: the EDID tool).
 void run_paused(std::function<void()> fn);
 // The MJPEG chroma (420 or 422; set_mjpeg_chroma with the stream paused); done gets the native result.

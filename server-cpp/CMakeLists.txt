@@ -122,10 +122,33 @@ add_executable(NanoKVM-Server
   src/system/scripts.cpp
   src/system/startpriority.cpp
   src/system/cron.cpp
+  src/osupdate/apkpkg.cpp
+  src/osupdate/apkrun.cpp
+  src/osupdate/godecode.cpp
+  src/osupdate/helper.cpp
+  src/osupdate/notice.cpp
+  src/osupdate/osupdate.cpp
+  src/osupdate/routes.cpp
+  src/osupdate/software.cpp
+  src/recovery/archive.cpp
+  src/recovery/engine.cpp
+  src/recovery/filesystem.cpp
+  src/recovery/routes.cpp
+  src/recovery/yaml_v3.cpp
+  src/system/cli.cpp
   src/system/tls_x509.cpp
   src/system/tls.cpp
   src/system/ssh_keys.cpp
   src/usb/composition.cpp
+  src/usb/gadget.cpp
+  src/usb/gojson_read.cpp
+  src/usb/gotext.cpp
+  src/usb/requests.cpp
+  src/usb/usbinternet.cpp
+  src/usb/host_sensors.cpp
+  src/usb/host_sensors_core.cpp
+  src/usb/host_watchdog_core.cpp
+  src/usb/helper_disk.cpp
   src/storage/download.cpp
   src/storage/gadget.cpp
   src/storage/go.cpp
@@ -158,6 +181,7 @@ add_executable(NanoKVM-Server
   src/video/audio.cpp
   src/video/rtc_common.cpp
   src/video/srtp_frame.cpp
+  src/video/screen_text.cpp
   src/network/util.cpp
   src/network/wifi.cpp
   src/network/wifi_ap.cpp
@@ -224,4 +248,33 @@ target_include_directories(nkos-apply-updates PRIVATE src ${GLAZE_ROOT}/include)
 target_compile_options(nkos-apply-updates PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
 target_link_options(nkos-apply-updates PRIVATE -static-libstdc++ -static-libgcc)
 
-install(TARGETS NanoKVM-Server nkos-apply-updates RUNTIME DESTINATION .)
+# nkos-usb-internet: USB internet sharing for S30usbnet and its watcher (no libkvm, no lws).
+add_executable(nkos-usb-internet tools/nkos-usb-internet.cpp src/usb/usbinternet.cpp src/usb/gojson_read.cpp
+  src/usb/gotext.cpp src/config/yaml.cpp src/common/process.cpp)
+target_include_directories(nkos-usb-internet PRIVATE src ${CMAKE_BINARY_DIR}/third_party)
+target_compile_options(nkos-usb-internet PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
+target_link_options(nkos-usb-internet PRIVATE -static-libstdc++ -static-libgcc)
+
+# nkos-update: the detached package worker and early-boot settings recovery (server/cmd/nkos-update), on the
+# server's osupdate and recovery code.
+add_executable(nkos-update
+  src/nkos_update/main.cpp
+  src/common/log.cpp
+  src/common/process.cpp
+  src/config/yaml.cpp
+  src/osupdate/apkrun.cpp
+  src/osupdate/godecode.cpp
+  src/osupdate/helper.cpp
+  src/osupdate/notice.cpp
+  src/osupdate/osupdate.cpp
+  src/osupdate/software.cpp
+  src/recovery/archive.cpp
+  src/recovery/engine.cpp
+  src/recovery/filesystem.cpp
+  src/recovery/yaml_v3.cpp
+)
+target_include_directories(nkos-update PRIVATE src ${CMAKE_BINARY_DIR}/third_party ${OPENSSL_ROOT}/include)
+target_compile_options(nkos-update PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
+target_link_options(nkos-update PRIVATE -static-libstdc++ -static-libgcc)
+target_link_libraries(nkos-update PRIVATE ${OPENSSL_ROOT}/libcrypto.so pthread)
+install(TARGETS NanoKVM-Server nkos-apply-updates nkos-usb-internet nkos-update RUNTIME DESTINATION .)

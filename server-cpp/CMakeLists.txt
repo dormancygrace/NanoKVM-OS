@@ -138,6 +138,15 @@ add_executable(NanoKVM-Server
   src/osupdate/notice.cpp
   src/osupdate/osupdate.cpp
   src/osupdate/routes.cpp
+  src/extensions/acme.cpp
+  src/extensions/common.cpp
+  src/extensions/netbird.cpp
+  src/extensions/netsvc.cpp
+  src/extensions/openvpn.cpp
+  src/extensions/routes.cpp
+  src/extensions/tailscale.cpp
+  src/extensions/vpn.cpp
+  src/extensions/wireguard.cpp
   src/osupdate/software.cpp
   src/recovery/archive.cpp
   src/recovery/engine.cpp

@@ -5,6 +5,8 @@
 #include "osupdate/routes.hpp"
 #include "recovery/routes.hpp"
 #include "notify/notify.hpp"
+#include "extensions/acme.hpp"
+#include "extensions/routes.hpp"
 #include "bmc/service.hpp"
 #include "rustdesk/rustdesk.hpp"
 #include "standby/standby.hpp"
@@ -182,6 +184,7 @@ int main(int argc, char **argv)
 	system::add_oled_routes(router);
 	system::add_cpufreq_routes(router);
 	osupdate::add_routes(router);
+	extensions::add_routes(router);
 	recovery::add_routes(router);
 	system::tls::add_routes(router);
 	system::ssh_keys::add_routes(router);
@@ -208,6 +211,13 @@ int main(int argc, char **argv)
 	}
 	network::publish_discovery();
 	osupdate::start();
+	extensions::start();
+	// The plain-HTTP listener answers the ACME HTTP-01 challenge itself; everything else goes to HTTPS.
+	http::on_plain_http([](const http::Request &req, http::Response &res) {
+		if (!req.path.starts_with(extensions::acme::challenge_prefix)) return false;
+		extensions::acme::challenge(req, res);
+		return true;
+	});
 	apkpkg::start();
 	system::journal::record_start();
 	storage::cleanup_at_start();

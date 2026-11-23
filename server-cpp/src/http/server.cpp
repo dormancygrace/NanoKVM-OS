@@ -143,6 +143,7 @@ FdWatch next_watch = 1;
 lws_vhost *serving_vhost;
 // The pair the HTTPS vhost was created with (its identity for lws_tls_cert_updated).
 std::string vhost_crt, vhost_key;
+std::function<bool(const Request &, Response &)> plain_http_handler;
 // The HTTPS vhost's TLS context (LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS), for the chain of a pair served
 // at run time.
 SSL_CTX *vhost_ssl_ctx;
@@ -381,7 +382,7 @@ std::string redirect_host(const std::string &request_host, int https_port)
 void handle(lws *wsi, Session &s, const VhostData &vd)
 {
 	if (vd.role == Role::redirect) {
-		// Loopback-only internal routes and the ACME challenge come with their families.
+		if (plain_http_handler && plain_http_handler(s.request, s.response)) return;
 		std::string uri = s.request.path;
 		if (!s.request.query.empty()) uri += "?" + s.request.query;
 		s.response.redirect(307, "https://" + redirect_host(s.request.header("host"), vd.https_port) + uri);
@@ -779,6 +780,8 @@ std::optional<std::string> ingress_interface(const Request &request)
 	}
 	return std::nullopt;
 }
+
+void on_plain_http(std::function<bool(const Request &, Response &)> handler) { plain_http_handler = std::move(handler); }
 
 void use_certificate_files(std::string crt, std::string key)
 {

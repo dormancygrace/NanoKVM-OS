@@ -1252,19 +1252,18 @@ std::vector<std::string> install_cert_args(const std::string &primary)
 	return {"--install-cert", "-d", primary, "--ecc", "--fullchain-file", cert_file, "--key-file", key_file};
 }
 
-// read_config's default: server.yaml's proto, port.http and cert paths.
-std::optional<TlsConfig> read_server_yaml()
+// read_config's default: config.Read's proto and cert (the TLS settings' reader) and port.http.
+std::optional<TlsConfig> read_server_config()
 {
-	auto text = read_file(config::configuration_file);
-	if (!text) return std::nullopt;
-	std::string error;
-	auto values = yaml::parse(*text, error);
-	if (!values) return std::nullopt;
+	auto settings = config::read_tls();
+	if (!settings) return std::nullopt;
 	TlsConfig c;
-	c.proto = yaml::as_string(values->path("proto")).value_or("");
-	c.http_port = static_cast<int>(yaml::as_int(values->path("port.http")).value_or(0));
-	c.crt = yaml::as_string(values->path("cert.crt")).value_or("");
-	c.key = yaml::as_string(values->path("cert.key")).value_or("");
+	c.proto = settings->proto;
+	c.crt = settings->cert.crt;
+	c.key = settings->cert.key;
+	std::string error;
+	if (auto text = read_file(config::configuration_file))
+		if (auto values = yaml::parse(*text, error)) c.http_port = static_cast<int>(yaml::as_int(values->path("port.http")).value_or(0));
 	return c;
 }
 
@@ -1275,7 +1274,7 @@ Tls &tls()
 	static Tls t = [] {
 		namespace st = system::tls;
 		Tls d;
-		d.read_config = read_server_yaml;
+		d.read_config = read_server_config;
 		d.update_tls = [](const std::string &proto, const std::string &crt, const std::string &key) {
 			config::Cert cert;
 			cert.crt = crt;

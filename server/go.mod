@@ -13,14 +13,14 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/mervick/aes-bridge-go v0.0.0-20250728011030-7e095cdac2f2
 	github.com/modelcontextprotocol/go-sdk v1.8.0
-	github.com/pion/dtls/v3 v3.1.15
+	github.com/pion/dtls/v3 v3.1.16
 	github.com/pion/ice/v4 v4.4.9
 	github.com/pion/interceptor v0.1.51
 	github.com/pion/rtcp v1.2.20
 	github.com/pion/rtp v1.10.6
 	github.com/pion/srtp/v3 v3.1.3
 	github.com/pion/transport/v5 v5.1.5
-	github.com/pion/webrtc/v4 v4.2.26
+	github.com/pion/webrtc/v4 v4.2.27
 	github.com/rs/cors/wrapper/gin v0.0.0-20261119124737-ae205904e3ce
 	github.com/sirupsen/logrus v1.10.2
 	golang.org/x/crypto v0.59.0
@@ -64,7 +64,7 @@ require (
 	github.com/ugorji/go/codec v1.3.2 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.10.0 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.10.1 // indirect
 	golang.org/x/arch v0.33.0 // indirect
 	golang.org/x/oauth2 v0.38.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect

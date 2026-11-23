@@ -1618,6 +1618,14 @@ std::optional<JValue> parse_json_whole(std::string_view text)
 	return v;
 }
 
+std::string go_query(const std::string &query, const std::string &name)
+{
+	std::map<std::string, std::vector<std::string>> values;
+	(void)parse_query(query, values);
+	auto it = values.find(name);
+	return it == values.end() || it->second.empty() ? "" : it->second.front();
+}
+
 RequestData request_data(const http::Request &req)
 {
 	return RequestData{req.method, req.header("content-type"), req.query, req.body};

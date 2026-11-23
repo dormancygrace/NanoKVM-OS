@@ -31,30 +31,80 @@ std::string stun_or_default(const std::string &stun)
 	return stun;
 }
 
-// yaml.v3's choice for a !!str scalar written by the encoder: plain when it reads back as the same string, otherwise
-// double-quoted.
+// yaml.v3's resolve: whether a plain scalar would read back as something other than a string (null, bool, number,
+// infinity, NaN, merge key, date).
+bool yaml_resolves_non_string(const std::string &v)
+{
+	static const std::set<std::string> words{"", "~", "null", "Null", "NULL", "true", "True", "TRUE", "false", "False", "FALSE",
+	                                         ".nan", ".NaN", ".NAN", ".inf", ".Inf", ".INF", "+.inf", "+.Inf", "+.INF",
+	                                         "-.inf", "-.Inf", "-.INF"};
+	if (words.count(v)) return true;
+	char c = v[0];
+	if (!std::isdigit(static_cast<unsigned char>(c)) && c != '+' && c != '-' && c != '.') return false;
+	std::string plain;
+	for (char x : v)
+		if (x != '_') plain += x;
+	std::string digits = plain[0] == '+' || plain[0] == '-' ? plain.substr(1) : plain;
+	if (!digits.empty() && parse_uint(digits, 0, 64)) return true;
+	// yamlStyleFloat: [-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?
+	std::size_t i = plain[0] == '+' || plain[0] == '-' ? 1 : 0, n = plain.size();
+	auto digit_run = [&](std::size_t &k) {
+		std::size_t s = k;
+		while (k < n && std::isdigit(static_cast<unsigned char>(plain[k]))) k++;
+		return k > s;
+	};
+	bool number = false;
+	if (i < n && plain[i] == '.') {
+		i++;
+		number = digit_run(i);
+	} else if (digit_run(i)) {
+		number = true;
+		if (i < n && plain[i] == '.') {
+			i++;
+			digit_run(i);
+		}
+	}
+	if (number && i < n && (plain[i] == 'e' || plain[i] == 'E')) {
+		i++;
+		if (i < n && (plain[i] == '+' || plain[i] == '-')) i++;
+		number = digit_run(i);
+	}
+	if (number && i == n) return true;
+	// A date (2006-1-2), the simplest timestamp yaml.v3 reads.
+	std::size_t d = 0;
+	auto count = [&](std::size_t min, std::size_t max) {
+		std::size_t s = d;
+		while (d < v.size() && std::isdigit(static_cast<unsigned char>(v[d])) && d - s < max) d++;
+		return d - s >= min;
+	};
+	return count(4, 4) && d < v.size() && v[d++] == '-' && count(1, 2) && d < v.size() && v[d++] == '-' && count(1, 2) && d == v.size();
+}
+
+// How yaml.v3 writes a !!str scalar set by setScalar: double-quoted when it would read back as another type, single-quoted
+// when its first characters or a trailing colon would be read as YAML syntax, plain otherwise. The values are printable
+// ASCII without spaces (validated host:port lists, TURN user names and passwords).
 std::string yaml_scalar(const std::string &value)
 {
-	if (value.empty()) return "\"\"";
-	auto lower = value;
-	for (auto &c : lower)
-		if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
-	static const char *const special[] = {"~", "null", "true", "false", "yes", "no", "on", "off", "y", "n", ".inf", "-.inf", "+.inf", ".nan"};
-	bool reserved = std::any_of(std::begin(special), std::end(special), [&](const char *w) { return lower == w; });
-	bool numeric = parse_float(value).has_value() || (value.size() > 2 && value[0] == '0' && (value[1] == 'x' || value[1] == 'o' || value[1] == 'b'));
-	bool safe_start = std::isalnum(static_cast<unsigned char>(value[0])) || value[0] == '.' || value[0] == '/';
-	bool safe = std::all_of(value.begin(), value.end(), [](char c) {
-		return std::isalnum(static_cast<unsigned char>(c)) || c == '.' || c == ':' || c == ',' || c == '/' || c == '@' || c == '-' || c == '_' || c == '+' || c == '=';
-	});
-	bool colon_end = value.back() == ':';
-	if (!reserved && !numeric && safe_start && safe && !colon_end) return value;
-	std::string out = "\"";
-	for (char c : value) {
-		if (c == '"' || c == '\\') out += '\\';
-		out += c;
+	if (yaml_resolves_non_string(value)) {
+		std::string out = "\"";
+		for (char c : value) {
+			if (c == '"' || c == '\\') out += '\\';
+			out += c;
+		}
+		return out + "\"";
 	}
-	return out + "\"";
+	static const std::string indicators = "#,[]{}&*!|>'\"%@`";
+	bool plain = indicators.find(value[0]) == std::string::npos && value.back() != ':' &&
+	             !((value[0] == '-' || value[0] == '?' || value[0] == ':') && value.size() == 1) && value.rfind("---", 0) != 0 &&
+	             value.rfind("...", 0) != 0;
+	if (plain) return value;
+	std::string out = "'";
+	for (char c : value) out += c == '\'' ? std::string("''") : std::string(1, c);
+	return out + "'";
 }
+
+
+} // namespace
 
 // setScalar and mappingChild on server.yaml as Go writes it (yaml.v3, indent 4): top-level keys at the start of a line,
 // the turn mapping's keys indented by four spaces. A key that is missing is added at the end of its mapping.
@@ -107,7 +157,6 @@ std::string edit_webrtc_yaml(const std::string &text, const WebRTCSettings &w)
 	return join(lines, "\n") + "\n";
 }
 
-} // namespace
 
 std::function<WebRTCSettings()> read_webrtc = [] {
 	std::lock_guard lock(webrtc_mu);
@@ -125,11 +174,13 @@ std::function<Error(const WebRTCSettings &)> update_webrtc = [](const WebRTCSett
 	w.dtls_cipher = dtls_cipher_or_default(w.dtls_cipher);
 	std::lock_guard lock(webrtc_mu);
 	Error err;
-	auto text = read_file(config::configuration_file, &err);
+	auto text = read_file(paths.server_yaml, &err);
 	if (!text) return err;
 	std::string parse_error;
-	if (!yaml::parse(*text, parse_error)) return make_error(std::string("parse ") + config::configuration_file + ": " + parse_error);
-	if (auto e = atomicfile_write(config::configuration_file, edit_webrtc_yaml(*text, w), 0600)) return e;
+	auto root = yaml::parse(*text, parse_error);
+	if (!root) return make_error("parse " + paths.server_yaml + ": " + parse_error);
+	if (root->kind != yaml::Value::Kind::map || root->map.empty()) return make_error("configuration root is not a mapping");
+	if (auto e = atomicfile_write(paths.server_yaml, edit_webrtc_yaml(*text, w), 0600)) return e;
 	webrtc_current = WebRTCSettings{stun_or_default(w.stun), w.turn, w.dtls_cipher};
 	return {};
 };

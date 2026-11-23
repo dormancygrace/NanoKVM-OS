@@ -205,6 +205,8 @@ struct RequestData {
 	std::string method, content_type, query, body;
 };
 RequestData request_data(const http::Request &req);
+// Gin's c.Query(name): the first value of the query parameter, "" when absent.
+std::string go_query(const std::string &query, const std::string &name);
 
 // Binds fields the way encoding/json fills a struct (keys matched exactly, else without regard to case; a value of
 // another type is an error) or Gin's form binding (keys exact; bool and int parsed from text).

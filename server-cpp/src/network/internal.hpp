@@ -81,6 +81,8 @@ struct Paths {
 	std::string wol_sys_class_net = "/sys/class/net";
 	// discovery.go
 	std::string discovery_file = "/etc/avahi/services/nanokvm.service";
+	// config/webrtc.go: the server configuration the WebRTC servers are kept in
+	std::string server_yaml = "/etc/kvm/server.yaml";
 };
 extern Paths paths;
 
@@ -589,6 +591,21 @@ std::optional<WebRTCSettings> webrtc_servers_config(WebRTCServersRequest req, co
 std::string webrtc_servers_state_json(const WebRTCSettings &settings);
 extern std::function<WebRTCSettings()> read_webrtc;
 extern std::function<Error(const WebRTCSettings &)> update_webrtc;
+// server.yaml with the WebRTC keys set (config.UpdateWebRTC on a file in yaml.v3's layout).
+std::string edit_webrtc_yaml(const std::string &text, const WebRTCSettings &w);
+
+// --- the routes' operations ------------------------------------------------------------------------------------------
+
+// A request as the operations of the routes see it, read on the event loop.
+struct Call {
+	std::uint64_t id = 0;
+	RequestData data;
+	std::optional<IP16> local;  // the connection's local address
+	std::string host;           // the Host header
+	std::string user;           // the signed-in account
+};
+// The operations answer at once instead of on the blocking pool (set only by the differential check).
+extern bool synchronous_calls;
 
 // --- request decoding: the binding and validation of each route, before anything changes -----------------------------
 // Each returns nullopt with the answer (code, message) of a request it refuses.

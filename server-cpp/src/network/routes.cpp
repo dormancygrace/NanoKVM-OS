@@ -17,6 +17,8 @@
 
 namespace nkos::network {
 
+bool synchronous_calls = false;
+
 namespace {
 
 // A goroutine with a sleep: fn on a thread of its own after delay.
@@ -29,6 +31,20 @@ void go_after(std::chrono::milliseconds delay, std::function<void()> fn)
 }
 
 std::string bool_json(bool v) { return v ? "true" : "false"; }
+
+// Answers from fn on the blocking pool, or at once while operations run synchronously (the differential check
+// calls them directly).
+void defer_call(const Call &call, http::Response &res, std::function<void(http::Response &)> fn)
+{
+	if (synchronous_calls) return fn(res);
+	res.pending = true;
+	loop::blocking([id = call.id, headers = res.headers, fn = std::move(fn)] {
+		http::Response out;
+		out.headers = headers;
+		fn(out);
+		http::complete(id, std::move(out));
+	});
+}
 
 void refuse(http::Response &res, const Refusal &r) { fail(res, r.code, r.msg); }
 
@@ -100,12 +116,6 @@ Error run_wifi_script(const char *action)
 	return r.ok() ? Error{} : make_error(r.error);
 }
 
-// The request as the handler on the pool needs it.
-struct Origin {
-	std::optional<IP16> local;
-	std::string host;
-};
-Origin origin(const http::Request &req) { return Origin{local_address(req), req.header("host")}; }
 
 std::mutex ethernet_apply_mu;
 bool ethernet_applying = false;
@@ -127,66 +137,75 @@ void release_ethernet_apply()
 
 // --- Wi-Fi -------------------------------------------------------------------------------------------------------------
 
+// ConnectWifiNoAuth after the AP key check: the answer, and how long it waits before it goes out. A joined network
+// keeps the radio reserved during the wait (joined: release it then).
+std::chrono::milliseconds connect_wifi_op(const RequestData &data, http::Response &out, bool &joined)
+{
+	joined = false;
+	auto decoded = decode_connect_wifi_no_auth(data);
+	if (!decoded.value) {
+		fail(out, -2, "invalid parameters");
+		return std::chrono::seconds(1);
+	}
+	auto [ssid, password] = *decoded.value;
+	if (legacy_profile(ssid, password).validate()) {
+		fail(out, -2, "invalid parameters");
+		return {};
+	}
+	if (!reserve_wifi()) {
+		fail(out, -2, "Wi-Fi busy");
+		return {};
+	}
+	// A network joined from the setup access point wins over the administrator's access point, which S30wifi would
+	// start instead.
+	if (auto err = remove(wifi_ap_file("enabled")); err && !err.not_exist())
+		log::warn("failed to turn the Wi-Fi access point off: {}", err.text);
+	if (connect_legacy(ssid, password)) {
+		finish_wifi({});
+		fail(out, -3, "failed to connect wifi");
+		return {};
+	}
+	ok(out);
+	joined = true;
+	return std::chrono::seconds(5);
+}
+
 void connect_wifi_no_auth(http::Request &req, http::Response &res)
 {
 	if (!check_ap_request(req, res)) return;
-	auto decoded = decode_connect_wifi_no_auth(request_data(req));
 	res.pending = true;
-	auto id = req.id;
-	auto headers = res.headers;
-	if (!decoded.value) {
+	loop::blocking([id = req.id, headers = res.headers, data = request_data(req)] {
 		http::Response out;
 		out.headers = headers;
-		fail(out, -2, "invalid parameters");
-		loop::after(std::chrono::seconds(1), [id, out = std::move(out)]() mutable { http::complete(id, std::move(out)); });
-		return;
-	}
-	loop::blocking([id, headers, value = *decoded.value] {
-		http::Response out;
-		out.headers = headers;
-		auto [ssid, password] = value;
-		if (legacy_profile(ssid, password).validate()) {
-			fail(out, -2, "invalid parameters");
-			return http::complete(id, std::move(out));
-		}
-		if (!reserve_wifi()) {
-			fail(out, -2, "Wi-Fi busy");
-			return http::complete(id, std::move(out));
-		}
-		// A network joined from the setup access point wins over the administrator's access point, which S30wifi would
-		// start instead.
-		if (auto err = remove(wifi_ap_file("enabled")); err && !err.not_exist())
-			log::warn("failed to turn the Wi-Fi access point off: {}", err.text);
-		if (connect_legacy(ssid, password)) {
-			finish_wifi({});
-			fail(out, -3, "failed to connect wifi");
-			return http::complete(id, std::move(out));
-		}
-		ok(out);
-		loop::post([id, out = std::move(out)]() mutable {
-			loop::after(std::chrono::seconds(5), [id, out = std::move(out)]() mutable {
-				finish_wifi({});
+		bool joined = false;
+		auto delay = connect_wifi_op(data, out, joined);
+		if (delay == std::chrono::milliseconds::zero()) return http::complete(id, std::move(out));
+		loop::post([id, delay, joined, out = std::move(out)]() mutable {
+			loop::after(delay, [id, joined, out = std::move(out)]() mutable {
+				if (joined) {
+					finish_wifi({});
+					log::debug("set wifi ap mode successfully");
+				}
 				http::complete(id, std::move(out));
-				log::debug("set wifi ap mode successfully");
 			});
 		});
 	});
 }
 
-void get_wifi(http::Request &req, http::Response &res)
+void get_wifi(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [o = origin(req)](http::Response &out) {
+	defer_call(call, res, [o = call](http::Response &out) {
 		auto status = wifi_control.status();
 		status.this_connection = request_may_ride_wifi(o.local);
 		ok(out, wifi_status_json(status));
 	});
 }
 
-void scan_wifi(http::Request &req, http::Response &res)
+void scan_wifi(const Call &call, http::Response &res)
 {
-	std::string band = req.query_value("band");
+	std::string band = go_query(call.data.query, "band");
 	if (band != "2.4" && band != "5" && band != "all") return fail(res, -1, "invalid band");
-	http::defer(req, res, [band](http::Response &out) {
+	defer_call(call, res, [band](http::Response &out) {
 		if (!check_radio(out, true)) return;
 		auto available = wifi_control.frequencies();
 		auto freqs = available[band];
@@ -207,11 +226,11 @@ void scan_wifi(http::Request &req, http::Response &res)
 	});
 }
 
-void set_wifi_enabled(http::Request &req, http::Response &res)
+void set_wifi_enabled(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_wifi_enabled(request_data(req));
+	auto decoded = decode_set_wifi_enabled(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [enabled = *decoded.value](http::Response &out) {
+	defer_call(call, res, [enabled = *decoded.value](http::Response &out) {
 		if (!check_radio(out, false)) return;
 		bool previous = wifi_control.enabled();
 		// Acknowledge before changing the interface carrying this HTTP request.
@@ -235,11 +254,11 @@ void set_wifi_enabled(http::Request &req, http::Response &res)
 	});
 }
 
-void set_wifi_band_preference(http::Request &req, http::Response &res)
+void set_wifi_band_preference(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_wifi_band_preference(request_data(req));
+	auto decoded = decode_set_wifi_band_preference(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [band = *decoded.value](http::Response &out) {
+	defer_call(call, res, [band = *decoded.value](http::Response &out) {
 		if (!check_radio(out, false)) return;
 		// Do not restart wpa_supplicant here: the device may be managed over this Wi-Fi. The running configuration
 		// follows the preference instead, and at worst the link reassociates once on the preferred band.
@@ -261,11 +280,11 @@ void set_wifi_band_preference(http::Request &req, http::Response &res)
 	});
 }
 
-void configure_wifi(http::Request &req, http::Response &res)
+void configure_wifi(const Call &call, http::Response &res)
 {
-	auto decoded = decode_configure_wifi(request_data(req));
+	auto decoded = decode_configure_wifi(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [p = *decoded.value](http::Response &out) {
+	defer_call(call, res, [p = *decoded.value](http::Response &out) {
 		if (!check_radio(out, true)) return;
 		auto freqs = wifi_control.frequencies();
 		if (freqs["2.4"].empty() && freqs["5"].empty()) {
@@ -286,9 +305,9 @@ void configure_wifi(http::Request &req, http::Response &res)
 	});
 }
 
-void disconnect_wifi(http::Request &req, http::Response &res)
+void disconnect_wifi(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		if (!check_radio(out, true)) return;
 		ok(out);
 		go_after(std::chrono::milliseconds(300), [] {
@@ -302,9 +321,9 @@ void disconnect_wifi(http::Request &req, http::Response &res)
 	});
 }
 
-void get_saved_wifi(http::Request &req, http::Response &res)
+void get_saved_wifi(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		if (auto err = wifi_control.migrate_saved()) log::warn("Wi-Fi: could not store the configured network as a saved one: {}", err.text);
 		auto current = wifi_control.associated().value_or("");
 		Error err;
@@ -314,11 +333,11 @@ void get_saved_wifi(http::Request &req, http::Response &res)
 	});
 }
 
-void connect_saved_wifi(http::Request &req, http::Response &res)
+void connect_saved_wifi(const Call &call, http::Response &res)
 {
-	auto decoded = decode_saved_wifi(request_data(req));
+	auto decoded = decode_saved_wifi(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [ssid = *decoded.value](http::Response &out) {
+	defer_call(call, res, [ssid = *decoded.value](http::Response &out) {
 		if (!check_radio(out, true)) return;
 		WifiProfile p;
 		bool auto_connect = false;
@@ -339,11 +358,11 @@ void connect_saved_wifi(http::Request &req, http::Response &res)
 	});
 }
 
-void forget_saved_wifi(http::Request &req, http::Response &res)
+void forget_saved_wifi(const Call &call, http::Response &res)
 {
-	auto decoded = decode_saved_wifi(request_data(req));
+	auto decoded = decode_saved_wifi(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [ssid = *decoded.value](http::Response &out) {
+	defer_call(call, res, [ssid = *decoded.value](http::Response &out) {
 		if (!reserve_wifi()) return fail(out, -2, "Wi-Fi busy");
 		std::string name = saved_name(ssid);
 		std::string associated = wifi_control.associated().value_or("");
@@ -376,9 +395,9 @@ void forget_saved_wifi(http::Request &req, http::Response &res)
 
 // --- the access point and the country ---------------------------------------------------------------------------------
 
-void get_wifi_ap(http::Request &req, http::Response &res)
+void get_wifi_ap(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		auto [ap, password_set] = read_wifi_ap();
 		WifiAPState state;
 		state.ap = ap;
@@ -414,11 +433,11 @@ bool save_wifi_ap_without_trial(http::Response &out, const WifiAP &ap, bool keep
 	return true;
 }
 
-void set_wifi_ap(http::Request &req, http::Response &res)
+void set_wifi_ap(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_wifi_ap(request_data(req));
+	auto decoded = decode_set_wifi_ap(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [ap = *decoded.value, o = origin(req)](http::Response &out) {
+	defer_call(call, res, [ap = *decoded.value, o = call](http::Response &out) {
 		auto [_, password_set] = read_wifi_ap();
 		bool keep_password = ap.password.empty() && password_set;
 		if (auto err = validate_wifi_ap(ap, keep_password)) return fail(out, -1, err.text);
@@ -489,19 +508,19 @@ void set_wifi_ap(http::Request &req, http::Response &res)
 	});
 }
 
-void get_wifi_country(http::Request &req, http::Response &res)
+void get_wifi_country(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		std::string country = wifi_control.country(), active = wifi_control.active_country();
 		ok(out, wifi_country_json(country, active, supported_countries(), ""));
 	});
 }
 
-void set_wifi_country(http::Request &req, http::Response &res)
+void set_wifi_country(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_wifi_country(request_data(req));
+	auto decoded = decode_set_wifi_country(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [code = *decoded.value, o = origin(req)](http::Response &out) {
+	defer_call(call, res, [code = *decoded.value, o = call](http::Response &out) {
 		// A country the database lacks would never come into force.
 		if (!country_supported(code, supported_countries()))
 			return fail(out, -1, "the regulatory database has no rules for the country " + code);
@@ -565,7 +584,7 @@ void set_wifi_country(http::Request &req, http::Response &res)
 
 // --- trials -------------------------------------------------------------------------------------------------------------
 
-void get_probe_trial(http::Request &, http::Response &res)
+void get_probe_trial(const Call &, http::Response &res)
 {
 	res.set_header("Access-Control-Allow-Origin", "*");
 	res.set_header("Cache-Control", "no-store");
@@ -573,11 +592,11 @@ void get_probe_trial(http::Request &, http::Response &res)
 	ok(res, "{\"applied\":" + bool_json(applied) + ",\"id\":" + quote(id) + "}");
 }
 
-void post_confirm_trial(http::Request &req, http::Response &res)
+void post_confirm_trial(const Call &call, http::Response &res)
 {
-	auto decoded = decode_confirm_trial(request_data(req));
+	auto decoded = decode_confirm_trial(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [token = *decoded.value](http::Response &out) {
+	defer_call(call, res, [token = *decoded.value](http::Response &out) {
 		bool no_trial = false;
 		if (auto err = confirm_trial(token, no_trial)) return fail(out, no_trial ? -2 : -4, err.text);
 		ok(out);
@@ -586,9 +605,9 @@ void post_confirm_trial(http::Request &req, http::Response &res)
 
 // --- Ethernet -----------------------------------------------------------------------------------------------------------
 
-void get_ethernet(http::Request &req, http::Response &res)
+void get_ethernet(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		EthernetConfig config;
 		if (auto err = read_ethernet_config(config)) {
 			log::error("failed to read ethernet config: {}", err.text);
@@ -634,11 +653,11 @@ void set_ethernet_forced(http::Response &out, const EthernetConfig &config, bool
 	          config.gateway);
 }
 
-void set_ethernet(http::Request &req, http::Response &res)
+void set_ethernet(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_ethernet(request_data(req));
+	auto decoded = decode_set_ethernet(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [r = *decoded.value, o = origin(req)](http::Response &out) {
+	defer_call(call, res, [r = *decoded.value, o = call](http::Response &out) {
 		// One Ethernet change at a time, until its interface restart is over: S30eth's stop and start share the DHCP
 		// and VLAN state.
 		if (!reserve_ethernet_apply()) return fail(out, -3, ethernet_applying_text);
@@ -675,9 +694,9 @@ void set_ethernet(http::Request &req, http::Response &res)
 
 // --- DNS, IPv6, gateways ----------------------------------------------------------------------------------------------
 
-void get_dns(http::Request &req, http::Response &res)
+void get_dns(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		std::string mode = current_dns_mode();
 		auto servers = read_manual_dns_servers();
 		if (servers.empty()) servers = parse_resolv_conf(paths.boot_resolv);
@@ -689,11 +708,11 @@ void get_dns(http::Request &req, http::Response &res)
 	});
 }
 
-void set_dns(http::Request &req, http::Response &res)
+void set_dns(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_dns(request_data(req));
+	auto decoded = decode_set_dns(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [value = *decoded.value](http::Response &out) {
+	defer_call(call, res, [value = *decoded.value](http::Response &out) {
 		auto [mode, servers] = value;
 		if (mode == "manual") {
 			if (auto err = set_manual_dns(servers)) {
@@ -709,9 +728,9 @@ void set_dns(http::Request &req, http::Response &res)
 	});
 }
 
-void get_ipv6_route(http::Request &req, http::Response &res)
+void get_ipv6_route(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		std::string json;
 		auto [code, msg] = get_ipv6(json);
 		if (code) return fail(out, code, msg);
@@ -719,29 +738,29 @@ void get_ipv6_route(http::Request &req, http::Response &res)
 	});
 }
 
-void set_ipv6_route(http::Request &req, http::Response &res)
+void set_ipv6_route(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_ipv6(request_data(req));
+	auto decoded = decode_set_ipv6(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [r = *decoded.value](http::Response &out) {
+	defer_call(call, res, [r = *decoded.value](http::Response &out) {
 		auto [code, msg] = set_ipv6(r);
 		if (code) return fail(out, code, msg);
 		ok(out);
 	});
 }
 
-void get_gateway_preference(http::Request &req, http::Response &res)
+void get_gateway_preference(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		ok(out, "{\"preferred\":" + quote(read_gateway_preference()) + ",\"routes\":" + gateway_routes_json(gateway_status_routes()) + "}");
 	});
 }
 
-void set_gateway_preference(http::Request &req, http::Response &res)
+void set_gateway_preference(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_gateway_preference(request_data(req));
+	auto decoded = decode_set_gateway_preference(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [preferred = *decoded.value](http::Response &out) {
+	defer_call(call, res, [preferred = *decoded.value](http::Response &out) {
 		if (auto err = install_udhcpc_hook("99-nanokvm-gateway", udhcpc_gateway_hook)) return fail(out, -2, err.text);
 		if (auto err = write_gateway_preference(preferred)) return fail(out, -2, err.text);
 		Error err;
@@ -754,9 +773,9 @@ void set_gateway_preference(http::Request &req, http::Response &res)
 	});
 }
 
-void get_gateway_check(http::Request &req, http::Response &res)
+void get_gateway_check(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		auto config = read_gateway_check();
 		std::string gateway;
 		std::optional<bool> reachable;
@@ -777,11 +796,11 @@ void get_gateway_check(http::Request &req, http::Response &res)
 	});
 }
 
-void set_gateway_check(http::Request &req, http::Response &res)
+void set_gateway_check(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_gateway_check(request_data(req));
+	auto decoded = decode_set_gateway_check(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [config = *decoded.value](http::Response &out) {
+	defer_call(call, res, [config = *decoded.value](http::Response &out) {
 		if (auto err = write_gateway_check(config)) return fail(out, -2, err.text);
 		if (!config.enabled) gateway_watch.tick(config);
 		ok(out);
@@ -790,12 +809,12 @@ void set_gateway_check(http::Request &req, http::Response &res)
 
 // --- Wake-on-LAN, peers, WebRTC -----------------------------------------------------------------------------------------
 
-void wake_on_lan(http::Request &req, http::Response &res)
+void wake_on_lan(const Call &call, http::Response &res)
 {
-	auto decoded = decode_wake(request_data(req));
+	auto decoded = decode_wake(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	std::string user = req.auth ? req.auth->username : "";
-	http::defer(req, res, [user, value = *decoded.value](http::Response &out) {
+	std::string user = call.user;
+	defer_call(call, res, [user, value = *decoded.value](http::Response &out) {
 		std::string message;
 		int code = wake(user, value.first, value.second, message);
 		if (code) return fail(out, code, message);
@@ -803,9 +822,9 @@ void wake_on_lan(http::Request &req, http::Response &res)
 	});
 }
 
-void get_mac(http::Request &req, http::Response &res)
+void get_mac(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		int code = 0;
 		std::string msg;
 		auto json = wol_macs_json(code, msg);
@@ -814,31 +833,31 @@ void get_mac(http::Request &req, http::Response &res)
 	});
 }
 
-void set_mac_name(http::Request &req, http::Response &res)
+void set_mac_name(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_mac_name(request_data(req));
+	auto decoded = decode_set_mac_name(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [value = *decoded.value](http::Response &out) {
+	defer_call(call, res, [value = *decoded.value](http::Response &out) {
 		auto [code, msg] = set_wol_mac_name(value.first, value.second);
 		if (code) return fail(out, code, msg);
 		ok(out);
 	});
 }
 
-void delete_mac(http::Request &req, http::Response &res)
+void delete_mac(const Call &call, http::Response &res)
 {
-	auto decoded = decode_delete_mac(request_data(req));
+	auto decoded = decode_delete_mac(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [mac = *decoded.value](http::Response &out) {
+	defer_call(call, res, [mac = *decoded.value](http::Response &out) {
 		auto [code, msg] = delete_wol_mac(mac);
 		if (code) return fail(out, code, msg);
 		ok(out);
 	});
 }
 
-void get_wol_interfaces(http::Request &req, http::Response &res)
+void get_wol_interfaces(const Call &call, http::Response &res)
 {
-	http::defer(req, res, [](http::Response &out) {
+	defer_call(call, res, [](http::Response &out) {
 		Error err;
 		auto list = wol_interfaces(&err);
 		if (!list) {
@@ -864,13 +883,13 @@ void get_peers(http::Request &req, http::Response &res)
 	}).detach();
 }
 
-void get_webrtc_servers(http::Request &, http::Response &res) { ok(res, webrtc_servers_state_json(read_webrtc())); }
+void get_webrtc_servers(const Call &, http::Response &res) { ok(res, webrtc_servers_state_json(read_webrtc())); }
 
-void post_webrtc_servers(http::Request &req, http::Response &res)
+void post_webrtc_servers(const Call &call, http::Response &res)
 {
-	auto decoded = decode_set_webrtc_servers(request_data(req));
+	auto decoded = decode_set_webrtc_servers(call.data);
 	if (!decoded.value) return refuse(res, decoded.refusal);
-	http::defer(req, res, [r = *decoded.value](http::Response &out) {
+	defer_call(call, res, [r = *decoded.value](http::Response &out) {
 		std::string state;
 		auto [code, msg] = set_webrtc_servers(r, state);
 		if (code) return fail(out, code, msg);
@@ -1016,6 +1035,14 @@ Decoded<std::string> decode_confirm_trial(const RequestData &data)
 	return d;
 }
 
+// The handler of an operation: the request read on the loop, the operation run as it decides (defer_call).
+http::Handler handler(void (*op)(const Call &, http::Response &))
+{
+	return [op](http::Request &req, http::Response &res) {
+		op(Call{req.id, request_data(req), local_address(req), req.header("host"), req.auth ? req.auth->username : ""}, res);
+	};
+}
+
 void add_routes(http::Router &router)
 {
 	auth::Guard admin{{"admin"}};
@@ -1025,41 +1052,41 @@ void add_routes(http::Router &router)
 	router.add("POST", "/api/network/wifi/verify", [](http::Request &req, http::Response &res) {
 		if (check_ap_request(req, res)) ok(res);
 	});
-	router.add("GET", "/api/network/trial/probe", get_probe_trial);
-	router.add("POST", "/api/network/trial/confirm", post_confirm_trial);
+	router.add("GET", "/api/network/trial/probe", handler(get_probe_trial));
+	router.add("POST", "/api/network/trial/confirm", handler(post_confirm_trial));
 
-	router.add("POST", "/api/network/wol", auth::guarded(wake_on_lan));
-	router.add("GET", "/api/network/wol/mac", auth::guarded(get_mac));
-	router.add("GET", "/api/network/wol/interfaces", auth::guarded(get_wol_interfaces));
+	router.add("POST", "/api/network/wol", auth::guarded(handler(wake_on_lan)));
+	router.add("GET", "/api/network/wol/mac", auth::guarded(handler(get_mac)));
+	router.add("GET", "/api/network/wol/interfaces", auth::guarded(handler(get_wol_interfaces)));
 	router.add("GET", "/api/network/peers", auth::guarded(get_peers));
 
-	router.add("DELETE", "/api/network/wol/mac", auth::guarded(delete_mac, admin));
-	router.add("POST", "/api/network/wol/mac/name", auth::guarded(set_mac_name, admin));
-	router.add("GET", "/api/network/wifi/scan", auth::guarded(scan_wifi, admin));
-	router.add("POST", "/api/network/wifi/enabled", auth::guarded(set_wifi_enabled, admin));
-	router.add("POST", "/api/network/wifi/band-preference", auth::guarded(set_wifi_band_preference, admin));
-	router.add("GET", "/api/network/wifi/country", auth::guarded(get_wifi_country, admin));
-	router.add("POST", "/api/network/wifi/country", auth::guarded(set_wifi_country, admin));
-	router.add("POST", "/api/network/wifi/configure", auth::guarded(configure_wifi, admin));
-	router.add("GET", "/api/network/wifi", auth::guarded(get_wifi, admin));
-	router.add("POST", "/api/network/wifi/disconnect", auth::guarded(disconnect_wifi, admin));
-	router.add("GET", "/api/network/wifi/ap", auth::guarded(get_wifi_ap, admin));
-	router.add("POST", "/api/network/wifi/ap", auth::guarded(set_wifi_ap, admin));
-	router.add("GET", "/api/network/wifi/saved", auth::guarded(get_saved_wifi, admin));
-	router.add("POST", "/api/network/wifi/saved/connect", auth::guarded(connect_saved_wifi, admin));
-	router.add("POST", "/api/network/wifi/saved/forget", auth::guarded(forget_saved_wifi, admin));
-	router.add("GET", "/api/network/ipv6", auth::guarded(get_ipv6_route, admin));
-	router.add("POST", "/api/network/ipv6", auth::guarded(set_ipv6_route, admin));
-	router.add("GET", "/api/network/dns", auth::guarded(get_dns, admin));
-	router.add("POST", "/api/network/dns", auth::guarded(set_dns, admin));
-	router.add("GET", "/api/network/ethernet", auth::guarded(get_ethernet, admin));
-	router.add("POST", "/api/network/ethernet", auth::guarded(set_ethernet, admin));
-	router.add("GET", "/api/network/gateway", auth::guarded(get_gateway_preference, admin));
-	router.add("POST", "/api/network/gateway", auth::guarded(set_gateway_preference, admin));
-	router.add("GET", "/api/network/ethernet/gateway-check", auth::guarded(get_gateway_check, admin));
-	router.add("POST", "/api/network/ethernet/gateway-check", auth::guarded(set_gateway_check, admin));
-	router.add("GET", "/api/network/webrtc", auth::guarded(get_webrtc_servers, admin));
-	router.add("POST", "/api/network/webrtc", auth::guarded(post_webrtc_servers, admin));
+	router.add("DELETE", "/api/network/wol/mac", auth::guarded(handler(delete_mac), admin));
+	router.add("POST", "/api/network/wol/mac/name", auth::guarded(handler(set_mac_name), admin));
+	router.add("GET", "/api/network/wifi/scan", auth::guarded(handler(scan_wifi), admin));
+	router.add("POST", "/api/network/wifi/enabled", auth::guarded(handler(set_wifi_enabled), admin));
+	router.add("POST", "/api/network/wifi/band-preference", auth::guarded(handler(set_wifi_band_preference), admin));
+	router.add("GET", "/api/network/wifi/country", auth::guarded(handler(get_wifi_country), admin));
+	router.add("POST", "/api/network/wifi/country", auth::guarded(handler(set_wifi_country), admin));
+	router.add("POST", "/api/network/wifi/configure", auth::guarded(handler(configure_wifi), admin));
+	router.add("GET", "/api/network/wifi", auth::guarded(handler(get_wifi), admin));
+	router.add("POST", "/api/network/wifi/disconnect", auth::guarded(handler(disconnect_wifi), admin));
+	router.add("GET", "/api/network/wifi/ap", auth::guarded(handler(get_wifi_ap), admin));
+	router.add("POST", "/api/network/wifi/ap", auth::guarded(handler(set_wifi_ap), admin));
+	router.add("GET", "/api/network/wifi/saved", auth::guarded(handler(get_saved_wifi), admin));
+	router.add("POST", "/api/network/wifi/saved/connect", auth::guarded(handler(connect_saved_wifi), admin));
+	router.add("POST", "/api/network/wifi/saved/forget", auth::guarded(handler(forget_saved_wifi), admin));
+	router.add("GET", "/api/network/ipv6", auth::guarded(handler(get_ipv6_route), admin));
+	router.add("POST", "/api/network/ipv6", auth::guarded(handler(set_ipv6_route), admin));
+	router.add("GET", "/api/network/dns", auth::guarded(handler(get_dns), admin));
+	router.add("POST", "/api/network/dns", auth::guarded(handler(set_dns), admin));
+	router.add("GET", "/api/network/ethernet", auth::guarded(handler(get_ethernet), admin));
+	router.add("POST", "/api/network/ethernet", auth::guarded(handler(set_ethernet), admin));
+	router.add("GET", "/api/network/gateway", auth::guarded(handler(get_gateway_preference), admin));
+	router.add("POST", "/api/network/gateway", auth::guarded(handler(set_gateway_preference), admin));
+	router.add("GET", "/api/network/ethernet/gateway-check", auth::guarded(handler(get_gateway_check), admin));
+	router.add("POST", "/api/network/ethernet/gateway-check", auth::guarded(handler(set_gateway_check), admin));
+	router.add("GET", "/api/network/webrtc", auth::guarded(handler(get_webrtc_servers), admin));
+	router.add("POST", "/api/network/webrtc", auth::guarded(handler(post_webrtc_servers), admin));
 }
 
 bool initialize_ipv6() { return initialize_ipv6_logged(); }

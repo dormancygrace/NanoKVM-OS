@@ -427,6 +427,23 @@ std::optional<std::string> fits_video_pool(const State &s, const VideoPool &p)
 
 void apply(Settings update, int fps, std::function<void(std::string)> done)
 {
+	bool explicit_change = update.resolution || update.portrait || update.portrait_resolution || update.set_identity;
+	if (!explicit_change) {
+		// Only the refresh can need a write: none when the monitor does not follow the stream rate or the profile
+		// for this rate is the one programmed.
+		bool due = update.sync_refresh && refresh_follows_stream() && profile_supported();
+		if (due) {
+			auto hw = hardware();
+			std::uint16_t height = selected_resolution();
+			auto path = portrait_enabled() ? edid::portrait_profile_path_at(hw, edid_dir, portrait_resolution(), fps, regular)
+			                               : edid::profile_path_at(hw, edid_dir, height, fps, regular);
+			due = !programmed(path, height);
+		}
+		if (!due) {
+			loop::post([done = std::move(done)] { done(""); });
+			return;
+		}
+	}
 	vision::run_paused([update = std::move(update), fps, done = std::move(done)] {
 		std::string error = apply_locked(update, fps);
 		loop::post([done, error] { done(error); });

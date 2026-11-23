@@ -4,7 +4,8 @@ export const vpnProviders = [
   { id: 'wireguard', name: 'WireGuard', kind: 'profiles' },
   { id: 'openvpn', name: 'OpenVPN', kind: 'profiles' },
   { id: 'tailscale', name: 'Tailscale', kind: 'daemon' },
-  { id: 'netbird', name: 'NetBird', kind: 'daemon' }
+  { id: 'netbird', name: 'NetBird', kind: 'daemon' },
+  { id: 'zerotier', name: 'ZeroTier', kind: 'daemon' }
 ] as const;
 
 export type VPNProviderId = (typeof vpnProviders)[number]['id'];

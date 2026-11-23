@@ -359,6 +359,46 @@ func OtherInstallChanges(simulation string, names []string) []string {
 	return changed
 }
 
+// KeptByRemoval reports the packages of names that an `apk del --simulate`
+// does not purge: apk exits 0 and keeps a package that another selected
+// package still needs, after taking it out of the world.
+func KeptByRemoval(simulation string, names []string) []string {
+	purged := map[string]bool{}
+	for _, line := range strings.Split(simulation, "\n") {
+		if action, name, _, ok := parseAPKStep(line); ok && action == "Purging" {
+			purged[name] = true
+		}
+	}
+	var kept []string
+	for _, name := range names {
+		if !purged[name] {
+			kept = append(kept, name)
+		}
+	}
+	return kept
+}
+
+// Installed lists the named packages that the installed database records. A
+// database that cannot be read, or that records no package at all, proves
+// nothing about the names and is an error.
+func Installed(names ...string) ([]string, error) {
+	data, err := os.ReadFile(installedDBPath)
+	if err != nil {
+		return nil, err
+	}
+	versions := parseInstalledDB(string(data))
+	if len(versions) == 0 {
+		return nil, errors.New("the APK installed database records no package")
+	}
+	var installed []string
+	for _, name := range names {
+		if _, ok := versions[name]; ok {
+			installed = append(installed, name)
+		}
+	}
+	return installed, nil
+}
+
 // InstalledChanges reports the APK transaction steps that change an installed
 // package: every step but installing a new package or reinstalling one of
 // reinstall (a package `apk fix` repairs). An unrecognized numbered step also

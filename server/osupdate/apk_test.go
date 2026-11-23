@@ -70,3 +70,39 @@ func TestPackageStateReportsRecordedButBroken(t *testing.T) {
 		t.Fatalf("broken: %s", got)
 	}
 }
+
+// apk del exits 0 and keeps a package another selected package needs: only a
+// Purging step shows that it goes.
+// Only a readable database that records packages shows which of the names
+// are installed: an unreadable or empty one is an error, not an absence.
+func TestInstalledNeedsTheDatabase(t *testing.T) {
+	t.Cleanup(func() { _ = os.Remove(installedDBPath) })
+	_ = os.Remove(installedDBPath)
+	if _, err := Installed("nanokvm-zerotier"); err == nil {
+		t.Fatal("missing database read as no package installed")
+	}
+	if err := os.WriteFile(installedDBPath, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Installed("nanokvm-zerotier"); err == nil {
+		t.Fatal("empty database read as no package installed")
+	}
+	db := "C:Q1a=\nP:nanokvm-zerotier\nV:1.16.2-r1\n\nC:Q1b=\nP:musl\nV:1.2.5-r10\n"
+	if err := os.WriteFile(installedDBPath, []byte(db), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := Installed("nanokvm-zerotier", "absent"); err != nil || strings.Join(got, ",") != "nanokvm-zerotier" {
+		t.Fatalf("installed %v, %v", got, err)
+	}
+}
+
+func TestKeptByRemoval(t *testing.T) {
+	purged := "(1/1) Purging nanokvm-zerotier (1.16.2-r1)\nOK: 130.6 MiB in 174 packages\n"
+	if kept := KeptByRemoval(purged, []string{"nanokvm-zerotier"}); len(kept) != 0 {
+		t.Fatalf("kept %v", kept)
+	}
+	retained := "World updated, but the following packages are not removed due to:\n  nanokvm-zerotier: example\n\nOK: 130.6 MiB in 174 packages\n"
+	if kept := KeptByRemoval(retained, []string{"nanokvm-zerotier"}); len(kept) != 1 || kept[0] != "nanokvm-zerotier" {
+		t.Fatalf("kept %v", kept)
+	}
+}

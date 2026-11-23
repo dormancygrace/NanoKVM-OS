@@ -30,6 +30,7 @@ import { Netbird as NetbirdIcon } from '@/components/icons/netbird';
 import { OpenVPNIcon } from '@/components/icons/openvpn';
 import { Tailscale as TailscaleIcon } from '@/components/icons/tailscale';
 import { WireGuardIcon } from '@/components/icons/wireguard';
+import { Zerotier as ZerotierIcon } from '@/components/icons/zerotier';
 import { Panel, StatusBadge } from '@/components/ui/settings.tsx';
 
 import { summarizeVPN, vpnProviders } from '../vpn/providers.ts';
@@ -118,6 +119,7 @@ type Extras = {
   openvpn?: { available: boolean; profiles: Profile[] };
   tailscale?: { state: string; ip: string; name: string };
   netbird?: { state: string; ip: string; name: string };
+  zerotier?: { state: string; ip?: string };
   ups?: UpsStatus;
   lldp?: LldpStatus;
   snmp?: ServiceStatus;
@@ -239,6 +241,7 @@ export const Dashboard = ({
             ['openvpn', '/api/extensions/openvpn/status'],
             ['tailscale', '/api/extensions/tailscale/status'],
             ['netbird', '/api/extensions/netbird/status'],
+            ['zerotier', '/api/extensions/zerotier/status'],
             ['wireguard', '/api/extensions/wireguard/status'],
             ['ups', '/api/extensions/ups/status?light=1'],
             ['lldp', '/api/extensions/lldp/status?light=1'],
@@ -734,7 +737,13 @@ export const Dashboard = ({
                       className="text-fg hover:text-info inline-flex items-center gap-2 border-0! bg-transparent! !p-0 text-sm font-medium"
                       onClick={() => navigate(`vpn-${provider.id}`)}
                     >
-                      {provider.id === 'tailscale' ? <TailscaleIcon /> : <NetbirdIcon />}
+                      {provider.id === 'tailscale' ? (
+                        <TailscaleIcon />
+                      ) : provider.id === 'zerotier' ? (
+                        <ZerotierIcon />
+                      ) : (
+                        <NetbirdIcon />
+                      )}
                       {provider.name}
                     </button>
                     <div className="text-fg-muted mt-1 text-xs">

@@ -15,6 +15,7 @@ const labels: Record<string, string> = {
   'nanokvm-keys': 'keys',
   'nanokvm-rustdesk': 'rustdesk',
   'nanokvm-host-sensors': 'hostSensors',
+  'nanokvm-zerotier': 'zerotier',
   'nanokvm-model-screen': 'screenModel',
   'nanokvm-bootloader': 'bootloader',
   'nanokvm-zlib': 'zlib',

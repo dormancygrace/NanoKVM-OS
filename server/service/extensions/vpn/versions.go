@@ -14,7 +14,10 @@ import (
 
 var versionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[-+][a-zA-Z0-9.-]+)*`)
 
-var tools = map[string]string{"tailscale": "tailscale", "wireguard": "wg", "openvpn": "openvpn", "netbird": "netbird"}
+var tools = map[string]string{"tailscale": "tailscale", "wireguard": "wg", "openvpn": "openvpn", "netbird": "netbird", "zerotier": "zerotier-one"}
+
+// versionFlag is --version except for the tools that have another switch.
+var versionFlag = map[string]string{"zerotier": "-v"}
 
 // The VPN pages ask every 5 s; a version only changes with the program file.
 var versions = toolcache.New(func(path string, args ...string) (string, error) {
@@ -31,7 +34,11 @@ func Versions(c *gin.Context) {
 		if err != nil {
 			continue
 		}
-		if out, err := versions.Output(path, "--version"); err == nil {
+		flag := versionFlag[name]
+		if flag == "" {
+			flag = "--version"
+		}
+		if out, err := versions.Output(path, flag); err == nil {
 			result[name] = versionPattern.FindString(strings.SplitN(out, "\n", 2)[0])
 		}
 	}

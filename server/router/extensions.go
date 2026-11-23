@@ -10,6 +10,7 @@ import (
 	"NanoKVM-Server/service/extensions/tailscale"
 	"NanoKVM-Server/service/extensions/vpn"
 	"NanoKVM-Server/service/extensions/wireguard"
+	"NanoKVM-Server/service/extensions/zerotier"
 
 	"github.com/gin-gonic/gin"
 )
@@ -64,6 +65,16 @@ func extensionsRouter(r *gin.Engine) {
 	api.POST("/netbird/start", nb.Start)
 	api.POST("/netbird/stop", nb.Stop)
 	api.POST("/netbird/restart", nb.Restart)
+
+	zt := zerotier.NewService()
+	api.POST("/zerotier/install", zt.Install)
+	api.POST("/zerotier/uninstall", zt.Uninstall)
+	api.GET("/zerotier/status", zt.GetStatus)
+	api.POST("/zerotier/start", zt.Start)
+	api.POST("/zerotier/stop", zt.Stop)
+	api.POST("/zerotier/restart", zt.Restart)
+	api.POST("/zerotier/join", zt.Join)   // join a network by its 16-digit ID
+	api.POST("/zerotier/leave", zt.Leave) // leave a joined network
 
 	ac := acme.NewService()
 	api.GET("/acme/status", ac.GetStatus)       // acme.sh, settings, certificate, last run

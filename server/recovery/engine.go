@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +38,12 @@ type Plan struct {
 	Options        Options  `json:"options"`
 	Changes        []Change `json:"changes"`
 	RemovePackages []string `json:"removePackages"`
+	// The settings groups (groups in policy.go) the plan may change: those the
+	// restored archive covers, or all for a reset requested now. A journal
+	// without them, as a restore or reset queued by a release before groups
+	// existed, changes no file of any group: neither in the plan nor when the
+	// boot pass takes inventory again.
+	Covers []string `json:"covers,omitempty"`
 	// The source world is checked again at boot: do not execute a stale removal.
 	World []byte `json:"world"`
 }
@@ -74,6 +81,14 @@ func (e Engine) Snapshot() (Archive, error) {
 	if err != nil {
 		return a, err
 	}
+	// A group the device had no state of is not covered, and its other files
+	// stay out: a backup made before ZeroTier started says nothing about an
+	// identity made later, which no restore could bring back once deleted.
+	a.Covers = coveredGroups(a.Files)
+	a.Files = slices.DeleteFunc(a.Files, func(f File) bool {
+		g := group(f.Path)
+		return g != "" && !slices.Contains(a.Covers, g)
+	})
 	world, err := read(e.Root, "etc/apk/world", MaxFile)
 	if err != nil {
 		return a, err
@@ -143,6 +158,9 @@ func (e Engine) Prepare(a *Archive, o Options) (Plan, Preview, error) {
 		}
 		v.Version = a.Version
 		v.Packages = a.Packages
+		p.Covers = slices.Clone(a.Covers)
+	} else {
+		p.Covers = allGroups()
 	}
 	current, err := inventory(e.Root)
 	if err != nil {
@@ -154,6 +172,9 @@ func (e Engine) Prepare(a *Archive, o Options) (Plan, Preview, error) {
 			continue
 		}
 		if o.Action == "restore" && o.Mode == "migrate" && !portable(f.Path) {
+			continue
+		}
+		if !p.covers(f.Path) {
 			continue
 		}
 		desired[f.Path] = nil
@@ -384,6 +405,14 @@ func (e Engine) Stage(p Plan) error {
 	}
 	return write(e.Root, PendingPath, &File{Data: data, Mode: 0600})
 }
+
+// covers reports whether the plan may change a settings path: one outside
+// every group, or one in a group the plan covers.
+func (p Plan) covers(name string) bool {
+	g := group(name)
+	return g == "" || slices.Contains(p.Covers, g)
+}
+
 func validatePlan(p Plan) error {
 	if (p.Options.Action != "restore" && p.Options.Action != "reset") || (p.RollingBack && !p.Started) {
 		return errors.New("invalid recovery journal")
@@ -391,9 +420,15 @@ func validatePlan(p Plan) error {
 	if len(p.Changes) > MaxFiles+8 {
 		return errors.New("excessive recovery changes")
 	}
+	if err := validGroups(p.Covers); err != nil {
+		return errors.New("invalid recovery journal")
+	}
 	seen := map[string]bool{}
 	total := 0
 	for _, c := range p.Changes {
+		if !p.covers(c.Path) {
+			return errors.New("recovery change outside the plan's settings groups")
+		}
 		if (!allowed(c.Path) && c.Path != "etc/shadow" && c.Path != "etc/kvm/.jwt_secret" && c.Path != "etc/kvm/.picoclaw_internal_token") || seen[c.Path] {
 			return errors.New("invalid recovery destination")
 		}
@@ -465,6 +500,11 @@ func (e Engine) Resume(remove func([]string) error) (result error) {
 			if err != nil {
 				return err
 			}
+			// Prepare covers every group this release knows; a reset changes
+			// only those recorded when it was queued. One queued before groups
+			// existed resets none of them.
+			next.Covers = p.Covers
+			next.Changes = slices.DeleteFunc(next.Changes, func(c Change) bool { return !next.covers(c.Path) })
 			next.World = p.World
 			next.RemovePackages = p.RemovePackages
 			p = next
@@ -483,7 +523,7 @@ func (e Engine) Resume(remove func([]string) error) (result error) {
 				return err
 			}
 			for _, f := range current {
-				if seen[f.Path] || (p.Options.Mode == "migrate" && !portable(f.Path)) {
+				if seen[f.Path] || (p.Options.Mode == "migrate" && !portable(f.Path)) || !p.covers(f.Path) {
 					continue
 				}
 				p.Changes = append(p.Changes, Change{Path: f.Path, Before: &f})

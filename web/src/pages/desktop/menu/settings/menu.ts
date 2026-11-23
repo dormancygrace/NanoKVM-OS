@@ -66,6 +66,7 @@ export const builtinMenu = [
   { id: 'vpn-openvpn', order: 20, hidden: true, title: { text: 'OpenVPN' } },
   { id: 'vpn-tailscale', order: 30, hidden: true, title: { text: 'Tailscale' } },
   { id: 'vpn-netbird', order: 40, hidden: true, title: { text: 'NetBird' } },
+  { id: 'vpn-zerotier', order: 50, hidden: true, title: { text: 'ZeroTier' } },
 
   { id: 'services', order: 60, icon: 'server-cog', title: { key: 'settings.services.title' } },
   { id: 'services-bmc', order: 10, icon: 'server', title: { key: 'settings.bmc.title' } },

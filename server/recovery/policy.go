@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"slices"
+	"sort"
 	"strings"
 
 	"NanoKVM-Server/authn"
@@ -40,11 +42,83 @@ var settings = strings.Fields(`
  etc/ssh/ssh_host_ecdsa_key etc/ssh/ssh_host_ecdsa_key.pub
  etc/kvm/server.crt etc/kvm/server.key etc/kvm/bmc/config.json
  etc/kvm/acme/settings.json var/lib/tailscale/tailscaled.state etc/netbird/config.json
+ var/lib/zerotier-one/identity.secret var/lib/zerotier-one/identity.public var/lib/zerotier-one/local.conf
  etc/kvm/notify/config.json etc/kvm/notify/addresses.json
 `)
-var trees = []string{"etc/kvm/network", "etc/kvm/wifi.saved", "etc/kvm/usb", "etc/kvm/branding", "etc/kvm/scripts", "etc/kvm/wireguard", "etc/kvm/openvpn", "etc/kvm/tls", "etc/kvm/acme/data", "etc/nanokvm-rustdesk"}
+var trees = []string{"etc/kvm/network", "etc/kvm/wifi.saved", "etc/kvm/usb", "etc/kvm/branding", "etc/kvm/scripts", "etc/kvm/wireguard", "etc/kvm/openvpn", "etc/kvm/tls", "etc/kvm/acme/data", "etc/nanokvm-rustdesk", "var/lib/zerotier-one/networks.d"}
 var packageName = regexp.MustCompile(`^[A-Za-z0-9_.][A-Za-z0-9+_.-]{0,127}$`)
 var versionPattern = regexp.MustCompile(`^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-._][A-Za-z0-9.-]+)?$`)
+
+// Settings that a later release added to the backup, by group. An archive
+// lists the groups it covers. Restoring one made before a group existed leaves
+// that group's files on the device as they are: their absence from the archive
+// does not mean they were absent from the device.
+var groups = map[string]settingsGroup{
+	// The node identity and the networks joined with it. Without
+	// identity.secret ZeroTier had not started: network files then are only
+	// preseeded join requests, and restoring them would delete the identity and
+	// networks made since.
+	"zerotier": {prefixes: []string{"var/lib/zerotier-one/identity.", "var/lib/zerotier-one/networks.d/"},
+		markers: []string{"var/lib/zerotier-one/identity.secret"}},
+	// Configuration, which does not depend on the identity: covered once
+	// there is one, or once ZeroTier started (it then had none).
+	"zerotier-config": {prefixes: []string{"var/lib/zerotier-one/local.conf"},
+		markers: []string{"var/lib/zerotier-one/local.conf", "var/lib/zerotier-one/identity.secret"}},
+}
+
+type settingsGroup struct {
+	prefixes []string
+	// A backup covers the group only when the device had one of these files.
+	markers []string
+}
+
+// group is the name of the group a settings path belongs to, or "".
+func group(p string) string {
+	for name, g := range groups {
+		for _, prefix := range g.prefixes {
+			if strings.HasPrefix(p, prefix) {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
+// coveredGroups are the groups a backup of files covers.
+func coveredGroups(files []File) []string {
+	var names []string
+	for _, name := range allGroups() {
+		if slices.ContainsFunc(files, func(f File) bool { return slices.Contains(groups[name].markers, f.Path) }) {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// allGroups are the groups a new archive covers.
+func allGroups() []string {
+	names := make([]string, 0, len(groups))
+	for name := range groups {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func validGroups(names []string) error {
+	seen := map[string]bool{}
+	for _, name := range names {
+		if _, ok := groups[name]; !ok {
+			// Groups are only added: an unknown one comes from a later release.
+			return errors.New("the backup holds settings of a later application version; install the same or a newer version before restoring")
+		}
+		if seen[name] {
+			return errors.New("invalid settings group")
+		}
+		seen[name] = true
+	}
+	return nil
+}
 
 func allowed(p string) bool {
 	if p == "" || path.Clean(p) != p || strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\\\x00\r\n") {
@@ -69,7 +143,7 @@ func portable(p string) bool {
 	if users(p) || p == "etc/kvm/atx" || strings.HasPrefix(p, "etc/ssh/") || strings.HasPrefix(p, "boot/") || strings.HasPrefix(p, "etc/kvm/wifi") || strings.HasPrefix(p, "etc/kvm/network/") || strings.HasPrefix(p, "etc/kvm/monitor_") {
 		return false
 	}
-	for _, prefix := range []string{"etc/kvm/wireguard/", "etc/kvm/openvpn/", "etc/kvm/tls/", "etc/kvm/acme/", "etc/nanokvm-rustdesk/", "root/.picoclaw/", "etc/kvm/usb/"} {
+	for _, prefix := range []string{"etc/kvm/wireguard/", "etc/kvm/openvpn/", "etc/kvm/tls/", "etc/kvm/acme/", "etc/nanokvm-rustdesk/", "var/lib/zerotier-one/", "root/.picoclaw/", "etc/kvm/usb/"} {
 		if strings.HasPrefix(p, prefix) {
 			return false
 		}
@@ -93,6 +167,9 @@ func Validate(a Archive) error {
 	if len(a.RootHash) > 1024 || strings.ContainsAny(a.RootHash, ":\r\n\x00") {
 		return errors.New("invalid root password record")
 	}
+	if err := validGroups(a.Covers); err != nil {
+		return err
+	}
 	total := 0
 	seen := map[string]bool{}
 	for _, f := range a.Files {
@@ -101,6 +178,9 @@ func Validate(a Archive) error {
 			return fmt.Errorf("invalid or excessive settings entry: %s", f.Path)
 		}
 		seen[f.Path] = true
+		if g := group(f.Path); g != "" && !slices.Contains(a.Covers, g) {
+			return fmt.Errorf("settings entry outside the archive's groups: %s", f.Path)
+		}
 		if f.Path == "etc/kvm/pwd" {
 			if err := authn.ValidateRecoveryAccounts(f.Data); err != nil {
 				return err

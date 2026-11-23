@@ -36,6 +36,10 @@ type Archive struct {
 	Files    []File    `json:"files"`
 	Packages []string  `json:"packages"`
 	RootHash string    `json:"rootHash,omitempty"`
+	// The settings groups (groups in policy.go) the archive covers: those of
+	// which the device had state (see coveredGroups). Archives made before
+	// groups existed have none.
+	Covers []string `json:"covers,omitempty"`
 }
 
 func passwordOK(password string) error {

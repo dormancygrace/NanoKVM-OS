@@ -4,6 +4,7 @@
 #include "auth/session.hpp"
 #include "common/log.hpp"
 #include "common/loop.hpp"
+#include "system/logs.hpp"
 
 #include <glaze/glaze.hpp>
 
@@ -167,6 +168,8 @@ void add_routes(http::Router &router)
 					path[n] = 0;
 					char *argv[] = {path, nullptr};
 					// The listeners and every other descriptor end with this process.
+					// The stderr pipe's reader does not survive the exec.
+					logs::restore_native_stderr();
 					::syscall(SYS_close_range, 3u, ~0u, CLOSE_RANGE_CLOEXEC);
 					::execve(path, argv, environ);
 				}

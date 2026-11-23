@@ -14,6 +14,8 @@ void set_level(Level level);
 void set_level(std::string_view name);
 bool enabled(Level level);
 void write(Level level, std::string_view message);
+// Every written line (with its newline) also goes to sink: the application log of the log viewer.
+void set_sink(void (*sink)(std::string_view line));
 
 template <typename... Args>
 void debug(std::format_string<Args...> fmt, Args &&...args)

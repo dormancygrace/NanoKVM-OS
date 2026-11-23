@@ -68,6 +68,8 @@ add_executable(NanoKVM-Server
   src/system/info.cpp
   src/system/memory.cpp
   src/system/journal.cpp
+  src/system/log_sanitize.cpp
+  src/system/logs.cpp
   src/system/live_status.cpp
   src/system/time_settings.cpp
   src/usb/composition.cpp

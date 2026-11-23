@@ -17,6 +17,7 @@
 #include "system/memory.hpp"
 #include "system/info.hpp"
 #include "system/journal.hpp"
+#include "system/logs.hpp"
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
 #include "usb/composition.hpp"
@@ -49,6 +50,8 @@ int main()
 	using namespace nkos;
 	const config::Config &conf = config::load();
 	log::set_level(conf.logger.level);
+	system::logs::init();
+	system::logs::capture_native_stderr();
 
 	http::Router router;
 	// middleware.SecurityHeaders: every response of the application.
@@ -77,6 +80,7 @@ int main()
 	input::jiggler::add_routes(router);
 	usb::add_routes(router);
 	system::add_info_routes(router);
+	system::logs::add_routes(router);
 	system::add_memory_routes(router);
 	system::add_dashboard_routes(router);
 	system::add_cpufreq_routes(router);
@@ -97,10 +101,12 @@ int main()
 		input::jiggler::start();
 		system::atx::start();
 		system::start_dashboard();
+		system::logs::start();
 	});
 	system::atx::stop();
 	input::jiggler::stop();
 	input::hid::stop();
 	video::vision::deinit();
+	system::logs::flush();
 	return status;
 }

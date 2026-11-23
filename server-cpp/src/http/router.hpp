@@ -42,6 +42,7 @@ struct Request {
 	bool tls = false;
 	std::string peer;    // remote address, without port
 	std::map<std::string, std::string> params;  // ":name" path segments of the matched route
+	std::string route;   // the matched route's pattern ("" when none matched)
 
 	std::optional<Auth> auth;
 
@@ -113,6 +114,9 @@ class Router {
 public:
 	void use(Handler middleware);
 	void add(std::string_view method, std::string_view path, Handler handler);
+	// Runs once a response is final (answered by the handler or later with complete()), on the loop thread.
+	void after(std::function<void(const Request &, const Response &)> hook);
+	void finished(const Request &request, const Response &response) const;
 	// A WebSocket route: decides the upgrade (http/websocket.hpp).
 	void ws(std::string_view path, std::function<std::shared_ptr<WsHandler>(Request &, Response &)> route);
 	// Runs the middlewares, then the matching route, or a 404 like Gin's.
@@ -127,6 +131,7 @@ private:
 	};
 	static bool match(const std::string &pattern, const std::string &path, std::map<std::string, std::string> &params);
 	std::vector<Handler> middlewares_;
+	std::vector<std::function<void(const Request &, const Response &)>> after_;
 	std::vector<Route> routes_;
 	std::vector<std::pair<std::string, std::function<std::shared_ptr<WsHandler>(Request &, Response &)>>> ws_routes_;
 };

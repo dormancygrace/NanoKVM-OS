@@ -363,6 +363,7 @@ void handle(lws *wsi, Session &s, const VhostData &vd)
 		return;
 	}
 	vd.router->dispatch(s.request, s.response);
+	if (!s.response.pending) vd.router->finished(s.request, s.response);
 	(void)wsi;
 }
 
@@ -645,6 +646,9 @@ bool watch_fd(int fd, std::function<void()> on_readable)
 
 bool request_open(std::uint64_t id) { return open_requests.count(id) != 0; }
 
+// The router of the serving vhost, for hooks of responses answered later.
+const Router *active_router = nullptr;
+
 void complete(std::uint64_t id, Response response)
 {
 	loop::post([id, response = std::move(response)]() mutable {
@@ -653,6 +657,7 @@ void complete(std::uint64_t id, Response response)
 		auto [wsi, session] = it->second;
 		session->response = std::move(response);
 		session->response.pending = false;
+		if (active_router) active_router->finished(session->request, session->response);
 		if (respond(wsi, *session) < 0) lws_set_timeout(wsi, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
 	});
 }
@@ -676,6 +681,7 @@ int run(const config::Config &config, const Router &router, std::function<void()
 	const bool https = config.proto == "https";
 	static VhostData serve{Role::serve, nullptr, 0}, redirect{Role::redirect, nullptr, 0};
 	serve.router = &router;
+	active_router = &router;
 	redirect.https_port = config.port.https;
 	const config::Cert cert = config.cert.with_defaults();
 	const char *iface = config.host.empty() ? nullptr : config.host.c_str();

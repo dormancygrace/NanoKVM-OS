@@ -12,6 +12,7 @@
 #include "system/atx.hpp"
 #include "system/branding.hpp"
 #include "system/failsafe.hpp"
+#include "system/journal.hpp"
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
 #include "usb/composition.hpp"
@@ -58,6 +59,7 @@ int main()
 	router.use(http::assets(web));
 	router.use(http::static_files(web));
 
+	system::journal::watch_changes(router);
 	auth::add_routes(router);
 	video::add_routes(router);
 	input::ws::add_routes(router);
@@ -78,6 +80,7 @@ int main()
 		system::failsafe::video_phase("initializing");
 		if (!video::vision::init()) log::error("video capture is unavailable");
 	}
+	system::journal::record_start();
 	int status = http::run(conf, router, [] {
 		video::hdmi::start();
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");

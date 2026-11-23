@@ -185,6 +185,13 @@ bool Router::match(const std::string &pattern, const std::string &path, std::map
 	return true;
 }
 
+void Router::after(std::function<void(const Request &, const Response &)> hook) { after_.push_back(std::move(hook)); }
+
+void Router::finished(const Request &request, const Response &response) const
+{
+	for (const auto &hook : after_) hook(request, response);
+}
+
 void Router::dispatch(Request &request, Response &response) const
 {
 	for (const auto &m : middlewares_) {
@@ -194,6 +201,7 @@ void Router::dispatch(Request &request, Response &response) const
 	for (const auto &r : routes_) {
 		if (!match(r.path, request.path, request.params)) continue;
 		if (r.method == request.method || (r.method == "GET" && request.method == "HEAD")) {
+			request.route = r.path;
 			r.handler(request, response);
 			if (!response.done && !response.pending) response.done = true;
 			return;

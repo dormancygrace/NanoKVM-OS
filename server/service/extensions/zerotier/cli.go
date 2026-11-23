@@ -16,6 +16,7 @@ import (
 
 	"NanoKVM-Server/internal/oomscore"
 	"NanoKVM-Server/internal/toolcache"
+	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/proto"
 )
 
@@ -45,6 +46,23 @@ func ValidNetworkID(value string) (string, bool) {
 	return id, networkID.MatchString(id)
 }
 
+var errMissingProgram = errors.New("the " + PackageName + " package is installed, but " + OnePath +
+	" is missing; uninstall ZeroTier and install it again")
+
+func notInstalled() error {
+	if recorded() {
+		return errMissingProgram
+	}
+	return errors.New("ZeroTier is not installed")
+}
+
+// recorded reports whether the installed database records the package; an
+// unreadable database does not.
+func recorded() bool {
+	names, err := osupdate.Installed(PackageName)
+	return err == nil && len(names) > 0
+}
+
 func isInstalled() bool {
 	info, err := os.Stat(OnePath)
 	return err == nil && info.Mode().IsRegular() && info.Mode()&0111 != 0
@@ -52,7 +70,7 @@ func isInstalled() bool {
 
 func (c *Cli) Start() error {
 	if !isInstalled() {
-		return errors.New("ZeroTier is not installed")
+		return notInstalled()
 	}
 	if err := runProgram(commandTimeout, "rc-update", "add", serviceName, "default"); err != nil {
 		return err
@@ -66,7 +84,7 @@ func (c *Cli) Start() error {
 
 func (c *Cli) Restart() error {
 	if !isInstalled() {
-		return errors.New("ZeroTier is not installed")
+		return notInstalled()
 	}
 	if err := runProgram(commandTimeout, "rc-update", "add", serviceName, "default"); err != nil {
 		return err
@@ -144,8 +162,10 @@ func inRunlevel() (bool, error) {
 	return err == nil, nil
 }
 
+// ServiceRunning asks OpenRC, whether or not the binary is there: a damaged
+// installation can still run, and is stopped before it is removed.
 func (c *Cli) ServiceRunning() (bool, error) {
-	if !isInstalled() || !openrcMayRun(serviceName) {
+	if !openrcMayRun(serviceName) {
 		return false, nil
 	}
 	// A stuck OpenRC times out rather than hold every status request.

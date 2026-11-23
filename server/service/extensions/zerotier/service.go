@@ -1,6 +1,8 @@
 package zerotier
 
 import (
+	"errors"
+	"fmt"
 	"sync"
 
 	"NanoKVM-Server/proto"
@@ -44,6 +46,12 @@ func (s *Service) Install(c *gin.Context) {
 			rsp.ErrRsp(c, -1, "ZeroTier installation failed: "+err.Error())
 			return
 		}
+		// apk adds nothing for a package it records, even with its files
+		// missing.
+		if !isInstalled() {
+			rsp.ErrRsp(c, -1, "ZeroTier installation failed: "+errMissingProgram.Error())
+			return
+		}
 	}
 	// Installed, not started: the page offers to start it, and starting
 	// is what adds it to the boot runlevel.
@@ -57,30 +65,46 @@ func (s *Service) Uninstall(c *gin.Context) {
 		return
 	}
 	defer operationMutex.Unlock()
-	if !isInstalled() {
-		if purge {
-			if err := vpn.RemoveState(zerotierState...); err != nil {
-				rsp.ErrRsp(c, -1, "ZeroTier identity and networks could not be deleted: "+err.Error())
-				return
-			}
-		}
-		rsp.OkRsp(c)
-		return
-	}
-	// Stopped only under the package lock, once the removal can go ahead:
-	// while another update holds it, ZeroTier keeps running. A failed removal
+	// All under the package lock: the installed database, not the binary,
+	// decides whether ZeroTier is installed, and the state is deleted only
+	// once it is not. ZeroTier is stopped only once the removal can go ahead:
+	// while another update holds the lock, it keeps running. A failed removal
 	// starts it again, and puts it back in the boot runlevel, as it was.
-	if err := apkpkg.RemoveAfter(NewCli().stopForRemoval, PackageName); err != nil {
+	var finishErr error
+	finish := func() error {
+		finishErr = finishUninstall(purge)
+		return finishErr
+	}
+	removed, err := apkpkg.RemoveAfter(NewCli().stopForRemoval, finish, PackageName)
+	switch {
+	case err == nil:
+		rsp.OkRsp(c)
+	case finishErr != nil && removed:
+		rsp.ErrRsp(c, -1, "ZeroTier was removed, but "+finishErr.Error())
+	case finishErr != nil:
+		rsp.ErrRsp(c, -1, "ZeroTier uninstall failed: "+finishErr.Error())
+	default:
 		rsp.ErrRsp(c, -1, "ZeroTier removal failed: "+err.Error())
-		return
+	}
+}
+
+// finishUninstall runs under the package lock once the package is gone or
+// was never installed. A ZeroTier still there is another installation, whose
+// identity and networks are not ours to delete.
+func finishUninstall(purge bool) error {
+	running, err := NewCli().ServiceRunning()
+	if err != nil {
+		return err
+	}
+	if running || isInstalled() {
+		return errors.New("a ZeroTier that is not from the " + PackageName + " package is still installed; its identity and networks were kept")
 	}
 	if purge {
-		if err := vpn.RemoveState(zerotierState...); err != nil {
-			rsp.ErrRsp(c, -1, "ZeroTier was removed, but its identity and networks could not be deleted: "+err.Error())
-			return
+		if err = vpn.RemoveState(zerotierState...); err != nil {
+			return fmt.Errorf("its identity and networks could not be deleted: %w", err)
 		}
 	}
-	rsp.OkRsp(c)
+	return nil
 }
 
 func (s *Service) Start(c *gin.Context) {
@@ -142,7 +166,13 @@ func (s *Service) network(c *gin.Context, failure string, action func(string) er
 func (s *Service) GetStatus(c *gin.Context) {
 	var rsp proto.Response
 	if !isInstalled() {
-		rsp.OkRspWithData(c, &proto.GetZerotierStatusRsp{State: proto.ZerotierNotInstall})
+		// A recorded package without its program is installed, and damaged:
+		// it is not running, and the page offers Uninstall.
+		state := proto.ZerotierNotInstall
+		if recorded() {
+			state = proto.ZerotierNotRunning
+		}
+		rsp.OkRspWithData(c, &proto.GetZerotierStatusRsp{State: state})
 		return
 	}
 	cli := NewCli()

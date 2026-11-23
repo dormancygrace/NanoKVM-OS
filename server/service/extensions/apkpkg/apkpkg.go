@@ -153,51 +153,74 @@ func Remove(names ...string) error {
 	return del(ctx, names)
 }
 
-// RemoveAfter removes packages that a caller first stops, with prepare: only
-// under the package lock and once apk is shown to purge every one of them, so
-// that nothing is stopped for a removal that cannot happen. prepare returns
-// how to undo what it did; that runs when apk fails or leaves a package
-// installed (apk exits 0 and keeps a package another selected one needs).
-func RemoveAfter(prepare func() (undo func() error, err error), names ...string) error {
-	if err := validNames(names); err != nil {
-		return err
+// RemoveAfter removes packages that a caller first stops, with prepare, and
+// then runs then, all under the package lock. The installed database decides
+// what is installed, not the files a package ships: a recorded package with
+// missing files is removed like any other. When it records none of names,
+// nothing is stopped or removed and then runs at once; removed is false.
+//
+// Otherwise prepare runs only once apk is shown to purge every installed one
+// of names, so that nothing is stopped for a removal that cannot happen. It
+// returns how to undo what it did; that runs when apk fails or leaves a
+// package installed (apk exits 0 and keeps a package another selected one
+// needs), or when the installed database cannot be read to show that it did
+// not. then runs only after a confirmed removal; removed is true from there.
+func RemoveAfter(prepare func() (undo func() error, err error), then func() error, names ...string) (removed bool, err error) {
+	if err = validNames(names); err != nil {
+		return false, err
 	}
 	lock, err := lockPackages()
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer lock.Close()
+	present, err := installed(names...)
+	if err != nil {
+		return false, fmt.Errorf("cannot read the installed packages: %w", err)
+	}
+	if len(present) == 0 {
+		if then != nil {
+			err = then()
+		}
+		return false, err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	output, err := apk(ctx, append([]string{"del", "--simulate", "--"}, names...)...)
+	output, err := apk(ctx, append([]string{"del", "--simulate", "--"}, present...)...)
 	if err != nil {
-		return fmt.Errorf("apk del failed: %s", tail(output))
+		return false, fmt.Errorf("apk del failed: %s", tail(output))
 	}
-	if kept := osupdate.KeptByRemoval(string(output), names); len(kept) > 0 {
-		return fmt.Errorf("apk would not remove %s: %s", strings.Join(kept, ", "), tail(output))
+	if kept := osupdate.KeptByRemoval(string(output), present); len(kept) > 0 {
+		return false, fmt.Errorf("apk would not remove %s: %s", strings.Join(kept, ", "), tail(output))
 	}
 	var undo func() error
 	if prepare != nil {
 		if undo, err = prepare(); err != nil {
-			return err
+			return false, err
 		}
 	}
-	err = del(ctx, names)
+	err = del(ctx, present)
 	if err == nil {
 		// Only a database read proves the removal; a failed one counts as a
 		// package left installed.
 		left, checkErr := installed(names...)
 		switch {
 		case checkErr != nil:
-			err = fmt.Errorf("cannot confirm that apk removed %s: %w", strings.Join(names, ", "), checkErr)
+			err = fmt.Errorf("cannot confirm that apk removed %s: %w", strings.Join(present, ", "), checkErr)
 		case len(left) > 0:
 			err = fmt.Errorf("apk del left %s installed", strings.Join(left, ", "))
 		}
 	}
-	if err != nil && undo != nil {
-		err = errors.Join(err, undo())
+	if err != nil {
+		if undo != nil {
+			err = errors.Join(err, undo())
+		}
+		return false, err
 	}
-	return err
+	if then != nil {
+		err = then()
+	}
+	return true, err
 }
 
 func validNames(names []string) error {

@@ -60,13 +60,18 @@ struct Request {
 struct Stream {
 	void write(std::string data);
 	void end();
+	// Drops the connection now (a stalled client).
+	void abort();
 	bool closed() const { return closed_; }
+	// Bytes written so far (progress of a slow client).
+	std::uint64_t written() const { return written_; }
 	std::function<void()> on_close;
 
 	// Internals for the server.
 	lws *wsi_ = nullptr;
 	std::deque<std::string> queue_;
 	std::size_t front_sent_ = 0;  // bytes of queue_.front() already written
+	std::uint64_t written_ = 0;
 	bool ended_ = false, closed_ = false, headers_sent_ = false;
 };
 

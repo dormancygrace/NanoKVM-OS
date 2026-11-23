@@ -52,6 +52,8 @@ public:
 	void wake();
 	// Sends a close frame with code and reason, then closes.
 	void close(int code, std::string reason);
+	// Drops the connection without a close handshake (a stalled client).
+	void abort();
 	const Request &request() const { return request_; }
 	std::uint64_t id() const { return id_; }
 	// Messages larger than this close the connection (1009).

@@ -43,6 +43,7 @@ constexpr int tiles_unsupported = -9;
 constexpr int max_long_side = 2560;
 constexpr auto refusal_hold = 500ms;
 constexpr auto duplicate_refresh = 5s;
+constexpr auto write_timeout = 5s;
 constexpr int next_to_video_fps = 30;
 constexpr std::uint16_t max_tiles = 24;
 constexpr std::size_t tiled_queue = 8;
@@ -175,6 +176,32 @@ struct Client : http::WsHandler, std::enable_shared_from_this<Client> {
 	// Owned by the capture loop.
 	std::uint64_t generation = 0;
 	Clock::time_point last_offer{};
+	// A write that does not progress for write_timeout drops the viewer (it would hold the capture up).
+	std::uint64_t progress = 0, taken = 0;
+	Clock::time_point stalled_since{};
+
+	bool stalled(Clock::time_point now)
+	{
+		if (gone() || due()) {
+			stalled_since = {};
+			return false;
+		}
+		std::uint64_t p = tiled ? taken : stream->written();
+		if (stalled_since == Clock::time_point{} || p != progress) {
+			progress = p;
+			stalled_since = now;
+			return false;
+		}
+		return now - stalled_since > write_timeout;
+	}
+	void drop()
+	{
+		if (tiled) {
+			if (ws) ws->abort();
+		} else {
+			stream->abort();
+		}
+	}
 
 	bool gone() const { return tiled ? !ws || ws->closing() : !stream || stream->closed(); }
 
@@ -230,6 +257,7 @@ struct Client : http::WsHandler, std::enable_shared_from_this<Client> {
 		if (frames.empty()) return std::nullopt;
 		http::Message m = std::move(frames.front());
 		frames.pop_front();
+		taken++;
 		return m;
 	}
 	bool ready(http::WebSocket &) override { return !frames.empty(); }
@@ -378,6 +406,7 @@ void stop_loop()
 		s.tiles_used = false;
 	}
 	s.last = {};
+	vision::release_jpeg_buffers();
 	log::debug("mjpeg stream stopped due to no clients");
 }
 
@@ -440,6 +469,11 @@ void tick(std::uint64_t generation)
 		if (int rate = mjpeg_rate(screen.fps, s.video_active); rate != s.fps && screen.fps != 0) s.fps = rate;
 	}
 	schedule(generation);
+	for (const auto &c : clients)
+		if (c->stalled(now)) {
+			log::error("mjpeg viewer stalled for {} s; dropping it", write_timeout.count());
+			c->drop();
+		}
 	if (s.reading) return;
 
 	// Read only when a viewer will take the picture: on a slow link the quality steps down instead.

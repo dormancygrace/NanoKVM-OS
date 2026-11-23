@@ -513,6 +513,7 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 					std::memcpy(buf + LWS_PRE, data.data() + stream->front_sent_, n);
 					if (lws_write(wsi, buf + LWS_PRE, n, LWS_WRITE_HTTP) != static_cast<int>(n)) return -1;
 					stream->front_sent_ += n;
+					stream->written_ += n;
 					if (stream->front_sent_ == data.size()) {
 						stream->queue_.pop_front();
 						stream->front_sent_ = 0;
@@ -569,6 +570,18 @@ void Stream::write(std::string data)
 	if (closed_ || ended_) return;
 	queue_.push_back(std::move(data));
 	if (wsi_ && headers_sent_) lws_callback_on_writable(wsi_);
+}
+
+void Stream::abort()
+{
+	if (closed_ || !wsi_) return;
+	lws_set_timeout(wsi_, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
+}
+
+void WebSocket::abort()
+{
+	closing_ = true;
+	lws_set_timeout(wsi_, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
 }
 
 void Stream::end()

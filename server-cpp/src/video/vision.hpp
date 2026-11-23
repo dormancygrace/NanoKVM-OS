@@ -61,6 +61,8 @@ struct Jpeg {
 void read_mjpeg(std::uint16_t width, std::uint16_t height, std::uint16_t quality, std::function<void(Jpeg)> done);
 void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t quality, bool key,
                       std::uint16_t max_tiles, std::function<void(Jpeg)> done);
+// Lets the JPEG buffers go (no viewers left).
+void release_jpeg_buffers();
 // Frees what tiled reads keep (the IVE map, region channels) once nobody reads tiles.
 void release_mjpeg_tiles();
 // Frame detection: frames between change checks, 0 off (set_frame_detact; the stream pauses for it).

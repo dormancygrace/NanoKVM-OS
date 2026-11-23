@@ -311,6 +311,11 @@ void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t q
 	}, std::move(done));
 }
 
+void release_jpeg_buffers()
+{
+	loop::device([] { jpeg_pool.clear(); });
+}
+
 void release_mjpeg_tiles()
 {
 	if (!initialized) return;

@@ -585,6 +585,7 @@ void end_manual(bool start_cooldown)
 
 bool Reservation::valid() const
 {
+	if (deadline_ != Clock::time_point{} && Clock::now() >= deadline_) return false;
 	if (operation_) return !operation_->cancelled();
 	return session_ && generation_ != 0 && session_->live_.load() == generation_;
 }

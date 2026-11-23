@@ -33,6 +33,9 @@ void check_screen();
 // native capture a changed rate (kvmv_set_capture_fps).
 Screen capture_screen();
 int capture_rate_limit(int width, int height);
+// The frame rate one viewer asked for (a RustDesk client, common.ViewerRateLimit): the capture runs at no more than
+// the lowest of them (10..120). fps 0 removes the viewer's limit. Loop thread.
+void set_viewer_rate(const void *viewer, int fps);
 
 // The HDMI capture size, 0x0 without a signal (/run/nanokvm/width, height; read on every call).
 std::pair<int, int> capture_input_size();

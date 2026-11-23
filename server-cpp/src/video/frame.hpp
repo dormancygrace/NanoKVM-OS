@@ -20,7 +20,7 @@ inline constexpr int result_key = 3;
 inline constexpr int result_delta = 4;
 
 // A buffer of at least bytes for a frame (headroom included), from the pool of buffers earlier frames let go of.
-// Its bytes are not cleared and it may be larger. Loop thread only, as every frame.
+// Its bytes are not cleared and it may be larger. Made on the loop thread; a frame may be let go of on any thread.
 std::shared_ptr<std::vector<unsigned char>> frame_buffer(std::size_t bytes);
 
 struct Frame {

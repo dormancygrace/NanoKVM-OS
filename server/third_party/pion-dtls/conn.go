@@ -7,10 +7,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/fips140"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -76,6 +78,7 @@ type Conn struct {
 	handshakeCompletedSuccessfully atomic.Bool
 	handshakeMutex                 sync.Mutex
 	handshakeDone                  chan struct{}
+	handshakeSnapshot              atomic.Pointer[serializedState]
 	writeLock                      sync.Mutex
 	writeBuffer                    []byte // the last application-data record; writeLock guards it
 
@@ -92,10 +95,16 @@ type Conn struct {
 	gcmBatchSpare  []byte
 
 	encryptedPackets []addrPkt
+	replayPending    atomic.Bool // Queued records wait for their epoch's handshake to finish
+	earlyData        [][]byte    // Pre-handshake application data
+	hasEarlyData     atomic.Bool // Skip locking in Read when earlyData is empty
 
 	connectionClosedByUser bool
 	closeLock              sync.Mutex
 	closed                 *closer.Closer
+	// closeNotifyReceived is set when the peer ends the connection with
+	// close_notify, as opposed to a fatal alert or an internal failure.
+	closeNotifyReceived atomic.Bool
 
 	readDeadline  *deadline.Deadline
 	writeDeadline *deadline.Deadline
@@ -279,8 +288,26 @@ func createConn(
 
 	conn.setRemoteEpoch(0)
 	conn.setLocalEpoch(0)
+	conn.configureSnapshotCallbacks()
 
 	return conn, nil
+}
+
+func (c *Conn) configureSnapshotCallbacks() {
+	if verify := c.handshakeConfig.verifyConnection; verify != nil {
+		c.handshakeConfig.verifyConnection = func(state *State) error {
+			c.publishHandshakeState()
+
+			return verify(state)
+		}
+	}
+	if verify := c.handshakeConfig.verifyPeerCertificate; verify != nil {
+		c.handshakeConfig.verifyPeerCertificate = func(certs [][]byte, chains [][]*x509.Certificate) error {
+			c.publishHandshakeState()
+
+			return verify(certs, chains)
+		}
+	}
 }
 
 // Handshake runs the client or server DTLS handshake
@@ -453,37 +480,126 @@ func (c *Conn) Read(buff []byte) (n int, err error) { //nolint:cyclop
 	default:
 	}
 
+	// Drain early data before established traffic.
+	if data, ok := c.popEarlyData(); ok {
+		n, _, err := c.readQueued(buff, data, true)
+
+		return n, err
+	}
+
 	for {
-		var out any
-		var ok bool
 		select {
 		case <-c.closed.Done():
-			// A close notification can arrive while the final authenticated
-			// record is still buffered. Deliver that record before EOF.
-			select {
-			case out, ok = <-c.decrypted:
-			default:
-				return 0, io.EOF
-			}
+			return c.readAfterClose(buff)
 		case <-c.readDeadline.Done():
 			return 0, errDeadlineExceeded
-		case out, ok = <-c.decrypted:
-		}
-		if !ok {
-			return 0, io.EOF
-		}
-		switch val := out.(type) {
-		case []byte:
-			if len(buff) < len(val) {
-				return 0, errBufferTooSmall
+		case out, ok := <-c.decrypted:
+			if n, handled, err := c.readQueued(buff, out, ok); handled {
+				return n, err
 			}
-			copy(buff, val)
-
-			return len(val), nil
-		case error:
-			return 0, val
 		}
 	}
+}
+
+// readAfterClose is called once the connection is closed. A record queued
+// before the peer's close_notify is still valid (RFC 5246 Section 7.2.1) and is
+// returned first. decrypted holds at most one record, so one receive is enough.
+func (c *Conn) readAfterClose(buff []byte) (int, error) {
+	if c.closedByCloseNotify() {
+		select {
+		case out, ok := <-c.decrypted:
+			if n, handled, err := c.readQueued(buff, out, ok); handled {
+				return n, err
+			}
+		default:
+		}
+	}
+
+	return 0, io.EOF
+}
+
+// readQueued handles a value taken from decrypted. Once the connection is
+// closed, application data is handed out only if the peer closed it with
+// close_notify. After a fatal alert, an internal failure or a local Close it
+// is dropped and Read returns io.EOF.
+func (c *Conn) readQueued(buff []byte, out any, ok bool) (int, bool, error) {
+	if !ok || (c.isConnectionClosed() && !c.closedByCloseNotify()) {
+		return 0, true, io.EOF
+	}
+
+	return copyDecrypted(buff, out)
+}
+
+// queueEarlyData buffers data until handshake completion and drops overflow
+// without blocking Finished, as allowed by RFC 6347 Section 4.1.
+// https://www.rfc-editor.org/rfc/rfc6347.html#section-4.1
+// Sharing lock with completion keeps this queue ahead of decrypted.
+// It returns false after the handshake completes.
+func (c *Conn) queueEarlyData(data []byte) bool {
+	if c.isHandshakeCompletedSuccessfully() {
+		return false
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.isHandshakeCompletedSuccessfully() {
+		return false
+	}
+	if len(c.earlyData) < maxAppDataPacketQueueSize {
+		c.earlyData = append(c.earlyData, data)
+		c.hasEarlyData.Store(true)
+	} else {
+		c.log.Debug("discarded application data received before the handshake completed")
+	}
+
+	return true
+}
+
+// popEarlyData removes the oldest buffered application record.
+func (c *Conn) popEarlyData() ([]byte, bool) {
+	if !c.hasEarlyData.Load() {
+		return nil, false
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if len(c.earlyData) == 0 {
+		return nil, false
+	}
+	data := c.earlyData[0]
+	c.earlyData[0] = nil
+	c.earlyData = c.earlyData[1:]
+	if len(c.earlyData) == 0 {
+		c.earlyData = nil
+		c.hasEarlyData.Store(false)
+	}
+
+	return data, true
+}
+
+// closedByCloseNotify reports whether the peer ended the connection with
+// close_notify and it was not closed locally.
+func (c *Conn) closedByCloseNotify() bool {
+	c.closeLock.Lock()
+	defer c.closeLock.Unlock()
+
+	return c.closeNotifyReceived.Load() && !c.connectionClosedByUser
+}
+
+func copyDecrypted(buff []byte, out any) (int, bool, error) {
+	switch val := out.(type) {
+	case ([]byte):
+		if len(buff) < len(val) {
+			return 0, true, errBufferTooSmall
+		}
+		copy(buff, val)
+
+		return len(val), true, nil
+	case (error):
+		return 0, true, val
+	}
+
+	return 0, false, nil
 }
 
 // Write writes len(payload) bytes from payload to the DTLS connection.
@@ -551,6 +667,18 @@ func (c *Conn) Close() error {
 // it can reuse encryption nonces if the original sends any further records.
 // See ResumeWithOptions for the safety requirements for state restoration.
 func (c *Conn) ConnectionState() (State, bool) {
+	if c.handshakeConfig != nil && !c.isHandshakeCompletedSuccessfully() {
+		snapshot := c.handshakeSnapshot.Load()
+		if snapshot != nil {
+			var state State
+			state.deserialize(snapshot.clone())
+
+			return state, true
+		}
+		if !c.isHandshakeCompletedSuccessfully() {
+			return State{}, false
+		}
+	}
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	stateClone, err := c.state.clone()
@@ -559,6 +687,22 @@ func (c *Conn) ConnectionState() (State, bool) {
 	}
 
 	return *stateClone, true
+}
+
+func (c *Conn) publishHandshakeState() {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	if c.isHandshakeCompletedSuccessfully() {
+		return
+	}
+	if int(c.state.getLocalEpoch()) >= len(c.state.localSequenceNumber) {
+		return
+	}
+	state, err := c.state.serialize()
+	if err == nil {
+		snapshot := state.clone()
+		c.handshakeSnapshot.Store(&snapshot)
+	}
 }
 
 // SelectedSRTPProtectionProfile returns the selected SRTPProtectionProfile.
@@ -1136,48 +1280,137 @@ func (c *Conn) readAndBuffer(ctx context.Context) error { //nolint:cyclop
 		}
 	}
 	if hasHandshake {
-		s := recvHandshakeState{
-			done:                    make(chan struct{}),
-			isRetransmit:            isRetransmit,
-			isClientHelloRetransmit: isClientHelloRetransmit,
-		}
-		select {
-		case c.handshakeRecv <- s:
-			// If the other party may retransmit the flight,
-			// we should respond even if it not a new message.
-			<-s.done
-		case <-c.fsm.Done():
-		}
+		c.handOffHandshake(isRetransmit, isClientHelloRetransmit)
 	}
 
-	return nil
+	return c.replayReadyPackets(ctx)
+}
+
+// replayReadyPackets replays records queued for the epoch a ChangeCipherSpec
+// started, after the current datagram. Until the handshake completes only
+// handshake records are replayed.
+func (c *Conn) replayReadyPackets(ctx context.Context) error {
+	if !c.replayPending.Load() {
+		return nil
+	}
+	if !c.isHandshakeCompletedSuccessfully() {
+		if err := c.replayAndHandOff(ctx, true); err != nil {
+			return err
+		}
+		if !c.isHandshakeCompletedSuccessfully() {
+			return nil
+		}
+	}
+	c.replayPending.Store(false)
+
+	return c.replayAndHandOff(ctx, false)
+}
+
+// replayAndHandOff replays queued records and passes any handshake records
+// among them to the FSM.
+func (c *Conn) replayAndHandOff(ctx context.Context, handshakeOnly bool) error {
+	hs, rtx, err := c.replayQueuedPackets(ctx, handshakeOnly)
+	var warning *alertError
+	if hs && (err == nil || errors.As(err, &warning) && !warning.IsFatalOrCloseNotify()) {
+		c.handOffHandshake(rtx, false)
+	}
+
+	return err
+}
+
+// readAfterStart waits for the initial flight to be sent before reading.
+func (c *Conn) readAfterStart(ctx context.Context) error {
+	select {
+	case <-c.fsm.readerStart:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return c.readAndBuffer(ctx)
+}
+
+// handOffHandshake waits for the FSM to release the reader.
+func (c *Conn) handOffHandshake(isRetransmit, isClientHelloRetransmit bool) {
+	s := recvHandshakeState{
+		done:                    make(chan struct{}),
+		isRetransmit:            isRetransmit,
+		isClientHelloRetransmit: isClientHelloRetransmit,
+	}
+	select {
+	case c.handshakeRecv <- s:
+		// Retransmissions still need a response.
+		<-s.done
+	case <-c.fsm.Done():
+	}
 }
 
 func (c *Conn) handleQueuedPackets(ctx context.Context) error {
+	_, _, err := c.replayQueuedPackets(ctx, false)
+
+	return err
+}
+
+// replayQueuedPackets processes records in epoch and sequence order, only
+// handshake records if handshakeOnly is set.
+func (c *Conn) replayQueuedPackets(ctx context.Context, handshakeOnly bool) (bool, bool, error) {
 	c.lock.Lock()
 	pkts := c.encryptedPackets
 	c.encryptedPackets = nil
+	if handshakeOnly {
+		pkts, c.encryptedPackets = splitHandshakeRecords(pkts)
+	}
 	c.lock.Unlock()
 
+	slices.SortStableFunc(pkts, func(a, b addrPkt) int {
+		return bytes.Compare(a.data[3:11], b.data[3:11])
+	})
+
+	var hasHandshake, isRetransmit bool
+	var warning error
 	for _, p := range pkts {
-		_, _, alert, err := c.handleIncomingPacket(ctx, p.data, p.rAddr, false) // don't re-enqueue
-		if alert != nil {
-			if alertErr := c.notify(ctx, alert.Level, alert.Description); alertErr != nil {
-				if err == nil {
-					err = alertErr
-				}
-			}
-		}
+		hs, rtx, err := c.handleQueuedPacket(ctx, p)
+		hasHandshake = hasHandshake || hs
+		isRetransmit = isRetransmit || rtx
 		var e *alertError
-		if errors.As(err, &e) && e.IsFatalOrCloseNotify() {
-			return e
+		if errors.As(err, &e) && !e.IsFatalOrCloseNotify() {
+			if warning == nil {
+				warning = e
+			}
+
+			continue
 		}
 		if err != nil {
-			return err
+			return hasHandshake, isRetransmit, err
 		}
 	}
 
-	return nil
+	return hasHandshake, isRetransmit, warning
+}
+
+// splitHandshakeRecords separates queued handshake records from the rest.
+// Connection ID records hide their content type and stay with the rest, so a
+// Finished in one is only read after the peer resends it.
+func splitHandshakeRecords(pkts []addrPkt) (handshakes, rest []addrPkt) {
+	for _, p := range pkts {
+		if protocol.ContentType(p.data[0]) == protocol.ContentTypeHandshake {
+			handshakes = append(handshakes, p)
+		} else {
+			rest = append(rest, p)
+		}
+	}
+
+	return handshakes, rest
+}
+
+func (c *Conn) handleQueuedPacket(ctx context.Context, p addrPkt) (bool, bool, error) {
+	hs, rtx, alert, err := c.handleIncomingPacket(ctx, p.data, p.rAddr, false) // don't re-enqueue
+	if alert != nil {
+		if alertErr := c.notify(ctx, alert.Level, alert.Description); alertErr != nil && err == nil {
+			err = alertErr
+		}
+	}
+
+	return hs, rtx, err
 }
 
 func (c *Conn) enqueueEncryptedPackets(packet addrPkt) bool {
@@ -1217,9 +1450,9 @@ func (c *Conn) handleIncomingPacket(
 	// Validate epoch
 	remoteEpoch := c.state.getRemoteEpoch()
 	// DTLS 1.2 accepts old epochs until the handshake completes (RFC 6347, Section 4.1).
-	if header.Epoch == 0 && header.ContentType == protocol.ContentTypeAlert && remoteEpoch != 0 &&
+	if header.Epoch == 0 && header.ContentType != protocol.ContentTypeHandshake && remoteEpoch != 0 &&
 		c.isHandshakeCompletedSuccessfully() {
-		c.log.Debug("discarded alert from the old plaintext epoch")
+		c.log.Debug("discarded control record from the old plaintext epoch")
 
 		return false, false, nil, nil
 	}
@@ -1386,7 +1619,8 @@ func (c *Conn) handleIncomingPacket(
 	case *alert.Alert:
 		c.log.Tracef("%s: <- %s", srvCliStr(c.state.isClient), content.String())
 		var a *alert.Alert
-		if content.Description == alert.CloseNotify {
+		if content.Level == alert.Warning && content.Description == alert.CloseNotify {
+			c.closeNotifyReceived.Store(true)
 			// Respond with a close_notify [RFC5246 Section 7.2.1]
 			a = &alert.Alert{Level: alert.Warning, Description: alert.CloseNotify}
 		}
@@ -1413,6 +1647,10 @@ func (c *Conn) handleIncomingPacket(
 		if c.state.getRemoteEpoch()+1 == newRemoteEpoch {
 			c.setRemoteEpoch(newRemoteEpoch)
 			isLatestSeqNum = markPacketAsValid()
+			// Replay after this datagram so Finished is handled first.
+			if enqueue {
+				c.replayPending.Store(true)
+			}
 		}
 	case *protocol.ApplicationData:
 		if header.Epoch == 0 {
@@ -1423,14 +1661,7 @@ func (c *Conn) handleIncomingPacket(
 
 		isLatestSeqNum = markPacketAsValid()
 
-		if !c.isHandshakeCompletedSuccessfully() {
-			// Read waits for the handshake to complete. Never block its packet
-			// reader on early application data: Finished may still be pending.
-			select {
-			case c.decrypted <- content.Data:
-			default:
-			}
-		} else {
+		if !c.queueEarlyData(content.Data) {
 			select {
 			case c.decrypted <- content.Data:
 			case <-c.closed.Done():
@@ -1459,6 +1690,8 @@ func (c *Conn) handleIncomingPacket(
 }
 
 func (c *Conn) recvHandshake() <-chan recvHandshakeState {
+	c.publishHandshakeState()
+
 	return c.handshakeRecv
 }
 
@@ -1502,6 +1735,7 @@ func (c *Conn) setHandshakeCompletedSuccessfully() bool {
 	if !c.handshakeCompletedSuccessfully.CompareAndSwap(false, true) {
 		return false
 	}
+	c.handshakeSnapshot.Store(nil)
 	c.handshakeCache.finish()
 
 	return true
@@ -1523,6 +1757,7 @@ func (c *Conn) handshake(
 	done := make(chan struct{})
 	ctxRead, cancelRead := context.WithCancel(context.Background())
 	cfg.onFlightState = func(_ flightVal, s handshakeState) {
+		c.publishHandshakeState()
 		if s == handshakeFinished && c.setHandshakeCompletedSuccessfully() {
 			close(done)
 		}
@@ -1565,7 +1800,7 @@ func (c *Conn) handshake(
 		}()
 		defer handshakeLoopsFinished.Done()
 		for {
-			if err := c.readAndBuffer(ctxRead); err != nil { //nolint:nestif
+			if err := c.readAfterStart(ctxRead); err != nil { //nolint:nestif
 				var alertErr *alertError
 				if errors.As(err, &alertErr) {
 					if !alertErr.IsFatalOrCloseNotify() {

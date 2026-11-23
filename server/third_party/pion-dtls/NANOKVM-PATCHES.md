@@ -1,6 +1,6 @@
 # NanoKVM DTLS changes
 
-Base: `github.com/pion/dtls/v3 v3.1.15`. The upstream MIT license is retained;
+Base: `github.com/pion/dtls/v3 v3.1.16`. The upstream MIT license is retained;
 only the NanoKVM tests (`nanokvm_*_test.go`) are kept. The original module is available through the Go module proxy for comparison.
 
 NanoKVM changes the DTLS 1.2 server's cipher-suite intersection order in
@@ -15,10 +15,11 @@ suites, so production connections never reach it.
 
 The transport interface is v5.
 
-`Conn.Read` drains an already authenticated, buffered application record before
-returning EOF after closure. The previous select could randomly choose the
-closed signal over the final record; the unmodified upstream BasicIO test
-reproduced this 9 times in 100 runs during integration. Cryptographic validation is unchanged.
+The v3.1.16 integration uses upstream's handshake receive-state snapshots,
+record filtering and bounded queue for early application data. Upstream now
+delivers buffered application data before EOF on a peer's `close_notify`
+and discards it on a local close or fatal alert. This supersedes the local
+`Conn.Read` change.
 
 `Conn.Write` of application data is shorter (a data channel sends about 830
 records for a megabyte):

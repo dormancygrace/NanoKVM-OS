@@ -8,6 +8,7 @@
 #include "ai/routes.hpp"
 #include "extensions/acme.hpp"
 #include "extensions/routes.hpp"
+#include "auth/session.hpp"
 #include "bmc/service.hpp"
 #include "rustdesk/rustdesk.hpp"
 #include "standby/standby.hpp"

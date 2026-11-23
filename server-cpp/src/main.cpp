@@ -12,6 +12,7 @@
 #include "system/atx.hpp"
 #include "system/branding.hpp"
 #include "system/failsafe.hpp"
+#include "system/info.hpp"
 #include "system/journal.hpp"
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
@@ -72,6 +73,7 @@ int main()
 	input::add_keyboard_routes(router);
 	input::jiggler::add_routes(router);
 	usb::add_routes(router);
+	system::add_info_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.
 	// Video recovery after repeated crashes: the server runs without video.

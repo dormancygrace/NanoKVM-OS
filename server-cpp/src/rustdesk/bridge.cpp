@@ -111,6 +111,8 @@ struct HidSession {
 	bool relative_only = false;
 	wire::RelativePointer pointer;
 	std::map<Kind, std::vector<std::uint8_t>> held;
+	std::size_t inflight = 0;  // reports queued on the lanes and not answered yet
+	bool releasing = false;
 	std::vector<std::function<void()>> on_closed;  // close records waiting for the release
 };
 
@@ -140,11 +142,12 @@ struct Pending {
 
 struct State;
 
-// hidSession.close: the held keys and buttons are released, then the manual session and the lease end.
-void close_session(const std::shared_ptr<HidSession> &s)
+// The release of a closed session once its queued reports are answered (Go's close waits for the record in flight
+// the same way, on the session's mutex): the held keys and buttons, then the manual session and the lease end.
+void release_session(const std::shared_ptr<HidSession> &s)
 {
-	if (s->closed) return;
-	s->closed = true;
+	if (s->releasing || s->inflight > 0) return;
+	s->releasing = true;
 	auto finish = [s] {
 		s->manual->close();
 		s->lane.reset();
@@ -176,6 +179,14 @@ void close_session(const std::shared_ptr<HidSession> &s)
 		else s->lane->mouse(std::move(r));
 	}
 	if (count->left == 0) finish();
+}
+
+// hidSession.close.
+void close_session(const std::shared_ptr<HidSession> &s)
+{
+	if (s->closed) return;
+	s->closed = true;
+	release_session(s);
 }
 
 // --- the bridge's state -------------------------------------------------------------------------------------------
@@ -504,12 +515,8 @@ std::uint8_t State::control_record(const std::string &id, const std::uint8_t *re
 		};
 		auto progress = std::make_shared<Progress>();
 		progress->left = reports.size();
+		s->inflight += reports.size();
 		for (auto &report : reports) {
-			// writeReport: the other mouse lets go first (the lane writes its release); a held report is kept for
-			// its release even if the write fails part way.
-			if (kind == Kind::relative) s->held.erase(Kind::absolute);
-			else if (kind == Kind::absolute) s->held.erase(Kind::relative);
-			if (wire::report_held(kind, report)) s->held[kind] = report;
 			hid::Report r;
 			r.data = report;
 			r.reservation = reservation;
@@ -521,8 +528,17 @@ std::uint8_t State::control_record(const std::string &id, const std::uint8_t *re
 				}
 			};
 			r.complete = [s, kind, report, progress, reservation, pending, deadline, lease, kind_byte](bool ok) {
-				if (ok && !wire::report_held(kind, report)) s->held.erase(kind);
+				// writeReport, once the report is written: the other mouse let go first (the lane wrote its
+				// release), and what this report holds down is what a release must lift. A report that failed or
+				// was refused changes nothing here; the lane reports what it released after a failure (reset).
+				if (ok) {
+					if (kind == Kind::relative) s->held.erase(Kind::absolute);
+					else if (kind == Kind::absolute) s->held.erase(Kind::relative);
+					if (wire::report_held(kind, report)) s->held[kind] = report;
+					else s->held.erase(kind);
+				}
 				if (!ok) progress->ok = false;
+				if (--s->inflight == 0 && s->closed) release_session(s);
 				if (--progress->left > 0) return;
 				std::uint8_t status = wire::status_ok;
 				if (!progress->ok) {

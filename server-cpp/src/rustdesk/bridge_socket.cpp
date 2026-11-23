@@ -223,7 +223,12 @@ void Listener::run()
 		}
 		if (p[1].revents) return;
 		int c = ::accept4(fd_, nullptr, nullptr, SOCK_CLOEXEC | SOCK_NONBLOCK);
-		if (c < 0) continue;
+		if (c < 0) {
+			// Out of descriptors or memory: a pause instead of a spin, the listener stays.
+			if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR && errno != ECONNABORTED)
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			continue;
+		}
 		if (!root_peer(c)) {
 			::close(c);
 			continue;

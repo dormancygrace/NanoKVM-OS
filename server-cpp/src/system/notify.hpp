@@ -1,7 +1,7 @@
 #pragma once
 
-// Notifications, as the Go server's service/notify: the standard messages of every language of the web interface
-// (embedded from the catalogues at build time) and the words of a journal entry. The channels come later.
+// The journal in words (service/vm/journal.go): a journal entry put into the words of the notifications' standard
+// messages (notify/model.hpp). The notifications themselves are notify/notify.hpp.
 
 #include "http/router.hpp"
 #include "system/journal.hpp"

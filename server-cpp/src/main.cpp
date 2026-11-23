@@ -28,6 +28,8 @@
 #include "system/scripts.hpp"
 #include "system/serial_console.hpp"
 #include "system/startpriority.hpp"
+#include "system/ssh_keys.hpp"
+#include "system/tls.hpp"
 #include "system/terminal.hpp"
 #include "usb/composition.hpp"
 #include "storage/storage.hpp"
@@ -157,6 +159,8 @@ int main(int argc, char **argv)
 	system::add_bluetooth_routes(router);
 	system::add_oled_routes(router);
 	system::add_cpufreq_routes(router);
+	system::tls::add_routes(router);
+	system::ssh_keys::add_routes(router);
 	network::add_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.
@@ -178,7 +182,13 @@ int main(int argc, char **argv)
 	// router/network.go: a change left on trial is undone, and the gateway check runs, before the listeners.
 	network::restore_pending_trial();
 	network::start_gateway_check();
+	// main.go: PrepareServerCertificate before the HTTPS listener; a pair that cannot be prepared ends the start.
+	if (auto e = system::tls::prepare(conf)) {
+		log::error("prepare HTTPS certificate: {}", *e);
+		return 2;
+	}
 	int status = http::run(conf, router, [] {
+		system::tls::start();
 		video::hdmi::start();
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");
 		input::hid::start();

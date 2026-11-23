@@ -5,6 +5,8 @@
 #include "http/websocket.hpp"
 
 #include <libwebsockets.h>
+#include <openssl/err.h>
+#include <openssl/pem.h>
 #include <openssl/ssl.h>
 
 #include <algorithm>
@@ -141,6 +143,9 @@ FdWatch next_watch = 1;
 lws_vhost *serving_vhost;
 // The pair the HTTPS vhost was created with (its identity for lws_tls_cert_updated).
 std::string vhost_crt, vhost_key;
+// The HTTPS vhost's TLS context (LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS), for the chain of a pair served
+// at run time.
+SSL_CTX *vhost_ssl_ctx;
 
 Watched *watched_of(lws *wsi)
 {
@@ -391,6 +396,9 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 {
 	auto *pss = static_cast<Pss *>(user);
 	switch (reason) {
+	case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS:
+		vhost_ssl_ctx = static_cast<SSL_CTX *>(user);
+		return 0;
 	case LWS_CALLBACK_HTTP: {
 		auto *vd = static_cast<VhostData *>(lws_get_vhost_user(lws_get_vhost(wsi)));
 		if (!vd || !pss) return -1;
@@ -781,8 +789,21 @@ void use_certificate_files(std::string crt, std::string key)
 bool serve_certificate(const std::string &cert_pem, const std::string &key_pem)
 {
 	if (!context || vhost_crt.empty()) return false;
-	return lws_tls_cert_updated(context, vhost_crt.c_str(), vhost_key.c_str(), cert_pem.data(), cert_pem.size(),
-	                            key_pem.data(), key_pem.size()) == 0;
+	if (lws_tls_cert_updated(context, vhost_crt.c_str(), vhost_key.c_str(), cert_pem.data(), cert_pem.size(),
+	                         key_pem.data(), key_pem.size()) != 0)
+		return false;
+	// lws took the first certificate of the PEM only: the others are the chain, sent after it.
+	if (vhost_ssl_ctx) {
+		SSL_CTX_clear_chain_certs(vhost_ssl_ctx);
+		BIO *bio = BIO_new_mem_buf(cert_pem.data(), static_cast<int>(cert_pem.size()));
+		int n = 0;
+		while (X509 *x = bio ? PEM_read_bio_X509(bio, nullptr, nullptr, nullptr) : nullptr) {
+			if (n++ == 0 || SSL_CTX_add0_chain_cert(vhost_ssl_ctx, x) != 1) X509_free(x);
+		}
+		ERR_clear_error();
+		BIO_free(bio);
+	}
+	return true;
 }
 
 bool request_open(std::uint64_t id) { return open_requests.count(id) != 0; }

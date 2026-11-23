@@ -85,6 +85,7 @@ add_executable(NanoKVM-Server
   src/auth/totp.cpp
   src/config/yaml.cpp
   src/config/config.cpp
+  src/config/config_tls.cpp
   src/http/server.cpp
   src/http/upload.cpp
   src/http/router.cpp
@@ -121,6 +122,9 @@ add_executable(NanoKVM-Server
   src/system/scripts.cpp
   src/system/startpriority.cpp
   src/system/cron.cpp
+  src/system/tls_x509.cpp
+  src/system/tls.cpp
+  src/system/ssh_keys.cpp
   src/usb/composition.cpp
   src/storage/download.cpp
   src/storage/gadget.cpp

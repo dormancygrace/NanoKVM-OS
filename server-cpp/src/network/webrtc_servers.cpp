@@ -7,6 +7,7 @@
 
 #include "common/log.hpp"
 #include "config/config.hpp"
+#include "config/config_tls.hpp"
 #include "config/yaml.hpp"
 
 #include <algorithm>
@@ -190,6 +191,8 @@ std::function<Error(const WebRTCSettings &)> update_webrtc = [](const WebRTCSett
 	WebRTCSettings w = in;
 	w.dtls_cipher = dtls_cipher_or_default(w.dtls_cipher);
 	std::lock_guard lock(webrtc_mu);
+	// The TLS settings edit the same file.
+	std::lock_guard yaml_lock(config::server_yaml_mutex());
 	Error err;
 	auto text = read_file(paths.server_yaml, &err);
 	if (!text) return err;

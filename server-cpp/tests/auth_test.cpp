@@ -1,6 +1,6 @@
 // Authentication and authorization of the web API: session tokens, TOTP, password hashes, the account store, the
-// login lockout and the request checks behind proxies. Ported from the Go server's middleware/jwt_test.go,
-// client_address_test.go, session_cookie_test.go, authn/totp_test.go, authn/store_test.go,
+// login lockout, the request checks behind proxies and the origin protections without authentication. Ported from
+// the Go server's middleware/jwt_test.go, client_address_test.go, session_cookie_test.go, origin_test.go, authn/totp_test.go, authn/store_test.go,
 // service/auth/brute_force_test.go and credential_format_test.go. Known answers: RFC 6238 appendix B; the Argon2id and
 // bcrypt hashes were made by golang.org/x/crypto (argon2.IDKey, bcrypt.GenerateFromPassword).
 
@@ -22,7 +22,9 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <strings.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 using namespace nkos;
 
@@ -292,6 +294,73 @@ void request_tests()
 	}
 }
 
+// Without authentication (middleware/origin_test.go): other sites may not write, or read the API, and plain HTTP
+// answers only the device's own names.
+void origin_tests()
+{
+	auto &sec = conf().security;
+	conf().proto = "http";
+	sec.trusted_proxies = {"10.0.0.9"};
+	sec.allowed_origins = {"http://dashboard.local", "http://dashboard.example:3001"};
+	http::Router router;
+	auth::add_unauthenticated_protections(router);
+	for (const char *m : {"GET", "POST"}) router.add(m, "/api/x", [](http::Request &, http::Response &res) { res.status = 200; });
+	router.add("GET", "/", [](http::Request &, http::Response &res) { res.status = 200; });
+	auto serve = [&](const char *method, const char *path, std::vector<std::pair<std::string, std::string>> headers,
+	                 const char *peer = "192.168.1.5", bool tls = false) {
+		http::Request req = request(peer, std::move(headers), tls);
+		req.method = method, req.path = path;
+		http::Response res;
+		router.dispatch(req, res);
+		return res;
+	};
+	struct {
+		const char *method, *origin, *site;
+		int want;
+	} writes[] = {
+	    {"POST", "http://192.0.2.21", "same-origin", 200}, {"POST", "", "", 200},  // curl, automation
+	    {"POST", "http://dashboard.local", "cross-site", 200}, {"POST", "http://evil.example", "cross-site", 403},
+	    {"POST", "null", "cross-site", 403}, {"POST", "", "cross-site", 403},
+	    // Some GET routes act: an image tag on another site must not call them.
+	    {"GET", "http://evil.example", "cross-site", 403}, {"GET", "", "cross-site", 403},
+	    {"GET", "http://dashboard.local", "cross-site", 200}, {"GET", "", "same-origin", 200},
+	};
+	for (auto &c : writes) {
+		std::vector<std::pair<std::string, std::string>> h{{"Host", "192.0.2.21"}};
+		if (*c.origin) h.emplace_back("Origin", c.origin);
+		if (*c.site) h.emplace_back("Sec-Fetch-Site", c.site);
+		CHECK(serve(c.method, "/api/x", h).status == c.want, std::string(c.method) + " from " + c.origin + " (" + c.site + ")");
+	}
+	CHECK(serve("GET", "/", {{"Host", "192.0.2.21"}, {"Sec-Fetch-Site", "cross-site"}}).status == 200, "cross-site navigation");
+	auto allow_origin = [](const http::Response &res) {
+		for (auto &[k, v] : res.headers)
+			if (strcasecmp(k.c_str(), "Access-Control-Allow-Origin") == 0) return v;
+		return std::string();
+	};
+	for (const char *origin : {"http://dashboard.local", "http://evil.example"})
+		CHECK(allow_origin(serve("GET", "/api/x", {{"Host", "192.0.2.21"}, {"Origin", origin}})) ==
+		          (std::string(origin) == "http://evil.example" ? "" : origin), std::string("CORS read from ") + origin);
+
+	char name[256] = {};
+	::gethostname(name, sizeof name - 1);
+	std::string own = name, upper = own;
+	for (char &ch : upper) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+	struct {
+		std::string host;
+		const char *peer;
+		int want;
+	} hosts[] = {
+	    {"192.0.2.21", "192.168.1.5", 200}, {"192.0.2.21:8080", "192.168.1.5", 200}, {"[fe80::1]", "192.168.1.5", 200},
+	    {"localhost:80", "127.0.0.1", 200}, {own, "192.168.1.5", 200}, {upper + ".local.", "192.168.1.5", 200},
+	    {"dashboard.example", "192.168.1.5", 200}, {"evil.example", "192.168.1.5", 421},
+	    {own + ".evil.example", "192.168.1.5", 421}, {"192.0.2.21.nip.io", "192.168.1.5", 421},
+	    {"kvm.example", "10.0.0.9", 200},  // trusted proxy
+	};
+	for (auto &c : hosts) CHECK(serve("POST", "/api/x", {{"Host", c.host}}, c.peer).status == c.want, "Host " + c.host);
+	CHECK(serve("POST", "/api/x", {{"Host", "kvm.example.com"}}, "192.168.1.5", true).status == 200, "HTTPS with a custom name");
+	sec.trusted_proxies.clear(), sec.allowed_origins.clear();
+}
+
 } // namespace
 
 int main()
@@ -305,6 +374,7 @@ int main()
 	store_tests(dir);
 	lockout_tests();
 	request_tests();
+	origin_tests();
 	std::filesystem::remove_all(dir);
 	return finish("auth");
 }

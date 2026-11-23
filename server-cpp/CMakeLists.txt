@@ -64,6 +64,7 @@ add_executable(NanoKVM-Server
   src/system/gpio.cpp
   src/system/hardware.cpp
   src/system/cpufreq.cpp
+  src/system/dashboard.cpp
   src/system/info.cpp
   src/system/memory.cpp
   src/system/journal.cpp

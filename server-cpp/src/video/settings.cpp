@@ -180,7 +180,7 @@ std::string screen_json()
 	bool hevc_supported = read_line("/sys/module/cvi_vc_driver/parameters/nk_packed_src") == "1";
 	bool frame_detect = read_line("/etc/kvm/frame_detect") == "1";
 	return std::format(
-		R"({{"bitRate":{},"effectiveFps":{},"fps":{},"frameDetect":{},"height":{},"hevcDirect":{},"hevcDirectSupported":{},"inputHeight":{},"inputWidth":{},"measuredFps":{},"measuredKbps":{},"mjpegChroma":{},"mjpegChromaActive":{},"mjpegChromaFallback":{},"mjpegMeasuredFps":{},"mjpegOutputHeight":{},"mjpegOutputWidth":{},"monitor":{},"monitorHighRefreshSupported":{},"monitorPowerCyclePending":{},"monitorRequiresPowerCycle":{},"monitorSupported":{},"outputHeight":{},"outputWidth":{},"portrait":{},"portraitMaxSupported":{},"portraitResolution":{},"portraitSupported":{},"qhdSupported":{},"quality":{},"uhdSupported":{},"videoOutputHeight":{},"videoOutputWidth":{},"videoPath":{},"viDirectH264Supported":{},"width":{}}})",
+		R"({{"bitRate":{},"effectiveFps":{},"fps":{},"frameDetect":{},"height":{},"hevcDirect":{},"hevcDirectSupported":{},"inputHeight":{},"inputWidth":{},"measuredFps":{},"measuredKbps":{},"mjpegChroma":{},"mjpegChromaActive":{},"mjpegChromaFallback":{},"mjpegMeasuredFps":{},"mjpegOutputHeight":{},"mjpegOutputWidth":{},"monitor":{},"monitorHighRefreshSupported":{},"monitorPowerCyclePending":{},"monitorRequiresPowerCycle":{},"monitorSupported":{},"outputHeight":{},"outputWidth":{},"portrait":{},"portraitMaxSupported":{},"portraitResolution":{},"portraitSupported":{},"qhdSupported":{},"quality":{},"uhdSupported":{},"viDirectH264Supported":{},"videoOutputHeight":{},"videoOutputWidth":{},"videoPath":{},"width":{}}})",
 		s.bitrate, capture_screen().fps, s.fps, frame_detect, s.height, hevc_direct, hevc_supported,
 		read_video_value("/run/nanokvm/height"), read_video_value("/run/nanokvm/width"),
 		read_video_value("/run/nanokvm/now_fps"), read_video_value("/run/nanokvm/now_kbps"), s.mjpeg_chroma, chroma,
@@ -190,8 +190,8 @@ std::string screen_json()
 		read_video_value("/run/nanokvm/stream_height"), read_video_value("/run/nanokvm/stream_width"),
 		monitor::portrait_enabled(), monitor::portrait_max_supported(), monitor::portrait_resolution(),
 		monitor::portrait_supported(), booted_video_pool().qhd(), s.quality, booted_video_pool().uhd(),
-		read_video_value("/run/nanokvm/video_height"), read_video_value("/run/nanokvm/video_width"), video_path,
-		file_exists("/sys/module/cv181x_vi/parameters/nk_yuv420"), s.width);
+		file_exists("/sys/module/cv181x_vi/parameters/nk_yuv420"), read_video_value("/run/nanokvm/video_height"),
+		read_video_value("/run/nanokvm/video_width"), video_path, s.width);
 }
 
 } // namespace

@@ -12,6 +12,7 @@
 #include "system/atx.hpp"
 #include "system/branding.hpp"
 #include "system/cpufreq.hpp"
+#include "system/dashboard.hpp"
 #include "system/failsafe.hpp"
 #include "system/memory.hpp"
 #include "system/info.hpp"
@@ -77,6 +78,7 @@ int main()
 	usb::add_routes(router);
 	system::add_info_routes(router);
 	system::add_memory_routes(router);
+	system::add_dashboard_routes(router);
 	system::add_cpufreq_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.
@@ -94,6 +96,7 @@ int main()
 		input::hid::start();
 		input::jiggler::start();
 		system::atx::start();
+		system::start_dashboard();
 	});
 	system::atx::stop();
 	input::jiggler::stop();

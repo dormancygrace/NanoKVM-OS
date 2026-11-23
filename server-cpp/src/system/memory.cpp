@@ -276,6 +276,13 @@ void answer_status(http::Response &res)
 
 } // namespace
 
+std::optional<std::string> memory_status_json()
+{
+	auto s = read_status();
+	if (!s) return std::nullopt;
+	return status_json(*s);
+}
+
 void add_memory_routes(http::Router &router)
 {
 	auth::Guard admin{{"admin"}};

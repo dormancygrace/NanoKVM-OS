@@ -1190,7 +1190,6 @@ RunResult run(const std::vector<std::string> &argv, const RunOptions &options)
 		return r;
 	}
 	if (pid == 0) {
-		::setpgid(0, 0);
 		::dup2(in[0], 0);
 		::dup2(out[1], 1);
 		::dup2(options.combined ? out[1] : err[1], 2);
@@ -1222,20 +1221,30 @@ RunResult run(const std::vector<std::string> &argv, const RunOptions &options)
 	} else {
 		::fcntl(in_fd, F_SETFL, O_NONBLOCK);
 	}
-	auto deadline = options.timeout ? std::chrono::steady_clock::now() + *options.timeout
-	                                : std::chrono::steady_clock::time_point::max();
-	bool out_open = true, err_open = true, killed = false;
+	// As os/exec: the context's timeout kills the process (not what it started); the output is read until its pipes
+	// close, and with a wait delay at most that long after the process ended.
+	using clock = std::chrono::steady_clock;
+	auto deadline = options.timeout ? clock::now() + *options.timeout : clock::time_point::max();
+	bool out_open = true, err_open = true, killed = false, exited = false, delay_expired = false;
+	int status = 0;
+	clock::time_point ended{};
 	while (out_open || err_open || in_fd >= 0) {
-		int wait = -1;
-		if (options.timeout) {
-			auto left = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()).count();
-			if (left <= 0) {
-				::kill(-pid, SIGKILL);
-				killed = true;
-				break;
-			}
-			wait = static_cast<int>(left);
+		auto now = clock::now();
+		if (!exited) {
+			pid_t w = ::waitpid(pid, &status, WNOHANG);
+			if (w == pid) exited = true, ended = now;
 		}
+		if (!killed && !exited && now >= deadline) {
+			::kill(pid, SIGKILL);
+			killed = true;
+		}
+		if (exited && options.wait_delay && now - ended >= *options.wait_delay) {
+			delay_expired = true;
+			break;
+		}
+		// Poll in short steps while the process runs, to notice its end and the deadline.
+		int wait = 100;
+		if (exited && !options.wait_delay) wait = -1;
 		pollfd fds[3];
 		int n = 0, oi = -1, ei = -1, ii = -1;
 		if (out_open) oi = n, fds[n++] = {out[0], POLLIN, 0};
@@ -1269,8 +1278,23 @@ RunResult run(const std::vector<std::string> &argv, const RunOptions &options)
 	if (in_fd >= 0) ::close(in_fd);
 	::close(out[0]);
 	::close(err[0]);
-	int status = 0;
-	while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+	if (!exited) {
+		// The pipes closed first; a process past its deadline is killed now.
+		while (!exited) {
+			pid_t w = ::waitpid(pid, &status, options.timeout ? WNOHANG : 0);
+			if (w == pid) {
+				exited = true;
+				break;
+			}
+			if (w < 0 && errno != EINTR) break;
+			if (w == 0) {
+				if (!killed && clock::now() >= deadline) {
+					::kill(pid, SIGKILL);
+					killed = true;
+				}
+				::usleep(10000);
+			}
+		}
 	}
 	if (!started) {
 		r.error = "fork/exec " + program + ": " + errno_text(exec_errno);
@@ -1284,6 +1308,7 @@ RunResult run(const std::vector<std::string> &argv, const RunOptions &options)
 		r.error = std::string("signal: ") + (sig == SIGKILL ? "killed" : sig == SIGTERM ? "terminated" : ::strsignal(sig));
 	}
 	if (killed && r.error.empty()) r.error = "signal: killed";
+	if (delay_expired && r.error.empty()) r.error = "exec: WaitDelay expired before I/O complete";
 	return r;
 }
 

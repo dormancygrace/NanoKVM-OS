@@ -593,6 +593,8 @@ extern std::function<WebRTCSettings()> read_webrtc;
 extern std::function<Error(const WebRTCSettings &)> update_webrtc;
 // server.yaml with the WebRTC keys set (config.UpdateWebRTC on a file in yaml.v3's layout).
 std::string edit_webrtc_yaml(const std::string &text, const WebRTCSettings &w);
+// The edited server.yaml, checked: refused when the file is not a mapping, or not laid out as yaml.v3 writes it.
+Error edit_server_yaml(const std::string &text, const WebRTCSettings &w, std::string &edited);
 
 // --- the routes' operations ------------------------------------------------------------------------------------------
 

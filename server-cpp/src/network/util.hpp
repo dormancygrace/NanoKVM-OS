@@ -168,6 +168,9 @@ struct RunOptions {
 	std::string input;
 	std::vector<std::string> env;  // extra NAME=value entries
 	bool combined = false;         // CombinedOutput; otherwise Output (stdout; stderr kept apart)
+	// Cmd.WaitDelay: after the process ended, how long its output pipes may stay open (a daemon it started holds
+	// them); none: until they close.
+	std::optional<std::chrono::milliseconds> wait_delay;
 };
 struct RunResult {
 	std::string out;   // stdout, or stdout and stderr when combined

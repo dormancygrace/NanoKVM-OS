@@ -34,6 +34,7 @@ RunResult run_radio_command(const std::string &name, const std::vector<std::stri
 {
 	RunOptions options;
 	options.timeout = std::chrono::seconds(20);
+	options.wait_delay = std::chrono::seconds(2);
 	return network::run(unprotected(name, args), options);
 }
 

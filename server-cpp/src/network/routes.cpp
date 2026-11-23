@@ -584,12 +584,15 @@ void set_wifi_country(const Call &call, http::Response &res)
 
 // --- trials -------------------------------------------------------------------------------------------------------------
 
-void get_probe_trial(const Call &, http::Response &res)
+// Off the loop like every operation that takes the trial's lock: a confirmation holds it across a sync.
+void get_probe_trial(const Call &call, http::Response &res)
 {
-	res.set_header("Access-Control-Allow-Origin", "*");
-	res.set_header("Cache-Control", "no-store");
-	auto [id, applied] = probe_trial();
-	ok(res, "{\"applied\":" + bool_json(applied) + ",\"id\":" + quote(id) + "}");
+	defer_call(call, res, [](http::Response &out) {
+		out.set_header("Access-Control-Allow-Origin", "*");
+		out.set_header("Cache-Control", "no-store");
+		auto [id, applied] = probe_trial();
+		ok(out, "{\"applied\":" + bool_json(applied) + ",\"id\":" + quote(id) + "}");
+	});
 }
 
 void post_confirm_trial(const Call &call, http::Response &res)
@@ -883,7 +886,11 @@ void get_peers(http::Request &req, http::Response &res)
 	}).detach();
 }
 
-void get_webrtc_servers(const Call &, http::Response &res) { ok(res, webrtc_servers_state_json(read_webrtc())); }
+void get_webrtc_servers(const Call &call, http::Response &res)
+{
+	// The settings' lock is held across the write of server.yaml.
+	defer_call(call, res, [](http::Response &out) { ok(out, webrtc_servers_state_json(read_webrtc())); });
+}
 
 void post_webrtc_servers(const Call &call, http::Response &res)
 {

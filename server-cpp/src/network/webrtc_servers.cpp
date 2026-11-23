@@ -169,6 +169,23 @@ std::function<WebRTCSettings()> read_webrtc = [] {
 	return s;
 };
 
+Error edit_server_yaml(const std::string &text, const WebRTCSettings &w, std::string &edited)
+{
+	std::string parse_error;
+	auto root = yaml::parse(text, parse_error);
+	if (!root) return make_error("parse " + paths.server_yaml + ": " + parse_error);
+	if (root->kind != yaml::Value::Kind::map || root->map.empty()) return make_error("configuration root is not a mapping");
+	// The edit knows the layout yaml.v3 writes (what the server writes): a file laid out otherwise by hand is refused
+	// rather than written wrong.
+	edited = edit_webrtc_yaml(text, w);
+	auto check = yaml::parse(edited, parse_error);
+	auto value = [&](const char *path) { return check ? yaml::as_string(check->path(path)).value_or("") : std::string("\x01"); };
+	if (!check || value("stun") != w.stun || value("turn.turnaddr") != w.turn.addr || value("turn.turnuser") != w.turn.user ||
+	    value("turn.turncred") != w.turn.cred || value("dtlscipher") != w.dtls_cipher)
+		return make_error("cannot edit " + paths.server_yaml + ": it is not laid out as the server writes it");
+	return {};
+}
+
 std::function<Error(const WebRTCSettings &)> update_webrtc = [](const WebRTCSettings &in) -> Error {
 	WebRTCSettings w = in;
 	w.dtls_cipher = dtls_cipher_or_default(w.dtls_cipher);
@@ -176,11 +193,9 @@ std::function<Error(const WebRTCSettings &)> update_webrtc = [](const WebRTCSett
 	Error err;
 	auto text = read_file(paths.server_yaml, &err);
 	if (!text) return err;
-	std::string parse_error;
-	auto root = yaml::parse(*text, parse_error);
-	if (!root) return make_error("parse " + paths.server_yaml + ": " + parse_error);
-	if (root->kind != yaml::Value::Kind::map || root->map.empty()) return make_error("configuration root is not a mapping");
-	if (auto e = atomicfile_write(paths.server_yaml, edit_webrtc_yaml(*text, w), 0600)) return e;
+	std::string edited;
+	if (auto e = edit_server_yaml(*text, w, edited)) return e;
+	if (auto e = atomicfile_write(paths.server_yaml, edited, 0600)) return e;
 	webrtc_current = WebRTCSettings{stun_or_default(w.stun), w.turn, w.dtls_cipher};
 	return {};
 };

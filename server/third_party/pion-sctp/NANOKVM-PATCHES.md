@@ -1,6 +1,6 @@
 # NanoKVM SCTP changes
 
-Base: `github.com/pion/sctp v1.12.1`. The upstream MIT license is retained;
+Base: `github.com/pion/sctp v1.12.2`. The upstream MIT license is retained;
 only the NanoKVM test (`nanokvm_marshal_test.go`) is kept. `UPSTREAM-SHA256.json`
 lists the hashes of the upstream files; the original module is available
 through the Go module proxy for comparison.

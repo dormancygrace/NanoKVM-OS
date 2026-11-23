@@ -56,7 +56,7 @@ Frame take()
 		if (slot.size == 0 || slot.size != slot.total) {
 			frame.result = -2;
 		} else {
-			frame.storage = std::make_shared<std::vector<unsigned char>>(frame_headroom + slot.size);
+			frame.storage = frame_buffer(frame_headroom + slot.size);
 			std::memcpy(frame.storage->data() + frame_headroom, slot.data, slot.size);
 			frame.offset = frame_headroom;
 			frame.size = slot.size;

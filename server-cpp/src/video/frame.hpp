@@ -19,8 +19,12 @@ inline constexpr std::size_t frame_headroom = 64;
 inline constexpr int result_key = 3;
 inline constexpr int result_delta = 4;
 
+// A buffer of at least bytes for a frame (headroom included), from the pool of buffers earlier frames let go of.
+// Its bytes are not cleared and it may be larger. Loop thread only, as every frame.
+std::shared_ptr<std::vector<unsigned char>> frame_buffer(std::size_t bytes);
+
 struct Frame {
-	std::shared_ptr<std::vector<unsigned char>> storage;
+	std::shared_ptr<std::vector<unsigned char>> storage;  // at least offset + size bytes
 	std::size_t offset = 0;  // where the access unit starts in storage
 	std::size_t size = 0;
 	int result = 0;          // < 0: no picture (the native error)

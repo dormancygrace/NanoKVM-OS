@@ -518,6 +518,7 @@ struct RegisteredHandler : http::WsHandler {
 	}
 	void received(http::WebSocket &ws, std::string_view data, bool binary) override { inner->received(ws, data, binary); }
 	std::optional<http::Message> next(http::WebSocket &ws) override { return inner->next(ws); }
+	bool ready(http::WebSocket &ws) override { return inner->ready(ws); }
 	void closed(http::WebSocket &ws) override
 	{
 		open_sessions.erase(id);

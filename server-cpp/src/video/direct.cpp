@@ -177,6 +177,12 @@ public:
 		return true;
 	}
 
+	// pop_for_write() has a frame.
+	bool writable() const
+	{
+		return !closed_ && !frames_.empty() && (!flow_controlled_ || static_cast<int>(in_flight_.size()) < window_);
+	}
+
 	std::optional<Outbound> pop_for_write()
 	{
 		if (closed_ || frames_.empty() || (flow_controlled_ && static_cast<int>(in_flight_.size()) >= window_))
@@ -380,7 +386,7 @@ struct Client : http::WsHandler {
 		if (type == frame_ack_message && data.size() == 9) {
 			std::int64_t timestamp;
 			std::memcpy(&timestamp, data.data() + 1, 8);
-			if (queue.acknowledge(timestamp)) socket.wake();
+			if (queue.acknowledge(timestamp) && queue.writable()) socket.wake();
 		} else if (type == stream_resync_message && data.size() == 1) {
 			queue.request_resync();
 			video::request_keyframe();
@@ -396,6 +402,8 @@ struct Client : http::WsHandler {
 		return http::Message{frame->frame.storage, frame->frame.offset - 9, frame->frame.size + 9, true};
 	}
 
+	bool ready(http::WebSocket &) override { return queue.writable(); }
+
 	void closed(http::WebSocket &socket) override
 	{
 		if (joined) streamer.remove(this);
@@ -408,7 +416,7 @@ struct Client : http::WsHandler {
 
 	void offer(const Outbound &frame)
 	{
-		if (queue.offer(frame) && ws) ws->wake();
+		if (queue.offer(frame) && ws && queue.writable()) ws->wake();
 	}
 	void end(const std::string &reason)
 	{

@@ -471,7 +471,7 @@ void fix_parameter_sets(Codec codec, bool colour, Frame &frame)
 	prefix.insert(prefix.end(), data + last, data + prefix_end);
 
 	if (prefix.size() > prefix_end) {
-		auto grown = std::make_shared<std::vector<unsigned char>>(frame_headroom + prefix.size() + size - prefix_end);
+		auto grown = frame_buffer(frame_headroom + prefix.size() + size - prefix_end);
 		std::memcpy(grown->data() + frame_headroom, prefix.data(), prefix.size());
 		std::memcpy(grown->data() + frame_headroom + prefix.size(), data + prefix_end, size - prefix_end);
 		frame.storage = std::move(grown);

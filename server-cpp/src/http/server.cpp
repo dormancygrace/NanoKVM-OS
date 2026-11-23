@@ -120,7 +120,7 @@ int write_ws(lws *wsi, WebSocket &ws)
 	if (!m) return 0;
 	if (lws_write(wsi, m->storage->data() + m->offset, m->size, m->binary ? LWS_WRITE_BINARY : LWS_WRITE_TEXT) < 0)
 		return -1;
-	lws_callback_on_writable(wsi);
+	if (!ws.queue_.empty() || ws.closing_ || ws.ping_due_ || ws.handler_->ready(ws)) lws_callback_on_writable(wsi);
 	return 0;
 }
 

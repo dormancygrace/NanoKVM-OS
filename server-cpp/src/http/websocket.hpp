@@ -37,6 +37,9 @@ struct WsHandler {
 	virtual void received(WebSocket &, std::string_view /*data*/, bool /*binary*/) {}
 	// The next message when the send() queue is empty; nullopt when there is none now (wake() asks again).
 	virtual std::optional<Message> next(WebSocket &) { return std::nullopt; }
+	// Whether next() has a message now. A handler that knows says so: each writable callback asked for in vain
+	// costs a turn of the event loop.
+	virtual bool ready(WebSocket &) { return true; }
 	// The connection is gone; the WebSocket must not be used after this returns.
 	virtual void closed(WebSocket &) {}
 };

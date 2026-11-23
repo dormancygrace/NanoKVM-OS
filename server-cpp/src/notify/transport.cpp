@@ -1,5 +1,7 @@
 #include "notify/transport.hpp"
 
+#include "common/base64.hpp"
+
 #include <curl/curl.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
@@ -68,6 +70,8 @@ struct SmtpTrace {
 	std::string command;  // the last command sent ("AUTH" through its exchange)
 	std::vector<std::string> pending;
 	bool starttls = false;
+	bool auth_sent = false;
+	std::string challenge;  // a 334 continuation of the AUTH exchange (XOAUTH2's error details)
 };
 
 int on_debug(CURL *, curl_infotype type, char *data, size_t size, void *user)
@@ -80,6 +84,7 @@ int on_debug(CURL *, curl_infotype type, char *data, size_t size, void *user)
 		static const char *verbs[] = {"EHLO", "HELO", "STARTTLS", "AUTH", "MAIL", "RCPT", "DATA", "QUIT", "RSET", "NOOP"};
 		for (const char *v : verbs)
 			if (verb == v) t->command = verb;
+		if (t->command == "AUTH") t->auth_sent = true;
 		return 0;
 	}
 	if (type != CURLINFO_HEADER_IN) return 0;
@@ -95,6 +100,7 @@ int on_debug(CURL *, curl_infotype type, char *data, size_t size, void *user)
 		t->pending.push_back(text);
 		if (line.size() == 3 || line[3] == ' ') {
 			int code = std::atoi(std::string(line.substr(0, 3)).c_str());
+			if (code == 334 && t->command == "AUTH") t->challenge = text;
 			if (code >= 400 && t->code == 0) {
 				t->code = code;
 				t->lines = std::move(t->pending);
@@ -118,12 +124,21 @@ std::string reply_text(const SmtpTrace &t)
 
 struct Upload {
 	const std::string *data;
+	const SmtpTrace *trace;
+	bool login = false;  // a login is set: the message goes only after one
+	bool unauthenticated = false;
 	std::size_t at = 0;
 };
 
 size_t on_read(char *buffer, size_t size, size_t count, void *user)
 {
 	auto *u = static_cast<Upload *>(user);
+	if (u->login && !u->trace->auth_sent) {
+		// libcurl skips the login when the server offers none; Go's client logs in anyway and is refused. The
+		// message never goes without the login the channel has.
+		u->unauthenticated = true;
+		return CURL_READFUNC_ABORT;
+	}
 	size_t n = std::min(size * count, u->data->size() - u->at);
 	std::memcpy(buffer, u->data->data() + u->at, n);
 	u->at += n;
@@ -157,7 +172,7 @@ Result send_email(const Channel &ch, const Rendered &r, OAuth &oauth)
 	std::string url = (security == "tls" ? "smtps://" : "smtp://") + host_port(host, ch.get("port")) + "/" + hello_name();
 	char errbuf[CURL_ERROR_SIZE] = {};
 	SmtpTrace trace;
-	Upload upload{&message};
+	Upload upload{&message, &trace, oauth2 || !user.empty()};
 	curl_slist *rcpt = nullptr;
 	for (const auto &a : to) rcpt = curl_slist_append(rcpt, a.c_str());
 	std::string from = "<" + sender->address + ">";
@@ -198,10 +213,23 @@ Result send_email(const Channel &ch, const Rendered &r, OAuth &oauth)
 	curl_slist_free_all(rcpt);
 	curl_easy_cleanup(curl);
 	if (code == CURLE_OK) return std::nullopt;
+	if (upload.unauthenticated) {
+		Error e = permanent("smtp: server doesn't support AUTH");
+		// A sign-in the server refused is shown on the page, as Go's refused XOAUTH2.
+		if (oauth2) oauth.forget(ch);
+		e.auth = oauth2;
+		return e;
+	}
 	if (code == CURLE_USE_SSL_FAILED && !trace.starttls && trace.code == 0) return permanent("the server does not offer STARTTLS");
 	if (code == CURLE_LOGIN_DENIED && trace.code == 0) {
-		// The server offers none of the sign-ins: Go would try its own and be refused.
-		Error e = permanent(curl_error(code, errbuf));
+		// A refused XOAUTH2 token comes with a 334 of error details, after which libcurl ends the session (Go answers
+		// it and gets the server's 5xx); or the server offers none of the sign-ins (Go tries its own and is refused).
+		std::string text = curl_error(code, errbuf);
+		if (oauth2 && !trace.challenge.empty()) {
+			std::string details = base64::decode(trace.challenge).value_or(trace.challenge);
+			text = "the mail server refused the sign-in: " + details;
+		}
+		Error e = permanent(text);
 		if (oauth2) oauth.forget(ch);
 		e.auth = oauth2;
 		return e;

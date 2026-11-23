@@ -130,6 +130,8 @@ add_executable(NanoKVM-Server
   src/video/preview.cpp
   src/video/watermark.cpp
   src/video/webrtc.cpp
+  src/video/audio.cpp
+  src/video/rtc_common.cpp
 )
 
 target_include_directories(NanoKVM-Server PRIVATE

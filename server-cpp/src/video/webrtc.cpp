@@ -10,7 +10,9 @@
 #include "system/failsafe.hpp"
 #include "video/capture_status.hpp"
 #include "video/encoder.hpp"
+#include "video/audio.hpp"
 #include "video/hdmi.hpp"
+#include "video/rtc_common.hpp"
 #include "video/source.hpp"
 
 #include <glaze/glaze.hpp>
@@ -236,6 +238,14 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 	std::shared_ptr<rtc::PeerConnection> pc;
 	std::shared_ptr<rtc::Track> video;
 	std::unique_ptr<Writer> writer;
+	// USB audio: the track of the page's audio m-line, the listener while audio runs, the RTP clock.
+	std::shared_ptr<rtc::Track> audio_track;
+	std::unique_ptr<audio::Listener> audio_listener;
+	bool audio_session = false;
+	std::uint32_t audio_ts = rtc_common::random_u32();
+	std::uint64_t audio_last = 0;
+	Clock::time_point audio_last_at, audio_last_sent;
+	bool audio_have_last = false;
 	bool connected = false, paused = false, viewer = false, done = false;
 
 	void send(const std::string &event, const std::string &data)
@@ -370,6 +380,7 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 				}
 			}
 		}
+		attach_audio();
 		if (!prepare_video()) {
 			log::error("failed to create answer: no {} in the offer", codec_name(codec));
 			return;
@@ -434,18 +445,104 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 			paused = false;
 			sync_viewer();
 		} else if (m.event == "audio-start") {
-			send("audio-error", "audio was not negotiated on this connection");
+			if (auto error = start_audio()) send("audio-error", *error);
+			else send("audio-started", "");
 		} else if (m.event == "audio-stop") {
+			stop_audio();
 			send("audio-stopped", "");
 		} else {
 			log::debug("Unhandled message event: {}", m.event);
 		}
 	}
 
+	// The page's audio transceiver, answered sendonly with the shared encoder's Opus; nothing is sent before
+	// audio-start.
+	void attach_audio()
+	{
+		if (audio_track) return;
+		auto remote = pc->remoteDescription();
+		for (int i = 0; remote && i < remote->mediaCount(); i++) {
+			auto entry = remote->media(i);
+			auto *media = std::get_if<rtc::Description::Media *>(&entry);
+			if (!media || (*media)->type() != "audio" || (*media)->direction() == rtc::Description::Direction::Inactive) continue;
+			auto reciprocated = (*media)->reciprocate();
+			auto pt = rtc_common::find_payload(reciprocated, "opus", {});
+			if (!pt) return;
+			std::uint32_t ssrc = rtc_common::random_u32();
+			rtc_common::trim_to(reciprocated, *pt, std::string(audio::opus_fmtp), ssrc, "audio", "nanokvm");
+			audio_track = pc->addTrack(reciprocated);
+			auto rtp = std::make_shared<rtc::RtpPacketizationConfig>(ssrc, "audio", static_cast<std::uint8_t>(*pt), audio::sample_rate);
+			auto packetizer = std::make_shared<rtc::OpusRtpPacketizer>(rtp);
+			packetizer->addToChain(std::make_shared<rtc::RtcpSrReporter>(rtp));
+			audio_track->setMediaHandler(packetizer);
+			return;
+		}
+	}
+
+	std::optional<std::string> start_audio()
+	{
+		if (!audio_track) return std::string("audio was not negotiated on this connection");
+		if (audio_listener) return std::nullopt;
+		if (!audio::acquire_session()) return std::string("too many audio sessions");
+		std::string error;
+		audio_listener = audio::listen(error);
+		if (!audio_listener) {
+			audio::release_session();
+			return error;
+		}
+		audio_session = true;
+		// A restart continues the RTP clock over the time without sound.
+		if (audio_last_sent != Clock::time_point{}) {
+			auto gap = Clock::now() - audio_last_sent - audio::frame_duration;
+			if (gap > Clock::duration::zero())
+				audio_ts += static_cast<std::uint32_t>(std::chrono::duration_cast<std::chrono::microseconds>(gap).count() *
+				                                       audio::sample_rate / 1000000);
+		}
+		audio_have_last = false;
+		audio_listener->packet = [this](const audio::Packet &p) { send_audio(p); };
+		audio_listener->ended = [this] {
+			loop::post([gone = audio_listener.release()] { delete gone; });
+			if (audio_session) audio::release_session();
+			audio_session = false;
+		};
+		return std::nullopt;
+	}
+
+	void send_audio(const audio::Packet &p)
+	{
+		std::uint64_t dropped = 0;
+		if (audio_have_last && p.index > audio_last + 1) dropped = std::min<std::uint64_t>(p.index - audio_last - 1, 65535);
+		if (audio_have_last) {
+			auto gap = audio::pause_gap(p.at - audio_last_at, dropped);
+			audio_ts += static_cast<std::uint32_t>(std::chrono::duration_cast<std::chrono::microseconds>(gap).count() *
+			                                       audio::sample_rate / 1000000);
+		}
+		audio_ts += static_cast<std::uint32_t>(dropped * 960);
+		try {
+			audio_track->sendFrame(reinterpret_cast<const rtc::byte *>(p.data->data()), p.data->size(), rtc::FrameInfo(audio_ts));
+		} catch (const std::exception &e) {
+			log::debug("audio track write: {}", e.what());
+			return stop_audio();
+		}
+		audio_ts += 960;
+		audio_last = p.index;
+		audio_last_at = p.at;
+		audio_have_last = true;
+		audio_last_sent = Clock::now();
+	}
+
+	void stop_audio()
+	{
+		audio_listener.reset();
+		if (audio_session) audio::release_session();
+		audio_session = false;
+	}
+
 	void close_all()
 	{
 		if (done) return;
 		done = true;
+		stop_audio();
 		if (viewer) {
 			manager.remove(this);
 			viewer = false;

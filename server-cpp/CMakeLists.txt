@@ -87,6 +87,7 @@ add_executable(NanoKVM-Server
   src/system/live_status.cpp
   src/system/time_settings.cpp
   src/usb/composition.cpp
+  src/usb/storage_reads.cpp
   src/video/capture_status.cpp
   src/video/capture_worker.c
   src/video/direct.cpp

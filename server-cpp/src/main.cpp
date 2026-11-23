@@ -24,6 +24,7 @@
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
 #include "usb/composition.hpp"
+#include "usb/storage_reads.hpp"
 #include "input/jiggler.hpp"
 #include "input/ws.hpp"
 #include "video/hdmi.hpp"
@@ -82,6 +83,7 @@ int main()
 	input::add_keyboard_routes(router);
 	input::jiggler::add_routes(router);
 	usb::add_routes(router);
+	usb::add_storage_read_routes(router);
 	system::add_info_routes(router);
 	system::logs::add_routes(router);
 	system::notify::add_routes(router);

@@ -6,6 +6,7 @@
 #include <charconv>
 #include <chrono>
 #include <fstream>
+#include <map>
 #include <cerrno>
 #include <optional>
 #include <sstream>
@@ -186,6 +187,16 @@ int capture_rate_limit(int width, int height)
 	return tiers[0].fps;
 }
 
+namespace {
+std::map<const void *, int> viewer_rates;
+}
+
+void set_viewer_rate(const void *viewer, int fps)
+{
+	if (fps == 0) viewer_rates.erase(viewer);
+	else viewer_rates[viewer] = validate_fps(fps);
+}
+
 Screen capture_screen()
 {
 	Screen next = current();
@@ -196,6 +207,7 @@ Screen capture_screen()
 	}
 	int limit = std::min(capture_rate_limit(source_timing.width, source_timing.height),
 	                     capture_rate_limit(next.width, next.height));
+	for (auto &[viewer, fps] : viewer_rates) limit = std::min(limit, fps);
 	if (next.fps > limit) next.fps = limit;
 	if (applied_capture_fps != next.fps) {
 		applied_capture_fps = next.fps;

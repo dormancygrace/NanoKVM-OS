@@ -26,8 +26,10 @@ struct Bridge {
 	virtual bool audio_enabled() = 0;
 };
 
-// The bridge in use (the default one refuses to start: see bridge.cpp). Before start().
+// The bridge in use (the default one refuses to start: see routes.cpp). Before start().
 void set_bridge(std::shared_ptr<Bridge> bridge);
+// The bridge to the daemon (bridge.cpp, webrtc_bridge.cpp): media.sock, control.sock, webrtc.sock, audio.sock.
+std::shared_ptr<Bridge> make_bridge();
 
 // The USB composition for RustDesk, as service/vm's EnableRemoteAccessUSB (its preset, with or without audio),
 // EnsureRemoteAccessUSB (audio added while it runs) and RestoreUSBAfterRemoteAccess (the composition it replaced).

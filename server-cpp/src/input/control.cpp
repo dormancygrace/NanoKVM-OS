@@ -86,7 +86,11 @@ ModeStatus mode_status()
 	return cache.status;
 }
 
-bool Reservation::valid() const { return session_ && generation_ != 0 && session_->live_.load() == generation_; }
+bool Reservation::valid() const
+{
+	if (deadline_ != Clock::time_point{} && Clock::now() >= deadline_) return false;
+	return session_ && generation_ != 0 && session_->live_.load() == generation_;
+}
 
 void Reservation::complete(bool success)
 {

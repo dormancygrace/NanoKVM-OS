@@ -37,9 +37,12 @@ class ManualSession;
 // One admitted report. complete() once, on the loop thread, after the write (or when it is dropped).
 class Reservation {
 public:
-	// Writer threads: the session still holds this generation.
+	// Writer threads: the session still holds this generation (and the deadline, if any, has not passed).
 	bool valid() const;
 	void complete(bool success);
+	// A report that must not reach the computer after this time (the RustDesk bridge answers its frame by then).
+	// Set before the report is queued.
+	void set_deadline(std::chrono::steady_clock::time_point deadline) { deadline_ = deadline; }
 
 private:
 	friend class ManualSession;
@@ -47,6 +50,7 @@ private:
 	std::uint64_t generation_ = 0;
 	ReportKind kind_{};
 	bool held_ = false, start_cooldown_ = false, done_ = false;
+	std::chrono::steady_clock::time_point deadline_{};
 };
 
 class ManualSession : public std::enable_shared_from_this<ManualSession> {

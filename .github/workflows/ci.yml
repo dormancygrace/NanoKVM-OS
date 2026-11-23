@@ -1,7 +1,7 @@
 name: CI
 
-# Hardware-independent checks only: the real server build links the native
-# SG2002 libraries, so Go is built and tested with the teststub tag.
+# Hardware-independent checks only. The server (server-cpp) links the native
+# SG2002 libraries and is built by platform/build.sh in the release build.
 on:
   push:
     branches: [main]
@@ -26,8 +26,6 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      server: ${{ steps.areas.outputs.server }}
-      poly1305: ${{ steps.areas.outputs.poly1305 }}
       web: ${{ steps.areas.outputs.web }}
       rustdesk: ${{ steps.areas.outputs.rustdesk }}
       assembly: ${{ steps.areas.outputs.assembly }}
@@ -52,11 +50,9 @@ jobs:
           all='^\.github/'
           changed() { grep -qE "$all|$1" "$files" && echo true || echo false; }
           {
-            echo "server=$(changed '^(server|support|firmware/cpu)/')"
-            echo "poly1305=$(changed '^server/go\.(mod|sum)$|^firmware/cpu/(go-crypto-c906|sysmon-runtime|go-bytes-index)/|^tests/test-c906-poly1305\.py$')"
             echo "web=$(changed '^web/|^\.nvmrc$')"
             echo "rustdesk=$(changed '^addons/rustdesk/')"
-            echo "assembly=$(changed '^(firmware/(cpu/(go-crypto-c906|go-websocket-c906|sysmon-runtime)|crypto/openssl-c906)|server/(logs|internal/(annexb|sha1mb)))/|^addons/rustdesk/src/(poly1305|salsa20)_c906[.]S$|^platform/kernel/[0-9]+-crypto-')"
+            echo "assembly=$(changed '^firmware/(cpu/go-crypto-c906|crypto/openssl-c906)/|^addons/rustdesk/src/(poly1305|salsa20)_c906[.]S$|^platform/kernel/[0-9]+-crypto-')"
             echo "openssl=$(changed '^firmware/crypto/openssl-c906/|^platform/sources[.]lock$|^tests/test-openssl-source[.]py$')"
             echo "signing=$(changed '^firmware/alpine/(packages/|release[.]env$)|^scripts/(build-alpine-packages|check-ec-key)[.]sh$|^tests/test-ecdsa-packages[.]py$')"
             echo "safe_update=$(changed '^firmware/alpine/safe-update/')"
@@ -71,64 +67,6 @@ jobs:
         with:
           fetch-depth: 0
       - run: python3 scripts/check-test-budget.py "origin/${{ github.base_ref }}" HEAD
-
-  server:
-    name: Go server
-    needs: changes
-    if: needs.changes.outputs.server == 'true'
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: server
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          # Releases use a patched go1.27.4 (firmware/cpu/sysmon-runtime).
-          go-version: '1.27.x'
-          cache-dependency-path: server/go.sum
-      # internal/decompress links zlib through cgo; the device build uses
-      # zlib-ng from platform/build.sh.
-      - name: Compression headers
-        run: sudo apt-get update && sudo apt-get install -y zlib1g-dev
-      - name: Build
-        run: go build -tags teststub,nomsgpack ./...
-      - name: Vet
-        run: go vet -tags teststub,nomsgpack $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
-      - name: Test
-        run: go test -tags teststub,nomsgpack -count=1 $(go list -tags teststub,nomsgpack ./... | grep -v /third_party/)
-      - name: IPMI race checks
-        run: go test -race -tags teststub,nomsgpack ./internal/ipmi ./service/bmc
-      - name: NanoKVM tests of the patched pion modules
-        run: |
-          for m in pion-dtls pion-ice pion-sctp pion-srtp; do
-            (cd third_party/$m && go test -count=1 ./...)
-          done
-      - name: Prepared C906 WebSocket module builds for the device
-        run: |
-          out="$RUNNER_TEMP/websocket-c906"
-          python3 ../firmware/cpu/go-websocket-c906/prepare.py --go "$(command -v go)" --output "$out"
-          cd "$out/server"
-          GOOS=linux GOARCH=riscv64 GORISCV64=rva20u64 CGO_ENABLED=0 go vet github.com/gorilla/websocket
-
-  poly1305:
-    name: Prepared RISC-V Poly1305
-    needs: changes
-    if: needs.changes.outputs.poly1305 == 'true'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.27.4'
-          cache-dependency-path: server/go.sum
-      - name: Install scalar RISC-V emulator
-        run: sudo apt-get update && sudo apt-get install -y qemu-user
-      - name: Build and test the production assembly and pinned reference
-        run: |
-          XCRYPTO=$(go mod download -json golang.org/x/crypto@v0.57.0 | jq -r .Dir)
-          python3 tests/test-c906-poly1305.py --base "$(go env GOROOT)" \
-            --xcrypto "$XCRYPTO" --output "$RUNNER_TEMP/poly1305"
 
   web:
     name: Web UI
@@ -169,7 +107,7 @@ jobs:
       - name: Shellcheck (errors only; parses each script per its shebang)
         run: |
           git ls-files -z | while IFS= read -r -d '' f; do
-            case "$f" in server/third_party/*|*.patch) continue ;; esac
+            case "$f" in *.patch) continue ;; esac
             [ -f "$f" ] || continue
             if head -n1 "$f" | grep -qE '^#!.*(/|env )(ba|da)?sh( |$)'; then
               printf '%s\0' "$f"
@@ -191,34 +129,17 @@ jobs:
         run: |
           sudo apt-get install -y binutils-riscv64-linux-gnu
           cd firmware/cpu/go-crypto-c906
-          python3 gen_chacha_riscv64.py --binutils riscv64-linux-gnu- --check chacha_riscv64.s
-          python3 ../go-websocket-c906/gen_mask_riscv64.py --binutils riscv64-linux-gnu- --check ../go-websocket-c906/mask_linux_riscv64.s
-          python3 gen_sha1mb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/sha1mb/sha1mb_riscv64.s
-          python3 gen_annexb_riscv64.py --binutils riscv64-linux-gnu- --check ../../../server/internal/annexb/annexb_riscv64.s
-          python3 ../sysmon-runtime/gen_memmove_c906.py --binutils riscv64-linux-gnu- --check ../sysmon-runtime/nanokvm_memmove_riscv64.s
-          python3 ../sysmon-runtime/gen_memclr_c906.py --binutils riscv64-linux-gnu- --check ../sysmon-runtime/nanokvm_memclr_riscv64.s
-          python3 ../sysmon-runtime/gen_memequal_c906.py --binutils riscv64-linux-gnu- --check ../sysmon-runtime/bytealg_memequal_riscv64.s
           python3 gen_chacha_linux.py --binutils riscv64-linux-gnu- --check ../../../platform/kernel/0040-crypto-riscv-xtheadvector-chacha.patch
           python3 gen_ghash_table.py --selftest 50 --flavor linux --tables 4 --name ghash_blocks_c906 --check ../../../platform/kernel/0041-crypto-riscv-c906-ghash.patch
           python3 gen_ghash_table.py --flavor openssl --tables 2 --name ossl_ghash_blocks_c906 --check ../../crypto/openssl-c906/0010-ghash-c906.patch
-          python3 ../../../server/logs/check-encodings.py --prefix riscv64-linux-gnu-
           python3 ../../crypto/openssl-c906/generate-chacha.py --binutils riscv64-linux-gnu- --check
           curl -fsSL "$(python3 ../../crypto/openssl-c906/generate-chacha-scalar.py --print-url)" -o "$RUNNER_TEMP/chacha-riscv.pl"
           python3 ../../crypto/openssl-c906/generate-chacha-scalar.py --cryptogams "$RUNNER_TEMP/chacha-riscv.pl" --check
           python3 gen_sha2_c906.py --selftest 40 --bits 256 --name ossl_sha256_c906_blocks --check ../../crypto/openssl-c906/0003-sha256-dma.patch crypto/sha/sha256-c906.S
-          python3 gen_sha2_c906.py --bits 256 --name block --flavor go --binutils riscv64-linux-gnu- --check-file sha256block_riscv64.s
-          python3 gen_sha2_c906.py --bits 512 --name block --flavor go --binutils riscv64-linux-gnu- --check-file sha512block_riscv64.s
           python3 gen_sha2_c906.py --bits 512 --name ossl_sha512_c906_blocks --check ../../crypto/openssl-c906/0003-sha256-dma.patch crypto/sha/sha512-c906.S
           python3 gen_sha2_c906.py --bits 256 --name sha256_blocks_c906 --flavor linux --check ../../../platform/kernel/0079-crypto-riscv-c906-sha2.patch lib/crypto/riscv/sha256-riscv64-c906.S
           python3 gen_sha2_c906.py --bits 512 --name sha512_blocks_c906 --flavor linux --check ../../../platform/kernel/0079-crypto-riscv-c906-sha2.patch lib/crypto/riscv/sha512-riscv64-c906.S
           python3 gen_aes_c906.py --selftest 30 --name aes_c906 --flavor linux --check ../../../platform/kernel/0080-crypto-riscv-c906-aes.patch lib/crypto/riscv/aes-riscv64-c906.S
-          python3 gen_aes_c906.py --name aes_c906 --flavor go --binutils riscv64-linux-gnu- --check-file aes_c906_riscv64.s
-          python3 gen_ghash_table.py --flavor go --tables 2 --name ghashBlocksC906 --binutils riscv64-linux-gnu- --check-file ghash_c906_riscv64.s
-          curl -fsSL "$(python3 gen_keccak_c906.py --print-url)" -o "$RUNNER_TEMP/keccak1600-riscv.pl"
-          python3 gen_keccak_c906.py --cryptogams "$RUNNER_TEMP/keccak1600-riscv.pl" --binutils riscv64-linux-gnu- --check keccak_c906_riscv64.s
-          curl -fsSL "$(python3 gen_poly1305_c906.py --print-url)" -o "$RUNNER_TEMP/poly1305-riscv.pl"
-          python3 gen_poly1305_c906.py --cryptogams "$RUNNER_TEMP/poly1305-riscv.pl" --binutils riscv64-linux-gnu- --check sum_c906_riscv64.s
-          python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --go --check sum_vector_riscv64.s
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --rust --check ../../../addons/rustdesk/src/poly1305_c906.S
           python3 gen_salsa20_c906.py --binutils riscv64-linux-gnu- --check ../../../addons/rustdesk/src/salsa20_c906.S
           python3 gen_poly1305_vector.py --binutils riscv64-linux-gnu- --linux --check ../../../platform/kernel/0077-crypto-riscv-xtheadvector-poly1305.patch
@@ -240,25 +161,6 @@ jobs:
           docker run --rm -v "$PWD:/src:ro" -w /src alpine:3.24 sh -ec '
             apk add --no-cache alpine-sdk alpine-keys python3 openssl coreutils > /dev/null
             python3 tests/test-ecdsa-packages.py'
-
-      - uses: actions/setup-go@v7
-        if: needs.changes.outputs.server == 'true'
-        with:
-          go-version: '1.27.x'
-          cache-dependency-path: server/go.sum
-      - name: RISC-V log sanitizer and Annex-B search ABI and test build
-        if: needs.changes.outputs.server == 'true'
-        working-directory: server
-        env:
-          GOOS: linux
-          GOARCH: riscv64
-          GORISCV64: rva20u64
-          CGO_ENABLED: '0'
-        run: |
-          go vet ./logs ./logger
-          go test -c -o "$RUNNER_TEMP/logs-riscv64.test" ./logs
-          go vet ./internal/annexb ./internal/xtheadvector
-          go test -c -o "$RUNNER_TEMP/annexb-riscv64.test" ./internal/annexb
       - name: Script tests
         run: |
           set -e

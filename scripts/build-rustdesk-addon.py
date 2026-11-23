@@ -193,7 +193,7 @@ The usb-audio capture source and build script are included as integration
 references; their dependencies remain pinned by the script. The native helper
 belongs to the NanoKVM application package and is not duplicated by the add-on.
 """)
-shutil.copytree(root/"server/service/stream/audio/capture",go_transport/"native/usb-audio")
+shutil.copytree(root/"support/usb-audio-capture",go_transport/"native/usb-audio")
 shutil.copyfile(root/"scripts/build-usb-audio.py",go_transport/"build-usb-audio.py.integration")
 shutil.copyfile(root/"scripts/nanokvm_cpu_profile.py",go_transport/"nanokvm_cpu_profile.py.integration")
 

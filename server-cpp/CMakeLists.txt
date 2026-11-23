@@ -45,7 +45,7 @@ endforeach()
 configure_file(${RYML_HEADER} ${CMAKE_BINARY_DIR}/third_party/ryml_all.hpp COPYONLY)
 
 # The notification messages (the catalogues of the web interface's languages), embedded.
-set(NOTIFY_MESSAGES_DIR ${CMAKE_SOURCE_DIR}/../server/service/notify/messages)
+set(NOTIFY_MESSAGES_DIR ${CMAKE_SOURCE_DIR}/data/notify-messages)
 file(GLOB NOTIFY_MESSAGE_FILES ${NOTIFY_MESSAGES_DIR}/*.json)
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/generated/notify_messages.inc
@@ -55,7 +55,7 @@ add_custom_command(
   VERBATIM)
 
 # The network family's udhcpc hooks and IPv6 boot script, embedded byte for byte as the Go server embeds them.
-set(NETWORK_SCRIPTS_DIR ${CMAKE_SOURCE_DIR}/../server/service/network/scripts)
+set(NETWORK_SCRIPTS_DIR ${CMAKE_SOURCE_DIR}/data/network-scripts)
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/generated/network_scripts.inc
   COMMAND ${CMAKE_COMMAND} -DSRC=${NETWORK_SCRIPTS_DIR} -DOUT=${CMAKE_BINARY_DIR}/generated/network_scripts.inc

@@ -51,7 +51,7 @@ COMPONENTS = {
                'firmware/services/nanokvm-serial-console.sh', 'firmware/crypto/openssl-c906',
                'firmware/cpu/go-crypto-c906', 'platform/lolcat',
                'firmware/alpine/packages/nanokvm-zlib/zlib-1.3.2.symbols',
-               'server/service/stream/audio/capture', 'platform/modules/c906l/nanokvm_opus.h',
+               'support/usb-audio-capture', 'platform/modules/c906l/nanokvm_opus.h',
                'scripts/build-busybox-devmem.sh', 'scripts/build-serial-console-disk.py',
                'scripts/build-qhd-edid.py', 'scripts/build-monitor-edids.py',
                'scripts/build-portrait-edid.py', 'scripts/build-wide-monitor-edids.py',

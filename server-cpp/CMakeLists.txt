@@ -54,6 +54,7 @@ add_executable(NanoKVM-Server
   src/http/static_files.cpp
   src/input/control.cpp
   src/input/hid.cpp
+  src/input/jiggler.cpp
   src/input/keyboard_routes.cpp
   src/input/region.cpp
   src/input/ws.cpp

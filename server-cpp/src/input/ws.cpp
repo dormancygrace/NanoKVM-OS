@@ -6,6 +6,7 @@
 #include "http/websocket.hpp"
 #include "input/control.hpp"
 #include "input/hid.hpp"
+#include "input/jiggler.hpp"
 #include "video/capture_status.hpp"
 
 #include <glaze/glaze.hpp>
@@ -293,6 +294,7 @@ void Client::queue_manual_report(control::ReportKind kind, std::vector<std::uint
 	else lane->mouse(std::move(r));
 	note_held(kind, held);
 	manual_input_at = Clock::now();
+	jiggler::note_input();
 }
 
 void Client::arm_hold()

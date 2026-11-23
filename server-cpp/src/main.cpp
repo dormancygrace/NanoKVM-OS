@@ -15,6 +15,7 @@
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
 #include "usb/composition.hpp"
+#include "input/jiggler.hpp"
 #include "input/ws.hpp"
 #include "video/hdmi.hpp"
 #include "video/routes.hpp"
@@ -67,6 +68,7 @@ int main()
 	system::add_branding_routes(router);
 	input::add_region_routes(router);
 	input::add_keyboard_routes(router);
+	input::jiggler::add_routes(router);
 	usb::add_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.
@@ -80,9 +82,11 @@ int main()
 		video::hdmi::start();
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");
 		input::hid::start();
+		input::jiggler::start();
 		system::atx::start();
 	});
 	system::atx::stop();
+	input::jiggler::stop();
 	input::hid::stop();
 	video::vision::deinit();
 	return status;

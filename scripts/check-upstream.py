@@ -144,6 +144,8 @@ def check_alpine_inventory(root=ROOT):
         if not match:
             raise ValueError('VPN package inventory could not be read')
         optional = set(re.findall(r'"([^"\n]+)":', match[1]))
+        # ZeroTier is shipped as nanokvm-zerotier and tracked in upstream-watch.json.
+        optional.discard('zerotier')
         optional = {'wireguard-tools' if name == 'wireguard' else name for name in optional}
         packages |= optional | {'busybox', 'apk-tools'}
         available = {}

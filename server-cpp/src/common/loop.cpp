@@ -119,6 +119,8 @@ void post(std::function<void()> fn)
 
 void after(std::chrono::milliseconds delay, std::function<void()> fn)
 {
+	// After detach (lws_context_destroy closing the last connections): no loop to fire it.
+	if (!ctx) return;
 	auto node = std::make_unique<lws_sorted_usec_list_t>();
 	lws_sorted_usec_list_t *sul = node.get();
 	*sul = {};
@@ -128,6 +130,7 @@ void after(std::chrono::milliseconds delay, std::function<void()> fn)
 
 void work(std::function<void()> fn)
 {
+	if (!worker) return fn();
 	{
 		std::lock_guard lock(worker->mutex);
 		worker->jobs.push_back(std::move(fn));
@@ -137,6 +140,7 @@ void work(std::function<void()> fn)
 
 void blocking(std::function<void()> fn)
 {
+	if (pool.empty()) return fn();
 	{
 		std::lock_guard lock(pool[0]->mutex);
 		pool[0]->jobs.push_back(std::move(fn));
@@ -146,6 +150,7 @@ void blocking(std::function<void()> fn)
 
 void device(std::function<void()> fn)
 {
+	if (!device_worker) return fn();
 	{
 		std::lock_guard lock(device_worker->mutex);
 		device_worker->jobs.push_back(std::move(fn));

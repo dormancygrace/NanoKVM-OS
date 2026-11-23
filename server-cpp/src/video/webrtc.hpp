@@ -12,4 +12,8 @@ namespace nkos::video::webrtc {
 
 void add_routes(http::Router &router);
 
+// Closes every connection (PeerConnections closed, writers joined) and cleans libdatachannel up. Once, on the loop
+// thread, when the server stops: before the capture is released.
+void stop();
+
 } // namespace nkos::video::webrtc

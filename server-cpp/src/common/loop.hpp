@@ -18,7 +18,7 @@ void detach();
 // Runs fn on the loop thread, soon. Safe from any thread.
 void post(std::function<void()> fn);
 
-// Runs fn on the loop thread after delay. Loop thread only.
+// Runs fn on the loop thread after delay. Loop thread only. Dropped once the loop is detached.
 void after(std::chrono::milliseconds delay, std::function<void()> fn);
 
 // Runs fn on the worker thread (one, in order). Safe from any thread.
@@ -31,6 +31,8 @@ void blocking(std::function<void()> fn);
 // Runs fn on the device thread (one, in order): native device calls that can take long (HDMI capture on/off takes
 // about 0.3 s), apart from the worker so a password hash does not hold them up. Safe from any thread.
 void device(std::function<void()> fn);
+
+// work, blocking and device run fn on the calling thread once the loop is detached (the server is stopping).
 
 // The loop calls this when lws_cancel_service woke it: runs the posted functions.
 void drain();

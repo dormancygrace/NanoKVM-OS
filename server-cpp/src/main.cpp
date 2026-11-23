@@ -177,6 +177,10 @@ int main()
 		system::scripts::start_autostart();
 		// nanokvm-app waits for this: the server accepts connections.
 		if (!std::ofstream("/run/nanokvm/listening")) log::error("cannot mark the server listening");
+	}, [] {
+		// Still on the loop: peers close before the capture they read is released.
+		video::webrtc::stop();
+		video::audio::stop();
 	});
 	system::atx::stop();
 	input::jiggler::stop();

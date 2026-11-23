@@ -133,6 +133,7 @@ add_executable(NanoKVM-Server
   src/video/webrtc.cpp
   src/video/audio.cpp
   src/video/rtc_common.cpp
+  src/video/srtp_frame.cpp
 )
 
 target_include_directories(NanoKVM-Server PRIVATE

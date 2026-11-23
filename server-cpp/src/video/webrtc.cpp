@@ -14,6 +14,7 @@
 #include "video/hdmi.hpp"
 #include "video/rtc_common.hpp"
 #include "video/source.hpp"
+#include "video/srtp_frame.hpp"
 
 #include <glaze/glaze.hpp>
 #include <libwebsockets.h>
@@ -25,6 +26,7 @@
 #include <condition_variable>
 #include <deque>
 #include <format>
+#include <future>
 #include <map>
 #include <mutex>
 #include <netinet/in.h>
@@ -203,7 +205,8 @@ private:
 				track_->sendFrame(reinterpret_cast<const rtc::byte *>(frame.data()), frame.size,
 				                  rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(frame.timestamp) / 1e6)));
 			} catch (const std::exception &e) {
-				log::debug("webrtc video write: {}", e.what());
+				static std::atomic<int> reported{0};
+				if (reported++ < 3) log::warn("webrtc video write: {}", e.what());
 			}
 		}
 	}
@@ -231,6 +234,9 @@ struct Manager : Subscriber {
 };
 Manager manager;
 
+// Every peer alive, for stop(). Loop thread only.
+std::set<Peer *> live;
+
 struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 	http::WebSocket *ws = nullptr;
 	Codec codec = default_codec;
@@ -247,6 +253,9 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 	Clock::time_point audio_last_at, audio_last_sent;
 	bool audio_have_last = false;
 	bool connected = false, paused = false, viewer = false, done = false;
+
+	Peer() { live.insert(this); }
+	~Peer() { live.erase(this); }
 
 	void send(const std::string &event, const std::string &data)
 	{
@@ -538,7 +547,8 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 		audio_session = false;
 	}
 
-	void close_all()
+	// now: the server is stopping; the PeerConnection closes here, not on a blocking thread.
+	void close_all(bool now = false)
 	{
 		if (done) return;
 		done = true;
@@ -550,13 +560,15 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 		writer.reset();
 		if (pc) {
 			auto c = std::move(pc);
-			// Closing waits for libdatachannel's threads: not on the loop.
-			loop::blocking([c] {
+			auto close = [c] {
 				try {
 					c->close();
 				} catch (...) {
 				}
-			});
+			};
+			// Closing waits for libdatachannel's threads: not on the loop.
+			if (now) close();
+			else loop::blocking(close);
 		}
 		video.reset();
 		if (ws && !ws->closing()) ws->close(1000, "");
@@ -623,8 +635,22 @@ void Manager::ended()
 
 } // namespace
 
+void stop()
+{
+	auto peers = std::vector<Peer *>(live.begin(), live.end());
+	for (auto *p : peers) {
+		auto keep = p->shared_from_this();
+		p->close_all(true);
+	}
+	// libdatachannel's threads (ICE, DTLS, SCTP, its pool) end before the process does.
+	if (rtc::Cleanup().wait_for(std::chrono::seconds(3)) != std::future_status::ready)
+		log::warn("webrtc: cleanup did not finish in 3 s");
+}
+
 void add_routes(http::Router &router)
 {
+	// Outbound SRTP of every connection on the CryptoDMA engine, a frame per request.
+	srtp_frame::install();
 	rtc::InitLogger(rtc::LogLevel::Warning, [](rtc::LogLevel level, std::string message) {
 		if (level <= rtc::LogLevel::Error) log::error("webrtc: {}", message);
 		else log::debug("webrtc: {}", message);

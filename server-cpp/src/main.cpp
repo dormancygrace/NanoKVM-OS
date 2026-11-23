@@ -18,6 +18,7 @@
 #include "system/info.hpp"
 #include "system/journal.hpp"
 #include "system/logs.hpp"
+#include "system/notify.hpp"
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
 #include "usb/composition.hpp"
@@ -81,6 +82,7 @@ int main()
 	usb::add_routes(router);
 	system::add_info_routes(router);
 	system::logs::add_routes(router);
+	system::notify::add_routes(router);
 	system::add_memory_routes(router);
 	system::add_dashboard_routes(router);
 	system::add_cpufreq_routes(router);

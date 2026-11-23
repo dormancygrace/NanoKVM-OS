@@ -34,6 +34,16 @@ endforeach()
 # The single header is included under a fixed name.
 configure_file(${RYML_HEADER} ${CMAKE_BINARY_DIR}/third_party/ryml_all.hpp COPYONLY)
 
+# The notification messages (the catalogues of the web interface's languages), embedded.
+set(NOTIFY_MESSAGES_DIR ${CMAKE_SOURCE_DIR}/../server/service/notify/messages)
+file(GLOB NOTIFY_MESSAGE_FILES ${NOTIFY_MESSAGES_DIR}/*.json)
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/generated/notify_messages.inc
+  COMMAND ${CMAKE_COMMAND} -DSRC=${NOTIFY_MESSAGES_DIR} -DOUT=${CMAKE_BINARY_DIR}/generated/notify_messages.inc
+          -P ${CMAKE_SOURCE_DIR}/cmake/embed_messages.cmake
+  DEPENDS ${NOTIFY_MESSAGE_FILES} ${CMAKE_SOURCE_DIR}/cmake/embed_messages.cmake
+  VERBATIM)
+
 add_executable(NanoKVM-Server
   src/main.cpp
   src/common/log.cpp
@@ -70,6 +80,8 @@ add_executable(NanoKVM-Server
   src/system/journal.cpp
   src/system/log_sanitize.cpp
   src/system/logs.cpp
+  src/system/notify.cpp
+  ${CMAKE_BINARY_DIR}/generated/notify_messages.inc
   src/system/live_status.cpp
   src/system/time_settings.cpp
   src/usb/composition.cpp
@@ -93,6 +105,7 @@ add_executable(NanoKVM-Server
 
 target_include_directories(NanoKVM-Server PRIVATE
   src
+  ${CMAKE_BINARY_DIR}/generated
   ${CMAKE_BINARY_DIR}/third_party
   ${LWS_ROOT}/include
   ${OPENSSL_ROOT}/include

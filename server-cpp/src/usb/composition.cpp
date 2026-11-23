@@ -3,17 +3,22 @@
 #include "api/response.hpp"
 #include "auth/session.hpp"
 #include "common/log.hpp"
-
-#include <glaze/glaze.hpp>
-#include <openssl/evp.h>
+#include "common/loop.hpp"
+#include "common/process.hpp"
+#include "storage/storage.hpp"
+#include "usb/core_hooks.hpp"
+#include "usb/gadget.hpp"
+#include "usb/gotext.hpp"
+#include "usb/requests.hpp"
+#include "usb/usbinternet.hpp"
+#include "video/audio.hpp"
 
 #include <cerrno>
-#include <cstring>
-#include <dirent.h>
+#include <climits>
+#include <ctime>
+#include <fcntl.h>
 #include <format>
-#include <fstream>
-#include <map>
-#include <sstream>
+#include <future>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -21,340 +26,309 @@ namespace nkos::usb {
 
 namespace {
 
-constexpr int in_endpoint_limit = 6, out_endpoint_limit = 7;
-constexpr std::size_t max_usb_string = 126;
-constexpr const char *gadget = "/sys/kernel/config/usb_gadget/g0";
-constexpr const char *user_disk_image = "/data/.nanokvm/user-disk.img";
+constexpr const char *user_disk_busy = "the user disk is busy; wait for the current operation to finish";
+constexpr const char *not_gadget = "the USB port is not in gadget mode";
+constexpr const char *user_disk_missing = "create the user disk first";
 
-struct Cost {
-	int in = 0;
-	int out = 0;
-};
-const std::map<std::string, Cost> costs = {
-	{"absolute", {1, 1}}, {"audio", {0, 1}}, {"disk", {1, 1}}, {"hid", {3, 3}},
-	{"keyboard", {1, 1}}, {"network", {2, 1}}, {"relative", {1, 1}}, {"serial", {2, 1}},
-};
+Composition live() { return read_composition(flags_dir, gadget_root); }
 
-std::string flag(const char *name) { return std::string(flags_dir) + "/" + name; }
-
-bool file_exists(const std::string &path)
+std::string live_json(const Composition &s)
 {
+	return response_json(s, role_flags(flags_dir), port_power(), chip_serial_number());
+}
+
+// audio.Stop: ALSA is let go before the gadget changes (the audio hub lives on the loop thread).
+std::string stop_audio()
+{
+	std::promise<void> done;
+	auto f = done.get_future();
+	loop::post([&done] {
+		video::audio::stop();
+		done.set_value();
+	});
+	f.wait();
+	return {};
+}
+
+// sh S03usbdev <action>, 20 s.
+std::string run_script(const std::string &action)
+{
+	process::Options options;
+	options.timeout = std::chrono::seconds(20);
+	auto r = process::run({"sh", usb_dev_script, action}, options);
+	if (r.ok()) return {};
+	std::string why = !r.started ? "exec: \"sh\": " + r.error : r.timed_out ? "signal: killed"
+	                  : r.signal ? "signal: " + std::to_string(r.signal) : "exit status " + std::to_string(r.exit_code);
+	return "USB " + action + ": " + why + ": " + r.output;
+}
+
+// hid.InstallModeScript: the mode's script of the application package replaces the active one (the actual file
+// behind Alpine's compatibility symlink), without a rebind.
+std::string install_mode_script(const std::string &mode)
+{
+	std::string src = mode_normal_script;
+	if (mode == "hid-only") src = mode_hid_only_script;
+	else if (mode != "normal") return "invalid HID mode " + gotext::quote(mode);
+	std::string dst = usb_dev_script;
 	struct stat st{};
-	if (::stat(path.c_str(), &st) == 0) return true;
-	if (errno != ENOENT) log::error("check file {} err: {}", path, std::strerror(errno));
-	return false;
-}
-
-bool lexists(const std::string &path)
-{
-	struct stat st{};
-	return ::lstat(path.c_str(), &st) == 0;
-}
-
-std::optional<std::string> read_file(const std::string &path, std::size_t limit = 1 << 16)
-{
-	std::ifstream in(path, std::ios::binary);
-	if (!in) return std::nullopt;
-	std::string s(limit, '\0');
-	in.read(s.data(), static_cast<std::streamsize>(limit));
-	s.resize(static_cast<std::size_t>(in.gcount()));
-	return s;
-}
-
-std::string trim(const std::string &s)
-{
-	auto a = s.find_first_not_of(" \t\r\n");
-	if (a == std::string::npos) return {};
-	return s.substr(a, s.find_last_not_of(" \t\r\n") - a + 1);
-}
-
-// --- identity ---------------------------------------------------------------------------------------------------
-
-struct Identity {
-	std::string vendor_id, product_id, manufacturer, product, serial_number;
-	bool operator==(const Identity &) const = default;
-};
-const Identity default_identity{"0x3346", "0x1009", "sipeed", "NanoKVM", ""};
-
-std::optional<std::string> normalize_usb_id(std::string value)
-{
-	value = trim(value);
-	if (value.size() < 3 || value.size() > 6 || value[0] != '0' || (value[1] != 'x' && value[1] != 'X')) return std::nullopt;
-	unsigned id = 0;
-	for (std::size_t i = 2; i < value.size(); i++) {
-		char c = value[i];
-		int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
-		if (d < 0) return std::nullopt;
-		id = id * 16 + static_cast<unsigned>(d);
+	if (::lstat(dst.c_str(), &st) == 0 && S_ISLNK(st.st_mode)) {
+		char resolved[PATH_MAX];
+		if (!::realpath(dst.c_str(), resolved)) return "resolve USB init script: lstat " + dst + ": " + gotext::errno_text(errno);
+		dst = resolved;
+	} else if (::lstat(dst.c_str(), &st) != 0 && errno != ENOENT) {
+		return "lstat " + dst + ": " + gotext::errno_text(errno);
 	}
-	if (id == 0) return std::nullopt;
-	return std::format("0x{:04x}", id);
-}
-
-bool valid_usb_string(const std::string &v)
-{
-	if (v.empty() || v.size() > max_usb_string) return false;
-	for (unsigned char c : v)
-		if (c < 0x20 || c > 0x7e) return false;
-	return trim(v) == v && v.front() != ' ' && v.back() != ' ';
-}
-
-bool valid_serial(const std::string &v)
-{
-	if (v.empty() || v.size() > 126) return false;
-	for (unsigned char c : v)
-		if (!std::isalnum(c) && c != '.' && c != '_' && c != '-') return false;
-	return true;
-}
-
-Identity normalized(const Identity &i)
-{
-	Identity out = default_identity;
-	if (auto v = normalize_usb_id(i.vendor_id)) out.vendor_id = *v;
-	if (auto v = normalize_usb_id(i.product_id)) out.product_id = *v;
-	if (!i.manufacturer.empty()) out.manufacturer = i.manufacturer;
-	if (!i.product.empty()) out.product = i.product;
-	out.serial_number = i.serial_number;
-	return out;
-}
-
-// Each file stands on its own, as in the scripts: an unreadable or invalid one counts as the factory value.
-Identity read_identity()
-{
-	auto read = [](const char *name) { return trim(read_file(flag(name)).value_or("")); };
-	Identity i{read("usb.vid"), read("usb.pid"), read("usb.manufacturer"), read("usb.product"), read("usb.serialnumber")};
-	if (!normalize_usb_id(i.vendor_id)) i.vendor_id.clear();
-	if (!normalize_usb_id(i.product_id)) i.product_id.clear();
-	if (!valid_usb_string(i.manufacturer)) i.manufacturer.clear();
-	if (!valid_usb_string(i.product)) i.product.clear();
-	if (!valid_serial(i.serial_number)) i.serial_number.clear();
-	return normalized(i);
-}
-
-std::string chip_serial_number()
-{
-	std::istringstream in(read_file("/sys/class/cvi-base/base_uid").value_or(""));
-	std::string a, uid;
-	if (!(in >> a >> uid)) return "0123456789ABCDEF";
-	std::erase(uid, '_');
-	return uid.size() >= 12 ? uid : "0123456789ABCDEF";
-}
-
-// --- storage identity (SCSI INQUIRY names) ----------------------------------------------------------------------
-
-struct StorageIdentity {
-	std::string vendor = "NanoKVM", image, setup = "Setup Disk", user = "User Disk";
-};
-
-bool valid_storage(const std::string &s, std::size_t limit)
-{
-	if (s.size() > limit || trim(s) != s) return false;
-	for (unsigned char c : s)
-		if (c < 32 || c > 126) return false;
-	return true;
-}
-
-StorageIdentity read_storage_identity()
-{
-	auto read = [](const char *name, std::size_t limit) -> std::string {
-		auto data = read_file(flag(name), limit + 2);
-		if (!data) return {};
-		std::string s = *data;
-		if (!s.empty() && s.back() == '\n') s.pop_back();
-		return valid_storage(s, limit) ? s : std::string();
-	};
-	StorageIdentity i{read("usb.storage.vendor", 8), read("usb.storage.image", 16), read("usb.storage.setup", 16),
-	                  read("usb.storage.user", 16)};
-	if (i.vendor.empty()) i.vendor = "NanoKVM";
-	if (i.setup.empty()) i.setup = "Setup Disk";
-	if (i.user.empty()) i.user = "User Disk";
-	return i;
-}
-
-// --- composition ------------------------------------------------------------------------------------------------
-
-struct Composition {
-	std::string mode;
-	bool keyboard = false, relative = false, absolute = false, network = false, disk = false, serial = false,
-	     audio = false, user_disk = false;
-	Identity identity;
-	StorageIdentity storage;
-};
-
-Composition read_composition()
-{
-	Composition s;
-	s.mode = gadget_mode();
-	bool hid = !file_exists(flag("disable_hid"));
-	bool network = file_exists(flag("usb.rndis0")) || file_exists(flag("usb.ncm"));
-	bool disk = file_exists(flag("usb.disk0"));
-	if (s.mode == "hid-only") network = disk = false;
-	s.keyboard = hid && !file_exists(flag("usb.disable_keyboard"));
-	s.relative = hid && !file_exists(flag("usb.disable_relative"));
-	s.absolute = hid && !file_exists(flag("usb.disable_absolute"));
-	s.network = network;
-	s.disk = disk;
-	s.serial = file_exists(flag("usb.acm"));
-	s.audio = s.mode != "hid-only" && file_exists(flag("usb.audio"));
-	s.identity = read_identity();
-	s.storage = read_storage_identity();
-	s.user_disk = disk && trim(read_file(flag("usb.userdisk")).value_or("")) == user_disk_image;
-	return s;
-}
-
-// Go's %q of a printable ASCII string.
-std::string quote(const std::string &s)
-{
-	std::string out = "\"";
-	for (char c : s) {
-		if (c == '"' || c == '\\') out += '\\';
-		out += c;
+	int in = ::open(src.c_str(), O_RDONLY | O_CLOEXEC);
+	if (in < 0) {
+		std::string e = "open " + src + ": " + gotext::errno_text(errno);
+		log::error("failed to open {}: {}", src, e);
+		return e;
 	}
-	return out + "\"";
+	struct stat src_st{};
+	::fstat(in, &src_st);
+	std::string tmp = dst.substr(0, dst.rfind('/')) + "/.S03usbdev-XXXXXX";
+	int out = ::mkstemp(tmp.data());
+	if (out < 0) {
+		std::string e = "open " + tmp + ": " + gotext::errno_text(errno);
+		::close(in);
+		log::error("failed to create temp {}: {}", usb_dev_script, e);
+		return e;
+	}
+	std::string error;
+	if (::fchmod(out, src_st.st_mode & 07777) != 0) error = "chmod " + tmp + ": " + gotext::errno_text(errno);
+	char buf[8192];
+	for (ssize_t n; error.empty() && (n = ::read(in, buf, sizeof buf)) != 0;) {
+		if (n < 0) {
+			if (errno == EINTR) continue;
+			error = "read " + src + ": " + gotext::errno_text(errno);
+		} else if (::write(out, buf, static_cast<std::size_t>(n)) != n) {
+			error = "write " + tmp + ": " + gotext::errno_text(errno);
+		}
+	}
+	if (error.empty() && ::fsync(out) != 0) error = "sync " + tmp + ": " + gotext::errno_text(errno);
+	::close(in);
+	if (::close(out) != 0 && error.empty()) error = "close " + tmp + ": " + gotext::errno_text(errno);
+	if (error.empty() && ::rename(tmp.c_str(), dst.c_str()) != 0)
+		error = "rename " + tmp + " " + dst + ": " + gotext::errno_text(errno);
+	::unlink(tmp.c_str());
+	if (!error.empty()) log::error("failed to install the USB init script: {}", error);
+	return error;
 }
 
-std::string revision(const Composition &s)
+// applyUSBNetwork: S30usbnet sets up or removes the USB network's address, DHCP and input filter (20 s).
+std::string apply_usb_network()
 {
-	Identity id = normalized(s.identity);
-	auto t = [](bool b) { return b ? "true" : "false"; };
-	std::string text = std::format("{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}", quote(s.mode), t(s.keyboard),
-	                               t(s.relative), t(s.absolute), t(s.network), t(s.disk), t(s.serial), t(s.audio),
-	                               quote(id.vendor_id), quote(id.product_id), quote(id.manufacturer),
-	                               quote(id.product), t(s.user_disk), quote(id.serial_number));
-	text += std::format(":{{{} {} {} {}}}", quote(s.storage.vendor), quote(s.storage.image), quote(s.storage.setup),
-	                    quote(s.storage.user));
-	unsigned char sum[32];
-	EVP_Digest(text.data(), text.size(), sum, nullptr, EVP_sha256(), nullptr);
-	std::string hex;
-	for (unsigned char b : sum) hex += std::format("{:02x}", b);
-	return hex;
+	process::Options options;
+	options.timeout = std::chrono::seconds(20);
+	options.capture = false;
+	auto r = process::run({"sh", "/etc/init.d/S30usbnet", "start"}, options);
+	if (r.ok()) return {};
+	return "apply USB network: " + std::string(r.timed_out ? "signal: killed" : r.started ? "exit status " + std::to_string(r.exit_code)
+	                                                                                      : "exec: \"sh\": " + r.error);
 }
 
-std::string port_power()
+// retireLegacyACMGetty: the browser terminal owns ttyGS0, so a getty that inittab starts on it goes for good.
+std::string retire_legacy_acm_getty()
 {
-	if (trim(read_file("/etc/kvm/hw").value_or("")) == "pcie") return "none";
-	struct stat st{};
-	if (::stat("/etc/kvm/oled_exist", &st) != 0) return "shared";
-	return "board";
+	bool changed = false;
+	if (auto e = rewrite_inittab(inittab_path, changed); !e.empty()) return e;
+	if (!changed) return {};
+	// BusyBox init re-reads inittab on SIGHUP and releases the old getty.
+	auto r = process::run({"kill", "-HUP", "1"});
+	return r.ok() ? "" : "exit status " + std::to_string(r.exit_code);
 }
 
-struct Budget {
-	int inUsed = 0, inLimit = in_endpoint_limit, outUsed = 0, outLimit = out_endpoint_limit;
+enum class Failure { none, busy, missing, not_gadget, other };
+struct ApplyResult {
+	Failure failure = Failure::none;
+	std::string error;
 };
-struct IdentityJson {
-	std::string vendorId, productId, manufacturer, product, serialNumber, chipSerialNumber;
-	bool default_ = false;
-};
-struct StorageJson {
-	std::string vendor, image, setup, user;
-};
-struct StateJson {
-	bool keyboard, relative, absolute;
-	std::string revision;
-	bool network, media, disk, serial, audio, hid;
-	std::string mode;
-	Budget budget;
-	std::map<std::string, Cost> costs;
-	StorageJson storageIdentity;
-	IdentityJson identity;
-	bool userDisk;
-	std::string role;
-	std::string portPower;
-};
+
+// applyLiveUSBComposition; the caller holds storage::gadget_mutex().
+ApplyResult apply_live(const Composition &current, const Composition &candidate)
+{
+	if (current == candidate) return {};
+	// In the host role, and switched off, there is no gadget to rebuild: the role is changed first.
+	if (role_flags(flags_dir) != "gadget") return {Failure::not_gadget, not_gadget};
+	// Attaching or detaching the user disk excludes creating or deleting the image for the whole apply.
+	std::function<void()> unlock_disk;
+	struct Unlock {
+		std::function<void()> &f;
+		~Unlock()
+		{
+			if (f) f();
+		}
+	} unlock{unlock_disk};
+	if (current.user_disk || candidate.user_disk) {
+		std::string error;
+		auto unlock_fn = storage::lock_user_disk_for_composition(error);
+		if (!unlock_fn) return {error == user_disk_busy ? Failure::busy : Failure::other, error};
+		unlock_disk = *unlock_fn;
+		if (candidate.user_disk && !storage::user_disk_exists()) return {Failure::missing, user_disk_missing};
+	}
+	if (auto e = stop_audio(); !e.empty()) return {Failure::other, e};
+	if (candidate.serial && !current.serial)
+		if (auto e = retire_legacy_acm_getty(); !e.empty()) return {Failure::other, e};
+	CompositionStore store{flags_dir, usb_dev_script, install_mode_script, run_script,
+	                       [](const Composition &s) { return verify_composition_at(gadget_root, s); }};
+	auto reopen = input::hid::hold_closed();
+	std::string error = store.apply(current, candidate);
+	// S03usbdev only binds the gadget: a USB network that comes or goes needs its address, DHCP and input filter
+	// now. The composition stands either way; the USB network's status reports a failure.
+	if (error.empty() && current.network != candidate.network)
+		if (auto e = apply_usb_network(); !e.empty()) log::error("USB network after composition change: {}", e);
+	reopen();
+	if (!error.empty()) return {Failure::other, error};
+	return {};
+}
+
+// setLiveUSBRole; the caller holds storage::gadget_mutex().
+std::string set_live_role(const std::string &role)
+{
+	RoleStore store{flags_dir, run_script,
+	                [](const std::string &r) { return verify_role_at(usb_role_switch_glob, gadget_root, r, live()); },
+	                stop_audio};
+	auto reopen = input::hid::hold_closed();
+	bool network_before = role_flags(flags_dir) == "gadget";
+	std::string error = store.set(role);
+	// The USB network exists with the bound gadget only: its address, DHCP and input filter follow.
+	if (error.empty() && network_before != (role == "gadget") && live().network)
+		if (auto e = apply_usb_network(); !e.empty()) log::error("USB network after role change: {}", e);
+	reopen();
+	return error;
+}
+
+// setUSBNetworkFlag: one USB network flag saved and applied without a gadget rebind.
+void set_network_flag(http::Request &req, http::Response &res, const std::string &name,
+                      bool (*current)(const usbinternet::Runtime &), const std::string &what)
+{
+	bool enabled = false, expected = false;
+	if (!bind_flag({req.header("content-type"), req.body, req.query}, enabled, expected))
+		return api::err(res, -1, "invalid " + what + " setting");
+	http::defer(req, res, [name, current, what, enabled, expected](http::Response &out) {
+		std::lock_guard lock(storage::gadget_mutex());
+		auto runtime = usbinternet::default_runtime();
+		if (current(runtime) != expected) return api::err(out, -5, what + " setting changed; refresh and try again");
+		struct stat st{};
+		if (::stat("/usr/sbin/nkos-usb-internet", &st) != 0) {
+			if (errno != ENOENT) log::error("check file /usr/sbin/nkos-usb-internet err: {}", gotext::errno_text(errno));
+			return api::err(out, -4, what + " requires updated Alpine base package");
+		}
+		if (auto e = save_usb_flag(runtime.boot, name, enabled, apply_usb_network); !e.empty()) {
+			log::error("{}: {}", what, e);
+			return api::err(out, -3, "failed to apply " + what + " setting");
+		}
+		api::send(out, 0, "success",
+		          usbinternet::status_json(usbinternet::read_status(runtime, static_cast<long long>(std::time(nullptr)))));
+	});
+}
 
 } // namespace
 
-} // namespace nkos::usb
-
-template <>
-struct glz::meta<nkos::usb::IdentityJson> {
-	using T = nkos::usb::IdentityJson;
-	static constexpr auto value = object("vendorId", &T::vendorId, "productId", &T::productId, "manufacturer",
-	                                     &T::manufacturer, "product", &T::product, "serialNumber", &T::serialNumber,
-	                                     "chipSerialNumber", &T::chipSerialNumber, "default", &T::default_);
-};
-
-namespace nkos::usb {
-
-std::string gadget_mode()
-{
-	auto data = read_file(std::string(gadget) + "/bcdDevice");
-	if (!data) {
-		log::error("failed to read {}/bcdDevice", gadget);
-		return "normal";
-	}
-	std::string key = trim(*data);
-	std::string mode;
-	if (key == "0x0510" || key == "0x0511" || key == "0x0710" || key == "0x0711") mode = "normal";
-	else if (key == "0x0623" || key == "0x0624" || key == "0x0720" || key == "0x0721") mode = "hid-only";
-	else {
-		log::error("invalid mode flag: {}", key);
-		return "normal";
-	}
-	if (mode == "hid-only") {
-		// bcdDevice can survive a partial profile change: configured network, storage or audio functions win.
-		std::string configs = std::string(gadget) + "/configs/c.1";
-		if (DIR *d = ::opendir(configs.c_str())) {
-			while (auto *e = ::readdir(d)) {
-				if (e->d_type != DT_LNK) continue;
-				char target[512];
-				ssize_t n = ::readlink((configs + "/" + e->d_name).c_str(), target, sizeof target - 1);
-				if (n <= 0) continue;
-				std::string t(target, static_cast<std::size_t>(n));
-				std::string function = t.substr(t.rfind('/') + 1);
-				if (function.starts_with("rndis.") || function.starts_with("ncm.") || function.starts_with("mass_storage.") ||
-				    function.starts_with("uac1.")) {
-					mode = "normal";
-					break;
-				}
-			}
-			::closedir(d);
-		}
-	}
-	return mode;
-}
-
-std::string role()
-{
-	if (lexists(flag("usb.host"))) return "host";
-	if (lexists(flag("usb.off"))) return "off";
-	return "gadget";
-}
-
-std::string state_json()
-{
-	Composition s = read_composition();
-	std::string r = role();
-	// As a host, and switched off, the port presents no function.
-	if (r != "gadget") s.keyboard = s.relative = s.absolute = s.network = s.disk = s.serial = s.audio = s.user_disk = false;
-	Budget budget;
-	auto add = [&](const char *name, bool on) {
-		if (on) budget.inUsed += costs.at(name).in, budget.outUsed += costs.at(name).out;
-	};
-	add("keyboard", s.keyboard);
-	add("relative", s.relative);
-	add("absolute", s.absolute);
-	add("network", s.network);
-	add("disk", s.disk);
-	add("serial", s.serial);
-	add("audio", s.audio);
-	Identity id = normalized(s.identity);
-	StateJson j{s.keyboard, s.relative, s.absolute, revision(s), s.network, false, s.disk, s.serial, s.audio,
-	            s.keyboard || s.relative || s.absolute, s.mode, budget, costs,
-	            {s.storage.vendor, s.storage.image, s.storage.setup, s.storage.user},
-	            {id.vendor_id, id.product_id, id.manufacturer, id.product, id.serial_number, chip_serial_number(),
-	             normalized(s.identity) == default_identity},
-	            s.user_disk, r, port_power()};
-	std::string out;
-	(void)glz::write_json(j, out);
-	return out;
-}
+std::string state_json() { return live_json(live()); }
 
 void add_routes(http::Router &router)
 {
-	router.add("GET", "/api/vm/device/virtual", auth::guarded([](http::Request &, http::Response &res) {
-		api::send(res, 0, "success", state_json());
-	}, {{"admin"}}));
+	const auth::Guard admin{{"admin"}};
+	router.add("GET", "/api/vm/device/virtual", auth::guarded([](http::Request &req, http::Response &res) {
+		http::defer(req, res, [](http::Response &out) {
+			std::lock_guard lock(storage::gadget_mutex());
+			api::send(out, 0, "success", state_json());
+		});
+	}, admin));
+
+	// The single-device toggle of older clients, through the same budget, rollback and rebind as a composition.
+	router.add("POST", "/api/vm/device/virtual", auth::guarded([](http::Request &req, http::Response &res) {
+		std::string device;
+		if (!bind_device({req.header("content-type"), req.body, req.query}, device)) return api::err(res, -1, "invalid argument");
+		if (device != "network" && device != "disk" && device != "serial" && device != "audio")
+			return api::err(res, -2, "invalid arguments");
+		http::defer(req, res, [device](http::Response &out) {
+			std::lock_guard lock(storage::gadget_mutex());
+			Composition current = live();
+			Composition candidate = with(current, device, !enabled(current, device));
+			if (auto e = validate(candidate); !e.empty()) return api::err(out, -4, e);
+			if (auto r = apply_live(current, candidate); r.failure != Failure::none) {
+				log::error("update USB device: {}", r.error);
+				return api::err(out, -3, "operation failed");
+			}
+			api::send(out, 0, "success", std::format(R"({{"on":{}}})", enabled(candidate, device) ? "true" : "false"));
+		});
+	}, admin));
+
+	// A whole composition in one apply.
+	router.add("PUT", "/api/vm/device/virtual", auth::guarded([](http::Request &req, http::Response &res) {
+		CompositionRequest r;
+		if (!bind_composition({req.header("content-type"), req.body, req.query}, r))
+			return api::err(res, -1, "invalid composition");
+		Composition candidate;
+		candidate.mode = r.mode;
+		candidate.keyboard = *r.keyboard;
+		candidate.relative = *r.relative;
+		candidate.absolute = *r.absolute;
+		candidate.network = *r.network;
+		candidate.disk = *r.disk;
+		candidate.serial = *r.serial;
+		candidate.audio = *r.audio;
+		std::string error;
+		if (!identity_from_request(r.identity, candidate.identity, error)) return api::err(res, -4, error);
+		if (r.storage_identity) candidate.storage_identity = normalized(*r.storage_identity);
+		if (auto e = validate(candidate); !e.empty()) return api::err(res, -4, e);
+		http::defer(req, res, [r, candidate](http::Response &out) mutable {
+			std::lock_guard lock(storage::gadget_mutex());
+			Composition current = live();
+			// An older client sends no identity: it keeps the one in place.
+			if (!r.identity) candidate.identity = current.identity;
+			if (!r.storage_identity) candidate.storage_identity = current.storage_identity;
+			// The same for the user disk; it needs the disk function and an image.
+			candidate.user_disk = r.user_disk ? *r.user_disk : current.user_disk;
+			if (candidate.user_disk && !candidate.disk) candidate.user_disk = false;
+			if (candidate.user_disk && !storage::user_disk_exists()) return api::err(out, -4, user_disk_missing);
+			if (revision(current) != r.revision) return api::err(out, -5, "USB composition changed; refresh and try again");
+			if (auto a = apply_live(current, candidate); a.failure != Failure::none) {
+				log::error("apply USB composition: {}", a.error);
+				switch (a.failure) {
+				case Failure::busy: return api::err(out, -6, a.error);
+				case Failure::missing: return api::err(out, -4, a.error);
+				case Failure::not_gadget: return api::err(out, -7, a.error);
+				default: return api::err(out, -3, "failed to apply USB composition");
+				}
+			}
+			api::send(out, 0, "success", state_json());
+		});
+	}, admin));
+
+	router.add("PUT", "/api/vm/usb/role", auth::guarded([](http::Request &req, http::Response &res) {
+		std::string role;
+		if (!bind_role({req.header("content-type"), req.body, req.query}, role)) return api::err(res, -1, "invalid role");
+		http::defer(req, res, [role](http::Response &out) {
+			std::lock_guard lock(storage::gadget_mutex());
+			if (auto e = set_live_role(role); !e.empty()) {
+				log::error("set USB role {}: {}", role, e);
+				return api::err(out, -3, "failed to change the USB role");
+			}
+			api::send(out, 0, "success", state_json());
+		});
+	}, admin));
+
+	router.add("GET", "/api/vm/usb/devices", auth::guarded([](http::Request &req, http::Response &res) {
+		http::defer(req, res, [](http::Response &out) {
+			api::send(out, 0, "success", host_devices_json(host_devices_at("/sys/bus/usb/devices"), port_power()));
+		});
+	}, admin));
+
+	router.add("GET", "/api/vm/usb-internet", auth::guarded([](http::Request &, http::Response &res) {
+		auto runtime = usbinternet::default_runtime();
+		api::send(res, 0, "success",
+		          usbinternet::status_json(usbinternet::read_status(runtime, static_cast<long long>(std::time(nullptr)))));
+	}, admin));
+	router.add("PUT", "/api/vm/usb-internet", auth::guarded([](http::Request &req, http::Response &res) {
+		set_network_flag(req, res, "usb.internet", usbinternet::enabled, "USB internet");
+	}, admin));
+	// Whether the managed computer may open every service of the NanoKVM over USB (the usb0 input filter off).
+	router.add("PUT", "/api/vm/usb-host-access", auth::guarded([](http::Request &req, http::Response &res) {
+		set_network_flag(req, res, usbinternet::host_access_flag, usbinternet::host_access, "USB host access");
+	}, admin));
 }
 
 } // namespace nkos::usb

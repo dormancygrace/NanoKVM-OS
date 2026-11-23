@@ -1,9 +1,11 @@
 #pragma once
 
-// The USB gadget's composition, as the Go server's service/vm virtual-device, usb_identity, usb-role and
-// internal/storageidentity: which functions the computer sees (keyboard, relative and absolute mouse, network,
-// virtual disk, serial console, speaker), the port's role (gadget, host, off), the identity the computer sees and
-// the endpoint budget. S03usbdev applies the flags in /etc/kvm/usb at every start. Reading only, for now.
+// The USB routes of the Go server's router/vm.go (administrators): the gadget's composition (GET, POST and PUT
+// /api/vm/device/virtual), the port's role (PUT /api/vm/usb/role), the devices attached in the host role
+// (GET /api/vm/usb/devices), USB internet sharing and the computer's access over USB (GET/PUT /api/vm/usb-internet,
+// PUT /api/vm/usb-host-access). A change of the gadget runs under storage::gadget_mutex() (Go's HID lock) with the
+// HID devices closed and USB audio stopped, restarts S03usbdev once, verifies the result in configfs and restores
+// the previous files and running state when anything fails.
 
 #include "http/router.hpp"
 
@@ -11,16 +13,9 @@
 
 namespace nkos::usb {
 
-inline constexpr const char *flags_dir = "/etc/kvm/usb";
-
-// "normal" or "hid-only" (the gadget's bcdDevice); "normal" when the gadget is not set up.
-std::string gadget_mode();
-// gadget, host or off.
-std::string role();
-// The JSON of GET /api/vm/device/virtual.
+// The JSON of GET /api/vm/device/virtual (also the live status's "usb"), as the flags and the gadget are now.
 std::string state_json();
 
-// GET /api/vm/device/virtual (administrators).
 void add_routes(http::Router &router);
 
 } // namespace nkos::usb

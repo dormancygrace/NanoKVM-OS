@@ -1,4 +1,5 @@
 #include "system/atx.hpp"
+#include "usb/core_hooks.hpp"
 
 #include "system/oled_state.hpp"
 #include "api/request.hpp"
@@ -78,6 +79,8 @@ std::string pulse(const std::string &device, std::chrono::milliseconds duration)
 }
 
 } // namespace
+
+std::string pulse_line(const std::string &device, std::chrono::milliseconds duration) { return pulse(device, duration); }
 
 bool available() { return !hardware().gpio_power.empty(); }
 

@@ -6,6 +6,7 @@
 // changed. Also the part of usbinternet's runtime it reads and writes (the menu port, the sharing flag, the status).
 
 #include "storage/internal.hpp"
+#include "usb/usbinternet.hpp"
 #include "storage/storage.hpp"
 
 #include "api/request.hpp"
@@ -129,12 +130,6 @@ struct ReleaseJson {
 	std::optional<std::vector<AssetJson>> assets;
 };
 
-struct StatusJson {
-	std::optional<bool> enabled, flowOffload, ipv6, hostAccess;
-	std::optional<std::string> state, uplink, address, offloadReason;
-	std::optional<std::int64_t> updatedAt;
-};
-
 } // namespace
 
 } // namespace nkos::storage
@@ -157,14 +152,6 @@ struct glz::meta<nkos::storage::ReleaseJson> {
 	static constexpr auto value =
 		object("tag_name", &T::tag_name, "draft", &T::draft, "prerelease", &T::prerelease, "assets", &T::assets);
 };
-template <>
-struct glz::meta<nkos::storage::StatusJson> {
-	using T = nkos::storage::StatusJson;
-	static constexpr auto value = object("enabled", &T::enabled, "state", &T::state, "uplink", &T::uplink, "address",
-	                                     &T::address, "flowOffload", &T::flowOffload, "offloadReason", &T::offloadReason,
-	                                     "ipv6", &T::ipv6, "hostAccess", &T::hostAccess, "updatedAt", &T::updatedAt);
-};
-
 namespace nkos::storage {
 
 bool ipxe_tag(const std::string &s) { return s.size() > 1 && s[0] == 'v' && version(std::string_view(s).substr(1)); }
@@ -277,109 +264,19 @@ std::string usb_flags_boot()
 	return go::exists(usb_flags_layout_app) && go::exists(usb_flags_layout_active) ? usb_flags_layout_dir : usb_flags_legacy_dir;
 }
 
-int netboot_port_file()
-{
-	std::string data;
-	if (go::read_file(usbnet_run + "/netboot.port", data)) return 0;
-	std::string s = go::trim_space(data);
-	if (s.empty() || s.size() > 9) return 0;
-	std::size_t i = (s[0] == '+' || s[0] == '-') ? 1 : 0;
-	if (i == s.size() || !digits(std::string_view(s).substr(i))) return 0;
-	long port = std::stol(s);
-	return port < 1024 || port > 65535 ? 0 : static_cast<int>(port);
-}
+usb::usbinternet::Runtime usbnet_runtime();
+
+int netboot_port_file() { return usb::usbinternet::netboot_port(usbnet_runtime()); }
 
 namespace {
 
 Error set_netboot_port(int port)
 {
-	std::string path = usbnet_run + "/netboot.port";
-	if (port == 0) {
-		if (auto e = go::remove(path); e && e.sys != ENOENT) return e;
-		return {};
-	}
-	if (auto e = mkdir_all(usbnet_run, 0700)) return e;
-	int fd;
-	std::string temp;
-	if (auto e = go::create_temp(usbnet_run, ".usb-internet-", fd, temp)) return e;
-	std::string data = std::to_string(port) + "\n";
-	Error err;
-	if (::write(fd, data.data(), data.size()) != static_cast<ssize_t>(data.size())) err = Error::path("write", temp, errno);
-	if (!err && ::fsync(fd) != 0) err = Error::path("sync", temp, errno);
-	::close(fd);
-	if (!err) err = go::rename(temp, path);
-	::unlink(temp.c_str());
-	return err;
+	if (auto e = usb::usbinternet::set_netboot_port(usbnet_runtime(), port); !e.empty()) return Error::of(e);
+	return {};
 }
 
-bool usb_internet_enabled() { return go::exists(usb_flags_boot() + "/usb.internet"); }
-
-bool usb_bound()
-{
-	std::string udc;
-	if (go::read_file(gadget_dir + "/UDC", udc) || go::trim_space(udc).empty()) return false;
-	for (const char *name : {"ncm.usb0", "rndis.usb0"}) {
-		struct stat st{};
-		if (::lstat((gadget_dir + "/configs/c.1/" + name).c_str(), &st) == 0 && S_ISLNK(st.st_mode))
-			return go::exists(usbnet_net + "/usb0");
-	}
-	return false;
-}
-
-struct UsbStatus {
-	bool enabled = false, flow_offload = false, ipv6 = false, host_access = false;
-	std::string state, uplink, address, offload_reason;
-	std::int64_t updated_at = 0;
-};
-
-UsbStatus read_usb_status()
-{
-	std::string boot = usb_flags_boot();
-	bool enabled = go::exists(boot + "/usb.internet");
-	UsbStatus saved;
-	std::string data;
-	StatusJson j;
-	bool valid = !go::read_file(usbnet_run + "/status.json", data) &&
-	             data.find_first_not_of(" \t\r\n") != std::string::npos &&
-	             data[data.find_first_not_of(" \t\r\n")] == '{' && !glz::read<glz::opts{.error_on_unknown_keys = false}>(j, data);
-	if (valid)
-		saved = {j.enabled.value_or(false), j.flowOffload.value_or(false), j.ipv6.value_or(false), j.hostAccess.value_or(false),
-		         j.state.value_or(""), j.uplink.value_or(""), j.address.value_or(""), j.offloadReason.value_or(""),
-		         j.updatedAt.value_or(0)};
-	UsbStatus s;
-	bool nodhcpd = go::exists(boot + "/rndis.nodhcpd");
-	if (!(usb_bound() && !nodhcpd)) {
-		// Without a watcher an idle status does not expire; a cleanup failure stays visible until an apply works.
-		if (valid && saved.state == "error" && saved.enabled == enabled) {
-			saved.ipv6 = false;
-			s = saved;
-		} else {
-			s.enabled = enabled;
-			s.state = "disabled";
-			if (enabled) s.state = nodhcpd ? "dhcp-disabled" : "waiting-ncm";
-		}
-	} else {
-		if (!valid || static_cast<std::int64_t>(std::time(nullptr)) - saved.updated_at > 20) saved = UsbStatus{.state = "unavailable"};
-		saved.enabled = enabled;
-		saved.ipv6 = false;
-		s = saved;
-	}
-	s.host_access = go::exists(boot + "/usb.host_access");
-	return s;
-}
-
-std::string usb_status_json(const UsbStatus &s)
-{
-	auto b = [](bool v) { return v ? "true" : "false"; };
-	std::string out = "{\"enabled\":" + std::string(b(s.enabled)) + ",\"state\":" + gojson::quote(s.state);
-	if (!s.uplink.empty()) out += ",\"uplink\":" + gojson::quote(s.uplink);
-	if (!s.address.empty()) out += ",\"address\":" + gojson::quote(s.address);
-	out += ",\"flowOffload\":" + std::string(b(s.flow_offload));
-	if (!s.offload_reason.empty()) out += ",\"offloadReason\":" + gojson::quote(s.offload_reason);
-	out += ",\"ipv6\":" + std::string(b(s.ipv6)) + ",\"hostAccess\":" + b(s.host_access) +
-	       ",\"updatedAt\":" + std::to_string(s.updated_at) + "}";
-	return out;
-}
+bool usb_internet_enabled() { return usb::usbinternet::enabled(usbnet_runtime()); }
 
 } // namespace
 
@@ -400,7 +297,24 @@ std::string prefix_address(const std::string &prefix)
 	return ::inet_ntop(AF_INET6, buf, text, sizeof text) ? text : "";
 }
 
-std::string usb_internet_status_json() { return usb_status_json(read_usb_status()); }
+// usbinternet.Runtime over the paths this file reads: one implementation with the server's USB family and
+// the nkos-usb-internet helper (usb/usbinternet).
+usb::usbinternet::Runtime usbnet_runtime()
+{
+	auto r = usb::usbinternet::default_runtime();
+	r.boot = usb_flags_boot();
+	r.run = usbnet_run;
+	r.gadget = gadget_dir;
+	r.net = usbnet_net;
+	return r;
+}
+
+usb::usbinternet::Status read_usb_status()
+{
+	return usb::usbinternet::read_status(usbnet_runtime(), static_cast<long long>(std::time(nullptr)));
+}
+
+std::string usb_internet_status_json() { return usb::usbinternet::status_json(read_usb_status()); }
 std::string usb_internet_address() { return prefix_address(read_usb_status().address); }
 
 namespace {

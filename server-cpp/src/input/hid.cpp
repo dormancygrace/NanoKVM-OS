@@ -1,4 +1,5 @@
 #include "input/hid.hpp"
+#include "usb/core_hooks.hpp"
 
 #include "common/log.hpp"
 #include "common/loop.hpp"
@@ -167,7 +168,7 @@ struct Lane::State {
 namespace {
 
 struct Job {
-	enum Kind { report, close_lane, release_all, open, close_devices, open_retry } kind;
+	enum Kind { report, close_lane, release_all, open, close_devices, open_retry, hold } kind;
 	std::shared_ptr<Lane::State> lane;
 	Report data;
 	std::function<void(bool ok)> done;  // close_devices, open_retry: on the writer thread
@@ -210,6 +211,16 @@ private:
 			}
 			switch (job.kind) {
 			case Job::open: reopen(); break;
+			case Job::hold:
+				// A change of the USB gadget: the devices closed, this writer held until the change is over.
+				for (auto *d : devices()) d->close();
+				if (!mouse_) {
+					keyboard_open = false;
+					notify_led_reader();
+				}
+				if (job.done) job.done(true);
+				reopen();
+				break;
 			case Job::close_devices:
 				for (auto *d : devices()) d->close();
 				if (!mouse_) {
@@ -533,6 +544,25 @@ void open()
 {
 	keyboard_writer.push({Job::open, nullptr, {}});
 	mouse_writer.push({Job::open, nullptr, {}});
+}
+
+std::function<void()> hold_closed()
+{
+	auto release = std::make_shared<std::promise<void>>();
+	auto released = release->get_future().share();
+	auto k = std::make_shared<std::promise<void>>(), m = std::make_shared<std::promise<void>>();
+	auto fk = k->get_future(), fm = m->get_future();
+	keyboard_writer.push({Job::hold, nullptr, {}, [k, released](bool) {
+		k->set_value();
+		released.wait();
+	}});
+	mouse_writer.push({Job::hold, nullptr, {}, [m, released](bool) {
+		m->set_value();
+		released.wait();
+	}});
+	fk.wait();
+	fm.wait();
+	return [release] { release->set_value(); };
 }
 
 void reset_usb_phy(std::function<void(std::string error)> done)

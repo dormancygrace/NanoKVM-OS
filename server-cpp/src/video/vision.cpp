@@ -122,7 +122,7 @@ bool init()
 	kvmv_set_first_capture_yuv420(first_capture_yuv420() ? 1 : 0);
 	kvmv_init(0);
 	initialized = true;
-	if (set_mjpeg_chroma(screen().mjpeg_chroma == 422 ? 1 : 0) != 0) log::error("failed to select saved MJPEG chroma");
+	if (::set_mjpeg_chroma(screen().mjpeg_chroma == 422 ? 1 : 0) != 0) log::error("failed to select saved MJPEG chroma");
 	set_frame_detact(frame_detect_enabled() ? 60 : 0);
 	worker = nk_capture_create(&ready_fd, &doorbell_fd, &shared);
 	if (!worker) {
@@ -309,6 +309,22 @@ void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t q
 		*total = jpeg_total;
 		return r;
 	}, std::move(done));
+}
+
+void set_mjpeg_chroma(std::uint16_t chroma, std::function<void(int)> done)
+{
+	if (!initialized || (chroma != 420 && chroma != 422)) {
+		loop::post([done] { done(-1); });
+		return;
+	}
+	loop::device([chroma, done] {
+		int result;
+		{
+			Paused paused;
+			result = ::set_mjpeg_chroma(chroma == 422 ? 1 : 0);
+		}
+		loop::post([done, result] { done(result); });
+	});
 }
 
 void release_jpeg_buffers()

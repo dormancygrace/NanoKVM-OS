@@ -78,6 +78,7 @@ add_executable(NanoKVM-Server
   src/video/routes.cpp
   src/video/screen.cpp
   src/video/settings.cpp
+  src/video/setters.cpp
   src/video/source.cpp
   src/video/vision.cpp
 )

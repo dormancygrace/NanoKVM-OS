@@ -196,6 +196,8 @@ std::string screen_json()
 
 } // namespace
 
+std::string video_capabilities_json() { return capabilities(); }
+
 std::string stream_transport()
 {
 	std::string v = read_line("/kvmapp/kvm/transport");
@@ -210,6 +212,7 @@ void add_settings_routes(http::Router &router)
 	router.add("GET", "/api/vm/screen", auth::guarded([](http::Request &, http::Response &res) {
 		api::send(res, 0, "success", screen_json());
 	}));
+	add_setter_routes(router);
 }
 
 } // namespace nkos::video

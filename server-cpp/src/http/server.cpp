@@ -500,11 +500,24 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 		if (pss->session->fd >= 0) return write_file(wsi, *pss->session);
 		if (auto stream = pss->session->response.stream) {
 			if (!stream->queue_.empty()) {
-				std::string data = std::move(stream->queue_.front());
-				stream->queue_.pop_front();
-				std::vector<unsigned char> buf(LWS_PRE + data.size());
-				std::memcpy(buf.data() + LWS_PRE, data.data(), data.size());
-				if (lws_write(wsi, buf.data() + LWS_PRE, data.size(), LWS_WRITE_HTTP) < 0) return -1;
+				// In 16 KB writes (an HTTP/2 frame's default maximum) within the peer's window, as many as the
+				// connection takes in this callback.
+				constexpr std::size_t chunk = 16384;
+				unsigned char buf[LWS_PRE + chunk];
+				do {
+					const std::string &data = stream->queue_.front();
+					std::size_t n = std::min(chunk, data.size() - stream->front_sent_);
+					lws_fileofs_t allowance = lws_get_peer_write_allowance(wsi);
+					if (allowance == 0) break;
+					if (allowance > 0) n = std::min(n, static_cast<std::size_t>(allowance));
+					std::memcpy(buf + LWS_PRE, data.data() + stream->front_sent_, n);
+					if (lws_write(wsi, buf + LWS_PRE, n, LWS_WRITE_HTTP) != static_cast<int>(n)) return -1;
+					stream->front_sent_ += n;
+					if (stream->front_sent_ == data.size()) {
+						stream->queue_.pop_front();
+						stream->front_sent_ = 0;
+					}
+				} while (!stream->queue_.empty() && !lws_send_pipe_choked(wsi));
 				if (!stream->queue_.empty() || stream->ended_) lws_callback_on_writable(wsi);
 				return 0;
 			}

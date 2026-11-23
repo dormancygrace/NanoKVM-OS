@@ -66,6 +66,7 @@ struct Stream {
 	// Internals for the server.
 	lws *wsi_ = nullptr;
 	std::deque<std::string> queue_;
+	std::size_t front_sent_ = 0;  // bytes of queue_.front() already written
 	bool ended_ = false, closed_ = false, headers_sent_ = false;
 };
 

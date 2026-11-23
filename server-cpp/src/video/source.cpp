@@ -59,7 +59,7 @@ struct RateWindow {
 		return (sum + filled / 2) / filled;
 	}
 };
-std::int64_t frame_count = 0, byte_count = 0;
+std::int64_t frame_count = 0, byte_count = 0, mjpeg_count = 0;
 bool counting = false;
 RateWindow video_frames, mjpeg_frames, video_bytes;
 
@@ -74,7 +74,8 @@ void write_value(const char *path, std::int64_t value)
 void count_rates()
 {
 	std::int64_t video = video_frames.add(frame_count);
-	std::int64_t mjpeg = mjpeg_frames.add(0);
+	std::int64_t mjpeg = mjpeg_frames.add(mjpeg_count);
+	mjpeg_count = 0;
 	std::int64_t kbps = video_bytes.add(byte_count) * 8 / 1000;
 	frame_count = byte_count = 0;
 	write_value("/run/nanokvm/now_fps", video ? video : mjpeg);
@@ -246,5 +247,14 @@ void select_codec(Codec codec)
 }
 
 void request_keyframe() { keyframe_requested = true; }
+
+void count_mjpeg_frame()
+{
+	mjpeg_count++;
+	if (!counting) {
+		counting = true;
+		loop::after(std::chrono::seconds(1), count_rates);
+	}
+}
 
 } // namespace nkos::video

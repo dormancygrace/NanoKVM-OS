@@ -6,6 +6,7 @@
 #include "common/log.hpp"
 #include "video/direct.hpp"
 #include "video/hdmi.hpp"
+#include "video/mjpeg.hpp"
 #include "video/settings.hpp"
 #include "video/screen.hpp"
 #include "video/source.hpp"
@@ -68,6 +69,7 @@ void add_routes(http::Router &router)
 	router.add("GET", "/api/stream/state", auth::guarded(get_encoder_state));
 	router.add("POST", "/api/stream/state", auth::guarded(set_encoder_state));
 	direct::add_routes(router);
+	mjpeg::add_routes(router);
 	hdmi::add_routes(router);
 	add_settings_routes(router);
 }

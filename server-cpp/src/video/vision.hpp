@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
+#include <vector>
 #include <string>
 #include <utility>
 
@@ -46,6 +48,23 @@ void set_capture_parked(bool parked, std::function<void(bool ok)> done = {});
 // Disabled outputs still own pools awaiting reclamation.
 bool capture_reclaim_pending();
 bool hdmi_signal_active();
+
+// One JPEG read (kvmv_read_mjpeg_sink, kvmv_read_mjpeg_tiles_sink): the bytes start at offset, after
+// frame_headroom bytes free for framing; result as kvm_vision.h (0 a JPEG, 5 unchanged, 6 a tile message, < 0 none).
+struct Jpeg {
+	std::shared_ptr<std::vector<unsigned char>> storage;
+	std::size_t offset = 0, size = 0;
+	int result = -1;
+};
+// Reads run on the device thread, in order with the operations above (beside a running H.26x stream, as in the
+// library); done runs on the loop thread. Buffers come from a small pool and return to it when let go.
+void read_mjpeg(std::uint16_t width, std::uint16_t height, std::uint16_t quality, std::function<void(Jpeg)> done);
+void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t quality, bool key,
+                      std::uint16_t max_tiles, std::function<void(Jpeg)> done);
+// Frees what tiled reads keep (the IVE map, region channels) once nobody reads tiles.
+void release_mjpeg_tiles();
+// Frame detection: frames between change checks, 0 off (set_frame_detact; the stream pauses for it).
+void set_frame_detect(std::uint8_t frames);
 
 // The MJPEG chroma the VPSS produces (420 or 422) and why it is not the saved one ("" when it is): h264Capture,
 // hardware, resolution, video, frameDetection; "recovery" while the video is off.

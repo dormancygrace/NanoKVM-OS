@@ -236,6 +236,96 @@ void set_capture_parked(bool parked, std::function<void(bool)> done)
 	});
 }
 
+namespace {
+
+// JPEG buffers: reused once every holder (viewers, queues) let go. Device thread.
+std::vector<std::shared_ptr<std::vector<unsigned char>>> jpeg_pool;
+
+std::shared_ptr<std::vector<unsigned char>> jpeg_buffer()
+{
+	for (auto &b : jpeg_pool)
+		if (b.use_count() == 1) return b;
+	auto b = std::make_shared<std::vector<unsigned char>>();
+	if (jpeg_pool.size() < 6) jpeg_pool.push_back(b);
+	return b;
+}
+
+int jpeg_sink(std::uintptr_t context, const std::uint8_t *data, std::uint32_t size, std::uint32_t offset, std::uint32_t total)
+{
+	auto &buf = *reinterpret_cast<std::vector<unsigned char> *>(context);
+	std::size_t need = frame_headroom + total;
+	if (offset == 0 && buf.size() < need) buf.resize(need + need / 8);
+	if (offset + static_cast<std::size_t>(size) > total || buf.size() < need) return 1;
+	std::memcpy(buf.data() + frame_headroom + offset, data, size);
+	return 0;
+}
+
+template <typename Read>
+void read_jpeg(Read read, std::function<void(Jpeg)> done)
+{
+	if (!initialized) {
+		loop::post([done = std::move(done)] { done({}); });
+		return;
+	}
+	loop::device([read, done = std::move(done)] {
+		Jpeg j;
+		j.storage = jpeg_buffer();
+		j.offset = frame_headroom;
+		std::uint32_t total = 0;
+		j.result = read(reinterpret_cast<std::uintptr_t>(j.storage.get()), &total);
+		if (j.result == 0 || j.result == 6) j.size = total;
+		else j.storage.reset();
+		loop::post([done, j = std::move(j)]() mutable { done(std::move(j)); });
+	});
+}
+
+// The total of the last frame the sink saw (device thread).
+thread_local std::uint32_t jpeg_total = 0;
+
+int jpeg_sink_total(std::uintptr_t context, const std::uint8_t *data, std::uint32_t size, std::uint32_t offset, std::uint32_t total)
+{
+	jpeg_total = total;
+	return jpeg_sink(context, data, size, offset, total);
+}
+
+} // namespace
+
+void read_mjpeg(std::uint16_t width, std::uint16_t height, std::uint16_t quality, std::function<void(Jpeg)> done)
+{
+	read_jpeg([=](std::uintptr_t ctx, std::uint32_t *total) {
+		jpeg_total = 0;
+		int r = kvmv_read_mjpeg_sink(width, height, quality, jpeg_sink_total, ctx);
+		*total = jpeg_total;
+		return r;
+	}, std::move(done));
+}
+
+void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t quality, bool key,
+                      std::uint16_t max_tiles, std::function<void(Jpeg)> done)
+{
+	read_jpeg([=](std::uintptr_t ctx, std::uint32_t *total) {
+		jpeg_total = 0;
+		int r = kvmv_read_mjpeg_tiles_sink(width, height, quality, key ? 1 : 0, max_tiles, jpeg_sink_total, ctx);
+		*total = jpeg_total;
+		return r;
+	}, std::move(done));
+}
+
+void release_mjpeg_tiles()
+{
+	if (!initialized) return;
+	loop::device([] { kvmv_mjpeg_tiles_release(); });
+}
+
+void set_frame_detect(std::uint8_t frames)
+{
+	if (!initialized) return;
+	loop::device([frames] {
+		Paused paused;
+		set_frame_detact(frames);
+	});
+}
+
 bool capture_reclaim_pending() { return initialized && kvmv_capture_reclaim_pending() != 0; }
 
 bool hdmi_signal_active() { return initialized && kvmv_hdmi_signal_active() != 0; }

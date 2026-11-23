@@ -43,5 +43,7 @@ void select_codec(Codec codec);
 
 // Coalesced key frame request of any viewer.
 void request_keyframe();
+// One MJPEG picture went to a viewer (/run/nanokvm/mjpeg_fps). Loop thread.
+void count_mjpeg_frame();
 
 } // namespace nkos::video

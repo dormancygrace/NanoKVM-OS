@@ -39,6 +39,9 @@ private:
 
 bool disabled();
 
+// The JSON of GET /api/vm/hdmi.
+std::string state_json();
+
 // GET /api/vm/hdmi, POST /api/vm/hdmi/{reset,enable,disable,timeout}.
 void add_routes(http::Router &router);
 

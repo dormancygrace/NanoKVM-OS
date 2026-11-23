@@ -3,6 +3,7 @@
 #include "auth/session.hpp"
 #include "common/log.hpp"
 #include "http/websocket.hpp"
+#include "system/failsafe.hpp"
 #include "video/capture_status.hpp"
 #include "video/hdmi.hpp"
 #include "video/source.hpp"
@@ -489,6 +490,7 @@ void add_routes(http::Router &router)
 {
 	router.ws("/api/stream/video/direct",
 	          auth::guarded_ws([](http::Request &req, http::Response &res) -> std::shared_ptr<http::WsHandler> {
+		          if (!system::failsafe::require_video(res)) return nullptr;
 		          Codec codec = default_codec;
 		          std::string name = req.query_value("codec");
 		          if (!name.empty()) {

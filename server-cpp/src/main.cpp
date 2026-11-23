@@ -7,6 +7,10 @@
 #include "http/server.hpp"
 #include "http/static_files.hpp"
 #include "input/hid.hpp"
+#include "system/atx.hpp"
+#include "system/failsafe.hpp"
+#include "system/live_status.hpp"
+#include "usb/composition.hpp"
 #include "input/ws.hpp"
 #include "video/hdmi.hpp"
 #include "video/routes.hpp"
@@ -52,13 +56,25 @@ int main()
 	auth::add_routes(router);
 	video::add_routes(router);
 	input::ws::add_routes(router);
+	system::failsafe::add_routes(router);
+	system::atx::add_routes(router);
+	system::add_live_status_route(router);
+	usb::add_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.
-	if (!video::vision::init()) log::error("video capture is unavailable");
+	// Video recovery after repeated crashes: the server runs without video.
+	bool recovering = system::failsafe::init();
+	if (!recovering) {
+		system::failsafe::video_phase("initializing");
+		if (!video::vision::init()) log::error("video capture is unavailable");
+	}
 	int status = http::run(conf, router, [] {
 		video::hdmi::start();
+		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");
 		input::hid::start();
+		system::atx::start();
 	});
+	system::atx::stop();
 	input::hid::stop();
 	video::vision::deinit();
 	return status;

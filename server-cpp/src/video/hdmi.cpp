@@ -5,6 +5,7 @@
 #include "auth/session.hpp"
 #include "common/log.hpp"
 #include "common/loop.hpp"
+#include "system/failsafe.hpp"
 #include "video/vision.hpp"
 
 #include <cerrno>
@@ -235,18 +236,26 @@ void Lease::release()
 	reconcile();
 }
 
+std::string state_json()
+{
+	HdmiState s;
+	s.enabled = !disabled();
+	s.viewerCount = viewer_total;
+	s.signal = s.enabled && vision::hdmi_signal_active();
+	s.idleTimeout = idle_timeout_minutes();
+	std::string out;
+	(void)glz::write_json(s, out);
+	return out;
+}
+
 void add_routes(http::Router &router)
 {
 	router.add("GET", "/api/vm/hdmi", auth::guarded([](http::Request &, http::Response &res) {
-		HdmiState s;
-		s.enabled = !disabled();
-		s.viewerCount = viewer_total;
-		s.signal = s.enabled && vision::hdmi_signal_active();
-		s.idleTimeout = idle_timeout_minutes();
-		api::ok(res, s);
+		api::send(res, 0, "success", state_json());
 	}));
 	// Any user may restart capture, but never against an administrator's decision to keep it off.
 	router.add("POST", "/api/vm/hdmi/reset", auth::guarded([](http::Request &req, http::Response &res) {
+		if (!system::failsafe::require_video(res)) return;
 		if (disabled()) return api::err(res, -2, "HDMI capture is disabled");
 		res.pending = true;
 		disable_capture([id = req.id] {
@@ -262,6 +271,7 @@ void add_routes(http::Router &router)
 		});
 	}));
 	router.add("POST", "/api/vm/hdmi/enable", auth::guarded([](http::Request &, http::Response &res) {
+		if (!system::failsafe::require_video(res)) return;
 		if (::unlink(disable_file) != 0) log::error("failed to remove hdmi disable file: {}", std::strerror(errno));
 		enable_capture();
 		api::ok(res);

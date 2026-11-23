@@ -54,6 +54,12 @@ add_executable(NanoKVM-Server
   src/input/control.cpp
   src/input/hid.cpp
   src/input/ws.cpp
+  src/system/atx.cpp
+  src/system/failsafe.cpp
+  src/system/gpio.cpp
+  src/system/hardware.cpp
+  src/system/live_status.cpp
+  src/usb/composition.cpp
   src/video/capture_status.cpp
   src/video/capture_worker.c
   src/video/direct.cpp

@@ -59,14 +59,15 @@ std::string host_port(const std::string &host, const std::string &port)
 
 // ---- SMTP ----
 
-// The server's replies as libcurl reads them: the last complete reply (its code and lines) and whether the EHLO
-// reply offered STARTTLS.
+// The server's replies as libcurl reads them: the first refusal (a reply of 400 or more: its code, lines and the
+// command it answered: "" for the greeting) and whether the EHLO reply offered STARTTLS.
 struct SmtpTrace {
 	int code = 0;
 	std::vector<std::string> lines;
+	std::string phase;  // the command of the refusal
+	std::string command;  // the last command sent ("AUTH" through its exchange)
 	std::vector<std::string> pending;
 	bool starttls = false;
-	bool in_ehlo = false;
 };
 
 int on_debug(CURL *, curl_infotype type, char *data, size_t size, void *user)
@@ -74,7 +75,11 @@ int on_debug(CURL *, curl_infotype type, char *data, size_t size, void *user)
 	auto *t = static_cast<SmtpTrace *>(user);
 	if (type == CURLINFO_HEADER_OUT) {
 		std::string_view out(data, size);
-		t->in_ehlo = out.starts_with("EHLO ");
+		std::string verb(out.substr(0, out.find_first_of(" \r\n")));
+		for (char &c : verb) c = static_cast<char>(c >= 'a' && c <= 'z' ? c - 32 : c);
+		static const char *verbs[] = {"EHLO", "HELO", "STARTTLS", "AUTH", "MAIL", "RCPT", "DATA", "QUIT", "RSET", "NOOP"};
+		for (const char *v : verbs)
+			if (verb == v) t->command = verb;
 		return 0;
 	}
 	if (type != CURLINFO_HEADER_IN) return 0;
@@ -86,25 +91,29 @@ int on_debug(CURL *, curl_infotype type, char *data, size_t size, void *user)
 		while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.remove_suffix(1);
 		if (line.size() < 3) continue;
 		std::string text(line.size() > 4 ? line.substr(4) : std::string_view{});
-		if (t->in_ehlo && (text == "STARTTLS" || text.starts_with("STARTTLS "))) t->starttls = true;
+		if (t->command == "EHLO" && (text == "STARTTLS" || text.starts_with("STARTTLS "))) t->starttls = true;
 		t->pending.push_back(text);
 		if (line.size() == 3 || line[3] == ' ') {
-			t->code = std::atoi(std::string(line.substr(0, 3)).c_str());
-			t->lines = std::move(t->pending);
+			int code = std::atoi(std::string(line.substr(0, 3)).c_str());
+			if (code >= 400 && t->code == 0) {
+				t->code = code;
+				t->lines = std::move(t->pending);
+				t->phase = t->command;
+			}
 			t->pending.clear();
 		}
 	}
 	return 0;
 }
 
-// textproto.Error: "%03d %s" with the reply's lines.
+// textproto.Error: "%03d %q" with the reply's lines.
 std::string reply_text(const SmtpTrace &t)
 {
 	std::string msg;
 	for (std::size_t i = 0; i < t.lines.size(); i++) msg += (i ? "\n" : "") + t.lines[i];
 	char code[8];
 	std::snprintf(code, sizeof code, "%03d", t.code);
-	return std::string(code) + " " + msg;
+	return std::string(code) + " " + gostd::quote(msg);
 }
 
 struct Upload {
@@ -174,6 +183,8 @@ Result send_email(const Channel &ch, const Rendered &r, OAuth &oauth)
 		// PLAIN, or LOGIN for servers that offer only it (older Exchange).
 		curl_easy_setopt(curl, CURLOPT_LOGIN_OPTIONS, "AUTH=PLAIN;AUTH=LOGIN");
 	}
+	// The credentials go with the AUTH command, as Go's smtp client sends them.
+	curl_easy_setopt(curl, CURLOPT_SASL_IR, 1L);
 	curl_easy_setopt(curl, CURLOPT_MAIL_FROM, from.c_str());
 	curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, rcpt);
 	curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
@@ -187,21 +198,26 @@ Result send_email(const Channel &ch, const Rendered &r, OAuth &oauth)
 	curl_slist_free_all(rcpt);
 	curl_easy_cleanup(curl);
 	if (code == CURLE_OK) return std::nullopt;
-	if (code == CURLE_USE_SSL_FAILED && !trace.starttls) return permanent("the server does not offer STARTTLS");
-	bool replied = trace.code >= 400 && code != CURLE_OPERATION_TIMEDOUT && code != CURLE_COULDNT_CONNECT &&
-	               code != CURLE_COULDNT_RESOLVE_HOST;
-	if (code == CURLE_LOGIN_DENIED || replied) {
-		Error e{replied ? reply_text(trace) : curl_error(code, errbuf)};
-		// The server's 5xx answers (a refused login, sender or recipient) are permanent; 4xx temporary.
-		e.permanent = trace.code >= 500 || (code == CURLE_LOGIN_DENIED && trace.code < 400);
-		if (code == CURLE_LOGIN_DENIED && oauth2) {
-			// A refused token is dropped, so the next attempt renews it.
-			oauth.forget(ch);
-			e.auth = e.permanent;
-		}
+	if (code == CURLE_USE_SSL_FAILED && !trace.starttls && trace.code == 0) return permanent("the server does not offer STARTTLS");
+	if (code == CURLE_LOGIN_DENIED && trace.code == 0) {
+		// The server offers none of the sign-ins: Go would try its own and be refused.
+		Error e = permanent(curl_error(code, errbuf));
+		if (oauth2) oauth.forget(ch);
+		e.auth = oauth2;
 		return e;
 	}
-	return Error{curl_error(code, errbuf)};
+	if (trace.code == 0) return Error{curl_error(code, errbuf)};
+	Error e{reply_text(trace)};
+	// The server's 5xx answers to a login, the sender, a recipient or the message are permanent; 4xx are temporary
+	// by the protocol, and a refused greeting, EHLO or STARTTLS is retried.
+	bool refusal = trace.phase == "AUTH" || trace.phase == "MAIL" || trace.phase == "RCPT" || trace.phase == "DATA";
+	e.permanent = refusal && trace.code >= 500;
+	if (trace.phase == "AUTH" && oauth2) {
+		// A refused token is dropped, so the next attempt renews it.
+		oauth.forget(ch);
+		e.auth = e.permanent;
+	}
+	return e;
 }
 
 // ---- syslog ----
@@ -384,7 +400,8 @@ HttpAnswer perform(const HttpRequest &request)
 	curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "");
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_body);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &body);
-	curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, request.method.c_str());
+	// A POST that is redirected with 301, 302 or 303 becomes a GET, as Go's client does it.
+	if (request.method != "POST") curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, request.method.c_str());
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.body.data());
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(request.body.size()));
 	if (request.skip_verify) {

@@ -54,6 +54,17 @@ add_custom_command(
   DEPENDS ${NOTIFY_MESSAGE_FILES} ${CMAKE_SOURCE_DIR}/cmake/embed_messages.cmake
   VERBATIM)
 
+# The network family's udhcpc hooks and IPv6 boot script, embedded byte for byte as the Go server embeds them.
+set(NETWORK_SCRIPTS_DIR ${CMAKE_SOURCE_DIR}/../server/service/network/scripts)
+add_custom_command(
+  OUTPUT ${CMAKE_BINARY_DIR}/generated/network_scripts.inc
+  COMMAND ${CMAKE_COMMAND} -DSRC=${NETWORK_SCRIPTS_DIR} -DOUT=${CMAKE_BINARY_DIR}/generated/network_scripts.inc
+          -P ${CMAKE_SOURCE_DIR}/src/network/embed_scripts.cmake
+  DEPENDS ${NETWORK_SCRIPTS_DIR}/99-nanokvm-dns ${NETWORK_SCRIPTS_DIR}/99-nanokvm-gateway
+          ${NETWORK_SCRIPTS_DIR}/98-nanokvm-wifi-source ${NETWORK_SCRIPTS_DIR}/S02ipv6
+          ${CMAKE_SOURCE_DIR}/src/network/embed_scripts.cmake
+  VERBATIM)
+
 add_executable(NanoKVM-Server
   src/main.cpp
   src/common/log.cpp
@@ -111,7 +122,16 @@ add_executable(NanoKVM-Server
   src/system/startpriority.cpp
   src/system/cron.cpp
   src/usb/composition.cpp
-  src/usb/storage_reads.cpp
+  src/storage/download.cpp
+  src/storage/gadget.cpp
+  src/storage/go.cpp
+  src/storage/http_source.cpp
+  src/storage/images.cpp
+  src/storage/netboot.cpp
+  src/storage/remote.cpp
+  src/storage/remotemedia.cpp
+  src/storage/smb.cpp
+  src/storage/userdisk.cpp
   src/video/capture_status.cpp
   src/video/capture_worker.c
   src/video/direct.cpp
@@ -134,6 +154,20 @@ add_executable(NanoKVM-Server
   src/video/audio.cpp
   src/video/rtc_common.cpp
   src/video/srtp_frame.cpp
+  src/network/util.cpp
+  src/network/wifi.cpp
+  src/network/wifi_ap.cpp
+  src/network/trial.cpp
+  src/network/ethernet.cpp
+  src/network/dns.cpp
+  src/network/ipv6.cpp
+  src/network/gateway.cpp
+  src/network/wol.cpp
+  src/network/discovery.cpp
+  src/network/webrtc_servers.cpp
+  src/network/routes.cpp
+  src/network/scripts.cpp
+  ${CMAKE_BINARY_DIR}/generated/network_scripts.inc
 )
 
 target_include_directories(NanoKVM-Server PRIVATE

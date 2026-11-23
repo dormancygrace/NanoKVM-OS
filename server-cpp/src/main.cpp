@@ -7,6 +7,7 @@
 #include "http/server.hpp"
 #include "http/static_files.hpp"
 #include "input/hid.hpp"
+#include "network/network.hpp"
 #include "input/keyboard_routes.hpp"
 #include "input/region.hpp"
 #include "system/atx.hpp"
@@ -29,7 +30,7 @@
 #include "system/startpriority.hpp"
 #include "system/terminal.hpp"
 #include "usb/composition.hpp"
-#include "usb/storage_reads.hpp"
+#include "storage/storage.hpp"
 #include "input/jiggler.hpp"
 #include "input/ws.hpp"
 #include "video/hdmi.hpp"
@@ -62,8 +63,10 @@ std::string web_root()
 
 } // namespace
 
-int main()
+int main(int argc, char **argv)
 {
+	// The SMB reader is this binary started again with --nanokvm-smb-reader: it runs before anything else.
+	if (int code = nkos::storage::run_smb_helper_if_requested(argc, argv); code >= 0) return code;
 	using namespace nkos;
 	// Ahead of the other services while it starts (every thread created later inherits it).
 	system::startpriority::raise();
@@ -137,7 +140,7 @@ int main()
 	input::add_keyboard_routes(router);
 	input::jiggler::add_routes(router);
 	usb::add_routes(router);
-	usb::add_storage_read_routes(router);
+	storage::add_routes(router);
 	system::add_info_routes(router);
 	system::logs::add_routes(router);
 	system::notify::add_routes(router);
@@ -154,17 +157,27 @@ int main()
 	system::add_bluetooth_routes(router);
 	system::add_oled_routes(router);
 	system::add_cpufreq_routes(router);
+	network::add_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.
 	// Video recovery after repeated crashes: the server runs without video.
 	bool recovering = system::failsafe::init();
 	system::apply_saved_cpu_frequency();
+	// main.go initialize: the IPv6 policy and the udhcpc hooks, before the capture starts.
+	network::initialize_ipv6();
+	network::ensure_dhcp_integration();
 	if (!recovering) {
 		system::failsafe::video_phase("initializing");
 		if (!video::vision::init()) log::error("video capture is unavailable");
 		else video::watermark::apply_at_start();
 	}
+	network::publish_discovery();
 	system::journal::record_start();
+	storage::cleanup_at_start();
+	storage::start_downloads();
+	// router/network.go: a change left on trial is undone, and the gateway check runs, before the listeners.
+	network::restore_pending_trial();
+	network::start_gateway_check();
 	int status = http::run(conf, router, [] {
 		video::hdmi::start();
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");

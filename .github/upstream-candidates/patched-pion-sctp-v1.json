@@ -3,10 +3,16 @@
   "current": "1.12.1",
   "candidate": "1.12.2",
   "candidate_key": "1.12.2",
-  "status": "pending-review",
+  "status": "accepted",
   "upstream": "https://github.com/pion/sctp/tags",
   "source_path": "server/go.mod",
   "strategy": "review",
-  "evidence": {},
-  "pin_files_updated": []
+  "evidence": {
+    "review": "Integrated the upstream stream-reset handling and optional minimum retransmission timeout. The existing transport v5.1.5 pin matches upstream."
+  },
+  "pin_files_updated": [
+    "server/go.mod",
+    "server/third_party/pion-sctp/NANOKVM-PATCHES.md",
+    "server/third_party/pion-sctp/UPSTREAM-SHA256.json"
+  ]
 }

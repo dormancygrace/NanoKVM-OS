@@ -467,6 +467,10 @@ type Config struct {
 	// Reassembly queue config options
 	maxReassemblyQueueEntries uint32
 
+	// Minimum retransmission timeout in milliseconds, set with WithRTOMin.
+	// Zero keeps the default of 1000 ms.
+	rtoMin float64
+
 	// SNAP/sctp-init
 	snapConfig *snapConfig
 
@@ -663,6 +667,9 @@ func (c Config) applyServer(cfg *Config) error { //nolint:dupl,cyclop
 	if c.RTOMax != 0 {
 		cfg.RTOMax = c.RTOMax
 	}
+	if c.rtoMin != 0 {
+		cfg.rtoMin = c.rtoMin
+	}
 	if c.MinCwnd != 0 {
 		cfg.MinCwnd = c.MinCwnd
 	}
@@ -773,6 +780,9 @@ func (c Config) applyClient(cfg *Config) error { //nolint:dupl,cyclop
 	if c.RTOMax != 0 {
 		cfg.RTOMax = c.RTOMax
 	}
+	if c.rtoMin != 0 {
+		cfg.rtoMin = c.rtoMin
+	}
 	if c.MinCwnd != 0 {
 		cfg.MinCwnd = c.MinCwnd
 	}
@@ -877,7 +887,7 @@ func createAssociationFromConfigWithTsn(cfg *Config, tsn uint32) *Association {
 		myNextRSN:               tsn,
 		minTSN2MeasureRTT:       tsn,
 		state:                   closed,
-		rtoMgr:                  newRTOManager(rtoMax),
+		rtoMgr:                  newRTOManager(cfg.rtoMin, rtoMax),
 		streams:                 map[uint16]*Stream{},
 		reconfigs:               map[uint32]*chunkReconfig{},
 		reconfigRequests:        map[uint32]*paramOutgoingResetRequest{},
@@ -2861,12 +2871,17 @@ func (a *Association) handlePeerLastTSNAndAcknowledgement(sackImmediately bool) 
 	//   if possible
 	// Meaning, if peerLastTSN+1 points to a chunk that is received,
 	// advance peerLastTSN until peerLastTSN+1 points to unreceived chunk.
-	for {
-		if popOk := a.payloadQueue.pop(false); !popOk {
-			break
-		}
+	previousTSN := a.peerLastTSN()
+	for a.payloadQueue.pop(false) {
+	}
 
+	if a.peerLastTSN() != previousTSN {
+		// Revisit pending resets once after advancing the cumulative TSN.
+		// Requests that are still pending already received an In Progress reply.
 		for _, rstReq := range a.reconfigRequests {
+			if !sna32LTE(rstReq.senderLastTSN, a.peerLastTSN()) {
+				continue
+			}
 			resp := a.resetStreamsIfAny(rstReq)
 			if resp != nil {
 				a.log.Debugf("[%s] RESET RESPONSE: %+v", a.name, resp)
@@ -4001,7 +4016,7 @@ func (a *Association) handleReconfigParam(raw param) (*packet, error) {
 		if traceLog {
 			a.log.Tracef("[%s] handleReconfigParam (OutgoingResetRequest)", a.name)
 		}
-		if a.peerLastTSN() < par.senderLastTSN && len(a.reconfigRequests) >= maxReconfigRequests {
+		if !sna32LTE(par.senderLastTSN, a.peerLastTSN()) && len(a.reconfigRequests) >= maxReconfigRequests {
 			// We have too many reconfig requests outstanding. Drop the request and let
 			// the peer retransmit. A well behaved peer should only have 1 outstanding
 			// reconfig request.

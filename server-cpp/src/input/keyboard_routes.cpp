@@ -82,6 +82,11 @@ std::string quote_rune(char32_t r)
 	if (r == '\n') return "'\\n'";
 	if (r == '\t') return "'\\t'";
 	if (r == '\r') return "'\\r'";
+	if (r == '\a') return "'\\a'";
+	if (r == '\b') return "'\\b'";
+	if (r == '\f') return "'\\f'";
+	if (r == '\v') return "'\\v'";
+	if (r >= 0x80 && r < 0xa0) return std::format("'\\u{:04x}'", static_cast<unsigned>(r));
 	if (r < 0x20 || r == 0x7f) return std::format("'\\x{:02x}'", static_cast<unsigned>(r));
 	std::string out = "'";
 	if (r < 0x80) out += static_cast<char>(r);
@@ -238,7 +243,7 @@ struct ShortcutStore {
 	std::vector<Shortcut> shortcuts;
 };
 struct AddShortcutReq {
-	std::vector<ShortcutKey> keys;
+	std::optional<std::vector<ShortcutKey>> keys;  // required, may be empty (as the Go validator)
 };
 struct DeleteShortcutReq {
 	std::string id;
@@ -525,10 +530,10 @@ void add_keyboard_routes(http::Router &router)
 	}, admin));
 	router.add("POST", "/api/hid/shortcut", auth::guarded([](http::Request &req, http::Response &res) {
 		AddShortcutReq r;
-		if (glz::read<glz::opts{.error_on_unknown_keys = false}>(r, req.body) || r.keys.empty())
+		if (glz::read<glz::opts{.error_on_unknown_keys = false}>(r, req.body) || !r.keys)
 			return api::err(res, -1, "invalid arguments");
 		auto store = load_shortcuts();
-		Shortcut s{uuid4(), r.keys};
+		Shortcut s{uuid4(), *r.keys};
 		store.shortcuts.push_back(s);
 		if (!config::atomic_write(shortcut_file, to_json(store), 0644)) {
 			log::error("failed to add shortcut");

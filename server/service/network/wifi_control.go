@@ -106,6 +106,9 @@ func (w radioControl) chipAlias() string {
 // when Wi-Fi is turned on.
 func (w radioControl) hardware() bool { return w.present() || w.chipAlias() != "" }
 
+// WiFiHardwarePresent also detects the SDIO radio when Wi-Fi is switched off.
+func WiFiHardwarePresent() bool { return wifiControl.hardware() }
+
 func (w radioControl) enabled() bool {
 	_, err := os.Stat(filepath.Join(w.etc, "wifi.disabled"))
 	return os.IsNotExist(err)

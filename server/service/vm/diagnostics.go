@@ -24,6 +24,7 @@ import (
 	"NanoKVM-Server/common"
 	"NanoKVM-Server/osupdate"
 	"NanoKVM-Server/proto"
+	"NanoKVM-Server/service/network"
 	"NanoKVM-Server/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -161,10 +162,46 @@ func (s *Service) DownloadDiagnosticsReport(c *gin.Context) {
 	c.JSON(200, report)
 }
 
+// Public hardware fields describe a model or capability shared by devices.
+type reportHardware struct {
+	BoardProfile        string `json:"boardProfile,omitempty"`
+	HDMIReceiver        string `json:"hdmiReceiver,omitempty"`
+	EthernetPresent     bool   `json:"ethernetPresent"`
+	WiFiPresent         bool   `json:"wifiPresent"`
+	SDCardModel         string `json:"sdCardModel,omitempty"`
+	SDCardCapacityBytes uint64 `json:"sdCardCapacityBytes,omitempty"`
+}
+
+// The SD product name reported by the kernel is five ASCII bytes.
+var sdProductName = regexp.MustCompile(`^[A-Za-z0-9._+ -]{1,5}$`)
+
+func collectReportHardware() reportHardware {
+	_, ethernetErr := diagnosticStat("/sys/class/net/eth0")
+	hw := reportHardware{
+		HDMIReceiver:    common.HDMIReceiverModel(),
+		EthernetPresent: ethernetErr == nil,
+		WiFiPresent:     network.WiFiHardwarePresent(),
+	}
+	switch board := diagnosticText("/etc/kvm/board-profile"); board {
+	case "alpha", "beta", "lite", "pcie":
+		hw.BoardProfile = board
+	}
+	const card = "/sys/block/mmcblk0/"
+	if name := diagnosticText(card + "device/name"); sdProductName.MatchString(name) {
+		hw.SDCardModel = name
+	}
+	// Linux reports block device size in 512-byte sectors.
+	if sectors, err := strconv.ParseUint(diagnosticText(card+"size"), 10, 55); err == nil {
+		hw.SDCardCapacityBytes = sectors * 512
+	}
+	return hw
+}
+
 // diagnosticsReport is intentionally narrower than the UI snapshot. Never add
 // command output, operation messages, network data, or user supplied names.
 func diagnosticsReport(snapshot DiagnosticsSnapshot) any {
 	return struct {
+		Hardware    reportHardware  `json:"hardware"`
 		Schema      string          `json:"schema"`
 		CollectedAt int64           `json:"collectedAt"`
 		Privacy     string          `json:"privacy"`
@@ -175,7 +212,8 @@ func diagnosticsReport(snapshot DiagnosticsSnapshot) any {
 		APK         any             `json:"apk"`
 		Firewall    any             `json:"firewall"`
 	}{
-		Schema: "nanokvm-diagnostics/v1", CollectedAt: snapshot.CollectedAt,
+		Hardware: collectReportHardware(),
+		Schema:   "nanokvm-diagnostics/v1", CollectedAt: snapshot.CollectedAt,
 		Privacy: "Allow-listed status only; no credentials, configuration contents, network addresses, identifiers, screen, or video data.",
 		Versions: struct {
 			Application, Image, Alpine, Kernel string

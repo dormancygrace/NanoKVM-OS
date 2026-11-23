@@ -1,5 +1,6 @@
 #include "video/hdmi.hpp"
 
+#include "system/oled_state.hpp"
 #include "api/request.hpp"
 #include "api/response.hpp"
 #include "auth/session.hpp"
@@ -201,6 +202,7 @@ bool disabled()
 
 void start()
 {
+	system::oled::publish_viewers(viewer_total);
 	if (disabled()) disable_capture();
 	else enable_capture();
 	set_viewers("legacy", 0);
@@ -214,6 +216,7 @@ void set_viewers(const std::string &source, int count)
 	current = count;
 	viewer_total = 0;
 	for (auto &[name, n] : viewers) viewer_total += n;
+	system::oled::publish_viewers(viewer_total);
 	reconcile();
 }
 

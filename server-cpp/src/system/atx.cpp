@@ -1,5 +1,6 @@
 #include "system/atx.hpp"
 
+#include "system/oled_state.hpp"
 #include "api/request.hpp"
 #include "api/response.hpp"
 #include "auth/session.hpp"
@@ -54,6 +55,7 @@ void start()
 	struct stat st{};
 	if (available() && ::stat(setting_file, &st) != 0 && errno == ENOENT && !write_setting(board_default()))
 		log::error("ATX setting: {}", std::strerror(errno));
+	oled::publish_atx(enabled());
 	start_monitor();
 }
 
@@ -155,6 +157,7 @@ void add_routes(http::Router &router)
 			log::error("ATX setting: {}", std::strerror(errno));
 			return api::err(res, -3, "the setting could not be saved");
 		}
+		oled::publish_atx(enabled());
 		if (*on) start_monitor();
 		else gpio::stop_led_monitor();
 		log::info("ATX power control {}", *on ? "on" : "off");

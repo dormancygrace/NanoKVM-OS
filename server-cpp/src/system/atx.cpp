@@ -11,7 +11,14 @@
 #include "system/gpio.hpp"
 #include "system/hardware.hpp"
 
+#include "input/ws.hpp"
+#include "system/journal.hpp"
+
+#include <atomic>
 #include <cerrno>
+#include <chrono>
+#include <mutex>
+#include <thread>
 #include <cstring>
 #include <format>
 #include <fstream>
@@ -32,6 +39,42 @@ bool write_setting(bool on) { return config::atomic_write(setting_file, on ? "on
 void start_monitor()
 {
 	if (enabled()) gpio::start_led_monitor(hardware().gpio_power_led, hardware().gpio_hdd_led);
+}
+
+// One press at a time; the line a press holds is let go at shutdown.
+std::atomic<bool> pressing{false};
+std::mutex held_mutex;
+gpio::Line *held = nullptr;
+bool stopped = false;
+
+// "" or the error. Blocking: the press lasts its full length.
+std::string pulse(const std::string &device, std::chrono::milliseconds duration)
+{
+	if (duration.count() <= 0 || duration > std::chrono::minutes(1)) return "ATX duration must be between 1 ns and 60 seconds";
+	if (pressing.exchange(true)) return "another ATX pulse is in progress";
+	struct Done {
+		~Done() { pressing = false; }
+	} done;
+	std::string error;
+	auto line = gpio::Line::open(device, true, error);
+	if (!line) return error;
+	{
+		std::lock_guard lock(held_mutex);
+		if (stopped) return "the server is stopping";
+		held = &*line;
+		if (!line->set(true, error)) {
+			std::string release_error;
+			line->set(false, release_error);
+			held = nullptr;
+			return error;
+		}
+	}
+	// A started press runs its full length: a long press cut short only presses briefly.
+	std::this_thread::sleep_for(duration);
+	std::lock_guard lock(held_mutex);
+	held = nullptr;
+	if (!line->set(false, error)) return error;
+	return "";
 }
 
 } // namespace
@@ -59,7 +102,15 @@ void start()
 	start_monitor();
 }
 
-void stop() { gpio::stop_led_monitor(); }
+void stop()
+{
+	gpio::stop_led_monitor();
+	// No button stays pressed when the server ends.
+	std::lock_guard lock(held_mutex);
+	stopped = true;
+	std::string error;
+	if (held && !held->set(false, error)) log::error("cannot release the ATX buttons: {}", error);
+}
 
 namespace {
 
@@ -145,6 +196,41 @@ void add_routes(http::Router &router)
 		api::send(res, 0, "success",
 		          std::format(R"({{"available":{},"board":{},"default":{},"enabled":{}}})", available(),
 		                      api::quote(hardware().board), board_default(), enabled()));
+	}));
+	router.add("GET", "/api/vm/gpio", auth::guarded([](http::Request &, http::Response &res) {
+		if (!enabled()) return api::err(res, -1, "ATX power control is off (System > Device)");
+		auto s = gpio::current_leds();
+		if (!s) return api::err(res, -2, "failed to read ATX LEDs: ATX LED monitor stopped");
+		api::send(res, 0, "success", std::format(R"({{"pwr":{},"hdd":{}}})", s->power, s->hdd));
+	}));
+	router.add("POST", "/api/vm/gpio", auth::guarded([](http::Request &req, http::Response &res) {
+		if (!input::ws::allows_input_lease(req.header("x-nanokvm-input-lease")))
+			return api::err(res, -4, "another session holds input control");
+		bool ok = true;
+		auto params = api::Params::bind(req);
+		std::optional<std::string> type;
+		std::optional<long long> duration_ms;
+		if (params) {
+			type = params->string("type", ok);
+			duration_ms = params->integer("duration", ok);
+		}
+		if (!params || !ok || !type || type->empty() || duration_ms.value_or(0) < 0)
+			return api::err(res, -1, "invalid arguments: Key: 'SetGpioReq.Type' Error:Field validation for 'Type' failed on the 'required' tag");
+		std::string device;
+		if (*type == "power") device = enabled() ? hardware().gpio_power : "";
+		else if (*type == "reset") device = enabled() ? hardware().gpio_reset : "";
+		else return api::err(res, -2, "invalid power event: " + *type);
+		if (device.empty()) return api::err(res, -2, "ATX power control is off (System > Device)");
+		if (*duration_ms > 60000) return api::err(res, -1, "ATX duration must not exceed 60000 ms");
+		auto duration = std::chrono::milliseconds(*duration_ms > 0 ? *duration_ms : 800);
+		std::string actor = req.auth ? req.auth->username + " (web)" : "";
+		bool reset = device == hardware().gpio_reset;
+		http::defer(req, res, [device, duration, actor, reset](http::Response &out) {
+			if (auto e = pulse(device, duration); !e.empty()) return api::err(out, -3, "operation failed: " + e);
+			journal::action("action.button",
+			                {{"button", reset ? "reset" : "power"}, {"seconds", std::format("{:.1f}", duration.count() / 1000.0)}}, actor);
+			api::ok(out);
+		});
 	}));
 	router.add("POST", "/api/vm/atx", auth::guarded([](http::Request &req, http::Response &res) {
 		bool ok = true;

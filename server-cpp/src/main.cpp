@@ -11,7 +11,9 @@
 #include "input/region.hpp"
 #include "system/atx.hpp"
 #include "system/branding.hpp"
+#include "system/cpufreq.hpp"
 #include "system/failsafe.hpp"
+#include "system/memory.hpp"
 #include "system/info.hpp"
 #include "system/journal.hpp"
 #include "system/live_status.hpp"
@@ -74,10 +76,13 @@ int main()
 	input::jiggler::add_routes(router);
 	usb::add_routes(router);
 	system::add_info_routes(router);
+	system::add_memory_routes(router);
+	system::add_cpufreq_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.
 	// Video recovery after repeated crashes: the server runs without video.
 	bool recovering = system::failsafe::init();
+	system::apply_saved_cpu_frequency();
 	if (!recovering) {
 		system::failsafe::video_phase("initializing");
 		if (!video::vision::init()) log::error("video capture is unavailable");

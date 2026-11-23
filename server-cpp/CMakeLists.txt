@@ -54,8 +54,10 @@ add_executable(NanoKVM-Server
   src/http/static_files.cpp
   src/input/control.cpp
   src/input/hid.cpp
+  src/input/region.cpp
   src/input/ws.cpp
   src/system/atx.cpp
+  src/system/branding.cpp
   src/system/failsafe.cpp
   src/system/gpio.cpp
   src/system/hardware.cpp

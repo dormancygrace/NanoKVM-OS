@@ -214,6 +214,15 @@ bool parse_range(const std::string &header, off_t size, off_t &start, off_t &len
 	return true;
 }
 
+// Ends a response that has headers only: an empty final write carries END_STREAM on HTTP/2, which the headers
+// alone do not (the browser saw the stream cancelled).
+int finish_without_body(lws *wsi)
+{
+	unsigned char buf[LWS_PRE + 1];
+	if (lws_write(wsi, buf + LWS_PRE, 0, LWS_WRITE_HTTP_FINAL) < 0) return -1;
+	return lws_http_transaction_completed(wsi) ? -1 : 0;
+}
+
 int finish_headers(lws *wsi, Session &s, unsigned status, const char *type, unsigned long long length,
                    const std::vector<std::pair<std::string, std::string>> &extra)
 {
@@ -245,7 +254,7 @@ int respond_file(lws *wsi, Session &s)
 		r.file.clear();
 		r.body = "invalid range: failed to overlap\n";
 		if (finish_headers(wsi, s, 416, "text/plain; charset=utf-8", r.body.size(), extra)) return -1;
-		if (s.head) return lws_http_transaction_completed(wsi) ? -1 : 0;
+		if (s.head) return finish_without_body(wsi);
 		lws_callback_on_writable(wsi);
 		return 0;
 	}
@@ -254,7 +263,7 @@ int respond_file(lws *wsi, Session &s)
 		                                        "/" + std::to_string(st.st_size));
 	std::string type = r.content_type.empty() ? "application/octet-stream" : r.content_type;
 	if (finish_headers(wsi, s, partial ? 206 : 200, type.c_str(), static_cast<unsigned long long>(length), extra)) return -1;
-	if (s.head || length == 0) return lws_http_transaction_completed(wsi) ? -1 : 0;
+	if (s.head || length == 0) return finish_without_body(wsi);
 	if (::lseek(s.fd, start, SEEK_SET) != start) return -1;
 	s.remaining = length;
 	lws_callback_on_writable(wsi);
@@ -291,7 +300,7 @@ int respond(lws *wsi, Session &s)
 	for (const auto &[name, value] : r.headers)
 		if (!append_header(wsi, &p, end, name, value)) return -1;
 	if (lws_finalize_write_http_header(wsi, start, &p, end)) return -1;
-	if (s.head || r.body.empty()) return lws_http_transaction_completed(wsi) ? -1 : 0;
+	if (s.head || r.body.empty()) return finish_without_body(wsi);
 	lws_callback_on_writable(wsi);
 	return 0;
 }

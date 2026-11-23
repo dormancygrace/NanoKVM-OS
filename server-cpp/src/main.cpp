@@ -11,6 +11,7 @@
 #include "input/region.hpp"
 #include "system/atx.hpp"
 #include "system/branding.hpp"
+#include "system/bluetooth.hpp"
 #include "system/cpufreq.hpp"
 #include "system/dashboard.hpp"
 #include "system/device_settings.hpp"
@@ -87,6 +88,7 @@ int main()
 	system::add_memory_routes(router);
 	system::add_dashboard_routes(router);
 	system::add_device_settings_routes(router);
+	system::add_bluetooth_routes(router);
 	system::add_cpufreq_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.

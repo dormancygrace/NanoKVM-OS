@@ -540,6 +540,34 @@ std::optional<ParseError> parse(std::string_view text, Value &out)
 	return std::nullopt;
 }
 
+std::optional<ParseError> parse_first(std::string_view text, Value &out)
+{
+	Parser p;
+	p.s = text;
+	out = Value();
+	if (!p.value(out, 0)) return p.error;
+	return std::nullopt;
+}
+
+std::string compact(std::string_view raw)
+{
+	std::string out;
+	bool in_string = false;
+	for (std::size_t i = 0; i < raw.size(); i++) {
+		char c = raw[i];
+		if (in_string) {
+			out += c;
+			if (c == '\\' && i + 1 < raw.size()) out += raw[++i];
+			else if (c == '"') in_string = false;
+			continue;
+		}
+		if (c == ' ' || c == '\t' || c == '\n' || c == '\r') continue;
+		if (c == '"') in_string = true;
+		out += c;
+	}
+	return out;
+}
+
 // --- Writing ---
 
 std::string quote(std::string_view s, bool html)

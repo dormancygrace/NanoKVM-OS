@@ -57,6 +57,10 @@ struct ParseError {
 // Strict JSON, as encoding/json accepts it: one value, surrounding white space only. Invalid UTF-8 in strings
 // becomes U+FFFD; duplicate keys stay (get() finds the last).
 std::optional<ParseError> parse(std::string_view text, Value &out);
+// json.Decoder's Decode: the first value; what follows it is left unread.
+std::optional<ParseError> parse_first(std::string_view text, Value &out);
+// json.Compact of valid JSON (white space outside strings removed).
+std::string compact(std::string_view raw);
 
 // json.Marshal (html: <, >, & escaped) and json.MarshalIndent(v, "", indent).
 std::string marshal(const Value &v, bool html = true);

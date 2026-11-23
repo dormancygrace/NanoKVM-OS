@@ -88,4 +88,23 @@ std::string save_file(const std::string &path, std::string_view data, const std:
 	return {};
 }
 
+std::string write_file(const std::string &path, std::string_view data, unsigned mode)
+{
+	int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, mode);
+	if (fd < 0) return "open " + path + ": " + errno_text(errno);
+	std::size_t done = 0;
+	while (done < data.size()) {
+		ssize_t n = ::write(fd, data.data() + done, data.size() - done);
+		if (n < 0 && errno == EINTR) continue;
+		if (n <= 0) {
+			int e = errno;
+			::close(fd);
+			return "write " + path + ": " + errno_text(e);
+		}
+		done += static_cast<std::size_t>(n);
+	}
+	if (::close(fd) != 0) return "close " + path + ": " + errno_text(errno);
+	return {};
+}
+
 } // namespace nkos::ai

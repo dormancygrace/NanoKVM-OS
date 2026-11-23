@@ -14,5 +14,8 @@ std::string errno_text(int e);
 int read_file(const std::string &path, std::string &out);
 // The atomic save: "" or the error ("create <what> directory: ...", "write temporary <what>: ...", ...).
 std::string save_file(const std::string &path, std::string_view data, const std::string &temp_prefix, const std::string &what);
+// os.WriteFile(path, data, mode): "" or "open <path>: ..." / "write <path>: ...".
+std::string write_file(const std::string &path, std::string_view data, unsigned mode);
+inline std::string save_file_plain(const std::string &path, std::string_view data) { return write_file(path, data, 0600); }
 
 } // namespace nkos::ai

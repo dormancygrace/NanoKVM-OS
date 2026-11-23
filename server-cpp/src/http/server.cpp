@@ -104,8 +104,11 @@ int write_ws(lws *wsi, WebSocket &ws)
 	}
 	if (ws.ping_due_ && !ws.closing_) {
 		ws.ping_due_ = false;
+		// One byte of payload: lws does not report an empty pong (RECEIVE_PONG), so the read timeout would close
+		// a socket whose browser answers every ping.
 		unsigned char buf[LWS_PRE + 1];
-		if (lws_write(wsi, buf + LWS_PRE, 0, LWS_WRITE_PING) < 0) return -1;
+		buf[LWS_PRE] = 'p';
+		if (lws_write(wsi, buf + LWS_PRE, 1, LWS_WRITE_PING) < 0) return -1;
 		lws_callback_on_writable(wsi);
 		return 0;
 	}

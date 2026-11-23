@@ -81,14 +81,14 @@ func (e Engine) Snapshot() (Archive, error) {
 	if err != nil {
 		return a, err
 	}
-	// A group without files is not covered: a backup made before ZeroTier ran
-	// says nothing about an identity made later, which no restore could bring
-	// back once deleted.
-	for _, g := range allGroups() {
-		if slices.ContainsFunc(a.Files, func(f File) bool { return group(f.Path) == g }) {
-			a.Covers = append(a.Covers, g)
-		}
-	}
+	// A group the device had no state of is not covered, and its other files
+	// stay out: a backup made before ZeroTier started says nothing about an
+	// identity made later, which no restore could bring back once deleted.
+	a.Covers = coveredGroups(a.Files)
+	a.Files = slices.DeleteFunc(a.Files, func(f File) bool {
+		g := group(f.Path)
+		return g != "" && !slices.Contains(a.Covers, g)
+	})
 	world, err := read(e.Root, "etc/apk/world", MaxFile)
 	if err != nil {
 		return a, err

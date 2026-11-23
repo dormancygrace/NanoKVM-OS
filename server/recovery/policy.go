@@ -53,16 +53,46 @@ var versionPattern = regexp.MustCompile(`^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-._]
 // lists the groups it covers. Restoring one made before a group existed leaves
 // that group's files on the device as they are: their absence from the archive
 // does not mean they were absent from the device.
-var groups = map[string]string{"zerotier": "var/lib/zerotier-one/"}
+var groups = map[string]settingsGroup{
+	// The node identity and the networks joined with it. Without
+	// identity.secret ZeroTier had not started: network files then are only
+	// preseeded join requests, and restoring them would delete the identity and
+	// networks made since.
+	"zerotier": {prefixes: []string{"var/lib/zerotier-one/identity.", "var/lib/zerotier-one/networks.d/"},
+		markers: []string{"var/lib/zerotier-one/identity.secret"}},
+	// Configuration, which does not depend on the identity: covered once
+	// there is one, or once ZeroTier started (it then had none).
+	"zerotier-config": {prefixes: []string{"var/lib/zerotier-one/local.conf"},
+		markers: []string{"var/lib/zerotier-one/local.conf", "var/lib/zerotier-one/identity.secret"}},
+}
+
+type settingsGroup struct {
+	prefixes []string
+	// A backup covers the group only when the device had one of these files.
+	markers []string
+}
 
 // group is the name of the group a settings path belongs to, or "".
 func group(p string) string {
-	for name, prefix := range groups {
-		if strings.HasPrefix(p, prefix) {
-			return name
+	for name, g := range groups {
+		for _, prefix := range g.prefixes {
+			if strings.HasPrefix(p, prefix) {
+				return name
+			}
 		}
 	}
 	return ""
+}
+
+// coveredGroups are the groups a backup of files covers.
+func coveredGroups(files []File) []string {
+	var names []string
+	for _, name := range allGroups() {
+		if slices.ContainsFunc(files, func(f File) bool { return slices.Contains(groups[name].markers, f.Path) }) {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 // allGroups are the groups a new archive covers.

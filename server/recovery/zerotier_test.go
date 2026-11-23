@@ -78,7 +78,7 @@ func TestZerotierStateSurvivesOlderBackups(t *testing.T) {
 		t.Fatalf("snapshot without ZeroTier covers %v, %v", a.Covers, err)
 	}
 	write(e.Root, identity, &File{Data: []byte("node-secret"), Mode: 0600})
-	if a, err := e.Snapshot(); err != nil || !slices.Equal(a.Covers, []string{"zerotier"}) {
+	if a, err := e.Snapshot(); err != nil || !slices.Equal(a.Covers, allGroups()) {
 		t.Fatalf("snapshot with ZeroTier covers %v, %v", a.Covers, err)
 	}
 	// ZeroTier files only in an archive that covers them.
@@ -127,5 +127,63 @@ func TestZerotierStateSurvivesQueuedResets(t *testing.T) {
 		if got := contents(t, e, identity); contents(t, e, "etc/kvm/web-title") != "" || (got == "node-secret") != legacy {
 			t.Fatalf("legacy=%v: identity %q, web title %q", legacy, got, contents(t, e, "etc/kvm/web-title"))
 		}
+	}
+}
+
+// A backup made before ZeroTier first started, with only its configuration
+// and a preseeded network, restores the configuration and keeps the identity
+// and networks made since.
+func TestZerotierPreStartBackupKeepsLaterIdentity(t *testing.T) {
+	dir := "var/lib/zerotier-one/"
+	e := fixture(t)
+	write(e.Root, dir+"local.conf", &File{Data: []byte("saved"), Mode: 0600})
+	write(e.Root, dir+"networks.d/8056c2e21c000001.conf", &File{Data: []byte("preseeded"), Mode: 0600})
+	a, err := e.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(a.Covers, []string{"zerotier-config"}) ||
+		slices.ContainsFunc(a.Files, func(f File) bool { return group(f.Path) == "zerotier" }) {
+		t.Fatalf("pre-start backup covers %v", a.Covers)
+	}
+	// The first start.
+	write(e.Root, dir+"identity.secret", &File{Data: []byte("node-secret"), Mode: 0600})
+	write(e.Root, dir+"networks.d/8056c2e21c000002.conf", &File{Data: []byte("joined"), Mode: 0600})
+	write(e.Root, dir+"local.conf", &File{Data: []byte("changed"), Mode: 0600})
+	plan, _, err := e.Prepare(&a, Options{Action: "restore", Mode: "device"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Stage(plan); err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Resume(func([]string) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{"identity.secret": "node-secret", "local.conf": "saved",
+		"networks.d/8056c2e21c000001.conf": "preseeded", "networks.d/8056c2e21c000002.conf": "joined"} {
+		if got := contents(t, e, dir+name); got != want {
+			t.Errorf("%s: %q, want %q", name, got, want)
+		}
+	}
+	// Once ZeroTier started, a backup without local.conf records that there
+	// was none.
+	e = fixture(t)
+	write(e.Root, dir+"identity.secret", &File{Data: []byte("node-secret"), Mode: 0600})
+	if a, err = e.Snapshot(); err != nil {
+		t.Fatal(err)
+	}
+	write(e.Root, dir+"local.conf", &File{Data: []byte("later"), Mode: 0600})
+	if plan, _, err = e.Prepare(&a, Options{Action: "restore", Mode: "device"}); err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Stage(plan); err != nil {
+		t.Fatal(err)
+	}
+	if err = e.Resume(func([]string) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if contents(t, e, dir+"local.conf") != "" || contents(t, e, dir+"identity.secret") != "node-secret" {
+		t.Fatalf("local.conf %q, identity %q", contents(t, e, dir+"local.conf"), contents(t, e, dir+"identity.secret"))
 	}
 }

@@ -20,7 +20,7 @@
 #   system     kvm_system board service
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
 #              exfatprogs, i2c-tools, lolcat, OpenSSL and zlib-ng (also for the server)
-#   server     NanoKVM-Server and update/USB internet helpers
+#   server     NanoKVM-Server (server-cpp) and its helpers
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
@@ -711,25 +711,32 @@ system() {
     cp "$s/out/kvm_system" "$img/system/"
 }
 
-# NanoKVM-Server with the NanoKVM Go runtime and C906 ChaCha20
-# (firmware/cpu/sysmon-runtime, firmware/cpu/go-crypto-c906),
-# and the static update helpers. Go modules are checked against go.sum.
+# NanoKVM-Server (server-cpp) and its helpers, from the inputs pinned in
+# sources.lock: libwebsockets, glaze, rapidyaml, libdatachannel with its
+# libjuice, libsrtp, usrsctp and plog, libjpeg-turbo, libspng and curl's
+# headers; OpenSSL and zlib-ng of the tools step, libkvm of the native step.
 server() {
-    local s=$out/server
+    local s=$out/server src=$out/server/src name archive
     rm -rf "$s" "${img:?}/server"
-    mkdir -p "$s" "$img/server" "$dl/go-mod"
-    tar -xzf "$dl/go1.27.4.linux-amd64.tar.gz" -C "$s"
-    "$host/python3" "$repo/firmware/cpu/sysmon-runtime/prepare.py" --base "$s/go" --output "$s/goroot" > /dev/null
-    # The server's hot functions are linked first, together
-    # (firmware/cpu/go-hot-order): the linker gets the option for that.
-    GOCACHE=$s/gocache "$host/python3" "$repo/firmware/cpu/go-hot-order/prepare-linker.py" --goroot "$s/goroot" > /dev/null
-    GOMODCACHE=$dl/go-mod GOPATH=$s/gopath GOCACHE=$s/gocache GOFLAGS=-mod=readonly GOTOOLCHAIN=local \
-        "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
-        --compression "$out/tools/compress" --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out" \
-        --hot-order "$repo/firmware/cpu/go-hot-order/server-webrtc.txt"
-    cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
-    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$s/out/nkos-standby" \
-        "$img/server/"
+    mkdir -p "$src" "$img/server"
+    archive() { name=$(lock "$1" | awk '{ print $2 }'); echo "$dl/${name##*/}"; }
+    tar -xzf "$(archive libwebsockets)" -C "$src" && mv "$src"/libwebsockets-* "$src/libwebsockets"
+    tar -xzf "$(archive glaze)" -C "$src" && mv "$src"/glaze-* "$src/glaze"
+    cp "$(archive rapidyaml)" "$src/rapidyaml.hpp"
+    unpack_git libdatachannel . "$src/libdatachannel"
+    for name in libjuice libsrtp usrsctp plog; do
+        rm -rf "${src:?}/libdatachannel/deps/$name"
+        unpack_git "$name" . "$src/libdatachannel/deps/$name"
+    done
+    tar -xzf "$(archive libjpeg-turbo)" -C "$src" && mv "$src"/libjpeg-turbo-* "$src/libjpeg-turbo"
+    tar -xzf "$(archive libspng)" -C "$src" && mv "$src"/libspng-* "$src/libspng"
+    tar -xJf "$(archive curl)" -C "$src" && mv "$src"/curl-* "$src/curl"
+    PATH="$host:$PATH" CROSS="$cross" CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)" \
+        OPENSSL="$out/tools/openssl/openssl-$(lock openssl | awk '{ print $2 }' | sed -E 's/.*openssl-([0-9.]+)\.tar\.gz/\1/')" \
+        ZLIB="$out/tools/zlib-ng/build" NATIVE="$img/native" CMAKE="$host/cmake" JOBS="$jobs" \
+        bash "$repo/server-cpp/build.sh" "$src" "$s/out"
+    cp "$s/out/NanoKVM-Server" "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" \
+        "$s/out/nkos-standby" "$img/server/"
 }
 
 # Web UI. npm packages are checked against pnpm-lock.yaml.

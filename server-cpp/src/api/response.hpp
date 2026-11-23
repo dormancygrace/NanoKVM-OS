@@ -3,6 +3,7 @@
 // The API's JSON answers, as the Go server's proto.Response: {"code": 0, "msg": "success", "data": ...} with HTTP 200,
 // code 0 for success and a negative code with a message for an error; "data" is null when there is none.
 
+#include "common/gojson.hpp"
 #include "http/router.hpp"
 
 #include <glaze/glaze.hpp>
@@ -12,12 +13,8 @@
 
 namespace nkos::api {
 
-inline std::string quote(std::string_view s)
-{
-	std::string out;
-	(void)glz::write_json(std::string(s), out);
-	return out;
-}
+// A message as gin writes it (encoding/json: <, > and & escaped).
+inline std::string quote(std::string_view s) { return gojson::quote(s); }
 
 inline void send(http::Response &res, int code, std::string_view msg, std::string_view data_json)
 {

@@ -1,7 +1,7 @@
 #pragma once
 
-// A JSON string as Go's encoding/json writes it: <, > and & as <, >, &, U+2028 and U+2029 escaped,
-// invalid UTF-8 as U+FFFD. For files the Go server also writes, so that both write the same bytes.
+// A JSON string as Go 1.27's encoding/json (JSON v2) writes it: \b and \f as such, <, > and & as <, >, &, U+2028 and U+2029 escaped,
+// invalid UTF-8 as a raw U+FFFD. For files the Go server also writes, so that both write the same bytes.
 
 #include <string>
 #include <string_view>
@@ -26,6 +26,8 @@ inline std::string quote(std::string_view s)
 			case '\n': out += "\\n"; break;
 			case '\r': out += "\\r"; break;
 			case '\t': out += "\\t"; break;
+			case '\b': out += "\\b"; break;
+			case '\f': out += "\\f"; break;
 			case '<': case '>': case '&': u(c); break;
 			default:
 				if (c < 0x20) u(c);
@@ -35,7 +37,7 @@ inline std::string quote(std::string_view s)
 			continue;
 		}
 		// A UTF-8 sequence: its length and whether it is valid (shortest form, no surrogates, at most U+10FFFF).
-		int n = c >= 0xf0 ? 4 : c >= 0xe0 ? 3 : c >= 0xc2 ? 2 : 0;
+		int n = c >= 0xf5 ? 0 : c >= 0xf0 ? 4 : c >= 0xe0 ? 3 : c >= 0xc2 ? 2 : 0;
 		unsigned cp = n == 4 ? c & 7 : n == 3 ? c & 15 : c & 31;
 		bool ok = n > 0 && i + n <= s.size();
 		for (int k = 1; ok && k < n; k++) {
@@ -46,7 +48,7 @@ inline std::string quote(std::string_view s)
 		if (ok && ((n == 3 && (cp < 0x800 || (cp >= 0xd800 && cp <= 0xdfff))) || (n == 4 && (cp < 0x10000 || cp > 0x10ffff))))
 			ok = false;
 		if (!ok) {
-			out += "\\ufffd";
+			out += "\xef\xbf\xbd";
 			i++;
 			continue;
 		}

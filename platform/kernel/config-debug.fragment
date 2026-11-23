@@ -57,3 +57,5 @@ CONFIG_LOG_BUF_SHIFT=17
 # and the F2FS statistics, which debugfs shows.
 CONFIG_SLUB_DEBUG=y
 CONFIG_F2FS_STAT_FS=y
+# Every export: debug configs reach code (the Wi-Fi driver's sort()) that the release keep list does not cover.
+# CONFIG_TRIM_UNUSED_KSYMS is not set

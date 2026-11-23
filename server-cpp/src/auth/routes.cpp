@@ -10,6 +10,7 @@
 #include "auth/totp.hpp"
 #include "common/log.hpp"
 #include "common/loop.hpp"
+#include "common/process.hpp"
 #include "config/config.hpp"
 
 #include <glaze/glaze.hpp>
@@ -362,6 +363,7 @@ std::optional<std::string> change_root_password(const std::string &password)
 		dup2(in[0], 0);
 		close(in[0]);
 		close(in[1]);
+		process::cloexec_inherited();
 		execlp("passwd", "passwd", "root", static_cast<char *>(nullptr));
 		_exit(127);
 	}

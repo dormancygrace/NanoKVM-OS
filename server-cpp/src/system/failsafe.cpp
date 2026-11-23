@@ -4,6 +4,7 @@
 #include "auth/session.hpp"
 #include "common/log.hpp"
 #include "common/loop.hpp"
+#include "common/process.hpp"
 #include "system/logs.hpp"
 
 #include <glaze/glaze.hpp>
@@ -15,8 +16,6 @@
 #include <fstream>
 #include <sstream>
 #include <sys/stat.h>
-#include <linux/close_range.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 
 extern char **environ;
@@ -170,7 +169,7 @@ void add_routes(http::Router &router)
 					// The listeners and every other descriptor end with this process.
 					// The stderr pipe's reader does not survive the exec.
 					logs::restore_native_stderr();
-					::syscall(SYS_close_range, 3u, ~0u, CLOSE_RANGE_CLOEXEC);
+					process::cloexec_inherited();
 					::execve(path, argv, environ);
 				}
 				log::error("video recovery restart failed: {}", std::strerror(errno));

@@ -125,9 +125,21 @@ int write_ws(lws *wsi, WebSocket &ws)
 	return 0;
 }
 
-// Descriptors watched with watch_fd.
-std::map<int, std::function<void()>> watched;
+// Descriptors watched with watch_fd, by their watch (the wsi's opaque user data): a descriptor number is reused
+// once lws closed it, a watch never.
+struct Watched {
+	lws *wsi = nullptr;
+	FdCallbacks callbacks;
+};
+std::map<FdWatch, Watched> watched;
+FdWatch next_watch = 1;
 lws_vhost *serving_vhost;
+
+Watched *watched_of(lws *wsi)
+{
+	auto it = watched.find(reinterpret_cast<FdWatch>(lws_get_opaque_user_data(wsi)));
+	return it == watched.end() ? nullptr : &it->second;
+}
 
 // The open requests by id, for complete(): a pending request is answered while its connection exists.
 std::map<std::uint64_t, std::pair<lws *, Session *>> open_requests;
@@ -544,13 +556,29 @@ int fd_callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in
 {
 	switch (reason) {
 	case LWS_CALLBACK_RAW_RX_FILE: {
-		auto it = watched.find(lws_get_socket_fd(wsi));
-		if (it != watched.end()) it->second();
+		// A copy: the callback may end its own watch.
+		if (auto *w = watched_of(wsi)) {
+			auto on_readable = w->callbacks.readable;
+			if (on_readable) on_readable();
+		}
 		return 0;
 	}
-	case LWS_CALLBACK_RAW_CLOSE_FILE:
-		watched.erase(lws_get_socket_fd(wsi));
+	case LWS_CALLBACK_RAW_WRITEABLE_FILE:
+		if (auto *w = watched_of(wsi)) {
+			auto on_writable = w->callbacks.writable;
+			if (on_writable) on_writable();
+		}
 		return 0;
+	case LWS_CALLBACK_RAW_CLOSE_FILE: {
+		// The far end hung up (unwatch_fd erased its watch first and hears nothing).
+		auto id = reinterpret_cast<FdWatch>(lws_get_opaque_user_data(wsi));
+		auto it = watched.find(id);
+		if (it == watched.end()) return 0;
+		auto on_closed = std::move(it->second.callbacks.closed);
+		watched.erase(it);
+		if (on_closed) on_closed();
+		return 0;
+	}
 	default:
 		return lws_callback_http_dummy(wsi, reason, user, in, len);
 	}
@@ -631,17 +659,49 @@ void WebSocket::close(int code, std::string reason)
 	lws_callback_on_writable(wsi_);
 }
 
-bool watch_fd(int fd, std::function<void()> on_readable)
+FdWatch watch_fd(int fd, std::function<void()> on_readable)
 {
-	if (!serving_vhost) return false;
-	watched[fd] = std::move(on_readable);
+	return watch_fd(fd, FdCallbacks{std::move(on_readable), {}, {}});
+}
+
+FdWatch watch_fd(int fd, FdCallbacks callbacks)
+{
+	if (!serving_vhost) return 0;
 	lws_sock_file_fd_type desc{};
 	desc.filefd = fd;
-	if (!lws_adopt_descriptor_vhost(serving_vhost, LWS_ADOPT_RAW_FILE_DESC, desc, "nkos-fd", nullptr)) {
-		watched.erase(fd);
-		return false;
+	lws *wsi = lws_adopt_descriptor_vhost(serving_vhost, LWS_ADOPT_RAW_FILE_DESC, desc, "nkos-fd", nullptr);
+	if (!wsi) return 0;
+	FdWatch id = next_watch++;
+	lws_set_opaque_user_data(wsi, reinterpret_cast<void *>(id));
+	watched[id] = Watched{wsi, std::move(callbacks)};
+	return id;
+}
+
+void pause_fd(FdWatch watch, bool paused)
+{
+	auto it = watched.find(watch);
+	if (it != watched.end()) lws_rx_flow_control(it->second.wsi, paused ? 0 : 1);
+}
+
+void want_writable_fd(FdWatch watch)
+{
+	auto it = watched.find(watch);
+	if (it != watched.end()) lws_callback_on_writable(it->second.wsi);
+}
+
+void unwatch_fd(FdWatch watch, std::function<void()> after_close)
+{
+	auto it = watched.find(watch);
+	if (it == watched.end()) return;
+	lws *wsi = it->second.wsi;
+	if (after_close) {
+		// The close callback comes before lws frees the wsi and closes the descriptor: posted, after_close runs
+		// once this turn of the loop (and with it the close) is over.
+		it->second.callbacks = FdCallbacks{{}, {}, [after_close = std::move(after_close)] { loop::post(after_close); }};
+	} else {
+		watched.erase(it);
 	}
-	return true;
+	lws_set_timeout(wsi, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
 }
 
 bool request_open(std::uint64_t id) { return open_requests.count(id) != 0; }

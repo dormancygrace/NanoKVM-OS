@@ -24,6 +24,7 @@
 #include "system/oled.hpp"
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
+#include "system/terminal.hpp"
 #include "usb/composition.hpp"
 #include "usb/storage_reads.hpp"
 #include "input/jiggler.hpp"
@@ -88,6 +89,7 @@ int main()
 	system::add_info_routes(router);
 	system::logs::add_routes(router);
 	system::notify::add_routes(router);
+	system::terminal::add_routes(router);
 	system::add_memory_routes(router);
 	system::add_dashboard_routes(router);
 	system::add_device_settings_routes(router);

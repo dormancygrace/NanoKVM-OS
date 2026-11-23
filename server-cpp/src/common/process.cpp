@@ -5,12 +5,19 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
+#include <linux/close_range.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 extern char **environ;
 
 namespace nkos::process {
+
+void cloexec_inherited()
+{
+	::syscall(SYS_close_range, 3u, ~0u, CLOSE_RANGE_CLOEXEC);
+}
 
 Result run(const std::vector<std::string> &argv, const Options &options)
 {
@@ -59,6 +66,7 @@ Result run(const std::vector<std::string> &argv, const Options &options)
 		sigset_t none;
 		sigemptyset(&none);
 		::sigprocmask(SIG_SETMASK, &none, nullptr);
+		cloexec_inherited();
 		::execve(args[0], args.data(), env.data());
 		if (std::strchr(args[0], '/') == nullptr) ::execvpe(args[0], args.data(), env.data());
 		int e = errno;

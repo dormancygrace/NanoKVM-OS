@@ -30,4 +30,9 @@ struct Options {
 
 Result run(const std::vector<std::string> &argv, const Options &options = {});
 
+// In a forked child, before exec: every descriptor above stderr closes at the exec. The server opens its sockets
+// and device and video-memory descriptors without close-on-exec; a daemon started from a command would keep them
+// (port 443, video memory) after the server is gone. Async-signal-safe.
+void cloexec_inherited();
+
 } // namespace nkos::process

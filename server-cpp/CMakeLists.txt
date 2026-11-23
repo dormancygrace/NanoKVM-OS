@@ -49,6 +49,7 @@ add_executable(NanoKVM-Server
   src/common/log.cpp
   src/common/loop.cpp
   src/common/process.cpp
+  src/api/multipart.cpp
   src/api/request.cpp
   src/auth/brute_force.cpp
   src/auth/jwt.cpp
@@ -88,6 +89,8 @@ add_executable(NanoKVM-Server
   ${CMAKE_BINARY_DIR}/generated/notify_messages.inc
   src/system/live_status.cpp
   src/system/time_settings.cpp
+  src/system/serial_terminal.cpp
+  src/system/terminal.cpp
   src/usb/composition.cpp
   src/usb/storage_reads.cpp
   src/video/capture_status.cpp

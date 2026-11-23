@@ -7,6 +7,7 @@
 #include "config/config.hpp"
 #include "http/router.hpp"
 
+#include <cstdint>
 #include <functional>
 
 namespace nkos::http {
@@ -16,8 +17,23 @@ namespace nkos::http {
 int run(const config::Config &config, const Router &router, std::function<void()> on_ready = {},
         std::function<void()> on_stop = {});
 
-// Calls on_readable on the loop thread whenever fd (an eventfd or pipe owned by the caller, kept open while the
-// server runs) is readable. Loop thread, while the server runs.
-bool watch_fd(int fd, std::function<void()> on_readable);
+// A descriptor on the event loop (an eventfd, a pipe, a pty). The server takes it over: lws closes it once the watch
+// ends, by unwatch_fd or because the far end hung up (closed then runs, and the watch is gone). The callbacks run
+// on the loop thread and may end their own watch. 0 is no watch (watch_fd failed: the fd stays the caller's).
+// Loop thread, while the server runs.
+using FdWatch = std::uintptr_t;
+struct FdCallbacks {
+	std::function<void()> readable;
+	std::function<void()> writable;  // after want_writable_fd, once
+	std::function<void()> closed;
+};
+FdWatch watch_fd(int fd, std::function<void()> on_readable);
+FdWatch watch_fd(int fd, FdCallbacks callbacks);
+// Stops reading (readable is not called) until resumed: the reader's consumer is full.
+void pause_fd(FdWatch watch, bool paused);
+void want_writable_fd(FdWatch watch);
+// Ends the watch without calling closed; the descriptor is closed soon after, so the caller must not use it again.
+// after_close runs once it is closed (a lock on the device is gone then).
+void unwatch_fd(FdWatch watch, std::function<void()> after_close = {});
 
 } // namespace nkos::http

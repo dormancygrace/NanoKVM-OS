@@ -8,6 +8,7 @@
 #include <csetjmp>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -82,8 +83,18 @@ Raw build(const ryml::Tree &tree, const ryml::Parser &parser, ryml::id_type id)
 	return r;
 }
 
-// The document's root, or nullopt with error set; empty is set for a document without content.
-std::optional<Raw> parse(std::string_view text, std::string &error, bool &empty)
+// Whether a node or one below it has an anchor or is an alias (before the tree resolves them).
+bool has_anchors(const ryml::Tree &tree, ryml::id_type id)
+{
+	if (tree.has_anchor(id) || tree.is_ref(id)) return true;
+	for (ryml::id_type child = tree.first_child(id); child != ryml::NONE; child = tree.next_sibling(child))
+		if (has_anchors(tree, child)) return true;
+	return false;
+}
+
+// The document's root, or nullopt with error set; empty is set for a document without content. anchors, when
+// given, is set for a document with an anchor or an alias anywhere.
+std::optional<Raw> parse(std::string_view text, std::string &error, bool &empty, bool *anchors = nullptr)
 {
 	std::lock_guard lock(parse_mutex);
 	ryml::Callbacks saved = ryml::get_callbacks();
@@ -97,6 +108,7 @@ std::optional<Raw> parse(std::string_view text, std::string &error, bool &empty)
 		ryml::EventHandlerTree handler;
 		ryml::Parser parser(&handler, ryml::ParserOptions().locations(true));
 		ryml::Tree tree = ryml::parse_in_arena(&parser, ryml::csubstr(text.data(), text.size()));
+		if (anchors) *anchors = has_anchors(tree, tree.root_id());
 		tree.resolve();
 		ryml::id_type root = tree.root_id();
 		if (tree.is_stream(root)) {
@@ -115,8 +127,9 @@ std::optional<Raw> parse(std::string_view text, std::string &error, bool &empty)
 // ---- Values (what yaml.v3 decodes into an interface{}) ----
 
 struct Node {
-	// The order is reflect.Kind's, which yaml.v3's key sort uses between kinds.
-	enum class Kind { null = 0, boolean = 1, integer = 2, uinteger = 11, floating = 14, map = 21, seq = 23, string = 24, time = 25 };
+	// The order is reflect.Kind's, which yaml.v3's key sort uses between kinds (a nil key of a map[interface{}]
+	// interface{} stays an Interface).
+	enum class Kind { null = 20, boolean = 1, integer = 2, uinteger = 11, floating = 14, map = 21, seq = 23, string = 24, time = 25 };
 	Kind kind = Kind::null;
 	bool flag = false;
 	std::int64_t i = 0;
@@ -1285,6 +1298,63 @@ std::optional<std::string> reset_web_settings(std::string_view data, std::string
 	}
 	Emitter e;
 	e.document(map);
+	return e.out;
+}
+
+namespace {
+
+// fmt.Sprint of a key of a map[interface{}]interface{} as far as a key rule can tell them apart.
+std::string key_text(const Node &key)
+{
+	switch (key.kind) {
+	case Node::Kind::string: return key.s;
+	case Node::Kind::boolean: return key.flag ? "true" : "false";
+	case Node::Kind::integer: return std::to_string(key.i);
+	case Node::Kind::uinteger: return std::to_string(key.u);
+	case Node::Kind::floating: return format_float(key.f);
+	case Node::Kind::null: return "<nil>";
+	default: return key.s;
+	}
+}
+
+void redact_node(Node &n, const std::function<bool(std::string_view)> &secret)
+{
+	if (n.kind == Node::Kind::map) {
+		for (auto &[key, value] : n.entries) {
+			if (secret(key_text(key))) {
+				value = Node{};
+				value.kind = Node::Kind::string;
+				value.s = "<hidden>";
+			} else {
+				redact_node(value, secret);
+			}
+		}
+	} else if (n.kind == Node::Kind::seq) {
+		for (auto &item : n.items) redact_node(item, secret);
+	}
+}
+
+} // namespace
+
+std::optional<std::string> redact(std::string_view data, const std::function<bool(std::string_view key)> &secret)
+{
+	// rapidyaml reads "key:<TAB>value" as one plain scalar where yaml.v3 reads a mapping, which would leave a
+	// credential's value unhidden. yaml.v3 never writes a tab outside an escape: such a file is refused.
+	if (data.find('\t') != std::string_view::npos) return std::nullopt;
+	std::string error;
+	bool empty = false, anchors = false;
+	auto root = parse(data, error, empty, &anchors);
+	// No document decodes to nil.
+	if (!root && empty && error.empty()) return std::string("null\n");
+	// A syntax error or an anchor: refused.
+	if (!root || anchors) return std::nullopt;
+	Decoder d;
+	Node value;
+	d.any(*root, value);
+	if (!d.errors.empty()) return std::nullopt;
+	redact_node(value, secret);
+	Emitter e;
+	e.document(value);
 	return e.out;
 }
 

@@ -19,10 +19,6 @@ namespace nkos::http {
 int run(const config::Config &config, const Router &router, std::function<void()> on_ready = {},
         std::function<void()> on_stop = {});
 
-// Requests the plain-HTTP listener serves while HTTPS is on, instead of redirecting them (the loopback routes PicoClaw
-// calls with the internal token). Before run().
-void serve_on_redirect(std::function<bool(const Request &)> predicate);
-
 // The certificate pair the HTTPS listener starts with, when it is not the configuration's (a custom pair that cannot
 // be used: the generated one stands in). Before run().
 void use_certificate_files(std::string crt, std::string key);

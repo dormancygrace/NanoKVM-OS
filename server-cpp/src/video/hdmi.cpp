@@ -42,6 +42,9 @@ Clock::time_point capture_ready_at{};
 bool had_demand = false, parked = false, stopped_for_idle = false;
 std::uint64_t generation = 0;  // timers of an older generation do nothing
 bool park_timer = false, idle_timer = false;
+// After the capture came on, the first picture a reader gets is the one from before (hdmi_state.NeedsFreshFrame).
+bool needs_fresh = false;
+std::uint64_t switches = 0;
 
 bool has_demand() { return viewer_total > 0 || leases > 0; }
 
@@ -114,6 +117,7 @@ void unpark()
 void mark_warming()
 {
 	capture_ready_at = Clock::now() + warmup + 500ms;
+	needs_fresh = true;
 }
 
 std::function<void()> warmed(std::function<void()> done)
@@ -165,6 +169,7 @@ void reconcile()
 
 void enable_capture(std::function<void()> done = {})
 {
+	switches++;
 	mark_warming();
 	vision::set_hdmi(true, warmed(std::move(done)));
 	stopped_for_idle = false;
@@ -176,8 +181,10 @@ void enable_capture(std::function<void()> done = {})
 
 void disable_capture(std::function<void()> done = {})
 {
+	switches++;
 	vision::set_hdmi(false, std::move(done));
 	capture_ready_at = {};
+	needs_fresh = false;
 	stopped_for_idle = false;
 	generation++;
 	park_timer = idle_timer = false;
@@ -221,6 +228,17 @@ void set_viewers(const std::string &source, int count)
 }
 
 int viewer_count() { return viewer_total; }
+
+bool needs_fresh_frame() { return needs_fresh; }
+
+bool claim_fresh_frame()
+{
+	if (!needs_fresh) return false;
+	needs_fresh = false;
+	return true;
+}
+
+std::uint64_t capture_switches() { return switches; }
 
 Lease::Lease()
 {

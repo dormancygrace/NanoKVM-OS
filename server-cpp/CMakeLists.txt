@@ -119,6 +119,8 @@ add_executable(NanoKVM-Server
   src/video/setters.cpp
   src/video/source.cpp
   src/video/vision.cpp
+  src/video/preview.cpp
+  src/video/watermark.cpp
 )
 
 target_include_directories(NanoKVM-Server PRIVATE

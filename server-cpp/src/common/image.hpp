@@ -34,4 +34,8 @@ enum class Pixels { rgb, rgba, gray };
 std::optional<std::string> encode_jpeg(const unsigned char *pixels, int width, int height, int pitch, Pixels format,
                                        int quality, bool full_chroma = false);
 
+// A JPEG of Y, Cb and Cr planes, the chroma halved both ways (4:2:0); width and height even.
+std::optional<std::string> encode_jpeg_yuv420(const unsigned char *y, const unsigned char *cb, const unsigned char *cr,
+                                              int width, int height, int quality);
+
 } // namespace nkos::image

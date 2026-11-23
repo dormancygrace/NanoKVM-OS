@@ -61,6 +61,10 @@ struct Jpeg {
 void read_mjpeg(std::uint16_t width, std::uint16_t height, std::uint16_t quality, std::function<void(Jpeg)> done);
 void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t quality, bool key,
                       std::uint16_t max_tiles, std::function<void(Jpeg)> done);
+// The whole screen scaled by VPSS to width x height (even, no larger than the input) as B, G and R planes, from a
+// channel of its own (kvmv_read_bgr_scaled, with the watermark); on the device thread, beside a running stream. done
+// gets the native result (0 a picture) and the planes, on the loop thread.
+void read_bgr_scaled(std::uint16_t width, std::uint16_t height, std::function<void(int, std::vector<unsigned char>)> done);
 // Runs fn on the device thread with the stream paused (receiver maintenance: the EDID tool).
 void run_paused(std::function<void()> fn);
 // The MJPEG chroma (420 or 422; set_mjpeg_chroma with the stream paused); done gets the native result.

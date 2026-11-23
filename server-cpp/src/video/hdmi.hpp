@@ -21,6 +21,13 @@ void start();
 void set_viewers(const std::string &source, int count);
 int viewer_count();
 
+// A capture that came on gives a reader the picture from before first: the first successful reader after it
+// claims (and drops) that one. Failed reads do not claim it.
+bool needs_fresh_frame();
+bool claim_fresh_frame();
+// Counts the capture being switched on or off: a picture from before the last switch may be of a screen gone.
+std::uint64_t capture_switches();
+
 // Keeps the capture running until released (once; the destructor releases too).
 class Lease {
 public:

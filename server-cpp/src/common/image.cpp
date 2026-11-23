@@ -166,4 +166,24 @@ std::optional<std::string> encode_jpeg(const unsigned char *pixels, int width, i
 	return result;
 }
 
+std::optional<std::string> encode_jpeg_yuv420(const unsigned char *y, const unsigned char *cb, const unsigned char *cr,
+                                              int width, int height, int quality)
+{
+	Tj h(tj3Init(TJINIT_COMPRESS));
+	if (!h) return std::nullopt;
+	tj3Set(h.get(), TJPARAM_QUALITY, quality);
+	tj3Set(h.get(), TJPARAM_SUBSAMP, TJSAMP_420);
+	const unsigned char *planes[3] = {y, cb, cr};
+	int strides[3] = {width, width / 2, width / 2};
+	unsigned char *out = nullptr;
+	size_t size = 0;
+	if (tj3CompressFromYUVPlanes8(h.get(), planes, width, strides, height, &out, &size) < 0) {
+		tj3Free(out);
+		return std::nullopt;
+	}
+	std::string result(reinterpret_cast<const char *>(out), size);
+	tj3Free(out);
+	return result;
+}
+
 } // namespace nkos::image

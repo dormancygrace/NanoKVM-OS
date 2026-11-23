@@ -33,6 +33,8 @@
 #include "video/hdmi.hpp"
 #include "video/routes.hpp"
 #include "video/vision.hpp"
+#include "video/preview.hpp"
+#include "video/watermark.hpp"
 
 #include <climits>
 #include <string>
@@ -92,6 +94,8 @@ int main()
 	system::notify::add_routes(router);
 	system::terminal::add_routes(router);
 	system::scripts::add_routes(router);
+	video::preview::add_routes(router);
+	video::watermark::add_routes(router);
 	system::add_memory_routes(router);
 	system::add_dashboard_routes(router);
 	system::add_device_settings_routes(router);
@@ -106,6 +110,7 @@ int main()
 	if (!recovering) {
 		system::failsafe::video_phase("initializing");
 		if (!video::vision::init()) log::error("video capture is unavailable");
+		else video::watermark::apply_at_start();
 	}
 	system::journal::record_start();
 	int status = http::run(conf, router, [] {

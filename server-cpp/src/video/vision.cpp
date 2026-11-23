@@ -311,6 +311,15 @@ void read_mjpeg_tiles(std::uint16_t width, std::uint16_t height, std::uint16_t q
 	}, std::move(done));
 }
 
+void read_bgr_scaled(std::uint16_t width, std::uint16_t height, std::function<void(int, std::vector<unsigned char>)> done)
+{
+	loop::device([=, done = std::move(done)]() mutable {
+		std::vector<unsigned char> planes(std::size_t(width) * height * 3);
+		int r = initialized ? kvmv_read_bgr_scaled(width, height, planes.data(), static_cast<std::uint32_t>(planes.size())) : -9;
+		loop::post([r, planes = std::move(planes), done = std::move(done)]() mutable { done(r, std::move(planes)); });
+	});
+}
+
 void run_paused(std::function<void()> fn)
 {
 	loop::device([fn = std::move(fn)] {

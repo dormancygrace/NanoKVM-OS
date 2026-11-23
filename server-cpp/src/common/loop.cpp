@@ -52,6 +52,7 @@ struct Worker {
 	}
 };
 Worker *worker;
+Worker *device_worker;
 
 } // namespace
 
@@ -60,19 +61,22 @@ void attach(lws_context *context)
 	ctx = context;
 	worker = new Worker;
 	worker->thread = std::thread([] { worker->run(); });
+	device_worker = new Worker;
+	device_worker->thread = std::thread([] { device_worker->run(); });
 }
 
 void detach()
 {
-	if (worker) {
+	for (Worker **w : {&worker, &device_worker}) {
+		if (!*w) continue;
 		{
-			std::lock_guard lock(worker->mutex);
-			worker->stop = true;
+			std::lock_guard lock((*w)->mutex);
+			(*w)->stop = true;
 		}
-		worker->wake.notify_all();
-		worker->thread.join();
-		delete worker;
-		worker = nullptr;
+		(*w)->wake.notify_all();
+		(*w)->thread.join();
+		delete *w;
+		*w = nullptr;
 	}
 	for (auto &[sul, entry] : timers) lws_sul_cancel(sul);
 	timers.clear();
@@ -104,6 +108,15 @@ void work(std::function<void()> fn)
 		worker->jobs.push_back(std::move(fn));
 	}
 	worker->wake.notify_one();
+}
+
+void device(std::function<void()> fn)
+{
+	{
+		std::lock_guard lock(device_worker->mutex);
+		device_worker->jobs.push_back(std::move(fn));
+	}
+	device_worker->wake.notify_one();
 }
 
 void drain()

@@ -78,18 +78,24 @@ void schedule_park()
 	});
 }
 
+void unpark();
+
 void park()
 {
-	if (!vision::set_capture_parked(true)) {
-		if (parked) schedule_park();
-		else log::info("video capture not parked; it keeps converting frames without viewers");
-		return;
-	}
-	if (!parked) {
-		parked = true;
-		log::debug("parked video capture without viewers");
-	}
-	schedule_park();
+	vision::set_capture_parked(true, [](bool ok) {
+		if (!ok) {
+			if (parked) schedule_park();
+			else log::info("video capture not parked; it keeps converting frames without viewers");
+			return;
+		}
+		if (!parked) {
+			parked = true;
+			log::debug("parked video capture without viewers");
+		}
+		// A viewer that came while it parked: the device thread resumes the outputs after this.
+		if (has_demand()) return unpark();
+		schedule_park();
+	});
 }
 
 // A frame read resumes parked outputs by itself; resuming here first keeps the first read of a viewer from paying.
@@ -97,13 +103,29 @@ void unpark()
 {
 	if (!parked) return;
 	parked = false;
-	if (!vision::set_capture_parked(false)) log::warn("failed to resume parked video capture; the next read retries");
+	vision::set_capture_parked(false, [](bool ok) {
+		if (!ok) log::warn("failed to resume parked video capture; the next read retries");
+	});
+}
+
+// Ready a warm-up after the capture is on; until then the estimate covers turning it on (about 0.3 s).
+void mark_warming()
+{
+	capture_ready_at = Clock::now() + warmup + 500ms;
+}
+
+std::function<void()> warmed(std::function<void()> done)
+{
+	return [done = std::move(done)] {
+		if (capture_ready_at != Clock::time_point{}) capture_ready_at = Clock::now() + warmup;
+		if (done) done();
+	};
 }
 
 void resume_capture()
 {
-	vision::set_hdmi(true);
-	capture_ready_at = Clock::now() + warmup;
+	mark_warming();
+	vision::set_hdmi(true, warmed({}));
 	log::debug("resumed hdmi capture after viewer connected");
 }
 
@@ -139,10 +161,10 @@ void reconcile()
 	schedule_idle();
 }
 
-void enable_capture()
+void enable_capture(std::function<void()> done = {})
 {
-	vision::set_hdmi(true);
-	capture_ready_at = Clock::now() + warmup;
+	mark_warming();
+	vision::set_hdmi(true, warmed(std::move(done)));
 	stopped_for_idle = false;
 	generation++;
 	park_timer = idle_timer = false;
@@ -150,9 +172,9 @@ void enable_capture()
 	schedule_idle();
 }
 
-void disable_capture()
+void disable_capture(std::function<void()> done = {})
 {
-	vision::set_hdmi(false);
+	vision::set_hdmi(false, std::move(done));
 	capture_ready_at = {};
 	stopped_for_idle = false;
 	generation++;
@@ -226,13 +248,17 @@ void add_routes(http::Router &router)
 	// Any user may restart capture, but never against an administrator's decision to keep it off.
 	router.add("POST", "/api/vm/hdmi/reset", auth::guarded([](http::Request &req, http::Response &res) {
 		if (disabled()) return api::err(res, -2, "HDMI capture is disabled");
-		disable_capture();
 		res.pending = true;
-		loop::after(1s, [id = req.id] {
-			if (!disabled()) enable_capture();
-			http::Response done;
-			api::ok(done);
-			http::complete(id, std::move(done));
+		disable_capture([id = req.id] {
+			loop::after(1s, [id] {
+				auto answer = [id] {
+					http::Response done;
+					api::ok(done);
+					http::complete(id, std::move(done));
+				};
+				if (disabled()) return answer();
+				enable_capture(answer);
+			});
 		});
 	}));
 	router.add("POST", "/api/vm/hdmi/enable", auth::guarded([](http::Request &, http::Response &res) {

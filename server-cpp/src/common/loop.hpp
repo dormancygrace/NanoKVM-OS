@@ -24,6 +24,10 @@ void after(std::chrono::milliseconds delay, std::function<void()> fn);
 // Runs fn on the worker thread (one, in order). Safe from any thread.
 void work(std::function<void()> fn);
 
+// Runs fn on the device thread (one, in order): native device calls that can take long (HDMI capture on/off takes
+// about 0.3 s), apart from the worker so a password hash does not hold them up. Safe from any thread.
+void device(std::function<void()> fn);
+
 // The loop calls this when lws_cancel_service woke it: runs the posted functions.
 void drain();
 

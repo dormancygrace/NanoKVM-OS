@@ -36,10 +36,11 @@ void stop();
 void request_keyframe();
 void set_capture_fps(int fps);
 
-// Operations that change the capture: a running stream pauses for them (its read in flight ends first).
-// HDMI capture on or off (kvmv_hdmi_control); the VPSS outputs parked or resumed (false: the library could not).
-void set_hdmi(bool enable);
-bool set_capture_parked(bool parked);
+// Operations that change the capture run on the device thread, in order; a running stream pauses for them (its
+// read in flight ends first). done runs on the loop thread afterwards. HDMI capture on or off (kvmv_hdmi_control,
+// about 0.3 s); the VPSS outputs parked or resumed (ok false: the library could not).
+void set_hdmi(bool enable, std::function<void()> done = {});
+void set_capture_parked(bool parked, std::function<void(bool ok)> done = {});
 // Disabled outputs still own pools awaiting reclamation.
 bool capture_reclaim_pending();
 bool hdmi_signal_active();

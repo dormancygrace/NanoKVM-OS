@@ -1,6 +1,7 @@
 #include "video/vision.hpp"
 
 #include "common/log.hpp"
+#include "common/loop.hpp"
 #include "http/server.hpp"
 #include "video/encoder.hpp"
 #include "video/screen.hpp"
@@ -11,6 +12,7 @@ extern "C" {
 }
 
 #include <atomic>
+#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -195,27 +197,43 @@ void set_capture_fps(int fps)
 
 namespace {
 
-// Holds a running stream's capture thread off the library for one operation.
+// Holds the capture thread off the library for one operation (device thread; costs nothing without a stream).
 struct Paused {
-	bool held;
-	Paused() : held(running && worker) { if (held) nk_capture_pause(worker); }
-	~Paused() { if (held) nk_capture_resume(worker); }
+	Paused() { nk_capture_pause(worker); }
+	~Paused() { nk_capture_resume(worker); }
 };
 
 } // namespace
 
-void set_hdmi(bool enable)
+void set_hdmi(bool enable, std::function<void()> done)
 {
-	if (!initialized) return;
-	Paused paused;
-	if (kvmv_hdmi_control(enable ? 1 : 0) < 0) log::error("failed to set hdmi to {}", enable);
+	if (!initialized || !worker) {
+		if (done) done();
+		return;
+	}
+	loop::device([enable, done = std::move(done)] {
+		{
+			Paused paused;
+			if (kvmv_hdmi_control(enable ? 1 : 0) < 0) log::error("failed to set hdmi to {}", enable);
+		}
+		if (done) loop::post(done);
+	});
 }
 
-bool set_capture_parked(bool parked)
+void set_capture_parked(bool parked, std::function<void(bool)> done)
 {
-	if (!initialized) return false;
-	Paused paused;
-	return kvmv_set_capture_parked(parked ? 1 : 0) == 0;
+	if (!initialized || !worker) {
+		if (done) done(false);
+		return;
+	}
+	loop::device([parked, done = std::move(done)] {
+		bool ok;
+		{
+			Paused paused;
+			ok = kvmv_set_capture_parked(parked ? 1 : 0) == 0;
+		}
+		if (done) loop::post([done, ok] { done(ok); });
+	});
 }
 
 bool capture_reclaim_pending() { return initialized && kvmv_capture_reclaim_pending() != 0; }

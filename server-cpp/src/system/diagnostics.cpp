@@ -751,14 +751,16 @@ CommandResult run_command(const std::vector<std::string> &argv, std::size_t limi
 	int pidfd = static_cast<int>(::syscall(SYS_pidfd_open, pid, 0));
 	int out_fd = out[0];
 	bool exited = false, killed = false, limit_hit = false, wait_delay_hit = false;
-	int status = 0;
+	int status = 0, wait_errno = 0;
 	// WaitDelay: the output is waited for at most 250 ms after the exit or the deadline, whichever comes first.
 	std::optional<Clock::time_point> delay_end;
 	auto reap = [&](int flags) {
 		pid_t got;
 		while ((got = ::waitpid(pid, &status, flags)) < 0 && errno == EINTR) {
 		}
-		if (got == pid) {
+		// A wait that fails (no such child) ends the command too: nothing is left to wait for.
+		if (got < 0) wait_errno = errno;
+		if (got == pid || got < 0) {
 			exited = true;
 			if (!delay_end) delay_end = Clock::now() + std::chrono::milliseconds(250);
 		}
@@ -812,8 +814,9 @@ CommandResult run_command(const std::vector<std::string> &argv, std::size_t limi
 	if (pidfd >= 0) ::close(pidfd);
 	if (!exited) reap(0);
 	bool success = WIFEXITED(status) && WEXITSTATUS(status) == 0;
-	if (WIFEXITED(status)) r.exit_code = WEXITSTATUS(status);
-	if (!success) r.error = go::exit_text(WIFEXITED(status) ? WEXITSTATUS(status) : -1, WIFSIGNALED(status) ? WTERMSIG(status) : 0);
+	if (WIFEXITED(status) && !wait_errno) r.exit_code = WEXITSTATUS(status);
+	if (wait_errno) r.error = "wait: " + go::errno_text(wait_errno);
+	else if (!success) r.error = go::exit_text(WIFEXITED(status) ? WEXITSTATUS(status) : -1, WIFSIGNALED(status) ? WTERMSIG(status) : 0);
 	else if (killed) r.error = "context deadline exceeded";
 	else if (limit_hit) r.error = "diagnostic command output limit exceeded";
 	else if (wait_delay_hit) r.error = "exec: WaitDelay expired before I/O complete";

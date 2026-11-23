@@ -79,6 +79,7 @@ add_executable(NanoKVM-Server
   src/system/device_settings.cpp
   src/system/info.cpp
   src/system/memory.cpp
+  src/system/oled.cpp
   src/system/oled_state.cpp
   src/system/journal.cpp
   src/system/log_sanitize.cpp

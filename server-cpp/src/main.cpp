@@ -21,6 +21,7 @@
 #include "system/journal.hpp"
 #include "system/logs.hpp"
 #include "system/notify.hpp"
+#include "system/oled.hpp"
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
 #include "usb/composition.hpp"
@@ -91,6 +92,7 @@ int main()
 	system::add_dashboard_routes(router);
 	system::add_device_settings_routes(router);
 	system::add_bluetooth_routes(router);
+	system::add_oled_routes(router);
 	system::add_cpufreq_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.

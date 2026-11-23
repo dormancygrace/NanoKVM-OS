@@ -812,7 +812,7 @@ struct Remote {
 				write_quiet(HidDevice::absolute, release);
 				return e;
 			}
-			if (auto e = write(HidDevice::absolute, release); !e.empty()) {
+			if (auto e = write_release(HidDevice::absolute, release); !e.empty()) {
 				write_quiet(HidDevice::absolute, release);
 				return e;
 			}

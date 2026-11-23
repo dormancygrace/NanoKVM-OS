@@ -619,6 +619,8 @@ void setup_platform()
 
 // --- Routes ---
 
+const http::Router *routes_router = nullptr;
+
 // The loopback routes: a loopback caller with the internal token (CheckLoopbackInternalToken).
 bool internal_caller(const http::Request &req)
 {
@@ -695,6 +697,18 @@ void control_routes::add_routes(http::Router &router)
 	router.add("PUT", "/api/ai/control/mode", auth::guarded(blocking(set_mode), admin));
 }
 
+bool plain_http(const http::Request &request, http::Response &response)
+{
+	// router.LoopbackHTTPAllowedPaths: a loopback caller with the internal token reaches them over plain HTTP.
+	static const std::set<std::string> paths = {"/api/picoclaw/mcp", "/api/picoclaw/runtime/session", "/api/picoclaw/screenshot",
+	                                            "/api/picoclaw/actions", "/api/picoclaw/load-image"};
+	if (!routes_router || !paths.count(request.path) || !internal_caller(request)) return false;
+	auto &req = const_cast<http::Request &>(request);
+	routes_router->dispatch(req, response);
+	if (!response.pending) routes_router->finished(req, response);
+	return true;
+}
+
 bool ensure_internal_token()
 {
 	std::string token, error;
@@ -747,10 +761,7 @@ void add_routes(http::Router &router)
 		return relay;
 	}, admin));
 
-	// The plain-HTTP listener serves the loopback routes to PicoClaw while HTTPS is on.
-	static const std::set<std::string> loopback_paths = {"/api/picoclaw/mcp", "/api/picoclaw/runtime/session", "/api/picoclaw/screenshot",
-	                                                     "/api/picoclaw/actions", "/api/picoclaw/load-image"};
-	http::serve_on_redirect([](const http::Request &req) { return loopback_paths.count(req.path) && internal_caller(req); });
+	routes_router = &router;
 }
 
 void start() { picoclaw::start(); }

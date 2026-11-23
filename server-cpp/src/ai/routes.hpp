@@ -8,9 +8,12 @@
 
 namespace nkos::ai {
 
-// The routes; also lets the plain-HTTP listener serve PicoClaw's loopback routes while HTTPS is on, and makes manual
-// input yield to a PicoClaw session. Before http::run.
+// The routes; also makes manual input yield to a PicoClaw session. Before http::run.
 void add_routes(http::Router &router);
+
+// The plain-HTTP listener's handler while HTTPS serves (http::on_plain_http): PicoClaw's loopback routes for a
+// loopback caller with the internal token; false for anything else (redirected).
+bool plain_http(const http::Request &request, http::Response &response);
 
 // config.EnsurePicoclawInternalToken (main.go): the token PicoClaw calls back with exists. Before the listeners.
 bool ensure_internal_token();

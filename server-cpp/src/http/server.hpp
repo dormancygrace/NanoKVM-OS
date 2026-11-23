@@ -26,6 +26,9 @@ void use_certificate_files(std::string crt, std::string key);
 // While HTTPS serves, the plain-HTTP listener redirects every request to it; handler answers a request itself first
 // when it returns true (the ACME challenge, the loopback paths). Before run().
 void on_plain_http(std::function<bool(const Request &, Response &)> handler);
+// Whether a server bound to host also needs a plain-HTTP listener on 127.0.0.1 (utils.NeedsDedicatedLoopbackListener):
+// a host name other than localhost, or an address that is neither loopback nor unspecified.
+bool needs_loopback_listener(std::string host);
 // Serves a new pair (PEM) from now on, without disturbing the open connections; false when it cannot be loaded (the
 // old one is kept). Loop thread.
 bool serve_certificate(const std::string &cert_pem, const std::string &key_pem);

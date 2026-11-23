@@ -781,6 +781,29 @@ std::optional<std::string> ingress_interface(const Request &request)
 	return std::nullopt;
 }
 
+bool needs_loopback_listener(std::string host)
+{
+	auto a = host.find_first_not_of(" \t[]"), b = host.find_last_not_of(" \t[]");
+	host = a == std::string::npos ? std::string() : host.substr(a, b - a + 1);
+	if (host.empty()) return false;
+	in6_addr v6{};
+	in_addr v4{};
+	if (inet_pton(AF_INET, host.c_str(), &v4) == 1) {
+		std::uint32_t ip = ntohl(v4.s_addr);
+		return (ip >> 24) != 127 && ip != 0;
+	}
+	if (inet_pton(AF_INET6, host.c_str(), &v6) == 1) {
+		if (IN6_IS_ADDR_V4MAPPED(&v6)) {
+			std::uint32_t ip = static_cast<std::uint32_t>(v6.s6_addr[12]) << 24 | v6.s6_addr[13] << 16 | v6.s6_addr[14] << 8 | v6.s6_addr[15];
+			return (ip >> 24) != 127 && ip != 0;
+		}
+		return !IN6_IS_ADDR_LOOPBACK(&v6) && !IN6_IS_ADDR_UNSPECIFIED(&v6);
+	}
+	std::string lower;
+	for (char c : host) lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	return lower != "localhost";
+}
+
 void on_plain_http(std::function<bool(const Request &, Response &)> handler) { plain_http_handler = std::move(handler); }
 
 void use_certificate_files(std::string crt, std::string key)
@@ -894,6 +917,18 @@ int run(const config::Config &config, const Router &router, std::function<void()
 		return 1;
 	}
 	log::info("HTTP listening on port {}{}", config.port.http, https ? " (redirects to HTTPS)" : "");
+	// main.go (NeedsDedicatedLoopbackListener): a server bound to one address also serves the plain-HTTP port on
+	// 127.0.0.1, where PicoClaw calls its loopback routes.
+	if (needs_loopback_listener(config.host)) {
+		lws_context_creation_info l = h;
+		l.vhost_name = "loopback";
+		l.iface = "127.0.0.1";
+		if (!lws_create_vhost(context, &l)) {
+			log::error("cannot listen on HTTP port {} of 127.0.0.1", config.port.http);
+			lws_context_destroy(context);
+			return 1;
+		}
+	}
 
 	if (on_ready) on_ready();
 	while (!stopping)

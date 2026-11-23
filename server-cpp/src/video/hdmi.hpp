@@ -45,6 +45,8 @@ private:
 };
 
 bool disabled();
+// The capture is stopped because nobody watched for the idle timeout.
+bool idle_stopped();
 
 // The JSON of GET /api/vm/hdmi.
 std::string state_json();

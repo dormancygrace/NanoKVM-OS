@@ -1,4 +1,5 @@
 #include "usb/host_sensors.hpp"
+#include "notify/notify.hpp"
 
 #include "api/response.hpp"
 #include "auth/session.hpp"
@@ -565,12 +566,14 @@ void emit(const std::string &severity, const std::string &message, const std::ma
 		std::lock_guard lock(watchdog_mutex);
 		watchdog_last = message;
 	}
-	system::journal::Entry e;
-	e.kind = "power";
-	e.severity = severity;
+	nkos::notify::Event e;
+	e.kind = std::string(nkos::notify::kind_power);
+	e.severity = severity == "critical" ? nkos::notify::Severity::critical
+	             : severity == "warning" ? nkos::notify::Severity::warning
+	                                     : nkos::notify::Severity::info;
 	e.message = message;
-	e.vars = vars;
-	system::journal::add(std::move(e));
+	for (const auto &[k, v] : vars) e.vars[k] = v;
+	nkos::notify::emit(std::move(e));
 }
 
 sensors::Nanos minutes(const watchdog::Config &c) { return c.minutes * 60'000'000'000LL; }

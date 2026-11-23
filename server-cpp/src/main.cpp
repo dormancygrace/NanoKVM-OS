@@ -4,6 +4,7 @@
 #include "osupdate/apkpkg.hpp"
 #include "osupdate/routes.hpp"
 #include "recovery/routes.hpp"
+#include "notify/notify.hpp"
 #include "bmc/service.hpp"
 #include "rustdesk/rustdesk.hpp"
 #include "standby/standby.hpp"
@@ -165,6 +166,7 @@ int main(int argc, char **argv)
 	system::add_info_routes(router);
 	system::logs::add_routes(router);
 	system::notify::add_routes(router);
+	notify::add_routes(router);
 	system::terminal::add_routes(router);
 	system::scripts::add_routes(router);
 	system::serial_console::add_routes(router);
@@ -186,6 +188,9 @@ int main(int argc, char **argv)
 	network::add_routes(router);
 	// After every router.use: BMC adds the /redfish middleware; it also starts IPMI.
 	bmc::link_host_sensors();
+	bmc::notify_login_locked_out = notify::login_locked_out;
+	bmc::notify_login_attempts_limited = notify::login_attempts_limited;
+	bmc::notify_login_succeeded = notify::login_succeeded;
 	bmc::add_routes(router);
 	rustdesk::add_routes(router);
 
@@ -219,6 +224,11 @@ int main(int argc, char **argv)
 	int status = http::run(conf, router, [] {
 		system::tls::start();
 		video::hdmi::start();
+		// StartNotifyWatch: the host's power LED and the HDMI signal while capture runs.
+		notify::start_host_watch([]() -> std::optional<bool> {
+			if (video::hdmi::disabled() || video::hdmi::idle_stopped()) return std::nullopt;
+			return video::vision::hdmi_signal_active();
+		});
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");
 		input::hid::start();
 		input::jiggler::start();

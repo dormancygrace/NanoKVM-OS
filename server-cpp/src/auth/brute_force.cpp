@@ -1,4 +1,5 @@
 #include "auth/brute_force.hpp"
+#include "notify/notify.hpp"
 
 #include "auth/store.hpp"
 #include "common/log.hpp"
@@ -185,7 +186,10 @@ std::optional<Refusal> record_login_failure(const std::string &key, const std::s
 	if (a.failures >= conf.security.login_max_failures) {
 		a.lockout_end = now + window;
 		if (a.failures == conf.security.login_max_failures)
-			log::warn("login locked out for {}: {} failed attempts", key, a.failures);  // notify.LoginLockedOut with notifications
+		{
+			log::warn("login locked out for {}: {} failed attempts", key, a.failures);
+			nkos::notify::login_locked_out(key, a.failures, (conf.security.login_lockout_duration + 59) / 60);
+		}
 	}
 	return std::nullopt;
 }

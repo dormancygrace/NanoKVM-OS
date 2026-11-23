@@ -113,6 +113,15 @@ add_executable(NanoKVM-Server
   src/system/log_sanitize.cpp
   src/system/logs.cpp
   src/system/notify.cpp
+  src/notify/gostd.cpp
+  src/notify/json.cpp
+  src/notify/model.cpp
+  src/notify/channels.cpp
+  src/notify/oauth.cpp
+  src/notify/transport.cpp
+  src/notify/service.cpp
+  src/notify/notify.cpp
+  src/notify/host_watch.cpp
   ${CMAKE_BINARY_DIR}/generated/notify_messages.inc
   src/system/live_status.cpp
   src/system/time_settings.cpp

@@ -136,6 +136,12 @@ void resume_capture()
 	log::debug("resumed hdmi capture after viewer connected");
 }
 
+} // namespace
+
+bool idle_stopped() { return stopped_for_idle; }
+
+namespace {
+
 void schedule_idle()
 {
 	if (has_demand() || stopped_for_idle || disabled()) return;

@@ -1,4 +1,5 @@
 #include "auth/routes.hpp"
+#include "notify/notify.hpp"
 
 #include "api/request.hpp"
 #include "api/response.hpp"
@@ -44,6 +45,7 @@ struct Call {
 	bool secure_cookie;
 	bool return_token;
 	std::string client;  // login key
+	std::string address;  // the client's address (GetClientIP)
 };
 
 std::shared_ptr<Call> start(Request &req, Response &res)
@@ -58,7 +60,8 @@ std::shared_ptr<Call> start(Request &req, Response &res)
 	while (!flag.empty() && flag.front() == ' ') flag.erase(0, 1);
 	for (auto &c : flag) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 	call->return_token = flag == "true";
-	call->client = login_key(client_address(req));
+	call->address = client_address(req);
+	call->client = login_key(call->address);
 	res.pending = true;
 	return call;
 }
@@ -106,6 +109,7 @@ void finish_login(const std::shared_ptr<Call> &call, const User &user)
 	if (call->return_token) api::ok(call->response, LoginRsp{token});
 	else api::ok(call->response);
 	log::info("user logged in: {}", user.username);
+	nkos::notify::login_succeeded(user.username, call->address);
 	finish(call);
 }
 

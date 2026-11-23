@@ -666,11 +666,14 @@ struct Remote {
 		if (auto c = context_error(); !c.empty()) return c;
 		return error.empty() ? "HID write failed" : error;
 	}
-	void write_quiet(HidDevice d, const Report &r) const
+	// A release: written also after a cancel (keys and buttons must come up), as Go writes it.
+	std::string write_release(HidDevice d, const Report &r) const
 	{
 		std::string error;
-		(void)hid.write(d, r, op, error);
+		if (hid.write(d, r, nullptr, error)) return {};
+		return error.empty() ? "HID write failed" : error;
 	}
+	void write_quiet(HidDevice d, const Report &r) const { (void)write_release(d, r); }
 
 	std::string type_text(const std::vector<Report> &reports, long long delay_ms) const
 	{
@@ -834,7 +837,7 @@ struct Remote {
 			write_quiet(HidDevice::absolute, absolute_report(x, y, 0, 0));
 			return e;
 		}
-		auto release = [&] { return write(HidDevice::absolute, absolute_report(x, y, 0, 0)); };
+		auto release = [&] { return write_release(HidDevice::absolute, absolute_report(x, y, 0, 0)); };
 		if (auto e = sleep(default_click_delay_ms); !e.empty()) {
 			(void)release();
 			return e;

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cstdio>
 #include <format>
+#include <functional>
 #include <fstream>
 #include <memory>
 #include <string>
@@ -42,14 +43,19 @@ void update()
 	if (state.running) state.last_updated = Clock::now();
 }
 
-void write_mouse(std::vector<std::uint8_t> report, const std::shared_ptr<control::Cancel> &operation)
+// done runs on the loop thread once the report is written or dropped.
+void write_mouse(std::vector<std::uint8_t> report, const std::shared_ptr<control::Cancel> &operation, std::function<void()> done = {})
 {
-	if (!state.lane) return;
+	if (!state.lane) {
+		if (done) done();
+		return;
+	}
 	hid::Report r;
 	r.data = std::move(report);
 	// Manual input cancels the jiggle: its reports stop at the write lane.
 	r.reservation = control::Reservation::for_operation(operation);
 	r.complete_reservation = false;
+	if (done) r.complete = [done](bool) { done(); };
 	state.lane->mouse(std::move(r));
 }
 
@@ -66,11 +72,11 @@ void move()
 	                     : std::vector<std::uint8_t>{0x00, 0x0a, 0x0a, 0x00},
 	            operation);
 	loop::after(move_time, [absolute, operation] {
-		if (!control::manual_active())
-			write_mouse(absolute ? std::vector<std::uint8_t>{0x00, 0xff, 0x3f, 0xff, 0x3f, 0x00}
-			                     : std::vector<std::uint8_t>{0x00, 0xf6, 0xf6, 0x00},
-			            operation);
-		control::end_operation(operation);
+		// The slot is freed once the move back is written: ending it earlier would cancel that report.
+		if (control::manual_active()) return control::end_operation(operation);
+		write_mouse(absolute ? std::vector<std::uint8_t>{0x00, 0xff, 0x3f, 0xff, 0x3f, 0x00}
+		                     : std::vector<std::uint8_t>{0x00, 0xf6, 0xf6, 0x00},
+		            operation, [operation] { control::end_operation(operation); });
 	});
 }
 

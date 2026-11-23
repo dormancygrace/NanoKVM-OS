@@ -131,6 +131,8 @@ std::optional<Refusal> admit_gateway(const std::string &requested, std::string &
 bool connect_gateway(const std::string &session_id);
 // Both (the refusal of a failed dial is an empty 200).
 std::optional<Refusal> open_gateway(const std::string &requested, std::string &session_out);
+// The web page's socket of an admitted session, before the dial (a failed dial closes it with 4002).
+void set_downstream(const std::string &session_id, std::shared_ptr<Link> downstream);
 // The downstream is up: messages flow both ways from now on.
 void attach_downstream(const std::string &session_id, std::shared_ptr<Link> downstream);
 // A message from the web page.

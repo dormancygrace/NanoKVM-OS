@@ -2180,13 +2180,6 @@ void actions(http::Request &req, http::Response &res)
 		} else if (batch && !batch->is_null()) {
 			ok = false;
 		}
-		// Every member must decode for the batch to count (json.Unmarshal reports type errors of the whole object).
-		if (ok && !list.empty()) {
-			Action probe;
-			Value without = body;
-			std::erase_if(without.obj, [](const auto &m) { return json::to_lower(m.first) == "actions"; });
-			(void)probe;
-		}
 		if (!ok || list.empty()) {
 			list.clear();
 			Action one;
@@ -2599,6 +2592,12 @@ bool connect_gateway(const std::string &id)
 	});
 	{
 		std::lock_guard lock(sessions_mu);
+		auto it = sessions.find(id);
+		// The page went away while the gateway was dialled: the new connection is not needed.
+		if (it == sessions.end() || it->second != session || it->second->state == "closing" || it->second->state == "closed") {
+			up->close(1000, "relay closing");
+			return false;
+		}
 		session->upstream = up;
 	}
 	return true;
@@ -2609,6 +2608,12 @@ std::optional<Refusal> open_gateway(const std::string &requested, std::string &s
 	if (auto refusal = admit_gateway(requested, session_out)) return refusal;
 	if (!connect_gateway(session_out)) return Refusal{200, {}};
 	return std::nullopt;
+}
+
+void set_downstream(const std::string &id, std::shared_ptr<Link> downstream)
+{
+	std::lock_guard lock(sessions_mu);
+	if (auto it = sessions.find(id); it != sessions.end()) it->second->downstream = std::move(downstream);
 }
 
 void attach_downstream(const std::string &id, std::shared_ptr<Link> downstream)

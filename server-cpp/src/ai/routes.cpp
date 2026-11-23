@@ -28,6 +28,8 @@
 #include "video/vision.hpp"
 
 #include <arpa/inet.h>
+#include <condition_variable>
+#include <deque>
 #include <curl/curl.h>
 #include <future>
 #include <netdb.h>
@@ -473,9 +475,57 @@ struct Downstream : picoclaw::Link {
 	}
 };
 
+// One relay's work in order on a thread of its own (the dial and the sends to the gateway may wait). The thread
+// ends after the jobs queued before the relay went away.
+class Serial {
+public:
+	Serial() : q_(std::make_shared<Queue>())
+	{
+		std::thread([q = q_] {
+			for (;;) {
+				std::function<void()> job;
+				{
+					std::unique_lock lock(q->mu);
+					q->cv.wait(lock, [&] { return q->stop || !q->jobs.empty(); });
+					if (q->jobs.empty()) return;
+					job = std::move(q->jobs.front());
+					q->jobs.pop_front();
+				}
+				job();
+			}
+		}).detach();
+	}
+	~Serial()
+	{
+		{
+			std::lock_guard lock(q_->mu);
+			q_->stop = true;
+		}
+		q_->cv.notify_all();
+	}
+	void post(std::function<void()> job)
+	{
+		{
+			std::lock_guard lock(q_->mu);
+			q_->jobs.push_back(std::move(job));
+		}
+		q_->cv.notify_one();
+	}
+
+private:
+	struct Queue {
+		std::mutex mu;
+		std::condition_variable cv;
+		std::deque<std::function<void()>> jobs;
+		bool stop = false;
+	};
+	std::shared_ptr<Queue> q_;
+};
+
 struct Relay : http::WsHandler, std::enable_shared_from_this<Relay> {
 	std::string session;
 	std::shared_ptr<Downstream> downstream = std::make_shared<Downstream>();
+	std::shared_ptr<Serial> serial = std::make_shared<Serial>();
 	bool connected = false;
 	std::vector<std::string> pending;
 
@@ -487,14 +537,15 @@ struct Relay : http::WsHandler, std::enable_shared_from_this<Relay> {
 		if (ping > 0) ws.ping_period = std::chrono::seconds(std::max(1, ping / 1000));
 		if (read_timeout > 0) ws.read_timeout = std::chrono::seconds(std::max(1, read_timeout / 1000));
 		downstream->state->ws = &ws;
+		picoclaw::set_downstream(session, downstream);
 		auto self = shared_from_this();
-		loop::work([self] {
+		serial->post([self] {
 			bool ok = picoclaw::connect_gateway(self->session);
 			loop::post([self, ok] {
 				if (!ok) return;
 				picoclaw::attach_downstream(self->session, self->downstream);
 				self->connected = true;
-				for (auto &m : self->pending) loop::work([id = self->session, m] { picoclaw::downstream_message(id, m, false); });
+				for (auto &m : self->pending) self->serial->post([id = self->session, m] { picoclaw::downstream_message(id, m, false); });
 				self->pending.clear();
 			});
 		});
@@ -505,7 +556,7 @@ struct Relay : http::WsHandler, std::enable_shared_from_this<Relay> {
 			pending.emplace_back(data);
 			return;
 		}
-		loop::work([id = session, m = std::string(data), binary] { picoclaw::downstream_message(id, m, binary); });
+		serial->post([id = session, m = std::string(data), binary] { picoclaw::downstream_message(id, m, binary); });
 	}
 	void closed(http::WebSocket &ws) override
 	{
@@ -513,7 +564,7 @@ struct Relay : http::WsHandler, std::enable_shared_from_this<Relay> {
 		downstream->state->open = false;
 		int code = ws.close_code_;
 		std::string reason = ws.close_reason_;
-		loop::work([id = session, code, reason] { picoclaw::downstream_closed(id, code, reason); });
+		serial->post([id = session, code, reason] { picoclaw::downstream_closed(id, code, reason); });
 	}
 };
 

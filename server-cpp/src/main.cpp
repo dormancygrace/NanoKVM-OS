@@ -5,6 +5,7 @@
 #include "osupdate/routes.hpp"
 #include "recovery/routes.hpp"
 #include "notify/notify.hpp"
+#include "ai/routes.hpp"
 #include "extensions/acme.hpp"
 #include "extensions/routes.hpp"
 #include "bmc/service.hpp"
@@ -91,6 +92,8 @@ int main(int argc, char **argv)
 	system::logs::init();
 	system::logs::capture_native_stderr();
 
+	// The internal token the AI helpers use on the loopback paths.
+	if (!ai::ensure_internal_token()) return 1;
 	http::Router router;
 	// middleware.SecurityHeaders: every response of the application.
 	router.use([](http::Request &, http::Response &res) {
@@ -188,6 +191,7 @@ int main(int argc, char **argv)
 	recovery::add_routes(router);
 	system::tls::add_routes(router);
 	system::ssh_keys::add_routes(router);
+	ai::add_routes(router);
 	network::add_routes(router);
 	// After every router.use: BMC adds the /redfish middleware; it also starts IPMI.
 	bmc::link_host_sensors();
@@ -214,6 +218,7 @@ int main(int argc, char **argv)
 	extensions::start();
 	// The plain-HTTP listener answers the ACME HTTP-01 challenge itself; everything else goes to HTTPS.
 	http::on_plain_http([](const http::Request &req, http::Response &res) {
+		if (ai::plain_http(req, res)) return true;
 		if (!req.path.starts_with(extensions::acme::challenge_prefix)) return false;
 		extensions::acme::challenge(req, res);
 		return true;
@@ -241,6 +246,7 @@ int main(int argc, char **argv)
 		});
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");
 		input::hid::start();
+		ai::start();
 		input::jiggler::start();
 		system::atx::start();
 		usb::start_host_sensors();

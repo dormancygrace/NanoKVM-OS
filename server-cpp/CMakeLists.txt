@@ -67,6 +67,18 @@ add_custom_command(
 
 add_executable(NanoKVM-Server
   src/main.cpp
+  src/ai/json.cpp
+  src/ai/files.cpp
+  src/ai/keys.cpp
+  src/ai/mcp.cpp
+  src/ai/mcp_manage.cpp
+  src/ai/capture.cpp
+  src/ai/control_routes.cpp
+  src/ai/picoclaw.cpp
+  src/ai/picoclaw_config.cpp
+  src/ai/picoclaw_sessions.cpp
+  src/ai/picoclaw_install.cpp
+  src/ai/routes.cpp
   src/common/log.cpp
   src/common/loop.cpp
   src/common/process.cpp

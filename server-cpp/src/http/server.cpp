@@ -57,8 +57,6 @@ struct Pss {
 static_assert(LWS_PRE <= websocket_headroom, "the message headroom must hold the WebSocket header");
 
 using SteadyClock = std::chrono::steady_clock;
-constexpr auto ping_period = std::chrono::seconds(15);
-constexpr auto pong_wait = std::chrono::seconds(30);
 
 std::map<std::uint64_t, WebSocket *> sockets;
 std::uint64_t next_socket_id = 1;
@@ -73,11 +71,11 @@ void tick()
 	}
 	auto now = SteadyClock::now();
 	for (auto &[id, ws] : sockets) {
-		if (now - ws->last_rx_ > pong_wait) {
+		if (now - ws->last_rx_ > ws->read_timeout) {
 			lws_set_timeout(ws->wsi_, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
 			continue;
 		}
-		if (now - ws->last_ping_ >= ping_period) {
+		if (now - ws->last_ping_ >= ws->ping_period) {
 			ws->last_ping_ = now;
 			ws->ping_due_ = true;
 			lws_callback_on_writable(ws->wsi_);
@@ -437,7 +435,7 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 		return 0;
 	}
 	case LWS_CALLBACK_RECEIVE_PONG:
-		if (pss && pss->ws) pss->ws->last_rx_ = SteadyClock::now();
+		if (pss && pss->ws && (!pss->ws->pong_counts || pss->ws->pong_counts())) pss->ws->last_rx_ = SteadyClock::now();
 		return 0;
 	case LWS_CALLBACK_SERVER_WRITEABLE:
 		if (!pss || !pss->ws) return 0;

@@ -3,6 +3,7 @@
 #include "auth/session.hpp"
 #include "common/log.hpp"
 #include "http/websocket.hpp"
+#include "video/capture_status.hpp"
 #include "video/hdmi.hpp"
 #include "video/source.hpp"
 
@@ -462,6 +463,7 @@ void Streamer::frame(const Frame &frame)
 		for (auto *c : clients_) c->queue.mark_discontinuity();
 		return;
 	}
+	capture_status::update("direct", frame.result);
 	if (frame.result < 0 || frame.size == 0) return;
 	Outbound out{frame};
 	unsigned char *header = frame.data() - 9;

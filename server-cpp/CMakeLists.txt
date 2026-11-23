@@ -51,6 +51,10 @@ add_executable(NanoKVM-Server
   src/http/server.cpp
   src/http/router.cpp
   src/http/static_files.cpp
+  src/input/control.cpp
+  src/input/hid.cpp
+  src/input/ws.cpp
+  src/video/capture_status.cpp
   src/video/capture_worker.c
   src/video/direct.cpp
   src/video/encoder.cpp

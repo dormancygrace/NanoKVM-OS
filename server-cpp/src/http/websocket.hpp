@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -55,6 +56,13 @@ public:
 	std::uint64_t id() const { return id_; }
 	// Messages larger than this close the connection (1009).
 	std::size_t max_message = 64 * 1024;
+	// A ping goes out every ping_period; nothing received for read_timeout closes the connection. A pong counts as
+	// received unless pong_counts says otherwise (a frozen background tab still answers pings).
+	std::chrono::seconds ping_period{15};
+	std::chrono::seconds read_timeout{30};
+	std::function<bool()> pong_counts;
+	// Whether the connection is still open (send/close are no-ops after closing).
+	bool closing() const { return closing_; }
 
 	// Internals for the server.
 	WebSocket(lws *wsi, Request request, std::shared_ptr<WsHandler> handler);

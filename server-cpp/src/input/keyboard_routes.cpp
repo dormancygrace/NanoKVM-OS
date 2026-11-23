@@ -301,6 +301,16 @@ std::string to_json(const T &v)
 
 } // namespace
 
+bool us_key(char32_t r, std::uint8_t &modifiers, std::uint8_t &code)
+{
+	static const std::map<char32_t, KeyChar> us = layout("");
+	auto it = us.find(r);
+	if (it == us.end()) return false;
+	modifiers = it->second.modifiers;
+	code = it->second.code;
+	return true;
+}
+
 void add_keyboard_routes(http::Router &router)
 {
 	router.add("POST", "/api/hid/paste", auth::guarded([](http::Request &req, http::Response &res) {

@@ -7,8 +7,13 @@
 
 #include "http/router.hpp"
 
+#include <cstdint>
+
 namespace nkos::input {
 
 void add_keyboard_routes(http::Router &router);
+
+// The US layout of the paste routes (service/hid's char map): the AI tools type with it.
+bool us_key(char32_t r, std::uint8_t &modifiers, std::uint8_t &code);
 
 } // namespace nkos::input

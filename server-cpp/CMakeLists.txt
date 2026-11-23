@@ -55,6 +55,7 @@ add_executable(NanoKVM-Server
   src/video/direct.cpp
   src/video/encoder.cpp
   src/video/frame.cpp
+  src/video/hdmi.cpp
   src/video/parameter_sets.cpp
   src/video/routes.cpp
   src/video/screen.cpp

@@ -3,6 +3,7 @@
 #include "auth/session.hpp"
 #include "common/log.hpp"
 #include "http/websocket.hpp"
+#include "video/hdmi.hpp"
 #include "video/source.hpp"
 
 #include <openssl/rand.h>
@@ -436,12 +437,14 @@ std::optional<std::string> Streamer::add(Client *client, Codec codec)
 		codec_ = codec;
 	}
 	clients_.insert(client);
+	hdmi::set_viewers("direct", static_cast<int>(clients_.size()));
 	return std::nullopt;
 }
 
 void Streamer::remove(Client *client)
 {
 	if (!clients_.erase(client)) return;
+	hdmi::set_viewers("direct", static_cast<int>(clients_.size()));
 	if (clients_.empty()) {
 		unsubscribe(this);
 		codec_.reset();
@@ -474,6 +477,7 @@ void Streamer::ended()
 	auto targets = std::vector<Client *>(clients_.begin(), clients_.end());
 	clients_.clear();
 	codec_.reset();
+	hdmi::set_viewers("direct", 0);
 	for (auto *c : targets) c->end("encoder-reconfigured");
 }
 

@@ -3,6 +3,7 @@
 #include "common/log.hpp"
 #include "common/loop.hpp"
 #include "config/config.hpp"
+#include "video/hdmi.hpp"
 #include "video/parameter_sets.hpp"
 #include "video/screen.hpp"
 #include "video/vision.hpp"
@@ -32,6 +33,7 @@ struct Session {
 	Clock::time_point started, refreshed, last_keyframe_request;
 	vision::CaptureParams params;
 	Screen screen;
+	std::shared_ptr<hdmi::Lease> lease;  // the capture runs while the session does
 };
 
 std::optional<Codec> selected = [] {
@@ -185,6 +187,7 @@ bool start_session(Codec codec)
 {
 	check_screen();
 	Session s;
+	s.lease = std::make_shared<hdmi::Lease>();
 	s.codec = codec;
 	s.h265_fallback = selected && *selected == Codec::h264 && codec == Codec::h265;
 	s.started = s.refreshed = Clock::now();

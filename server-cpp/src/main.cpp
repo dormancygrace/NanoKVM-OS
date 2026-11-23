@@ -6,6 +6,7 @@
 #include "http/router.hpp"
 #include "http/server.hpp"
 #include "http/static_files.hpp"
+#include "video/hdmi.hpp"
 #include "video/routes.hpp"
 #include "video/vision.hpp"
 
@@ -51,7 +52,7 @@ int main()
 
 	// The capture starts before the listeners, as the Go server's main does.
 	if (!video::vision::init()) log::error("video capture is unavailable");
-	int status = http::run(conf, router);
+	int status = http::run(conf, router, [] { video::hdmi::start(); });
 	video::vision::deinit();
 	return status;
 }

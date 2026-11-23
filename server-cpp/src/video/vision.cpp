@@ -122,9 +122,6 @@ bool init()
 	initialized = true;
 	if (set_mjpeg_chroma(screen().mjpeg_chroma == 422 ? 1 : 0) != 0) log::error("failed to select saved MJPEG chroma");
 	set_frame_detact(frame_detect_enabled() ? 60 : 0);
-	// EnableHdmiCapture / DisableHdmiCapture of the Go server's main: the capture runs unless HDMI was turned off.
-	bool hdmi_off = ::access("/etc/kvm/hdmi_disable", F_OK) == 0;
-	if (kvmv_hdmi_control(hdmi_off ? 0 : 1) < 0) log::error("failed to set hdmi to {}", !hdmi_off);
 	worker = nk_capture_create(&ready_fd, &doorbell_fd, &shared);
 	if (!worker) {
 		log::error("native capture worker unavailable");
@@ -195,5 +192,34 @@ void set_capture_fps(int fps)
 {
 	if (initialized) kvmv_set_capture_fps(static_cast<std::uint8_t>(fps));
 }
+
+namespace {
+
+// Holds a running stream's capture thread off the library for one operation.
+struct Paused {
+	bool held;
+	Paused() : held(running && worker) { if (held) nk_capture_pause(worker); }
+	~Paused() { if (held) nk_capture_resume(worker); }
+};
+
+} // namespace
+
+void set_hdmi(bool enable)
+{
+	if (!initialized) return;
+	Paused paused;
+	if (kvmv_hdmi_control(enable ? 1 : 0) < 0) log::error("failed to set hdmi to {}", enable);
+}
+
+bool set_capture_parked(bool parked)
+{
+	if (!initialized) return false;
+	Paused paused;
+	return kvmv_set_capture_parked(parked ? 1 : 0) == 0;
+}
+
+bool capture_reclaim_pending() { return initialized && kvmv_capture_reclaim_pending() != 0; }
+
+bool hdmi_signal_active() { return initialized && kvmv_hdmi_signal_active() != 0; }
 
 } // namespace nkos::video::vision

@@ -36,4 +36,12 @@ void stop();
 void request_keyframe();
 void set_capture_fps(int fps);
 
+// Operations that change the capture: a running stream pauses for them (its read in flight ends first).
+// HDMI capture on or off (kvmv_hdmi_control); the VPSS outputs parked or resumed (false: the library could not).
+void set_hdmi(bool enable);
+bool set_capture_parked(bool parked);
+// Disabled outputs still own pools awaiting reclamation.
+bool capture_reclaim_pending();
+bool hdmi_signal_active();
+
 } // namespace nkos::video::vision

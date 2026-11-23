@@ -7,6 +7,7 @@
 #include "http/server.hpp"
 #include "http/static_files.hpp"
 #include "input/hid.hpp"
+#include "input/keyboard_routes.hpp"
 #include "input/region.hpp"
 #include "system/atx.hpp"
 #include "system/branding.hpp"
@@ -65,6 +66,7 @@ int main()
 	system::add_time_routes(router);
 	system::add_branding_routes(router);
 	input::add_region_routes(router);
+	input::add_keyboard_routes(router);
 	usb::add_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.

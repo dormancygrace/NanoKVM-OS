@@ -2,6 +2,7 @@
 
 #include "common/log.hpp"
 #include "common/loop.hpp"
+#include "common/process.hpp"
 #include "common/time.hpp"
 
 #include <glaze/glaze.hpp>
@@ -12,6 +13,7 @@
 #include <cstring>
 #include <deque>
 #include <fcntl.h>
+#include <future>
 #include <mutex>
 #include <poll.h>
 #include <sys/stat.h>
@@ -120,7 +122,7 @@ bool keyboard_active(const Bytes &r)
 
 void post_complete(const Report &report, bool ok)
 {
-	loop::post([reservation = report.reservation, complete = report.complete, ok] {
+	loop::post([reservation = report.complete_reservation ? report.reservation : nullptr, complete = report.complete, ok] {
 		if (reservation) reservation->complete(ok);
 		if (complete) complete(ok);
 	});
@@ -165,9 +167,10 @@ struct Lane::State {
 namespace {
 
 struct Job {
-	enum Kind { report, close_lane, release_all, open } kind;
+	enum Kind { report, close_lane, release_all, open, close_devices, open_retry } kind;
 	std::shared_ptr<Lane::State> lane;
 	Report data;
+	std::function<void(bool ok)> done;  // close_devices, open_retry: on the writer thread
 };
 
 class Writer {
@@ -207,6 +210,27 @@ private:
 			}
 			switch (job.kind) {
 			case Job::open: reopen(); break;
+			case Job::close_devices:
+				for (auto *d : devices()) d->close();
+				if (!mouse_) {
+					keyboard_open = false;
+					notify_led_reader();
+				}
+				if (job.done) job.done(true);
+				break;
+			case Job::open_retry: {
+				auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+				bool ok = false;
+				for (;;) {
+					reopen();
+					ok = true;
+					for (auto *d : devices()) ok = ok && (d->disabled || d->fd >= 0);
+					if (ok || std::chrono::steady_clock::now() >= deadline) break;
+					std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				}
+				if (job.done) job.done(ok);
+				break;
+			}
 			case Job::release_all: release_everything(); break;
 			case Job::close_lane: close_lane(*job.lane); break;
 			case Job::report:
@@ -429,7 +453,8 @@ void update_leds(std::uint8_t report)
 	next.caps_lock = report & 2;
 	next.scroll_lock = report & 4;
 	next.known = true;
-	next.updated_at = rfc3339nano(WallClock::now());
+	next.updated = WallClock::now();
+	next.updated_at = rfc3339nano(next.updated);
 	bool same = next.num_lock == leds.num_lock && next.caps_lock == leds.caps_lock &&
 	            next.scroll_lock == leds.scroll_lock && next.known == leds.known;
 	leds = next;
@@ -508,6 +533,25 @@ void open()
 {
 	keyboard_writer.push({Job::open, nullptr, {}});
 	mouse_writer.push({Job::open, nullptr, {}});
+}
+
+void reset_usb_phy(std::function<void(std::string error)> done)
+{
+	loop::blocking([done = std::move(done)] {
+		auto wait_both = [](Job::Kind kind) {
+			std::promise<bool> k, m;
+			auto fk = k.get_future(), fm = m.get_future();
+			keyboard_writer.push({kind, nullptr, {}, [&k](bool ok) { k.set_value(ok); }});
+			mouse_writer.push({kind, nullptr, {}, [&m](bool ok) { m.set_value(ok); }});
+			return fk.get() && fm.get();
+		};
+		wait_both(Job::close_devices);
+		auto r = process::run({"sh", "/etc/init.d/S03usbdev", "restart_phy"}, {.timeout = std::chrono::seconds(10)});
+		std::string error;
+		if (!r.ok()) error = "restart usb phy: " + (r.timed_out ? std::string("timeout") : std::to_string(r.exit_code));
+		if (!wait_both(Job::open_retry) && error.empty()) error = "reopen HID devices after usb phy reset";
+		loop::post([done, error] { done(error); });
+	});
 }
 
 std::vector<std::uint8_t> normalize_mouse_report(std::vector<std::uint8_t> report)

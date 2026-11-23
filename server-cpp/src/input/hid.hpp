@@ -9,6 +9,7 @@
 // A lane is one producer's queue (a page's socket): its reports keep their order, and closing it releases what it
 // still holds. The keyboard LED state the host sends (num, caps, scroll lock) is read by a thread of its own.
 
+#include "common/time.hpp"
 #include "input/control.hpp"
 
 #include <cstdint>
@@ -26,6 +27,8 @@ struct Report {
 	// Loop thread, after the write: ok, and which kinds the writer released after a failure.
 	std::function<void(bool ok)> complete;
 	std::function<void(control::ReportKind)> reset;
+	// false: the reservation only gates the write; its owner completes it once (a paste, a key sequence).
+	bool complete_reservation = true;
 };
 
 class Lane {
@@ -45,6 +48,10 @@ void release_all();
 // Rereads the disabled functions (usb.disable_*, disable_hid) and reopens the devices.
 void open();
 
+// Restarts the USB PHY (S03usbdev restart_phy) with the devices closed, then reopens them (retrying for 2 s);
+// done runs on the loop thread with an error message, empty on success.
+void reset_usb_phy(std::function<void(std::string error)> done);
+
 // 4- and 6-byte mouse reports of older pages get the AC pan byte.
 std::vector<std::uint8_t> normalize_mouse_report(std::vector<std::uint8_t> report);
 
@@ -58,6 +65,7 @@ Functions input_functions();
 struct LedStatus {
 	bool keyboard_enabled = false, num_lock = false, caps_lock = false, scroll_lock = false, known = false;
 	std::string updated_at;  // RFC 3339 (Go's zero time until known)
+	WallClock::time_point updated{};
 };
 inline constexpr const char *led_status_event = "hid-led-status";
 LedStatus led_status();

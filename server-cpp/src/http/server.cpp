@@ -617,6 +617,8 @@ bool watch_fd(int fd, std::function<void()> on_readable)
 	return true;
 }
 
+bool request_open(std::uint64_t id) { return open_requests.count(id) != 0; }
+
 void complete(std::uint64_t id, Response response)
 {
 	loop::post([id, response = std::move(response)]() mutable {

@@ -93,6 +93,9 @@ using Handler = std::function<void(Request &, Response &)>;
 // connection has closed meanwhile is dropped.
 void complete(std::uint64_t id, Response response);
 
+// Whether a pending request's connection is still open (a long handler stops when the client went away).
+bool request_open(std::uint64_t id);
+
 // Answers the request from fn, run on the blocking pool (loop::blocking): for handlers that run commands or read
 // slow files. fn gets a fresh Response with the headers already set on res.
 void defer(Request &request, Response &res, std::function<void(Response &)> fn);

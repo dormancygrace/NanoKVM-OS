@@ -101,7 +101,7 @@ nk_capture_params native(const CaptureParams &p)
 // restart when the first stream starts.
 bool first_capture_yuv420()
 {
-	if (read_trimmed("/kvmapp/kvm/transport") == "mjpeg") return false;
+	if (read_trimmed("/kvmapp/kvm/transport") == "mjpeg") return false;  // StreamTransport
 	auto selected = selected_codec();
 	if (!selected || *selected != Codec::h264) return false;
 	const Screen &s = screen();
@@ -239,5 +239,18 @@ void set_capture_parked(bool parked, std::function<void(bool)> done)
 bool capture_reclaim_pending() { return initialized && kvmv_capture_reclaim_pending() != 0; }
 
 bool hdmi_signal_active() { return initialized && kvmv_hdmi_signal_active() != 0; }
+
+std::pair<int, std::string> mjpeg_chroma_status()
+{
+	if (!initialized) return {420, "recovery"};
+	std::uint8_t state = get_mjpeg_chroma_status();
+	int active = state & MJPEG_CHROMA_ACTIVE_422 ? 422 : 420;
+	if (state & MJPEG_CHROMA_CAPTURE_420) return {active, "h264Capture"};
+	if (state & MJPEG_CHROMA_FALLBACK_ERROR) return {active, "hardware"};
+	if ((state & MJPEG_CHROMA_LIMIT_WIDTH) && active == 422) return {active, "resolution"};
+	if (state & MJPEG_CHROMA_SHARED_VIDEO) return {active, "video"};
+	if (state & MJPEG_CHROMA_FRAME_DETECT) return {active, "frameDetection"};
+	return {active, ""};
+}
 
 } // namespace nkos::video::vision

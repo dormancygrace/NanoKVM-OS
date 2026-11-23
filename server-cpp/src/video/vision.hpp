@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <functional>
+#include <string>
+#include <utility>
 
 namespace nkos::video::vision {
 
@@ -44,5 +46,9 @@ void set_capture_parked(bool parked, std::function<void(bool ok)> done = {});
 // Disabled outputs still own pools awaiting reclamation.
 bool capture_reclaim_pending();
 bool hdmi_signal_active();
+
+// The MJPEG chroma the VPSS produces (420 or 422) and why it is not the saved one ("" when it is): h264Capture,
+// hardware, resolution, video, frameDetection; "recovery" while the video is off.
+std::pair<int, std::string> mjpeg_chroma_status();
 
 } // namespace nkos::video::vision

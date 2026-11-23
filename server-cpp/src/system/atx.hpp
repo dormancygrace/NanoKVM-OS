@@ -7,9 +7,15 @@
 
 #include "http/router.hpp"
 
+#include <chrono>
+#include <string>
+
 namespace nkos::system::atx {
 
 bool available();
+// One press of a line (held for duration); "" or the error. The page's presses, the sensors watchdog and the BMC share
+// it, so presses never overlap.
+std::string pulse_line(const std::string &device, std::chrono::milliseconds duration);
 bool enabled();
 // Writes the board's default at the first start; starts the LED monitor when ATX is on.
 void start();

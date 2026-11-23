@@ -1,4 +1,5 @@
 #include "standby/standby.hpp"
+#include "system/tls.hpp"
 
 #include "auth/session.hpp"
 #include "common/log.hpp"
@@ -522,6 +523,7 @@ Error served_certificate_pem(std::string &cert_pem, std::string &key_pem)
 		EVP_PKEY_free(pkey);
 		return ok && !cert_pem.empty() && !key_pem.empty();
 	};
+	if (auto served = system::tls::server_certificate().current(); !served.crt.empty() && load(served.crt, served.key)) return "";
 	config::Cert cert = config::get().cert.with_defaults();
 	if (load(cert.crt, cert.key)) return "";
 	if ((cert.crt != config::default_cert_file || cert.key != config::default_key_file) &&

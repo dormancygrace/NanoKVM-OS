@@ -165,27 +165,8 @@ bool power_led_connected(const std::string &path)
 
 namespace {
 
-std::atomic<bool> pressing{false};
-
-// One press of a line: held for duration, then released. "" or the error.
-std::string pulse(const std::string &device, std::chrono::milliseconds duration)
-{
-	if (pressing.exchange(true)) return "another ATX pulse is in progress";
-	struct Done {
-		~Done() { pressing = false; }
-	} done;
-	std::string error;
-	auto line = system::gpio::Line::open(device, true, error);
-	if (!line) return error;
-	if (!line->set(true, error)) {
-		std::string release_error;
-		line->set(false, release_error);
-		return error;
-	}
-	std::this_thread::sleep_for(duration);
-	if (!line->set(false, error)) return error;
-	return "";
-}
+// One press of a line, shared with the web page's ATX buttons.
+std::string pulse(const std::string &device, std::chrono::milliseconds duration) { return system::atx::pulse_line(device, duration); }
 
 struct BoardAtx : Atx {
 	// The ATX lines while ATX is on (System > Device); none while it is off.

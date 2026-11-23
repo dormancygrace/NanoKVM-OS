@@ -38,6 +38,8 @@ struct HostSensorsStatus {
 	std::vector<HostSensor> sensors;
 };
 extern std::function<HostSensorsStatus()> host_sensors_status;
+// Sets host_sensors_status from the USB family's sensors store. Before add_routes.
+void link_host_sensors();
 
 // The security notifications (service/notify): a web-style lockout, IPMI's attempt limit, a login.
 extern std::function<void(const std::string &address, int failures, int minutes)> notify_login_locked_out;

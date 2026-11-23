@@ -190,6 +190,7 @@ const std::vector<std::string> skipped = {
 	"/api/vm/oled/preview",
 	"*/preview", "*/check", "*/test", "*/oauth/*", "*/verify",
 	"/api/os/update/notice/check",
+	"/api/vm/system/shutdown",
 	"/api/system/recovery/export",
 	"/api/picoclaw/actions", "/api/picoclaw/mcp", "/api/picoclaw/load-image",
 	"/api/picoclaw/sessions/*", "/api/picoclaw/runtime/session",

@@ -4,6 +4,9 @@
 #include "osupdate/apkpkg.hpp"
 #include "osupdate/routes.hpp"
 #include "recovery/routes.hpp"
+#include "bmc/service.hpp"
+#include "rustdesk/rustdesk.hpp"
+#include "standby/standby.hpp"
 #include "system/cli.hpp"
 #include "common/log.hpp"
 #include "config/config.hpp"
@@ -107,9 +110,13 @@ int main(int argc, char **argv)
 		res.status = 403;
 		res.done = true;
 	});
+	// router.go: the standby routes before settings recovery, the body limit and the journal hook.
+	standby::add_admission(router);
+	standby::add_routes(router);
 	// Settings recovery waits for its reboot: only signing in and out and the reboot change anything.
 	router.use([](http::Request &req, http::Response &res) {
 		if (req.method == "GET" || req.method == "HEAD" || req.method == "OPTIONS") return;
+		if (req.path == "/api/vm/system/shutdown" || req.path == "/standby" || req.path.starts_with("/standby/") || req.path == "/standby.js") return;
 		static const std::set<std::string> allowed{"/api/system/recovery/reboot", "/api/auth/login", "/api/auth/login/totp",
 		                                           "/api/auth/logout", "/api/auth/activity"};
 		if (allowed.count(req.path)) return;
@@ -122,6 +129,7 @@ int main(int argc, char **argv)
 	// reads at most 8 MiB of any body).
 	router.use([](http::Request &req, http::Response &res) {
 		if (req.body.size() <= (1u << 20)) return;
+		if (req.path == "/api/vm/system/shutdown" || req.path == "/standby" || req.path.starts_with("/standby/") || req.path == "/standby.js") return;
 		static const std::set<std::string> own{"/api/download/file", "/api/storage/user-disk/files/upload",
 		                                       "/api/branding/logo", "/api/branding/favicon",
 		                                       "/api/extensions/openvpn/import", "/api/extensions/wireguard/import",
@@ -149,6 +157,8 @@ int main(int argc, char **argv)
 	input::add_region_routes(router);
 	input::add_keyboard_routes(router);
 	input::jiggler::add_routes(router);
+	// switchOffRemovedAddons, once per system: settings left from add-ons removed before they became part of the OS.
+	usb::switch_off_removed_addons(rustdesk::switch_off_stale);
 	usb::add_routes(router);
 	usb::add_host_sensors_routes(router);
 	storage::add_routes(router);
@@ -174,6 +184,10 @@ int main(int argc, char **argv)
 	system::tls::add_routes(router);
 	system::ssh_keys::add_routes(router);
 	network::add_routes(router);
+	// After every router.use: BMC adds the /redfish middleware; it also starts IPMI.
+	bmc::link_host_sensors();
+	bmc::add_routes(router);
+	rustdesk::add_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.
 	// Video recovery after repeated crashes: the server runs without video.
@@ -196,6 +210,7 @@ int main(int argc, char **argv)
 	// router/network.go: a change left on trial is undone, and the gateway check runs, before the listeners.
 	network::restore_pending_trial();
 	network::start_gateway_check();
+	rustdesk::start();
 	// main.go: PrepareServerCertificate before the HTTPS listener; a pair that cannot be prepared ends the start.
 	if (auto e = system::tls::prepare(conf)) {
 		log::error("prepare HTTPS certificate: {}", *e);
@@ -220,6 +235,7 @@ int main(int argc, char **argv)
 		video::webrtc::stop();
 		video::audio::stop();
 	});
+	rustdesk::stop();
 	system::atx::stop();
 	input::jiggler::stop();
 	input::hid::stop();

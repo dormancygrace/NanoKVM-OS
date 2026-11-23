@@ -182,6 +182,15 @@ add_executable(NanoKVM-Server
   src/video/rtc_common.cpp
   src/video/srtp_frame.cpp
   src/video/screen_text.cpp
+  src/standby/core.cpp
+  src/standby/standby.cpp
+  src/bmc/config.cpp
+  src/bmc/ipmi.cpp
+  src/bmc/redfish.cpp
+  src/bmc/service.cpp
+  src/bmc/host_sensors_link.cpp
+  src/rustdesk/service.cpp
+  src/rustdesk/routes.cpp
   src/network/util.cpp
   src/network/wifi.cpp
   src/network/wifi_ap.cpp
@@ -277,4 +286,13 @@ target_include_directories(nkos-update PRIVATE src ${CMAKE_BINARY_DIR}/third_par
 target_compile_options(nkos-update PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
 target_link_options(nkos-update PRIVATE -static-libstdc++ -static-libgcc)
 target_link_libraries(nkos-update PRIVATE ${OPENSSL_ROOT}/libcrypto.so pthread)
-install(TARGETS NanoKVM-Server nkos-apply-updates nkos-usb-internet nkos-update RUNTIME DESTINATION .)
+# nkos-standby, the RAM helper of network standby (src/standby/helper.cpp). Fully static: the server's preparation
+# refuses a helper with a program interpreter, and it runs from the RAM root after the SD card is released. OpenSSL
+# for its HTTPS listener; nothing of the server's other libraries.
+add_executable(nkos-standby src/standby/helper.cpp src/standby/core.cpp src/storage/go.cpp)
+target_include_directories(nkos-standby PRIVATE src ${OPENSSL_ROOT}/include)
+target_compile_options(nkos-standby PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
+target_link_options(nkos-standby PRIVATE -static)
+target_link_libraries(nkos-standby PRIVATE ${OPENSSL_ROOT}/libssl.a ${OPENSSL_ROOT}/libcrypto.a pthread)
+
+install(TARGETS NanoKVM-Server nkos-apply-updates nkos-usb-internet nkos-update nkos-standby RUNTIME DESTINATION .)

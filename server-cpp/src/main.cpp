@@ -40,6 +40,7 @@
 #include "system/tls.hpp"
 #include "system/terminal.hpp"
 #include "usb/composition.hpp"
+#include "usb/remote_access.hpp"
 #include "storage/storage.hpp"
 #include "input/jiggler.hpp"
 #include "input/ws.hpp"
@@ -187,6 +188,9 @@ int main(int argc, char **argv)
 	// After every router.use: BMC adds the /redfish middleware; it also starts IPMI.
 	bmc::link_host_sensors();
 	bmc::add_routes(router);
+	// The daemon's sockets and the USB preset RustDesk switches to (router/rustdesk.go: NewBridge, NewService).
+	rustdesk::set_bridge(rustdesk::make_bridge());
+	rustdesk::set_usb_hooks({usb::enable_remote_access_usb, usb::ensure_remote_access_usb, usb::restore_usb_after_remote_access});
 	rustdesk::add_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.

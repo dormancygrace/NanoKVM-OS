@@ -144,6 +144,7 @@ add_executable(NanoKVM-Server
   src/usb/gojson_read.cpp
   src/usb/gotext.cpp
   src/usb/requests.cpp
+  src/usb/remote_access.cpp
   src/usb/usbinternet.cpp
   src/usb/host_sensors.cpp
   src/usb/host_sensors_core.cpp
@@ -191,6 +192,10 @@ add_executable(NanoKVM-Server
   src/bmc/host_sensors_link.cpp
   src/rustdesk/service.cpp
   src/rustdesk/routes.cpp
+  src/rustdesk/bridge.cpp
+  src/rustdesk/bridge_socket.cpp
+  src/rustdesk/bridge_wire.cpp
+  src/rustdesk/webrtc_bridge.cpp
   src/network/util.cpp
   src/network/wifi.cpp
   src/network/wifi_ap.cpp

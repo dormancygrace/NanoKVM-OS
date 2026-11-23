@@ -25,6 +25,7 @@
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
 #include "system/scripts.hpp"
+#include "system/serial_console.hpp"
 #include "system/startpriority.hpp"
 #include "system/terminal.hpp"
 #include "usb/composition.hpp"
@@ -142,6 +143,7 @@ int main()
 	system::notify::add_routes(router);
 	system::terminal::add_routes(router);
 	system::scripts::add_routes(router);
+	system::serial_console::add_routes(router);
 	video::preview::add_routes(router);
 	video::watermark::add_routes(router);
 	video::webrtc::add_routes(router);

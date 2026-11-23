@@ -105,6 +105,7 @@ add_executable(NanoKVM-Server
   src/system/live_status.cpp
   src/system/time_settings.cpp
   src/system/serial_terminal.cpp
+  src/system/serial_console.cpp
   src/system/terminal.cpp
   src/system/scripts.cpp
   src/system/startpriority.cpp

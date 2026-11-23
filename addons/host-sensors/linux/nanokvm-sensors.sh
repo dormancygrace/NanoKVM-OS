@@ -4,7 +4,7 @@
 # sends a report every few seconds to the NanoKVM plugged into it, over the
 # NanoKVM's USB serial port or its USB network. The NanoKVM shows the last
 # report in Settings > Services > Computer sensors. The report format is in
-# server/hostsensors of NanoKVM OS.
+# server-cpp/src/usb/host_sensors_core.cpp of NanoKVM OS.
 #
 # On the NanoKVM's helper disk this file is NanoKVM-Sensors-Setup-Linux.sh.
 # POSIX sh (dash, busybox ash); no other program than the usual tools of a

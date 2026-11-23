@@ -86,7 +86,7 @@ def dir_entry(name, ext, attr, ntres, cluster, size):
 def names(name, n):
     """The directory names of the n-th file: its 8.3 alias (BASE~N, EXT) and
     the VFAT entries that carry the long name, which come before it. The same
-    as server/helperdisk, which makes the disk on the device."""
+    as server-cpp/src/usb/helper_disk.cpp, which makes the disk on the device."""
     assert name and len(name) <= 100 and not name.startswith('.') and not name.endswith('.'), name
     assert all(c.isascii() and (c.isalnum() or c in '._-') for c in name), name
     stem, dot, ext = name.rpartition('.')

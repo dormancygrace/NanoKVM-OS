@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { parseMjpegTiles, startTileStream } from '../src/pages/desktop/screen/mjpeg-tiles.ts';
 
-// A message as the server builds it (common/mjpeg_tiles.go).
+// A message as the server builds it (server-cpp/src/video/mjpeg.cpp).
 function message(flags, width, height, tiles) {
   const body = tiles.reduce((sum, tile) => sum + tile.jpeg.length, 0);
   const buffer = new ArrayBuffer(8 + 12 * tiles.length + body);

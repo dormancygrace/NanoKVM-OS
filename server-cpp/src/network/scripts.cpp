@@ -1,4 +1,4 @@
-// The scripts of the Go package service/network/scripts that the server installs or runs, embedded at build time
+// The scripts of server-cpp/data/network-scripts that the server installs or runs, embedded at build time
 // (embed_scripts.cmake): the udhcpc hooks for DNS, the gateway and the Wi-Fi source rule, and S02ipv6.
 
 #include "network/internal.hpp"

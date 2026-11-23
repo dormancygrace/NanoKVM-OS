@@ -10,7 +10,7 @@ fi
 set -eu
 # Alpine community is listed (after 4.2.1): LLDP and UPS (lldpd, nut) come
 # from it. The line goes right after the first untagged Alpine main line, from
-# the same mirror, as the server places it (server/osupdate/community.go). A
+# the same mirror, as the server places it (server-cpp/src/osupdate/osupdate.cpp). A
 # list that already has an untagged community line of the same Alpine branch,
 # from any mirror, stays as it is, and so does one without an Alpine main line
 # (a custom setup). Lines are compared without surrounding blanks, a CR and

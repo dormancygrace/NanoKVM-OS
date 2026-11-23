@@ -227,7 +227,7 @@ export function monitorAspects(caps: VideoCapabilities) {
 }
 
 // The portrait profile inputs, for which the stream limit box stands upright
-// (native stream_size, server/common/h264_policy.go). Any other input, a tall
+// (native stream_size, server-cpp/src/video/screen.cpp). Any other input, a tall
 // 8:9 monitor too, is fitted into the landscape box.
 const PORTRAIT_INPUTS = ['720x1280', '1080x1920', '1088x1920', '1440x2560'];
 

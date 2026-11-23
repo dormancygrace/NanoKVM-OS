@@ -20,7 +20,7 @@ modify configfs must still coordinate with the application.
 
 ## Transfer limits and formats
 
-Uploads, native curl downloads, Go fallback downloads and resumed downloads
+Uploads, curl downloads and resumed downloads
 reserve 128 MiB of the destination filesystem's available space. A resumed
 download needs room for its remaining bytes, not the already stored prefix.
 The limit also applies when HTTP does not announce Content-Length. The budget
@@ -148,7 +148,7 @@ use HTTPS when authentication is required.
 
 HTTPS first offers TLS 1.2 with only the ChaCha20-Poly1305 suites, which cost
 the C906 noticeably less CPU per MiB than AES-GCM; a TLS 1.3 server would pick
-its own cipher. A server that cannot do TLS 1.2 with ChaCha20 gets Go's default
+its own cipher. A server that cannot do TLS 1.2 with ChaCha20 gets curl's default
 TLS settings after the first failed handshake.
 
 ## SMB-mounted ISO reads

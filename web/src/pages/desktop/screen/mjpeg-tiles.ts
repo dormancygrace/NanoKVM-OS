@@ -1,4 +1,4 @@
-// Tiled MJPEG messages (server common/mjpeg_tiles.go, kvm_vision.h): the
+// Tiled MJPEG messages (server-cpp/src/video/mjpeg.cpp, kvm_vision.h): the
 // JPEG tiles of the parts of the picture that changed, little-endian:
 //   u8 version (1), u8 flags (1: the whole picture), u16 count,
 //   u16 picture width, u16 picture height,

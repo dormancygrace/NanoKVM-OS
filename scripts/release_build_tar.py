@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unpack the release-build tar in the signing job, after checking it.
 
-The build job runs third-party build code (npm packages, Go modules,
+The build job runs third-party build code (npm packages,
 Buildroot) and hands its outputs over as one tar. The signing job unpacks it
 and signs the repository in it with the release key. So the tar may hold
 only what the build job packs: the APK repository, the SD image and the

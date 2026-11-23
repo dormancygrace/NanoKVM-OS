@@ -14,11 +14,9 @@ No ENGINE or cryptodev interface is involved.
 
 The GNU ABI assembly is generated from
 `firmware/cpu/go-crypto-c906/gen_chacha_linux.py`, which also supplies Linux's
-ChaCha implementation. Its four vector lanes and fifth scalar block share the
-round construction with the separate Go generator. The GNU version preserves
-the C callee-saved registers, takes a 16-word state and round count, and wipes
-its stack keystream. The Go implementation uses a different ABI and buffer
-wrapper; its timings are not OpenSSL measurements.
+ChaCha implementation: four vector lanes and a fifth scalar block. It
+preserves the C callee-saved registers, takes a 16-word state and round count,
+and wipes its stack keystream.
 
 From `OSSL_CHACHA_C906_MIN_BYTES` (129 bytes, three blocks) the vector code
 runs; a remainder of three or more blocks after the whole groups takes one
@@ -230,8 +228,8 @@ rejected tags pass on the device.
 
 ### Vector Poly1305
 
-`0012-poly1305-c906.patch` adds the C906 vector Poly1305 that NanoKVM's Go
-runtime and kernel use: radix 2^26, four blocks in XTheadVector lanes and
+`0012-poly1305-c906.patch` adds the C906 vector Poly1305 that the kernel and
+the RustDesk add-on use too: radix 2^26, four blocks in XTheadVector lanes and
 one in scalar registers per group of five. It is
 `firmware/cpu/go-crypto-c906/gen_poly1305_vector.py --openssl`, and that
 generator executes it against a big-integer Poly1305; see

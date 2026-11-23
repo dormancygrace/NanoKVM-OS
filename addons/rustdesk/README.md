@@ -37,7 +37,7 @@ The daemon accepts WebRTC whenever the installed add-on supports it, whatever
 the NanoKVM video transport (Settings > Video) is. The client chooses: a
 request with a WebRTC offer is answered over WebRTC, one without over TCP or
 relay. WebRTC uses ICE/DTLS/SCTP through
-the existing Go/Pion stack without decode/re-encode. SDP and ICE use authenticated
+the server's WebRTC stack (libdatachannel) without decode/re-encode. SDP and ICE use authenticated
 encrypted hbbs TCP; the signed RustDesk identity binds the local DTLS fingerprint.
 Relay remains available when the ID server cannot route signaling. ICE uses
 the STUN and TURN servers of the NanoKVM configuration (stun and turn in
@@ -195,7 +195,7 @@ a configured repository containing the package.
 
 Host tests cover the protocol password challenge, rejected logins, continued
 video during a slow HID reply, input mapping, crypto/framing and persistent
-identity. Go tests with hardware stubs validate application logic only.
+identity.
 Test live HDMI, USB, client compatibility and registration on your own device
 before relying on the add-on.
 
@@ -384,7 +384,7 @@ check against GNU as, so rustc's own assembler builds them; CI checks that the
 files are what the generators write.
 
 The kernels execute vector instructions without asking the kernel first, as
-the server's Go code does. Every NanoKVM OS kernel starts a program with
+the server's OpenSSL does. Every NanoKVM OS kernel starts a program with
 vector state enabled (`CONFIG_RISCV_ISA_V_DEFAULT_ENABLE=y` in every kernel
 built from this repository, which includes every kernel shipped with the
 bridge this add-on depends on), neither the daemon nor

@@ -8,35 +8,28 @@ NanoKVM OS uses two complementary update checks: Dependabot creates dependency P
 
 - All repository GitHub Actions.
 - `web/package.json` and `web/pnpm-lock.yaml`, including development and indirect dependencies.
-- All five Go modules, including dependencies inside the patched Pion trees.
 - `addons/rustdesk/Cargo.toml` and `Cargo.lock`.
-- Both Pion Dockerfiles.
 
-Minor/patch updates are grouped; major npm/Go/Cargo upgrades remain separate candidates. Security updates have separate groups and are enabled in repository settings. The explicit **three-day cooldown** delays normal update PRs, not the check's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
+Minor/patch updates are grouped; major npm/Cargo upgrades remain separate candidates. Security updates have separate groups and are enabled in repository settings. The explicit **three-day cooldown** delays normal update PRs, not the check's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
 
 Intentional exceptions have separate monitoring:
 
 | Dependabot exception | Independent check / reason |
 |---|---|
 | Major `@types/node` bumps | The watcher reports latest; types stay aligned with the selected Node 26 runtime until a deliberate migration. |
-| `pion/dtls/v3`, `pion/ice/v4`, `pion/srtp/v3` | The watcher checks upstream tags. Local replacements contain patches; changing `require` alone would not update their implementation. |
-| `github.com/rs/cors/wrapper/gin` | The watcher checks the Go module proxy's actual nested-module release; the parent module's tags do not contain this package. |
-| `github.com/mervick/aes-bridge-go` | The watcher checks the Go proxy for the actual module. Upstream tagged `v2.0.0` without the required `/v2` module path, so the valid latest pseudo-version is pinned instead. This dependency is used only by compatibility/auth tests; normal server builds do not import it. |
 
-The last two are intentionally handled as manual update candidates, not silently treated as current. Dependabot does not generate updates for ignored module paths, including security updates; these exceptions therefore still need maintainer security review.
-
-The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
+The frontend and script CI suites remain mandatory. RustDesk has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
 
 ## Independent upstream checks
 
 `Upstream dependency watch` runs daily at 05:23 UTC and supports manual dispatch. It reads pins from repository files without executing downloaded package code. It reports:
 
-- **Every entry in `platform/sources.lock`**: Linux, Buildroot, U-Boot, OpenSBI, Sophgo SDK/drivers/media/sensors, AIC8800, json-c, miniz, inih, tinyalsa, zlib-ng, Opus, BusyBox devmem source, wireless-regdb, Go, Node, pnpm and Alpine minirootfs.
+- **Every entry in `platform/sources.lock`**: Linux, Buildroot, U-Boot, OpenSBI, Sophgo SDK/drivers/media/sensors, AIC8800, json-c, miniz, inih, tinyalsa, zlib-ng, Opus, BusyBox devmem source, wireless-regdb, the server's libraries (libwebsockets, glaze, rapidyaml, libdatachannel with libjuice, libsrtp, usrsctp and plog, libjpeg-turbo, libspng, curl), Node, pnpm and Alpine minirootfs.
 - **All direct frontend dependencies**, including dev dependencies and npm aliases, against registry `latest`, independently of cooldown or whether Dependabot can produce a lockfile update. Indirect frontend packages remain owned by Dependabot/security alerts. Unrecognized version ranges fail visibly instead of being skipped.
 - **Buildroot stable releases only**, including stable point releases. Selected recipes (binutils, musl, initramfs BusyBox, filesystem and host tools) follow that Buildroot release; master snapshots, release candidates and per-recipe development changes are not reported or proposed separately. GCC stable releases retain their independent check.
 - **All stock Alpine dependencies named in local APKBUILD `depends`/`makedepends`**, plus optional VPN packages and the core BusyBox and APK tools. Stable main/community availability is checked, for the optional VPN packages too. Installed device versions are not inspected.
 - **RustDesk stable protocol reference**, paired with the hbb_common submodule commit from that release (never hbb_common/main).
-- Patched Pion versions, the vendor kernel reference, the nested CORS module and AES Bridge Go described above.
+- The vendor kernel reference.
 
 **inih and miniz:** monitor published stable GitHub releases, resolving each
 release tag to its exact commit. Keep the existing post-release pins until a
@@ -76,8 +69,7 @@ The dependency publisher runs daily at 05:23 UTC on main, independently of the r
 | AIC8800, Sophgo osdrv/cvi_mpi/sensors, Sipeed SDK | Update the commit and the exact selected Git tree/blob IDs. **AIC8800 tracks radxa-pkg/aic8800.** Commits with unchanged selected paths do not create a PR. |
 | json-c, miniz, inih, Opus, tinyalsa, wireless-regdb, BusyBox devmem | Update source commits or archive URLs and SHA-256, plus companion metadata and archive/extraction paths where applicable. |
 | Node.js, pnpm, Alpine minirootfs | Update archive pins; Node stays in the selected major and minirootfs in the selected Alpine branch. |
-| Patched Go runtime, GCC, Alpine branch migrations | Open an integration notification: version guards, local patches and system migrations need deliberate work. |
-| Patched Pion DTLS/ICE/SRTP, CORS wrapper, AES Bridge | Open an integration notification without pretending that a version bump rebases local code or fixes upstream module paths. |
+| GCC, Alpine branch migrations | Open an integration notification: version guards, local patches and system migrations need deliberate work. |
 | RustDesk + hbb_common | One integration notification per stable RustDesk release, recording its exact commit and bundled hbb_common gitlink. No prereleases or standalone hbb_common branch updates; active protocol pins change only after review and testing. |
 | Sophgo kernel reference | Open an integration notification for the new reference. |
 
@@ -89,7 +81,7 @@ Every proposal includes a small .github/upstream-candidates/<component>.json rec
 
 Each component/candidate has a deterministic branch, `deps/upstream-<component>-<digest>` (Linux: `deps/upstream-linux-<version>`). The bots recognise a candidate by the branch name after its prefix. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes recorded output hashes.
 
-Stock Alpine APK updates remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
+Stock Alpine APK updates remain report-only. Dependabot continues owning normal npm/Cargo/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 
 Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary.
 
@@ -105,7 +97,7 @@ There are two separate build inputs: Buildroot's BusyBox for the early-boot init
 
 `python3 scripts/check-upstream.py --inventory` validates that:
 
-1. Every tracked npm, Go, Cargo and Docker manifest has a Dependabot directory.
+1. Every tracked npm, Cargo and Docker manifest has a Dependabot directory.
 2. Every platform source-lock entry has exactly one monitor owner.
 3. Every explicitly selected Buildroot package has a monitored recipe or a declared feature relationship.
 4. Source-pin expressions resolve unambiguously; frontend dependency syntax is understood.

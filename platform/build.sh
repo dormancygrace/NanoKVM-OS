@@ -1280,8 +1280,8 @@ rootfs() {
     # load the new libz.so.1 (kmod's depmod, for one). The network services of
     # Settings > Services and the OpenVPN client are selected next to
     # nanokvm-release, which does not depend on them: a device updated from a
-    # release without them gets them from the server (basePackages in
-    # server/service/extensions/apkpkg/base.go, the same list).
+    # release without them gets them from the server (base_packages in
+    # server-cpp/src/osupdate/apkpkg.cpp, the same list).
     BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release \
         lldpd lldpd-openrc net-snmp net-snmp-openrc nut nut-openrc openvpn
     # They are installed: the server does not install them again, so one the
@@ -1319,7 +1319,7 @@ rootfs() {
                 usr/lib/nanokvm-tpu/models/screen.cvimodel; do
         [ -f "$r/$path" ] || { echo "rootfs: missing $path" >&2; exit 1; }
     done
-    # RustDesk is off until it is switched on (server/service/rustdesk).
+    # RustDesk is off until it is switched on (server-cpp/src/rustdesk).
     [ ! -e "$r/etc/runlevels/default/nanokvm-rustdesk" ] || {
         echo "rootfs: nanokvm-rustdesk starts at boot" >&2; exit 1; }
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
@@ -1359,7 +1359,7 @@ rootfs() {
     printf '1\n' > "$r/etc/kvm/mdns_disabled"
     chmod 0600 "$r/etc/kvm/mdns_disabled"
     # With mDNS off its service stays out of the boot; the server adds it back
-    # when mDNS is turned on (service/vm/mdns.go).
+    # when mDNS is turned on (server-cpp/src/system/device_settings.cpp).
     rm -f "$r/etc/runlevels/default/nanokvm-mdns"
     tar --numeric-owner -czf "$rel/alpine-rootfs.tar.gz" --exclude='./boot/*' --exclude='./data/*' \
         --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' --exclude='./run/*' --exclude='./tmp/*' \

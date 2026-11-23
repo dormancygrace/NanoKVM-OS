@@ -3,7 +3,7 @@
 Native capture, encoding and board-service source for NanoKVM Cube and PCIe (SG2002). NanoKVM Pro and other SoC platforms are not included. Source derives from Sipeed NanoKVM and retains its notices.
 
 - `kvm_system`: board monitoring, display/buttons and device services.
-- `additional/kvm` and `additional/kvm_mmf`: capture, VPSS scaling and hardware encoding libraries used by the Go server.
+- `additional/kvm` and `additional/kvm_mmf`: capture, VPSS scaling and hardware encoding libraries used by the server.
 - `nanokvm_update_edid`: the EDID programming tool.
 
 The `native`, `system` and `tools` steps of `platform/build.sh` build them (`scripts/build-capture.py`, `build-mmf.py`, `build-system.py` and the EDID tool's Makefile); none needs MaixCDK.

@@ -19,7 +19,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/opensbi/*`, `images/fip-manifest.json` | host build provenance and loader checks |
 | `images/native/*.so` (2 HDMI-light libraries) | `nanokvm`, `/kvmapp/server/dl_lib` |
 | `images/system/kvm_system` | `nanokvm`, `/kvmapp/kvm_system` |
-| `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet` | `nanokvm`, `nanokvm-base` |
+| `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet`, `nkos-standby` | `nanokvm`, `nanokvm-base` |
 | `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware` |
 | `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license; zlib-ng is also linked statically into NanoKVM-Server for its gzip reader) | `nanokvm-zlib`, in place of Alpine's `zlib`; the license also in `nanokvm`, `/usr/share/licenses/nanokvm` |
@@ -75,7 +75,7 @@ The build needs no root. The packages, rootfs and image steps run as root of a u
 
 The first run downloads about 2 GB and needs about 25 GB of disk space. Building the toolchain takes most of the first run (20 minutes on 16 threads); the other steps take about 10 minutes. Later runs reuse the toolchain while its inputs are unchanged: the Buildroot pin, `firmware/buildroot` and the toolchain recipe in `build.sh`. If one of them changes, `build.sh` refuses the old toolchain and names the directories to delete. Steps can be run on their own, for example `platform/build.sh kernel modules hashes`. The step order is in `build.sh --help`. Use `-o DIR` for another output directory and `-j N` for the number of jobs.
 
-Go modules, npm packages and Alpine packages are downloaded during the build and checked against `server/go.sum`, `web/pnpm-lock.yaml` and the signed Alpine indexes. Alpine updates its 3.24 packages with security fixes, so a later build installs their newer versions; `release/installed-packages.txt` lists the versions in the image.
+npm packages and Alpine packages are downloaded during the build and checked against `web/pnpm-lock.yaml` and the signed Alpine indexes. Alpine updates its 3.24 packages with security fixes, so a later build installs their newer versions; `release/installed-packages.txt` lists the versions in the image.
 
 ### Debug kernel
 
@@ -150,7 +150,7 @@ The build also uses these parts of the repository:
 - `firmware/sensor/patches/`: NanoKVM I2C/MIPI wiring and LT6911UXC/LT6911D identification; applied before compiling MMF;
 - `firmware/mpi/`: the MMF capture-size helper and compatibility headers;
 - `firmware/alpine/`: the APK recipes, OpenRC services and compatibility scripts, `release.env` with the version;
-- `server/`, `web/`, `support/` (including `nanokvm_update_edid/`), `kvmapp/`: the application;
+- `server-cpp/`, `web/`, `support/` (including `nanokvm_update_edid/`), `kvmapp/`: the application;
 - `scripts/`: the component builders that `build.sh` calls.
 
 ## U-Boot console and uEnv.txt
@@ -235,7 +235,7 @@ For three years after we last distribute a NanoKVM OS v2 release, we will give a
 
 Buildroot and the external platform steps use Buildroot's ccache-enabled SDK
 wrapper. This covers C/C++ compilation for the kernel, modules, U-Boot,
-OpenSBI and native code. Go, Rust compilation, linking and image packaging
+OpenSBI, native code and the server. Rust compilation, linking and image packaging
 are not cached by ccache. The existing complete-toolchain and download caches
 remain in use.
 
@@ -379,7 +379,7 @@ finished outputs and small immutable kernel ABI exports. Pinned kernel sources
 and working headers are recreated only when a consumer must be rebuilt; Linux
 is not recompiled for that preparation. Only
 main writes shared snapshots; pull requests can read them. Keys, signed assets,
-root file systems and Go/Node SDKs are outside this cache. The compiler cache
+root file systems and the Node SDK are outside this cache. The compiler cache
 continues to speed components that do require rebuilding.
 
 Packages, their release metadata and signatures, corresponding source, and the

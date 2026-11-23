@@ -96,7 +96,7 @@ fail() {
 
 # ------------------------------------------------------------ small helpers
 # The serial number and the IDs go into a root udev rule: only what the
-# NanoKVM itself accepts (server/service/vm/usb_identity.go), never quotes,
+# NanoKVM itself accepts (server-cpp/src/usb/gadget.cpp), never quotes,
 # commas or line breaks that would end the match and start a new key.
 valid_serial() {
 	case $1 in '' | *[!0-9A-Za-z._-]*) return 1 ;; esac

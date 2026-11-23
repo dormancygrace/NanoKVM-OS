@@ -25,12 +25,8 @@ That loop restriction does not exclude vector lowering of compiler built-ins:
 `-O2` code can contain compiler-generated XTheadVector string comparison and
 buffer-copy sequences.
 
-Go targets `GORISCV64=rva20u64`; its backend has no T-Head target. CGO-generated
-C and native libraries use GCC and the new profile. The NanoKVM Go runtime
-patches remain selected explicitly through GOROOT. Standard RVV assembly in Go
-is guarded by CPU feature checks and is not the C906 legacy vector path.
 **RVV and XTheadVector machine encodings overlap:** a `th.v` mnemonic decoded
-from a mixed Go/C binary does not by itself establish a T-Head implementation.
+from a binary does not by itself establish a T-Head implementation.
 
 The closed ISP/3A algorithm objects of the SDK are not used: the HDMI
 receiver's YUV bypasses the ISP's image processing.

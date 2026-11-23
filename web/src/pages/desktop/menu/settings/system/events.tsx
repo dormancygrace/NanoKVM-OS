@@ -24,7 +24,7 @@ const tones = { info: 'neutral', warning: 'warning', critical: 'danger' } as con
 const KINDS = ['power', 'hdmi', 'screen', 'security', 'action', 'settings', 'system', 'journal'];
 
 // System > Event log: what happened to the host and who did what to it, as
-// the server's journal keeps it (server/journal), newest first.
+// the server's journal keeps it (server-cpp/src/system/journal.cpp), newest first.
 export const Events = () => {
   const { t, i18n } = useTranslation('translation', { keyPrefix: 'settings.events' });
   const timePreferences = useAtomValue(timePreferencesAtom);

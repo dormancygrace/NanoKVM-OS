@@ -25,8 +25,6 @@ bool allows_input_lease(const std::string &lease);
 bool acquire_external_input(const std::string &lease, std::function<void()> release);
 void release_external_input(const std::string &lease);
 
-// Somebody looks at the video: a visible input page and manual input within the last `within`.
-bool watching(std::chrono::steady_clock::duration within);
 // The last manual input (for the mouse jiggler).
 std::chrono::steady_clock::time_point last_manual_input();
 

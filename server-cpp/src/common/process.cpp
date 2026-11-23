@@ -1,5 +1,6 @@
 #include "common/process.hpp"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
@@ -102,6 +103,14 @@ Result run(const std::vector<std::string> &argv, const Options &options)
 			r.timed_out = true;
 			::kill(-pid, SIGKILL);
 			break;
+		}
+		if (options.cancel) {
+			if (options.cancel->load()) {
+				r.cancelled = true;
+				::kill(-pid, SIGKILL);
+				break;
+			}
+			left = std::min(left, decltype(left){100});
 		}
 		pollfd fds[2];
 		int n = 0, out_index = -1, in_index = -1;

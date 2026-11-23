@@ -4,6 +4,7 @@
 // combined stdout and stderr, killed when the timeout passes. Blocking: call it off the event loop
 // (loop::blocking).
 
+#include <atomic>
 #include <chrono>
 #include <string>
 #include <vector>
@@ -15,6 +16,7 @@ struct Result {
 	int exit_code = -1;     // the exit status, or -1 when killed by a signal
 	int signal = 0;
 	bool timed_out = false;
+	bool cancelled = false;  // killed because options.cancel was set
 	std::string output;     // stdout and stderr together
 	std::string error;
 	bool ok() const { return started && exit_code == 0; }
@@ -26,6 +28,9 @@ struct Options {
 	std::vector<std::string> env;  // extra NAME=value entries
 	bool capture = true;
 	std::string dir;
+	// Set from another thread: the program is killed (exec.CommandContext with a cancelled context). Checked at
+	// least every 100 ms.
+	const std::atomic<bool> *cancel = nullptr;
 };
 
 Result run(const std::vector<std::string> &argv, const Options &options = {});

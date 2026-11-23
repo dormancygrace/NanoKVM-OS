@@ -4,6 +4,7 @@
 #include "common/log.hpp"
 #include "common/loop.hpp"
 #include "http/websocket.hpp"
+#include "input/attention.hpp"
 #include "input/control.hpp"
 #include "input/hid.hpp"
 #include "input/jiggler.hpp"
@@ -29,9 +30,6 @@ enum : unsigned char { heartbeat = 0, keyboard_event = 1, mouse_event = 2, contr
 constexpr std::size_t max_client_message = 4 << 10;
 constexpr auto heartbeat_timeout = 90s;       // also how long a silent page counts as alive
 constexpr auto hold_release_timeout = 300ms;
-
-int visible_pages = 0;
-Clock::time_point last_input{};
 
 struct Client;
 void send_event(Client &c, const std::string &type, const std::string &data);
@@ -213,7 +211,7 @@ void Client::opened(http::WebSocket &socket)
 	send_control_status();
 	// A page counts as visible until it says otherwise.
 	page_visible = true;
-	visible_pages++;
+	attention::page_shown();
 	log::debug("websocket connected");
 }
 
@@ -236,12 +234,13 @@ void Client::received(http::WebSocket &, std::string_view data, bool)
 	case visibility_event:
 		if (data.size() == 2 && (data[1] == 1) != page_visible) {
 			page_visible = data[1] == 1;
-			visible_pages += page_visible ? 1 : -1;
+			if (page_visible) attention::page_shown();
+			else attention::page_hidden();
 		}
 		break;
 	case keyboard_event:
 		// Input from any page shows somebody is there, with control or not.
-		last_input = Clock::now();
+		attention::note_input(Clock::now());
 		if (!can_control(this)) break;
 		if (report.size() != 8) {
 			log::debug("invalid manual keyboard report");
@@ -250,7 +249,7 @@ void Client::received(http::WebSocket &, std::string_view data, bool)
 		queue_manual_report(control::ReportKind::keyboard, report, keyboard_report_held(report), true);
 		break;
 	case mouse_event: {
-		last_input = Clock::now();
+		attention::note_input(Clock::now());
 		if (!can_control(this)) break;
 		report = hid::normalize_mouse_report(std::move(report));
 		if (report.size() != 5 && report.size() != 7) {
@@ -328,7 +327,7 @@ void Client::closed(http::WebSocket &)
 	remove_client(this);
 	manual->close();
 	lane.reset();  // releases what this page's lanes still hold
-	if (page_visible) visible_pages--;
+	if (page_visible) attention::page_hidden();
 	ws = nullptr;
 	log::debug("websocket disconnected");
 }
@@ -374,11 +373,6 @@ void release_external_input(const std::string &lease)
 		external_lease.clear();
 		external_release = nullptr;
 	}
-}
-
-bool watching(Clock::duration within)
-{
-	return visible_pages > 0 && last_input != Clock::time_point{} && Clock::now() - last_input < within;
 }
 
 Clock::time_point last_manual_input() { return manual_input_at; }

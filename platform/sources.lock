@@ -11,7 +11,7 @@
 #   blob id, so the content is verified however it is transported.
 
 buildroot https://buildroot.org/downloads/buildroot-2026.08.2.tar.xz bc9497c8e3a734c277e541e2f7fcf9a6275dc92f75bd2f753b05981c54be8705
-linux      https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.3.5.tar.xz  8f293f83d54f0b7b9be56863ebc5e4ea79d73e530b4ae55c572be97ef39f0990
+linux      https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.3.6.tar.xz  8183d475a76a0faffa92d6cd500af421f589dfd0300a0f1060bb875e11d45723
 u-boot     https://github.com/u-boot/u-boot/archive/refs/tags/v2026.10.tar.gz  f943a88389c8fd70a6b0d061a88267465e143c7ca6ea2b75837ab20f5b60c739
 
 osdrv      https://github.com/sophgo/osdrv.git               1b3a49649d18488ecf54fb4fcb6c27599e433fdc  .=2e17c3f6cec2205e0089e6341326333c12fdf1f2

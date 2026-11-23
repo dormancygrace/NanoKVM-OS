@@ -6,6 +6,7 @@
 // for 350 ms for readers of the current state and 60 ms for the live stream. The LEDs are active low.
 
 #include <chrono>
+#include <functional>
 #include <optional>
 #include <string>
 
@@ -37,5 +38,12 @@ struct LedStatus {
 void start_led_monitor(const std::string &power, const std::string &hdd);
 void stop_led_monitor();
 std::optional<LedStatus> current_leds();
+// The state with the short HDD hold (for live streams); nullopt before a reading or after a failure.
+std::optional<LedStatus> stream_leds();
+// on_change runs on the loop thread whenever the stream state changes (and when the monitor stops); returns an id
+// for unsubscribe.
+int subscribe_leds(std::function<void()> on_change);
+void unsubscribe_leds(int id);
+bool led_monitor_running();
 
 } // namespace nkos::system::gpio

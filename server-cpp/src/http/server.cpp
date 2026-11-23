@@ -136,6 +136,11 @@ std::uint64_t next_id = 1;
 void forget(Pss *pss)
 {
 	if (!pss || !pss->session) return;
+	if (auto stream = pss->session->response.stream; stream && !stream->closed_) {
+		stream->closed_ = true;
+		stream->wsi_ = nullptr;
+		if (stream->on_close) stream->on_close();
+	}
 	open_requests.erase(pss->session->request.id);
 	delete pss->session;
 	pss->session = nullptr;
@@ -294,6 +299,19 @@ int respond(lws *wsi, Session &s)
 {
 	Response &r = s.response;
 	if (!r.file.empty()) return respond_file(wsi, s);
+	if (r.stream) {
+		unsigned char buf[LWS_PRE + 4096], *start = buf + LWS_PRE, *p = start, *end = buf + sizeof buf;
+		const char *type = r.content_type.empty() ? nullptr : r.content_type.c_str();
+		if (lws_add_http_common_headers(wsi, static_cast<unsigned>(r.status), type, LWS_ILLEGAL_HTTP_CONTENT_LEN, &p, end))
+			return -1;
+		for (const auto &[name, value] : r.headers)
+			if (!append_header(wsi, &p, end, name, value)) return -1;
+		if (lws_finalize_write_http_header(wsi, start, &p, end)) return -1;
+		r.stream->wsi_ = wsi;
+		r.stream->headers_sent_ = true;
+		if (!r.stream->queue_.empty() || r.stream->ended_) lws_callback_on_writable(wsi);
+		return 0;
+	}
 	unsigned char buf[LWS_PRE + 4096], *start = buf + LWS_PRE, *p = start, *end = buf + sizeof buf;
 	const char *type = r.content_type.empty() ? nullptr : r.content_type.c_str();
 	if (lws_add_http_common_headers(wsi, static_cast<unsigned>(r.status), type, r.body.size(), &p, end)) return -1;
@@ -480,6 +498,19 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 	case LWS_CALLBACK_HTTP_WRITEABLE:
 		if (!pss || !pss->session) return 0;
 		if (pss->session->fd >= 0) return write_file(wsi, *pss->session);
+		if (auto stream = pss->session->response.stream) {
+			if (!stream->queue_.empty()) {
+				std::string data = std::move(stream->queue_.front());
+				stream->queue_.pop_front();
+				std::vector<unsigned char> buf(LWS_PRE + data.size());
+				std::memcpy(buf.data() + LWS_PRE, data.data(), data.size());
+				if (lws_write(wsi, buf.data() + LWS_PRE, data.size(), LWS_WRITE_HTTP) < 0) return -1;
+				if (!stream->queue_.empty() || stream->ended_) lws_callback_on_writable(wsi);
+				return 0;
+			}
+			if (stream->ended_) return finish_without_body(wsi);
+			return 0;
+		}
 		return write_body(wsi, *pss->session);
 	case LWS_CALLBACK_HTTP_FILE_COMPLETION:
 		return lws_http_transaction_completed(wsi) ? -1 : 0;
@@ -519,6 +550,20 @@ lws_protocols protocols[] = {
 };
 
 } // namespace
+
+void Stream::write(std::string data)
+{
+	if (closed_ || ended_) return;
+	queue_.push_back(std::move(data));
+	if (wsi_ && headers_sent_) lws_callback_on_writable(wsi_);
+}
+
+void Stream::end()
+{
+	if (closed_ || ended_) return;
+	ended_ = true;
+	if (wsi_ && headers_sent_) lws_callback_on_writable(wsi_);
+}
 
 Message make_message(std::string_view data, bool binary)
 {

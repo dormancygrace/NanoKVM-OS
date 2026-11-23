@@ -1,6 +1,7 @@
 #include "system/gpio.hpp"
 
 #include "common/log.hpp"
+#include "common/loop.hpp"
 
 #include <linux/gpio.h>
 
@@ -9,6 +10,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
+#include <map>
 #include <mutex>
 #include <poll.h>
 #include <sys/eventfd.h>
@@ -142,11 +144,28 @@ std::thread monitor;
 int stop_fd = -1;
 std::atomic<bool> stopping{false};
 
+std::map<int, std::function<void()>> led_subscribers;
+int next_led_subscriber = 1;
+
+void notify_led_subscribers()
+{
+	loop::post([] {
+		auto copy = led_subscribers;
+		for (auto &[id, fn] : copy) fn();
+	});
+}
+
 void publish(std::optional<LedStatus> s)
 {
-	std::lock_guard lock(state_mutex);
-	state = s;
-	if (!s) hdd_activity_at = {};
+	bool changed;
+	{
+		std::lock_guard lock(state_mutex);
+		changed = state.has_value() != s.has_value() ||
+		          (s && (state->power != s->power || state->hdd != s->hdd));
+		state = s;
+		if (!s) hdd_activity_at = {};
+	}
+	if (changed) notify_led_subscribers();
 }
 
 void note_hdd(Clock::time_point at)
@@ -315,6 +334,23 @@ void stop_led_monitor()
 	stop_fd = -1;
 	publish(std::nullopt);
 }
+
+std::optional<LedStatus> stream_leds()
+{
+	std::lock_guard lock(state_mutex);
+	return state;
+}
+
+int subscribe_leds(std::function<void()> on_change)
+{
+	int id = next_led_subscriber++;
+	led_subscribers[id] = std::move(on_change);
+	return id;
+}
+
+void unsubscribe_leds(int id) { led_subscribers.erase(id); }
+
+bool led_monitor_running() { return monitor.joinable(); }
 
 std::optional<LedStatus> current_leds()
 {

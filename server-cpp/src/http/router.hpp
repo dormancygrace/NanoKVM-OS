@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <deque>
 #include <map>
 #include <memory>
 #include <optional>
@@ -53,6 +54,21 @@ struct Request {
 	std::vector<std::string> header_values(std::string_view name) const;
 };
 
+// A response body written while the request stays open (server-sent events, progress): headers go out without a
+// length, write() queues data, end() finishes. Loop thread only. closed() is set and on_close runs when the client
+// goes away first.
+struct Stream {
+	void write(std::string data);
+	void end();
+	bool closed() const { return closed_; }
+	std::function<void()> on_close;
+
+	// Internals for the server.
+	lws *wsi_ = nullptr;
+	std::deque<std::string> queue_;
+	bool ended_ = false, closed_ = false, headers_sent_ = false;
+};
+
 struct Response {
 	int status = 200;
 	std::vector<std::pair<std::string, std::string>> headers;
@@ -62,6 +78,7 @@ struct Response {
 	std::string file_encoding; // Content-Encoding of that file (precompressed asset)
 	bool done = false;         // the response is complete; later middlewares and routes are skipped
 	bool pending = false;      // the handler answers later with complete(); the request stays open
+	std::shared_ptr<Stream> stream;  // a streamed body (see Stream) instead of body
 
 	void set_header(std::string_view name, std::string_view value);
 	void add_header(std::string_view name, std::string_view value);

@@ -76,6 +76,10 @@ using Handler = std::function<void(Request &, Response &)>;
 // connection has closed meanwhile is dropped.
 void complete(std::uint64_t id, Response response);
 
+// Answers the request from fn, run on the blocking pool (loop::blocking): for handlers that run commands or read
+// slow files. fn gets a fresh Response with the headers already set on res.
+void defer(Request &request, Response &res, std::function<void(Response &)> fn);
+
 // URL decoding of a query or form component ("+" is a space).
 std::string url_decode(std::string_view s);
 

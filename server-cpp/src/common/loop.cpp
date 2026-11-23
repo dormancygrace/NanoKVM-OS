@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 namespace nkos::loop {
 
@@ -53,6 +54,7 @@ struct Worker {
 };
 Worker *worker;
 Worker *device_worker;
+std::vector<Worker *> pool;
 
 } // namespace
 
@@ -63,10 +65,31 @@ void attach(lws_context *context)
 	worker->thread = std::thread([] { worker->run(); });
 	device_worker = new Worker;
 	device_worker->thread = std::thread([] { device_worker->run(); });
+	// One shared queue for the pool: the first idle thread takes the next job.
+	auto *shared = new Worker;
+	pool.push_back(shared);
+	for (int i = 0; i < 4; i++) {
+		auto *w = new Worker;
+		w->thread = std::thread([shared] { shared->run(); });
+		pool.push_back(w);
+	}
 }
 
 void detach()
 {
+	if (!pool.empty()) {
+		{
+			std::lock_guard lock(pool[0]->mutex);
+			pool[0]->stop = true;
+		}
+		pool[0]->wake.notify_all();
+		for (std::size_t i = 1; i < pool.size(); i++) {
+			pool[i]->thread.join();
+			delete pool[i];
+		}
+		delete pool[0];
+		pool.clear();
+	}
 	for (Worker **w : {&worker, &device_worker}) {
 		if (!*w) continue;
 		{
@@ -108,6 +131,15 @@ void work(std::function<void()> fn)
 		worker->jobs.push_back(std::move(fn));
 	}
 	worker->wake.notify_one();
+}
+
+void blocking(std::function<void()> fn)
+{
+	{
+		std::lock_guard lock(pool[0]->mutex);
+		pool[0]->jobs.push_back(std::move(fn));
+	}
+	pool[0]->wake.notify_one();
 }
 
 void device(std::function<void()> fn)

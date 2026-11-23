@@ -38,6 +38,7 @@ add_executable(NanoKVM-Server
   src/main.cpp
   src/common/log.cpp
   src/common/loop.cpp
+  src/common/process.cpp
   src/api/request.cpp
   src/auth/brute_force.cpp
   src/auth/jwt.cpp
@@ -59,6 +60,7 @@ add_executable(NanoKVM-Server
   src/system/gpio.cpp
   src/system/hardware.cpp
   src/system/live_status.cpp
+  src/system/time_settings.cpp
   src/usb/composition.cpp
   src/video/capture_status.cpp
   src/video/capture_worker.c

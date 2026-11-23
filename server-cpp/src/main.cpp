@@ -10,6 +10,7 @@
 #include "system/atx.hpp"
 #include "system/failsafe.hpp"
 #include "system/live_status.hpp"
+#include "system/time_settings.hpp"
 #include "usb/composition.hpp"
 #include "input/ws.hpp"
 #include "video/hdmi.hpp"
@@ -59,6 +60,7 @@ int main()
 	system::failsafe::add_routes(router);
 	system::atx::add_routes(router);
 	system::add_live_status_route(router);
+	system::add_time_routes(router);
 	usb::add_routes(router);
 
 	// The capture starts before the listeners, as the Go server's main does.

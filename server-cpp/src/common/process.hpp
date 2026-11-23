@@ -1,0 +1,33 @@
+#pragma once
+
+// External commands, as the Go server runs them with exec.CommandContext: argv (no shell), optional input on stdin,
+// combined stdout and stderr, killed when the timeout passes. Blocking: call it off the event loop
+// (loop::blocking).
+
+#include <chrono>
+#include <string>
+#include <vector>
+
+namespace nkos::process {
+
+struct Result {
+	bool started = false;   // false: the program could not be run (error says why)
+	int exit_code = -1;     // the exit status, or -1 when killed by a signal
+	int signal = 0;
+	bool timed_out = false;
+	std::string output;     // stdout and stderr together
+	std::string error;
+	bool ok() const { return started && exit_code == 0; }
+};
+
+struct Options {
+	std::chrono::milliseconds timeout{std::chrono::seconds(15)};
+	std::string input;
+	std::vector<std::string> env;  // extra NAME=value entries
+	bool capture = true;
+	std::string dir;
+};
+
+Result run(const std::vector<std::string> &argv, const Options &options = {});
+
+} // namespace nkos::process

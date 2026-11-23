@@ -1,5 +1,7 @@
 #include "http/router.hpp"
 
+#include "common/loop.hpp"
+
 #include <libwebsockets.h>
 
 #include <algorithm>
@@ -199,6 +201,17 @@ void Router::dispatch(Request &request, Response &response) const
 	}
 	// Gin's default for an unknown route.
 	response.text(404, "404 page not found");
+}
+
+void defer(Request &request, Response &res, std::function<void(Response &)> fn)
+{
+	res.pending = true;
+	loop::blocking([id = request.id, headers = res.headers, fn = std::move(fn)] {
+		Response out;
+		out.headers = headers;
+		fn(out);
+		complete(id, std::move(out));
+	});
 }
 
 void Router::ws(std::string_view path, std::function<std::shared_ptr<WsHandler>(Request &, Response &)> route)

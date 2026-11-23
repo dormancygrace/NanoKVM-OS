@@ -33,6 +33,8 @@ std::optional<int> parse_int(std::string text)
 	if (first == std::string::npos) return std::nullopt;
 	auto last = text.find_last_not_of(" \t\r\n");
 	text = text.substr(first, last - first + 1);
+	// strconv.Atoi takes a leading plus sign; from_chars does not.
+	if (text.size() > 1 && text[0] == '+' && text[1] != '-' && text[1] != '+') text.erase(0, 1);
 	int value = 0;
 	auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
 	if (ec != std::errc() || end != text.data() + text.size()) return std::nullopt;

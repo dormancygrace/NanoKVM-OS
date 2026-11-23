@@ -36,6 +36,7 @@
 #include "video/vision.hpp"
 #include "video/preview.hpp"
 #include "video/watermark.hpp"
+#include "video/webrtc.hpp"
 
 #include <cerrno>
 #include <sys/stat.h>
@@ -142,6 +143,7 @@ int main()
 	system::scripts::add_routes(router);
 	video::preview::add_routes(router);
 	video::watermark::add_routes(router);
+	video::webrtc::add_routes(router);
 	system::add_memory_routes(router);
 	system::add_dashboard_routes(router);
 	system::add_device_settings_routes(router);

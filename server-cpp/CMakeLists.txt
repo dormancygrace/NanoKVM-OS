@@ -13,6 +13,7 @@ project(nanokvm_server CXX C)
 #                (built by the system build; installed next to the server as dl_lib/)
 #   TURBOJPEG_ROOT libjpeg-turbo (static, scalar: its RVV code needs RVV 1.0), SPNG_SRC libspng source,
 #                ZLIB_ROOT the image's zlib-ng (/usr/lib/libz.so.1 on the device)
+#   LDC_ROOT     libdatachannel install with its libjuice, libsrtp2 and usrsctp static libraries (WebRTC)
 #   CURL_INCLUDE, CURL_LIB  libcurl headers and the image's libcurl.so.4 (Alpine's, on nanokvm-openssl)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -31,9 +32,10 @@ set(TURBOJPEG_ROOT "" CACHE PATH "libjpeg-turbo install (include/turbojpeg.h, li
 set(SPNG_SRC "" CACHE PATH "libspng source directory (spng.c, spng.h)")
 set(ZLIB_ROOT "" CACHE PATH "zlib-ng build (zlib.h, zconf.h, libz.so)")
 set(CURL_INCLUDE "" CACHE PATH "libcurl headers (curl/curl.h)")
+set(LDC_ROOT "" CACHE PATH "libdatachannel install (include/rtc, lib/*.a)")
 set(CURL_LIB "" CACHE FILEPATH "the image's libcurl.so.4")
 
-foreach(v LWS_ROOT OPENSSL_ROOT GLAZE_ROOT RYML_HEADER KVM_INCLUDE KVM_LIB_DIR TURBOJPEG_ROOT SPNG_SRC ZLIB_ROOT CURL_INCLUDE CURL_LIB)
+foreach(v LWS_ROOT OPENSSL_ROOT GLAZE_ROOT RYML_HEADER KVM_INCLUDE KVM_LIB_DIR TURBOJPEG_ROOT SPNG_SRC ZLIB_ROOT CURL_INCLUDE CURL_LIB LDC_ROOT)
   if(NOT ${v})
     message(FATAL_ERROR "${v} is not set")
   endif()
@@ -127,6 +129,7 @@ add_executable(NanoKVM-Server
   src/video/vision.cpp
   src/video/preview.cpp
   src/video/watermark.cpp
+  src/video/webrtc.cpp
 )
 
 target_include_directories(NanoKVM-Server PRIVATE
@@ -141,11 +144,13 @@ target_include_directories(NanoKVM-Server PRIVATE
   ${SPNG_SRC}
   ${ZLIB_ROOT}
   ${CURL_INCLUDE}
+  ${LDC_ROOT}/include
 )
 # libspng is C, built with the server; it is quiet only without the C++ warnings.
 set_source_files_properties(${SPNG_SRC}/spng.c PROPERTIES COMPILE_OPTIONS "-w")
 
 target_compile_options(NanoKVM-Server PRIVATE -Wall -Wextra -Wno-missing-field-initializers)
+target_compile_definitions(NanoKVM-Server PRIVATE RTC_STATIC)
 # The C++ runtime of our GCC is newer than the one Alpine installs: link it into the server, and keep its symbols
 # to the server, so that libkvm (C++ too) keeps the system's runtime. libkvm is found next to the server.
 target_link_options(NanoKVM-Server PRIVATE -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL
@@ -163,6 +168,10 @@ target_link_libraries(NanoKVM-Server PRIVATE
   ${TURBOJPEG_ROOT}/lib/libturbojpeg.a
   ${ZLIB_ROOT}/libz.so
   ${CURL_LIB}
+  ${LDC_ROOT}/lib/libdatachannel.a
+  ${LDC_ROOT}/lib/libjuice.a
+  ${LDC_ROOT}/lib/libsrtp2.a
+  ${LDC_ROOT}/lib/libusrsctp.a
   pthread
 )
 

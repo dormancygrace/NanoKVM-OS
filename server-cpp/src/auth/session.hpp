@@ -40,6 +40,14 @@ http::WsRoute guarded_ws(http::WsRoute route, Guard guard = {});
 // The same around an upload route (http/upload.hpp): checked from the headers, before the body.
 http::UploadRoute guarded_upload(http::UploadRoute route, Guard guard = {});
 bool check_websocket_origin(const http::Request &request);
+
+// Without authentication every request acts as the administrator (middleware/origin.go): the protections the Go
+// server put first on its router. RequireDeviceHost: plain-HTTP requests must name the device (an address,
+// localhost, its name or name.local, a host of security.allowedOrigins, or come through a trusted proxy), so a site
+// rebound to the device's address is refused (421). AllowedOriginCORS: cross-origin reads and preflights only for
+// security.allowedOrigins. RejectCrossOriginWrites: state-changing requests from another origin, and API reads a
+// browser marks cross-site, are refused (403). Registered first when authentication is disabled.
+void add_unauthenticated_protections(http::Router &router);
 inline constexpr int session_revoked_close_code = 4401;
 
 // The client address behind trusted proxies (ClientAddress), and the external host and scheme (ExternalRequestAddress).

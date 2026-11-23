@@ -6,6 +6,8 @@
 #include "common/loop.hpp"
 #include "config/config.hpp"
 
+#include <cctype>
+#include <set>
 #include <arpa/inet.h>
 #include <cerrno>
 #include <chrono>
@@ -601,6 +603,110 @@ bool equal_origin(const Origin &origin, const std::string &request_host, const s
 }
 
 } // namespace
+
+namespace {
+
+std::string trimmed(const std::string &s)
+{
+	auto f = s.find_first_not_of(" \t");
+	if (f == std::string::npos) return "";
+	return s.substr(f, s.find_last_not_of(" \t") - f + 1);
+}
+
+// AllowedOrigin: the origin is one of security.allowedOrigins.
+bool allowed_origin(const std::string &text)
+{
+	auto origin = parse_origin(trimmed(text));
+	if (!origin) return false;
+	for (const auto &allowed : config::get().security.allowed_origins) {
+		auto parsed = parse_origin(trimmed(allowed));
+		if (parsed && equal_origin(*origin, parsed->host, parsed->scheme)) return true;
+	}
+	return false;
+}
+
+bool device_host(const http::Request &request)
+{
+	if (trusted_proxy(request.peer)) return true;
+	auto [h, port] = split_host_port(request.header("host"));
+	std::string host = h;
+	if (host.size() >= 2 && host.front() == '[' && host.back() == ']') host = host.substr(1, host.size() - 2);
+	host = lower(host);
+	while (!host.empty() && host.back() == '.') host.pop_back();
+	unsigned char addr[16];
+	if (inet_pton(AF_INET, host.c_str(), addr) == 1 || inet_pton(AF_INET6, host.c_str(), addr) == 1) return true;
+	if (host == "localhost" || (host.size() > 10 && host.ends_with(".localhost"))) return true;
+	char name[256] = {};
+	if (gethostname(name, sizeof name - 1) == 0 && name[0]) {
+		std::string n = lower(name);
+		if (host == n || host == n + ".local") return true;
+	}
+	for (const auto &allowed : config::get().security.allowed_origins) {
+		auto parsed = parse_origin(trimmed(allowed));
+		if (!parsed) continue;
+		auto [ah, ap] = split_host_port(parsed->host);
+		std::string a = ah;
+		if (a.size() >= 2 && a.front() == '[' && a.back() == ']') a = a.substr(1, a.size() - 2);
+		if (lower(a) == host) return true;
+	}
+	return false;
+}
+
+void refuse(http::Response &res, int status, const char *json)
+{
+	res.json(status, json);
+	res.done = true;
+}
+
+} // namespace
+
+void add_unauthenticated_protections(http::Router &router)
+{
+	// RequireDeviceHost: over HTTPS the certificate does not match a rebound name.
+	router.use([](http::Request &req, http::Response &res) {
+		if (req.tls || device_host(req)) return;
+		refuse(res, 421,
+		       R"({"code":-1,"msg":"unknown host name: open the device by its address or add the name to security.allowedOrigins"})");
+	});
+	// AllowedOriginCORS (rs/cors with AllowOriginFunc = AllowedOrigin, every header allowed).
+	router.use([](http::Request &req, http::Response &res) {
+		std::string origin = req.header("origin");
+		bool preflight = req.method == "OPTIONS" && !req.header("access-control-request-method").empty();
+		if (preflight) {
+			res.set_header("Vary", "Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
+			std::string method = req.header("access-control-request-method");
+			for (auto &c : method) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+			static const std::set<std::string> methods{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE"};
+			if (!origin.empty() && allowed_origin(origin) && methods.count(method)) {
+				res.set_header("Access-Control-Allow-Origin", origin);
+				res.set_header("Access-Control-Allow-Methods", method);
+				if (std::string h = req.header("access-control-request-headers"); !h.empty())
+					res.set_header("Access-Control-Allow-Headers", h);
+			}
+			res.status = 204;
+			res.done = true;
+			return;
+		}
+		res.set_header("Vary", "Origin");
+		if (!origin.empty() && allowed_origin(origin)) res.set_header("Access-Control-Allow-Origin", origin);
+	});
+	// RejectCrossOriginWrites.
+	router.use([](http::Request &req, http::Response &res) {
+		std::string site = lower(trimmed(req.header("sec-fetch-site")));
+		bool cross_site = site == "cross-site";
+		if (req.method == "GET" || req.method == "HEAD" || req.method == "OPTIONS") {
+			// A page at the previous network address discovers this public ID-only probe across origins.
+			bool public_probe = req.method == "GET" && req.path == "/api/network/trial/probe";
+			std::string origin = trimmed(req.header("origin"));
+			bool allowed_read = !origin.empty() && allowed_origin(origin);
+			if (cross_site && req.path.starts_with("/api/") && !public_probe && !allowed_read)
+				refuse(res, 403, R"({"code":-1,"msg":"cross-origin request refused"})");
+			return;
+		}
+		if (!check_websocket_origin(req) || (req.header("origin").empty() && cross_site))
+			refuse(res, 403, R"({"code":-1,"msg":"cross-origin request refused"})");
+	});
+}
 
 bool check_websocket_origin(const http::Request &request)
 {

@@ -98,6 +98,8 @@ int main(int argc, char **argv)
 	// The internal token the AI helpers use on the loopback paths.
 	if (!ai::ensure_internal_token()) return 1;
 	http::Router router;
+	// main.go: without authentication, the origin protections come first.
+	if (conf.authentication == "disable") auth::add_unauthenticated_protections(router);
 	// middleware.SecurityHeaders: every response of the application.
 	router.use([](http::Request &, http::Response &res) {
 		res.set_header("X-Frame-Options", "DENY");

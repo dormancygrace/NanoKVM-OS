@@ -98,7 +98,8 @@ A mismatch prints a unified diff and stops the build.
 The debug kernel has a `-debug` release suffix and adds `kernel/config-debug.fragment`:
 perf and the CPU counters, frame pointers, function, syscall and block I/O
 tracing, kprobes, SysRq, hung-task and lockup detectors, dynamic debug,
-`/proc/config.gz` and per-task accounting, plus DWARF for `vmlinux` on the
+`/proc/config.gz` and per-task accounting, every kernel export (the release
+kernel exports only what its modules import), plus DWARF for `vmlinux` on the
 build host (its installed modules are stripped). It costs time on every call
 and interrupt, so it is not for measuring release behaviour.
 

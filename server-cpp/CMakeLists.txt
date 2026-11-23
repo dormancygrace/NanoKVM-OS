@@ -108,6 +108,7 @@ add_executable(NanoKVM-Server
   src/input/keyboard_routes.cpp
   src/input/region.cpp
   src/input/ws.cpp
+  src/input/attention.cpp
   src/system/atx.cpp
   src/system/branding.cpp
   src/system/failsafe.cpp
@@ -212,6 +213,9 @@ add_executable(NanoKVM-Server
   src/video/rtc_common.cpp
   src/video/srtp_frame.cpp
   src/video/screen_text.cpp
+  src/video/screen_watch.cpp
+  src/video/screen_watch_core.cpp
+  src/video/videogate.cpp
   src/standby/core.cpp
   src/standby/standby.cpp
   src/bmc/config.cpp

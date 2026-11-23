@@ -52,6 +52,7 @@
 #include "video/vision.hpp"
 #include "video/preview.hpp"
 #include "video/screen_text.hpp"
+#include "video/screen_watch.hpp"
 #include "video/watermark.hpp"
 #include "video/audio.hpp"
 #include "video/webrtc.hpp"
@@ -244,6 +245,8 @@ int main(int argc, char **argv)
 			if (video::hdmi::disabled() || video::hdmi::idle_stopped()) return std::nullopt;
 			return video::vision::hdmi_signal_active();
 		});
+		// StartScreenWatch: crashes on the host's screen, once the capture runs.
+		video::screen_watch::start();
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");
 		input::hid::start();
 		ai::start();

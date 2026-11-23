@@ -8,10 +8,12 @@
 #include "common/log.hpp"
 #include "common/loop.hpp"
 #include "system/failsafe.hpp"
+#include "video/videogate.hpp"
 #include "video/vision.hpp"
 
 #include <cerrno>
 #include <cstring>
+#include <deque>
 #include <fcntl.h>
 #include <fstream>
 #include <map>
@@ -46,6 +48,12 @@ bool park_timer = false, idle_timer = false;
 // After the capture came on, the first picture a reader gets is the one from before (hdmi_state.NeedsFreshFrame).
 bool needs_fresh = false;
 std::uint64_t switches = 0;
+// Reads nobody watches (BackgroundRead) and whether a watch keeps the capture from the idle stop.
+int background_reads = 0;
+std::function<bool()> keep_capture;
+// The video gate held while there are viewers, and the viewer updates waiting for it.
+std::unique_ptr<videogate::Hold> viewer_gate;
+std::deque<std::pair<std::string, int>> gated_updates;
 
 bool has_demand() { return viewer_total > 0 || leases > 0; }
 
@@ -80,6 +88,8 @@ void schedule_park()
 		if (g != generation) return;
 		park_timer = false;
 		if (has_demand() || disabled() || stopped_for_idle) return;
+		// A background read parks it again when it ends.
+		if (background_reads > 0) return;
 		park();
 	});
 }
@@ -152,6 +162,11 @@ void schedule_idle()
 		if (g != generation) return;
 		idle_timer = false;
 		if (has_demand() || disabled()) return;
+		if (keep_capture && keep_capture()) {
+			// Checked again after another timeout, in case the watch is turned off.
+			schedule_idle();
+			return;
+		}
 		vision::set_hdmi(false);
 		capture_ready_at = {};
 		stopped_for_idle = true;
@@ -222,7 +237,9 @@ void start()
 	set_viewers("legacy", 0);
 }
 
-void set_viewers(const std::string &source, int count)
+namespace {
+
+void update_viewers(const std::string &source, int count)
 {
 	if (count < 0) count = 0;
 	auto &current = viewers[source];
@@ -231,8 +248,32 @@ void set_viewers(const std::string &source, int count)
 	if (count > 0) system::startpriority::viewer_connected();
 	viewer_total = 0;
 	for (auto &[name, n] : viewers) viewer_total += n;
-	system::oled::publish_viewers(viewer_total);
 	reconcile();
+}
+
+// withViewerGate: the updates in order, each with the gate held when it brings viewers.
+void apply_gated_updates()
+{
+	while (!gated_updates.empty()) {
+		if (viewer_gate && !viewer_gate->granted()) return;
+		auto [source, count] = gated_updates.front();
+		if (count > 0 && !viewer_gate) {
+			viewer_gate = videogate::hold(apply_gated_updates);
+			if (!viewer_gate->granted()) return;
+		}
+		gated_updates.pop_front();
+		update_viewers(source, count);
+		system::oled::publish_viewers(viewer_total);
+		if (viewer_total == 0) viewer_gate.reset();
+	}
+}
+
+} // namespace
+
+void set_viewers(const std::string &source, int count)
+{
+	gated_updates.emplace_back(source, count);
+	if (gated_updates.size() == 1) apply_gated_updates();
 }
 
 int viewer_count() { return viewer_total; }
@@ -247,6 +288,35 @@ bool claim_fresh_frame()
 }
 
 std::uint64_t capture_switches() { return switches; }
+
+std::unique_ptr<BackgroundRead> BackgroundRead::acquire()
+{
+	if (disabled()) return nullptr;
+	if (stopped_for_idle) {
+		// The watch was turned on after the idle timeout stopped capture.
+		resume_capture();
+		stopped_for_idle = false;
+		schedule_idle();
+	}
+	background_reads++;
+	if (parked && !has_demand()) unpark();
+	std::unique_ptr<BackgroundRead> read(new BackgroundRead());
+	read->ready_at_ = capture_ready_at;
+	return read;
+}
+
+BackgroundRead::~BackgroundRead() { release(); }
+
+void BackgroundRead::release()
+{
+	if (!held_) return;
+	held_ = false;
+	background_reads--;
+	// Unparked for the read, or its park deadline passed during it (the timer left that to this release): park now.
+	if (background_reads == 0 && !has_demand() && !park_timer && !stopped_for_idle && !disabled()) park();
+}
+
+void set_keep_capture(std::function<bool()> keep) { keep_capture = std::move(keep); }
 
 Lease::Lease()
 {

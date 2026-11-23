@@ -6,6 +6,7 @@
 #include "video/hdmi.hpp"
 #include "video/parameter_sets.hpp"
 #include "video/screen.hpp"
+#include "video/videogate.hpp"
 #include "video/vision.hpp"
 
 #include <atomic>
@@ -34,6 +35,7 @@ struct Session {
 	vision::CaptureParams params;
 	Screen screen;
 	std::shared_ptr<hdmi::Lease> lease;  // the capture runs while the session does
+	std::shared_ptr<videogate::Hold> gate;  // the video gate, held while the session runs
 };
 
 std::optional<Codec> selected = [] {
@@ -184,22 +186,34 @@ void publish(Frame frame)
 	}
 }
 
+// The capture lease and the encoder, once the video gate is held.
+bool launch_session()
+{
+	session->lease = std::make_shared<hdmi::Lease>();
+	if (!vision::start(session->params, on_frame)) {
+		session.reset();
+		return false;
+	}
+	return true;
+}
+
 bool start_session(Codec codec)
 {
 	check_screen();
 	Session s;
-	s.lease = std::make_shared<hdmi::Lease>();
 	s.codec = codec;
 	s.h265_fallback = selected && *selected == Codec::h264 && codec == Codec::h265;
 	s.started = s.refreshed = Clock::now();
 	s.screen = screen();
 	s.params = capture_params(codec, capture_screen());
 	session = s;
-	if (!vision::start(session->params, on_frame)) {
-		session.reset();
-		return false;
-	}
-	return true;
+	// Background OCR gives way, and has ended, before the capture lease can wake the capture and before the encoder
+	// takes its memory; until then the session waits with its subscribers.
+	session->gate = videogate::hold([] {
+		if (session && !session->lease && !launch_session()) end_session();
+	});
+	if (!session->gate->granted()) return true;
+	return launch_session();
 }
 
 std::string conflict(Codec active, Codec requested)

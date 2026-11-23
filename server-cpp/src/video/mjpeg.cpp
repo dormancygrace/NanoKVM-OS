@@ -14,6 +14,7 @@
 #include "video/hdmi.hpp"
 #include "video/screen.hpp"
 #include "video/source.hpp"
+#include "video/videogate.hpp"
 #include "video/vision.hpp"
 
 #include <algorithm>
@@ -290,6 +291,8 @@ struct {
 	bool blocked_logged = false;
 	Tiles tiles = Tiles::unknown;
 } s;
+// The video gate, held while the stream runs.
+std::unique_ptr<videogate::Hold> gate;
 
 int mjpeg_rate(int screen_fps, bool video_active)
 {
@@ -401,6 +404,7 @@ void stop_loop()
 {
 	s.running = false;
 	s.generation++;
+	gate.reset();
 	if (s.tiles_used) {
 		vision::release_mjpeg_tiles();
 		s.tiles_used = false;
@@ -523,7 +527,12 @@ void add_client(std::shared_ptr<Client> client)
 	s.read_time = {};
 	s.reading = false;
 	log::debug("mjpeg stream started");
-	schedule(generation);
+	// Background OCR has ended before the JPEG encoder takes its memory (the viewer update that woke the capture held
+	// the gate already).
+	gate = videogate::hold([generation] {
+		if (generation == s.generation && s.running) schedule(generation);
+	});
+	if (gate->granted()) schedule(generation);
 }
 
 void remove_client(Client *client)

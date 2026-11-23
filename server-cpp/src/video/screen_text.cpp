@@ -310,7 +310,10 @@ struct Read : std::enable_shared_from_this<Read> {
 		d(std::move(reply));
 	}
 
-	bool cancelled() const { return request.request_id && !http::request_open(request.request_id); }
+	bool cancelled() const
+	{
+		return (request.request_id && !http::request_open(request.request_id)) || (request.cancel && request.cancel->load());
+	}
 
 	void begin()
 	{
@@ -418,21 +421,17 @@ struct Read : std::enable_shared_from_this<Read> {
 			return std::max(std::chrono::milliseconds(1),
 			                std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()));
 		};
-		if (!exists(tpu_device)) {
-			process::Options o;
-			o.timeout = std::min(std::chrono::milliseconds(10s), remaining());
-			auto r = process::run({"modprobe", "cv181x_tpu"}, o);
-			if (!r.ok()) {
-				log::error("screen text: cannot load the TPU driver: {}: {}", r.error.empty() ? std::format("exit status {}", r.exit_code) : r.error,
-				           trim(r.output));
-				return failure(-4, "text recognition failed");
-			}
+		if (auto error = load_tpu_driver(remaining(), request.cancel.get()); !error.empty()) {
+			if (cancelled()) return failure(-9, "the read was cancelled");
+			log::error("screen text: {}", error);
+			return failure(-4, "text recognition failed");
 		}
 		std::vector<std::string> argv = {helper};
 		argv.insert(argv.end(), args.begin(), args.end());
 		process::Options o;
 		o.timeout = remaining();
 		o.input = std::move(input);
+		o.cancel = request.cancel.get();
 		auto r = process::run(argv, o);
 		if (!r.ok()) {
 			if (cancelled()) return failure(-9, "the read was cancelled");
@@ -461,6 +460,39 @@ bool installed()
 }
 
 bool available() { return enabled() && installed(); }
+
+bool input_size(int &width, int &height, std::string &error)
+{
+	if (auto e = input_error(width, height)) {
+		error = e->message;
+		return false;
+	}
+	return true;
+}
+
+bool tpu_try_lock()
+{
+	if (busy) return false;
+	busy = true;
+	return true;
+}
+
+void tpu_unlock() { busy = false; }
+
+std::string load_tpu_driver(std::chrono::milliseconds limit, const std::atomic<bool> *cancel)
+{
+	if (exists(tpu_device)) return "";
+	process::Options o;
+	o.timeout = std::min(std::chrono::milliseconds(10s), limit);
+	o.cancel = cancel;
+	auto r = process::run({"modprobe", "cv181x_tpu"}, o);
+	if (r.ok()) return "";
+	std::string why = r.timed_out || r.cancelled ? "signal: killed"
+	                  : !r.error.empty()          ? r.error
+	                  : r.signal                  ? std::format("signal {}", r.signal)
+	                                              : std::format("exit status {}", r.exit_code);
+	return std::format("cannot load the TPU driver: {}: {}", why, trim(r.output));
+}
 
 void read(Request request, std::function<void(Reply)> done)
 {

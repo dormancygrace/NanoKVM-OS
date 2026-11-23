@@ -16,5 +16,5 @@ The original 1.5.0 KX wire fixtures round-trip unchanged through the 1.5.3 schem
 This is a partial protocol endpoint derived via OneKVM, not a complete RustDesk client fork.
 RustDesk 1.5.0 KX v1, signed rendezvous parameters, DTLS identity binding,
 WebRTC data-channel framing and temporary-password rotation are adapted from
-the pinned RustDesk/hbb_common commits. The application bridge uses Pion v4.2.22;
-its source and standalone tests are included under app-webrtc in the source archive.
+the pinned RustDesk/hbb_common commits. The NanoKVM side of the WebRTC bridge
+uses libdatachannel (server-cpp/src/rustdesk in the NanoKVM OS repository).

@@ -73,6 +73,7 @@ add_executable(NanoKVM-Server
   src/config/yaml.cpp
   src/config/config.cpp
   src/http/server.cpp
+  src/http/upload.cpp
   src/http/router.cpp
   src/http/static_files.cpp
   src/input/control.cpp

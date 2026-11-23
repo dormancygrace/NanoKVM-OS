@@ -222,6 +222,36 @@ void defer(Request &request, Response &res, std::function<void(Response &)> fn)
 	});
 }
 
+void Router::upload(std::string_view method, std::string_view path, UploadRoute route)
+{
+	uploads_.push_back({std::string(method), std::string(path), std::move(route)});
+}
+
+bool Router::is_upload(const std::string &method, const std::string &path) const
+{
+	std::map<std::string, std::string> params;
+	for (const auto &u : uploads_)
+		if (u.method == method && match(u.path, path, params)) return true;
+	return false;
+}
+
+std::shared_ptr<BodySink> Router::dispatch_upload(Request &request, Response &response) const
+{
+	for (const auto &m : middlewares_) {
+		m(request, response);
+		if (response.done || response.pending) return nullptr;
+	}
+	for (const auto &u : uploads_) {
+		if (u.method != request.method || !match(u.path, request.path, request.params)) continue;
+		request.route = u.path;
+		auto sink = u.route(request, response);
+		if (!sink && !response.done && !response.pending) response.done = true;
+		return sink;
+	}
+	response.text(404, "404 page not found");
+	return nullptr;
+}
+
 void Router::ws(std::string_view path, std::function<std::shared_ptr<WsHandler>(Request &, Response &)> route)
 {
 	ws_routes_.emplace_back(std::string(path), std::move(route));

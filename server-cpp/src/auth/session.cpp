@@ -385,6 +385,15 @@ http::Handler guarded(http::Handler handler, Guard guard)
 	};
 }
 
+http::UploadRoute guarded_upload(http::UploadRoute route, Guard guard)
+{
+	return [route = std::move(route), guard = std::move(guard)](http::Request &req, http::Response &res) {
+		bool passed = false;
+		guarded([&passed](http::Request &, http::Response &) { passed = true; }, guard)(req, res);
+		return passed ? route(req, res) : nullptr;
+	};
+}
+
 int idle_limit_seconds()
 {
 	load_idle_limit();

@@ -37,6 +37,8 @@ http::Handler guarded(http::Handler handler, Guard guard = {});
 // joins the session registry: it is closed (4401) when the user's sessions are revoked, the account no longer
 // accepts its token, or its idle limit is over.
 http::WsRoute guarded_ws(http::WsRoute route, Guard guard = {});
+// The same around an upload route (http/upload.hpp): checked from the headers, before the body.
+http::UploadRoute guarded_upload(http::UploadRoute route, Guard guard = {});
 bool check_websocket_origin(const http::Request &request);
 inline constexpr int session_revoked_close_code = 4401;
 

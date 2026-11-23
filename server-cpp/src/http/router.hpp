@@ -110,6 +110,16 @@ void defer(Request &request, Response &res, std::function<void(Response &)> fn);
 // URL decoding of a query or form component ("+" is a space).
 std::string url_decode(std::string_view s);
 
+// A request body taken as it arrives (http/upload.hpp): data() for each piece on the loop thread, then end() once it
+// is all in; the answer is given with complete(request.id). aborted() when the client went away before end().
+struct BodySink {
+	virtual ~BodySink() = default;
+	virtual void data(std::string_view chunk) = 0;
+	virtual void end(Request &request) = 0;
+	virtual void aborted() {}
+};
+using UploadRoute = std::function<std::shared_ptr<BodySink>(Request &, Response &)>;
+
 class Router {
 public:
 	void use(Handler middleware);
@@ -119,6 +129,11 @@ public:
 	void finished(const Request &request, const Response &response) const;
 	// A WebSocket route: decides the upgrade (http/websocket.hpp).
 	void ws(std::string_view path, std::function<std::shared_ptr<WsHandler>(Request &, Response &)> route);
+	// A route whose body is streamed: decided from the headers, before the body (the middlewares see no body).
+	void upload(std::string_view method, std::string_view path, UploadRoute route);
+	bool is_upload(const std::string &method, const std::string &path) const;
+	// The middlewares, then the upload route: its sink, or nullptr with the answer in response.
+	std::shared_ptr<BodySink> dispatch_upload(Request &request, Response &response) const;
 	// Runs the middlewares, then the matching route, or a 404 like Gin's.
 	void dispatch(Request &request, Response &response) const;
 	// The same for an upgrade request: the handler of the connection, or nullptr with the refusal in response.
@@ -134,6 +149,11 @@ private:
 	std::vector<std::function<void(const Request &, const Response &)>> after_;
 	std::vector<Route> routes_;
 	std::vector<std::pair<std::string, std::function<std::shared_ptr<WsHandler>(Request &, Response &)>>> ws_routes_;
+	struct Upload {
+		std::string method, path;
+		UploadRoute route;
+	};
+	std::vector<Upload> uploads_;
 };
 
 } // namespace nkos::http

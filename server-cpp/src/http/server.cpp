@@ -42,6 +42,8 @@ struct Session {
 	size_t sent = 0;
 	bool head = false;
 	bool body_expected = false;
+	std::shared_ptr<BodySink> sink;  // a streamed body (upload route)
+	bool sink_ended = false;
 	int fd = -1;             // a file being sent
 	off_t remaining = 0;     // its bytes still to send
 	~Session()
@@ -156,6 +158,7 @@ void forget(Pss *pss)
 		stream->wsi_ = nullptr;
 		if (stream->on_close) stream->on_close();
 	}
+	if (pss->session->sink && !pss->session->sink_ended) pss->session->sink->aborted();
 	open_requests.erase(pss->session->request.id);
 	delete pss->session;
 	pss->session = nullptr;
@@ -412,6 +415,16 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 		if (lws_hdr_copy(wsi, length, sizeof length, WSI_TOKEN_HTTP_CONTENT_LENGTH) > 0 ? std::atoll(length) > 0
 		                                                                              : lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING) > 0) {
 			s.body_expected = true;
+			if (vd->role == Role::serve && vd->router->is_upload(s.request.method, s.request.path)) {
+				s.sink = vd->router->dispatch_upload(s.request, s.response);
+				if (!s.sink) {
+					// Refused from its headers: answered now, the body is not read.
+					s.body_expected = false;
+					vd->router->finished(s.request, s.response);
+					return respond(wsi, s);
+				}
+				s.response.pending = true;
+			}
 			return 0;
 		}
 		handle(wsi, s, *vd);
@@ -495,6 +508,10 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 		forget(pss);
 		return 0;
 	case LWS_CALLBACK_HTTP_BODY:
+		if (pss && pss->session && pss->session->sink) {
+			pss->session->sink->data(std::string_view(static_cast<const char *>(in), len));
+			return 0;
+		}
 		if (pss && pss->session && pss->session->body_expected) {
 			// Bodies of the routes in this skeleton are small; streaming bodies come with uploads.
 			if (pss->session->request.body.size() + len > (8u << 20)) return -1;
@@ -507,6 +524,11 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 		// Also sent for a request without a body, which was answered already.
 		if (!pss->session->body_expected) return 0;
 		pss->session->body_expected = false;
+		if (pss->session->sink) {
+			pss->session->sink_ended = true;
+			pss->session->sink->end(pss->session->request);
+			return 0;
+		}
 		handle(wsi, *pss->session, *vd);
 		if (pss->session->response.pending) return 0;
 		return respond(wsi, *pss->session);

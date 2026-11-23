@@ -150,19 +150,6 @@
       }
     },
     {
-      "name": "Go runtime",
-      "path": "firmware/cpu/sysmon-runtime/go-source-pin.json",
-      "pattern": "\"go_version\":\\s*\"go([0-9.]+)\"",
-      "kind": "index",
-      "url": "https://go.dev/dl/?mode=json",
-      "upstream_pattern": "\"version\"\\s*:\\s*\"go([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"",
-      "lock_entry": "go",
-      "pull_request": {
-        "id": "go-runtime",
-        "mode": "review"
-      }
-    },
-    {
       "name": "Alpine stable branch",
       "path": "scripts/build-alpine-packages.sh",
       "pattern": "ALPINE_VERSION=\"([0-9.]+)\"",
@@ -280,54 +267,6 @@
       "cadence": "quarterly"
     },
     {
-      "name": "Patched Pion dtls/v3",
-      "path": "server/go.mod",
-      "pattern": "github.com/pion/dtls/v3\\s+v([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "pion/dtls",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
-      "pull_request": {
-        "id": "patched-pion-dtls-v3",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "Patched Pion ice/v4",
-      "path": "server/go.mod",
-      "pattern": "github.com/pion/ice/v4\\s+v([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "pion/ice",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
-      "pull_request": {
-        "id": "patched-pion-ice-v4",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "Patched Pion sctp",
-      "path": "server/go.mod",
-      "pattern": "github.com/pion/sctp\\s+v([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "pion/sctp",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
-      "pull_request": {
-        "id": "patched-pion-sctp-v1",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "Patched Pion srtp/v3",
-      "path": "server/go.mod",
-      "pattern": "github.com/pion/srtp/v3\\s+v([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "pion/srtp",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
-      "pull_request": {
-        "id": "patched-pion-srtp-v3",
-        "mode": "review"
-      }
-    },
-    {
       "name": "OpenSBI",
       "lock_entry": "opensbi",
       "path": "platform/sources.lock",
@@ -434,28 +373,6 @@
       "repo": "rustdesk/rustdesk",
       "pull_request": {
         "id": "rustdesk-protocol-reference",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "Go CORS nested module",
-      "path": "server/go.mod",
-      "pattern": "github.com/rs/cors/wrapper/gin\\s+(v[^\\s]+)",
-      "kind": "go-proxy",
-      "module": "github.com/rs/cors/wrapper/gin",
-      "pull_request": {
-        "id": "go-cors-nested-module",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "AES Bridge Go (test compatibility)",
-      "path": "server/go.mod",
-      "pattern": "github.com/mervick/aes-bridge-go\\s+(v[^\\s]+)",
-      "kind": "go-proxy",
-      "module": "github.com/mervick/aes-bridge-go",
-      "pull_request": {
-        "id": "aes-bridge-go-test-compatibility",
         "mode": "review"
       }
     },

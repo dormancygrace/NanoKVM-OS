@@ -25,9 +25,7 @@ def dependabot_directories(text):
 
 # Manifests deliberately outside Dependabot, with the reason. An entry for a
 # file that no longer exists fails, so the list cannot go stale.
-UNMONITORED = {
-    'server/third_party/pion-ice/examples/nat-rules/Dockerfile': 'upstream example of the vendored fork; never built here',
-}
+UNMONITORED = {}
 
 
 def validate_coverage(root, sources):
@@ -63,9 +61,6 @@ def validate_coverage(root, sources):
     metadata = json.loads((root / 'firmware/sources.json').read_text())
     if metadata['json_c']['commit'] != lock['json-c'][2]:
         raise ValueError('json-c metadata disagrees with platform source pin')
-    runtime = json.loads((root / 'firmware/cpu/sysmon-runtime/go-source-pin.json').read_text())
-    if '/'+runtime['go_version']+'.linux-amd64.tar.gz' not in lock['go'][1]:
-        raise ValueError('Go runtime metadata disagrees with platform source pin')
 
 
 def npm_sources(root):

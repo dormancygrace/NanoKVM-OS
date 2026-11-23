@@ -8,7 +8,6 @@ It calls these component builders:
 | build-mpi.sh, build-isp.py, build-mpi-bin.py | the SOPHGO media libraries |
 | build-mmf.py, build-capture.py | `libkvm_mmf.so` and `libkvm.so` |
 | build-system.py | `kvm_system` |
-| build-server-existing-libs.py | `NanoKVM-Server`, `nkos-update` and `nkos-apply-updates` |
 | build-busybox-devmem.sh, build-usb-audio.py | `devmem` and `usb-audio-capture` |
 | build-qhd-edid.py, build-monitor-edids.py, build-portrait-edid.py | the EDID profiles |
 | edid-rgb-range.py | lets the source send full-range RGB: the last step of the EDID profiles |

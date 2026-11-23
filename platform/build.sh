@@ -716,21 +716,22 @@ system() {
 # libjuice, libsrtp, usrsctp and plog, libjpeg-turbo, libspng and curl's
 # headers; OpenSSL and zlib-ng of the tools step, libkvm of the native step.
 server() {
-    local s=$out/server src=$out/server/src name archive
+    local s=$out/server src=$out/server/src name file dep
     rm -rf "$s" "${img:?}/server"
     mkdir -p "$src" "$img/server"
-    archive() { name=$(lock "$1" | awk '{ print $2 }'); echo "$dl/${name##*/}"; }
-    tar -xzf "$(archive libwebsockets)" -C "$src" && mv "$src"/libwebsockets-* "$src/libwebsockets"
-    tar -xzf "$(archive glaze)" -C "$src" && mv "$src"/glaze-* "$src/glaze"
-    cp "$(archive rapidyaml)" "$src/rapidyaml.hpp"
-    unpack_git libdatachannel . "$src/libdatachannel"
-    for name in libjuice libsrtp usrsctp plog; do
-        rm -rf "${src:?}/libdatachannel/deps/$name"
-        unpack_git "$name" . "$src/libdatachannel/deps/$name"
+    for name in libwebsockets glaze rapidyaml libjpeg-turbo libspng curl; do
+        file=$(lock "$name" | awk '{ print $2 }')
+        file=$dl/${file##*/}
+        case $name in
+            rapidyaml) cp "$file" "$src/rapidyaml.hpp" ;;
+            *) tar -xf "$file" -C "$src" && mv "$src/$name"-* "$src/$name" ;;
+        esac
     done
-    tar -xzf "$(archive libjpeg-turbo)" -C "$src" && mv "$src"/libjpeg-turbo-* "$src/libjpeg-turbo"
-    tar -xzf "$(archive libspng)" -C "$src" && mv "$src"/libspng-* "$src/libspng"
-    tar -xJf "$(archive curl)" -C "$src" && mv "$src"/curl-* "$src/curl"
+    unpack_git libdatachannel . "$src/libdatachannel"
+    for dep in libjuice libsrtp usrsctp plog; do
+        rm -rf "${src:?}/libdatachannel/deps/$dep"
+        unpack_git "$dep" . "$src/libdatachannel/deps/$dep"
+    done
     PATH="$host:$PATH" CROSS="$cross" CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)" \
         OPENSSL="$out/tools/openssl/openssl-$(lock openssl | awk '{ print $2 }' | sed -E 's/.*openssl-([0-9.]+)\.tar\.gz/\1/')" \
         ZLIB="$out/tools/zlib-ng/build" NATIVE="$img/native" CMAKE="$host/cmake" JOBS="$jobs" \
@@ -899,13 +900,6 @@ tools() {
     missing=$(LC_ALL=C comm -23 "$repo/firmware/alpine/packages/nanokvm-zlib/zlib-1.3.2.symbols" "$t/zlib-ng/symbols")
     [ -z "$missing" ] || { echo "zlib-ng does not export these zlib 1.3.2 symbols:" $missing >&2; exit 1; }
     cp "$t/zlib-ng/LICENSE.md" "$img/tools/zlib-ng/"
-
-    # Headers and static library that the server step links its gzip reader
-    # against (server/internal/decompress).
-    local dev=$t/compress
-    mkdir -p "$dev/include" "$dev/lib"
-    cp "$t/zlib-ng/build/zlib.h" "$t/zlib-ng/build/zconf.h" "$t/zlib-ng/build/zlib_name_mangling.h" "$dev/include/"
-    cp "$t/zlib-ng/build/libz.a" "$dev/lib/"
 }
 
 # Firmware files: AIC8800 Wi-Fi firmware from the Radxa package that the

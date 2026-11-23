@@ -57,9 +57,11 @@ COMPONENTS = {
                'scripts/build-portrait-edid.py', 'scripts/build-wide-monitor-edids.py',
                'scripts/edid-rgb-range.py', 'scripts/build-usb-audio.py', 'scripts/build-openssl.py'],
               ['busybox', 'exfatprogs', 'i2c-tools', 'lolcat', 'tinyalsa', 'openssl', 'zlib-ng'],
-              ['kernel'], ['images/tools', 'tools/compress']),
-    'server': (['server', 'firmware/cpu', 'scripts/build-server-existing-libs.py'],
-               ['go'], ['native', 'tools'], ['images/server']),
+              ['kernel'], ['images/tools']),
+    'server': (['server-cpp'],
+               ['libwebsockets', 'glaze', 'rapidyaml', 'libdatachannel', 'libjuice', 'libsrtp', 'usrsctp',
+                'plog', 'libjpeg-turbo', 'libspng', 'curl'],
+               ['native', 'tools'], ['images/server']),
     'web': (['web', '.nvmrc'], ['node', 'pnpm'], [], ['images/web']),
     'firmware': ([], ['aic8800', 'regdb', 'sipeed-sdk'], [], ['images/firmware']),
 }
@@ -159,7 +161,7 @@ def check_input_coverage(functions, lock):
                 else:
                     used.add(argument)
             for archive in re.findall(r'\$dl/([a-zA-Z0-9_.+-]+)', body):
-                if archive in ('go-mod', 'pnpm-store'):
+                if archive == 'pnpm-store':
                     continue  # Package-manager caches are covered by their lockfiles.
                 if archive not in archives:
                     raise ValueError(f'{component}: unpinned archive {archive}')
@@ -227,8 +229,7 @@ class Inputs:
         # normalized below; helper source/tool/output locations are supplied by
         # build.sh. Cache controls and release metadata do not change binaries.
         compiler_env = {'CC', 'CXX', 'AR', 'LD', 'CFLAGS', 'CXXFLAGS', 'CPPFLAGS',
-                        'LDFLAGS', 'MAKEFLAGS', 'SOURCE_DATE_EPOCH', 'GOFLAGS',
-                        'GOEXPERIMENT', 'CGO_CFLAGS', 'CGO_LDFLAGS', 'RUSTFLAGS'}
+                        'LDFLAGS', 'MAKEFLAGS', 'SOURCE_DATE_EPOCH', 'RUSTFLAGS'}
         self.context = {'root': str(root), 'output': str(out),
                         'kernel_profile': os.environ.get('NANOKVM_KERNEL_PROFILE', 'release'),
                         'patch_git': os.environ.get('NANOKVM_PATCH_GIT', '0'),
@@ -369,13 +370,6 @@ def build(root, out, steps, verify=False):
             save_state(path, records)
             built.append(name)
         ready[name] = actual
-        if name == 'server':
-            # Free it before pnpm and firmware unpacking start.
-            cache = out / 'server/gocache'
-            if cache.is_symlink():
-                cache.unlink()
-            elif cache.exists():
-                shutil.rmtree(cache)
     image_inventory(out)
     print('Components: built=' + ','.join(built) + '; reused=' + ','.join(reused), flush=True)
 

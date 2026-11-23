@@ -24,6 +24,7 @@
 #include "system/oled.hpp"
 #include "system/live_status.hpp"
 #include "system/time_settings.hpp"
+#include "system/scripts.hpp"
 #include "system/terminal.hpp"
 #include "usb/composition.hpp"
 #include "usb/storage_reads.hpp"
@@ -90,6 +91,7 @@ int main()
 	system::logs::add_routes(router);
 	system::notify::add_routes(router);
 	system::terminal::add_routes(router);
+	system::scripts::add_routes(router);
 	system::add_memory_routes(router);
 	system::add_dashboard_routes(router);
 	system::add_device_settings_routes(router);
@@ -115,6 +117,7 @@ int main()
 		system::start_dashboard();
 		system::start_device_settings();
 		system::logs::start();
+		system::scripts::start_autostart();
 	});
 	system::atx::stop();
 	input::jiggler::stop();

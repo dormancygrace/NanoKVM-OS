@@ -49,6 +49,7 @@ add_executable(NanoKVM-Server
   src/common/log.cpp
   src/common/loop.cpp
   src/common/process.cpp
+  src/common/tz.cpp
   src/api/multipart.cpp
   src/api/request.cpp
   src/auth/brute_force.cpp
@@ -91,6 +92,8 @@ add_executable(NanoKVM-Server
   src/system/time_settings.cpp
   src/system/serial_terminal.cpp
   src/system/terminal.cpp
+  src/system/scripts.cpp
+  src/system/cron.cpp
   src/usb/composition.cpp
   src/usb/storage_reads.cpp
   src/video/capture_status.cpp

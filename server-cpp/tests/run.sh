@@ -15,13 +15,16 @@ mkdir -p "$b/dl" "$b/obj" "$b/inc"
 fetch() {
 	local url sum file
 	read -r url sum < <(awk -v n="$1" '$1 == n { print $2, $3 }' "$lock")
+	[ -n "$sum" ] || { echo "$1: not in sources.lock" >&2; return 1; }
 	file=$b/dl/$1-${url##*/}
-	[ -f "$file" ] || { curl -fsSL --retry 3 -o "$file.part" "$url" && mv "$file.part" "$file"; }
-	echo "$sum  $file" | sha256sum -c --quiet - >&2
+	[ -f "$file" ] || { curl -fsSL --retry 3 -o "$file.part" "$url" && mv "$file.part" "$file"; } || return 1
+	echo "$sum  $file" | sha256sum -c --quiet - >&2 || return 1
 	echo "$file"
 }
 
-glaze=$(fetch glaze) lws=$(fetch libwebsockets) ryml=$(fetch rapidyaml)
+glaze=$(fetch glaze)
+lws=$(fetch libwebsockets)
+ryml=$(fetch rapidyaml)
 cp "$ryml" "$b/inc/ryml_all.hpp"
 if [ ! -f "$b/glaze.stamp" ] || [ "$(cat "$b/glaze.stamp")" != "$glaze" ]; then
 	rm -rf "$b/glaze" && mkdir "$b/glaze" && tar -xzf "$glaze" -C "$b/glaze" --strip-components=1

@@ -86,7 +86,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends g++ cmake ninja-build libssl-dev libcrypt-dev curl ca-certificates openssl openssh-client
-      - run: server-cpp/tests/run.sh "$RUNNER_TEMP/server-tests"
+      - run: bash server-cpp/tests/run.sh "$RUNNER_TEMP/server-tests"
 
   web:
     name: Web UI

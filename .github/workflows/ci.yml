@@ -32,6 +32,7 @@ jobs:
       openssl: ${{ steps.areas.outputs.openssl }}
       signing: ${{ steps.areas.outputs.signing }}
       safe_update: ${{ steps.areas.outputs.safe_update }}
+      server: ${{ steps.areas.outputs.server }}
     steps:
       - id: areas
         env:
@@ -56,6 +57,7 @@ jobs:
             echo "openssl=$(changed '^firmware/crypto/openssl-c906/|^platform/sources[.]lock$|^tests/test-openssl-source[.]py$')"
             echo "signing=$(changed '^firmware/alpine/(packages/|release[.]env$)|^scripts/(build-alpine-packages|check-ec-key)[.]sh$|^tests/test-ecdsa-packages[.]py$')"
             echo "safe_update=$(changed '^firmware/alpine/safe-update/')"
+            echo "server=$(changed '^server-cpp/|^platform/sources[.]lock$')"
           } | tee -a "$GITHUB_OUTPUT"
 
   test-budget:
@@ -67,6 +69,24 @@ jobs:
         with:
           fetch-depth: 0
       - run: python3 scripts/check-test-budget.py "origin/${{ github.base_ref }}" HEAD
+
+  # The server's security boundaries (authentication, roles, lockouts, IPMI and
+  # Redfish logins, untrusted input), built with the host compiler from the
+  # real sources. Ubuntu 26.04 has the C++23 compiler and the OpenSSL (3.2 or
+  # later, for Argon2id) that the server needs.
+  server:
+    name: Server security tests
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Host toolchain
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends g++ cmake ninja-build libssl-dev libcrypt-dev curl ca-certificates openssl openssh-client
+      - run: server-cpp/tests/run.sh "$RUNNER_TEMP/server-tests"
 
   web:
     name: Web UI

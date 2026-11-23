@@ -7,6 +7,8 @@
 #include "extensions/gopath.hpp"
 #include "network/util.hpp"
 #include "osupdate/godecode.hpp"
+#include "config/config_tls.hpp"
+#include "system/tls.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -1271,8 +1273,34 @@ std::optional<TlsConfig> read_server_yaml()
 Tls &tls()
 {
 	static Tls t = [] {
+		namespace st = system::tls;
 		Tls d;
 		d.read_config = read_server_yaml;
+		d.update_tls = [](const std::string &proto, const std::string &crt, const std::string &key) {
+			config::Cert cert;
+			cert.crt = crt;
+			cert.key = key;
+			std::string error;
+			if (!config::update_tls(proto, cert, error) && error.empty()) error = "cannot update the configuration";
+			return error;
+		};
+		d.load = [](const std::string &crt, const std::string &key) { return st::server_certificate().load(crt, key); };
+		d.served_leaf = []() -> std::optional<std::string> {
+			auto served = st::server_certificate().current();
+			if (!served.pair || served.pair->pair.chain.empty()) return std::nullopt;
+			return served.pair->pair.chain[0];
+		};
+		d.pair_leaf = [](const std::string &crt, const std::string &key) -> std::optional<std::string> {
+			auto pair = st::load_certificate_pair(crt, key);
+			if (!pair || pair->pair.chain.empty()) return std::nullopt;
+			return pair->pair.chain[0];
+		};
+		d.ensure_generated = [] { return st::ensure_server_certificate(default_cert, default_key, st::Paths{}, st::now()); };
+		d.describe = [](const std::string &crt, const std::string &key) -> std::optional<std::string> {
+			auto pair = st::load_certificate_pair(crt, key);
+			if (!pair) return std::nullopt;
+			return st::describe(pair->pair, st::now());
+		};
 		return d;
 	}();
 	return t;

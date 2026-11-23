@@ -38,7 +38,7 @@ struct Tls {
 	// utils.DescribeCertificate of the pair as JSON (CertificateInfo); nullopt when it does not load.
 	std::function<std::optional<std::string>(const std::string &crt, const std::string &key)> describe;
 };
-// read_config is set to a reader of /etc/kvm/server.yaml; the others are set by the TLS settings.
+// Bound to server.yaml and the TLS settings (system/tls); replaceable by checks.
 Tls &tls();
 
 // The HTTP-01 path a CA fetches tokens from.

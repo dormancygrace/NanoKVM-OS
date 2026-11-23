@@ -523,8 +523,7 @@ std::uint64_t read_counter(const std::string &file)
 {
 	auto data = read_file(file);
 	if (!data) return 0;
-	auto n = network::parse_uint(trim_space(*data), 10, 64);
-	return n ? *n : 0;
+	return parse_uint_value(trim_space(*data));
 }
 
 void supervise(const std::string &id, std::uint64_t generation, int attempt, std::chrono::steady_clock::duration ran);

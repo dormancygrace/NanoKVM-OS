@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <climits>
 #include <cerrno>
 #include <csignal>
 #include <cstring>
@@ -173,6 +174,38 @@ std::string go_quote(std::string_view s)
 	return out + "\"";
 }
 
+std::int64_t parse_int_value(std::string_view s)
+{
+	bool negative = false;
+	if (!s.empty() && (s[0] == '+' || s[0] == '-')) {
+		negative = s[0] == '-';
+		s.remove_prefix(1);
+	}
+	if (s.empty()) return 0;
+	std::uint64_t n = 0;
+	bool over = false;
+	for (char c : s) {
+		if (c < '0' || c > '9') return 0;
+		if (n > (UINT64_MAX - static_cast<std::uint64_t>(c - '0')) / 10) over = true;
+		else n = n * 10 + static_cast<std::uint64_t>(c - '0');
+	}
+	if (negative) return over || n > static_cast<std::uint64_t>(INT64_MAX) + 1 ? INT64_MIN : -static_cast<std::int64_t>(n - 1) - 1;
+	return over || n > static_cast<std::uint64_t>(INT64_MAX) ? INT64_MAX : static_cast<std::int64_t>(n);
+}
+
+std::uint64_t parse_uint_value(std::string_view s)
+{
+	if (s.empty()) return 0;
+	std::uint64_t n = 0;
+	bool over = false;
+	for (char c : s) {
+		if (c < '0' || c > '9') return 0;
+		if (n > (UINT64_MAX - static_cast<std::uint64_t>(c - '0')) / 10) over = true;
+		else n = n * 10 + static_cast<std::uint64_t>(c - '0');
+	}
+	return over ? UINT64_MAX : n;
+}
+
 std::string go_duration(std::int64_t seconds)
 {
 	if (seconds == 0) return "0s";
@@ -259,6 +292,15 @@ Result run(const Command &cmd)
 	args.push_back(nullptr);
 	for (const auto &e : env_strings) env.push_back(const_cast<char *>(e.c_str()));
 	env.push_back(nullptr);
+	// os.StartProcess checks the directory first when no SysProcAttr is set (no process group).
+	if (!cmd.dir.empty() && !cmd.group) {
+		struct stat st{};
+		if (::stat(cmd.dir.c_str(), &st) != 0) {
+			r.error = goerr::path_error("chdir", cmd.dir, errno);
+			close_all();
+			return r;
+		}
+	}
 	int null_fd = ::open("/dev/null", O_RDWR | O_CLOEXEC);
 
 	pid_t pid = ::fork();
@@ -303,7 +345,7 @@ Result run(const Command &cmd)
 		while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
 		}
 		close_all();
-		r.error = (!cmd.dir.empty() ? "chdir " + cmd.dir : "fork/exec " + program) + ": " + goerr::errno_text(exec_errno);
+		r.error = "fork/exec " + program + ": " + goerr::errno_text(exec_errno);
 		return r;
 	}
 	r.started = true;

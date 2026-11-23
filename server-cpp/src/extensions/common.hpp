@@ -50,6 +50,10 @@ bool is_print(char32_t r);
 // utf8.DecodeRuneInString: the rune and its width (U+FFFD and 1 for an invalid byte).
 std::pair<char32_t, std::size_t> decode_rune(std::string_view s, std::size_t i);
 void append_rune(std::string &out, char32_t r);
+// strconv.ParseInt(s, 10, 64) and ParseUint(s, 10, 64) with the error ignored, as callers that write "n, _ :=" get
+// them: 0 for a syntax error, the limit of the type when out of range.
+std::int64_t parse_int_value(std::string_view s);
+std::uint64_t parse_uint_value(std::string_view s);
 // time.Duration.String for whole seconds ("30s", "1m0s", "1h20m0s").
 std::string go_duration(std::int64_t seconds);
 // time.Now().UTC().Format(time.RFC3339), replaceable by a check.

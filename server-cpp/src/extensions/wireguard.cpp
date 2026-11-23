@@ -170,13 +170,10 @@ Dump parse_dump(const std::string &text)
 	for (const auto &line : network::split(text, "\n")) {
 		auto f = network::split(line, "\t");
 		if (f.size() != 8) continue;
-		auto n = network::atoi(f[4]);  // ParseInt(f, 10, 64): no underscores, an optional sign
-		bool plain = !f[4].empty() && std::all_of(f[4].begin() + (f[4][0] == '+' || f[4][0] == '-'), f[4].end(),
-		                                          [](char c) { return c >= '0' && c <= '9'; });
-		d.last_handshake = std::max<std::int64_t>(d.last_handshake, n && plain ? *n : 0);
-		auto rx = network::parse_uint(f[5], 10, 64), tx = network::parse_uint(f[6], 10, 64);
-		d.received += rx ? *rx : 0;
-		d.sent += tx ? *tx : 0;
+		d.last_handshake = std::max<std::int64_t>(d.last_handshake, parse_int_value(f[4]));
+		std::uint64_t rx = parse_uint_value(f[5]), tx = parse_uint_value(f[6]);
+		d.received += rx;
+		d.sent += tx;
 	}
 	return d;
 }

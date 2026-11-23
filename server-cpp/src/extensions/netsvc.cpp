@@ -651,15 +651,26 @@ Reply handle_settings(const Entry &e, const std::function<std::string()> &write)
 
 std::vector<Neighbor> parse_lldp_neighbors(const std::string &data)
 {
-	std::vector<Neighbor> neighbors;
+	// lldpcli's json0 report decoded as encoding/json fills the Go structs: a value of another type fails the
+	// whole decode; null leaves a string or struct as it was and clears a slice; an array decodes into the
+	// elements a slice already has (a duplicate key merges) and sets its length; the last of duplicate keys wins.
+	struct Chassis {
+		std::vector<std::string> name, descr, mgmt;
+	};
+	struct Port {
+		std::vector<std::string> id, descr;
+	};
+	struct Entry {
+		std::string name, via, age;
+		std::vector<Chassis> chassis;
+		std::vector<Port> port;
+	};
+	struct Block {
+		std::vector<Entry> entries;
+	};
 	auto doc = godecode::parse_document(data);
 	if (!doc) return {};
 	bool good = true;
-	// Decoding helpers with encoding/json's rules: a value of another type fails the whole decode, null leaves a
-	// string as it was and clears a slice; the last of duplicate keys wins.
-	auto str = [&](const godecode::Value &v, std::string &out) {
-		if (!godecode::get(v, out)) good = false;
-	};
 	auto object = [&](const godecode::Value &v, const std::function<void(const std::string &, const godecode::Value &)> &member) {
 		if (v.kind == K::null) return;
 		if (v.kind != K::object) {
@@ -668,88 +679,84 @@ std::vector<Neighbor> parse_lldp_neighbors(const std::string &data)
 		}
 		for (const auto &[k, m] : v.members) member(k, m);
 	};
-	auto array = [&](const godecode::Value &v, const std::function<void(const godecode::Value &)> &item) {
-		if (v.kind == K::null) return;
+	auto slice = [&](const godecode::Value &v, auto &out, const auto &element) {
+		if (v.kind == K::null) {
+			out.clear();
+			return;
+		}
 		if (v.kind != K::array) {
 			good = false;
 			return;
 		}
-		for (const auto &i : v.items) item(i);
+		std::size_t i = 0;
+		for (const auto &item : v.items) {
+			if (i >= out.size()) out.emplace_back();
+			element(item, out[i]);
+			i++;
+		}
+		if (i < out.size()) out.resize(i);
+	};
+	auto str = [&](const godecode::Value &v, std::string &out) {
+		if (!godecode::get(v, out)) good = false;
 	};
 	auto values = [&](const godecode::Value &v, std::vector<std::string> &out) {
-		out.clear();
-		array(v, [&](const godecode::Value &item) {
-			std::string value;
+		slice(v, out, [&](const godecode::Value &item, std::string &value) {
 			object(item, [&](const std::string &k, const godecode::Value &m) {
 				if (godecode::key_matches(k, "value")) str(m, value);
 			});
-			out.push_back(value);
 		});
 	};
-	auto first = [](const std::vector<std::string> &list) { return list.empty() ? std::string() : list[0]; };
-	struct Chassis {
-		std::vector<std::string> name, descr, mgmt;
-	};
-	struct Port {
-		std::vector<std::string> id, descr;
-	};
-	std::vector<std::vector<Neighbor>> blocks;
+	std::vector<Block> report;
 	object(*doc, [&](const std::string &k, const godecode::Value &lldp) {
 		if (!godecode::key_matches(k, "lldp")) return;
-		blocks.clear();
-		array(lldp, [&](const godecode::Value &block) {
-			std::vector<Neighbor> entries;
+		slice(lldp, report, [&](const godecode::Value &block, Block &b) {
 			object(block, [&](const std::string &k2, const godecode::Value &ifaces) {
 				if (!godecode::key_matches(k2, "interface")) return;
-				entries.clear();
-				array(ifaces, [&](const godecode::Value &entry) {
-					Neighbor n;
-					std::vector<Chassis> chassis;
-					std::vector<Port> ports;
+				slice(ifaces, b.entries, [&](const godecode::Value &entry, Entry &e) {
 					object(entry, [&](const std::string &k3, const godecode::Value &m) {
-						if (godecode::key_matches(k3, "name")) str(m, n.interface);
-						else if (godecode::key_matches(k3, "via")) str(m, n.protocol);
-						else if (godecode::key_matches(k3, "age")) str(m, n.age);
-						else if (godecode::key_matches(k3, "chassis")) {
-							chassis.clear();
-							array(m, [&](const godecode::Value &c) {
-								Chassis ch;
+						if (godecode::key_matches(k3, "name")) str(m, e.name);
+						else if (godecode::key_matches(k3, "via")) str(m, e.via);
+						else if (godecode::key_matches(k3, "age")) str(m, e.age);
+						else if (godecode::key_matches(k3, "chassis"))
+							slice(m, e.chassis, [&](const godecode::Value &c, Chassis &ch) {
 								object(c, [&](const std::string &k4, const godecode::Value &cv) {
 									if (godecode::key_matches(k4, "name")) values(cv, ch.name);
 									else if (godecode::key_matches(k4, "descr")) values(cv, ch.descr);
 									else if (godecode::key_matches(k4, "mgmt-ip")) values(cv, ch.mgmt);
 								});
-								chassis.push_back(ch);
 							});
-						} else if (godecode::key_matches(k3, "port")) {
-							ports.clear();
-							array(m, [&](const godecode::Value &p) {
-								Port po;
+						else if (godecode::key_matches(k3, "port"))
+							slice(m, e.port, [&](const godecode::Value &p, Port &po) {
 								object(p, [&](const std::string &k4, const godecode::Value &pv) {
 									if (godecode::key_matches(k4, "id")) values(pv, po.id);
 									else if (godecode::key_matches(k4, "descr")) values(pv, po.descr);
 								});
-								ports.push_back(po);
 							});
-						}
 					});
-					if (!chassis.empty()) {
-						n.name = first(chassis[0].name);
-						n.description = first(chassis[0].descr);
-						n.address = first(chassis[0].mgmt);
-					}
-					if (!ports.empty()) {
-						n.port = first(ports[0].id);
-						n.port_description = first(ports[0].descr);
-					}
-					entries.push_back(n);
 				});
 			});
-			blocks.push_back(entries);
 		});
 	});
 	if (!good) return {};
-	for (const auto &b : blocks) neighbors.insert(neighbors.end(), b.begin(), b.end());
+	auto first = [](const std::vector<std::string> &list) { return list.empty() ? std::string() : list[0]; };
+	std::vector<Neighbor> neighbors;
+	for (const auto &b : report)
+		for (const auto &e : b.entries) {
+			Neighbor n;
+			n.interface = e.name;
+			n.protocol = e.via;
+			n.age = e.age;
+			if (!e.chassis.empty()) {
+				n.name = first(e.chassis[0].name);
+				n.description = first(e.chassis[0].descr);
+				n.address = first(e.chassis[0].mgmt);
+			}
+			if (!e.port.empty()) {
+				n.port = first(e.port[0].id);
+				n.port_description = first(e.port[0].descr);
+			}
+			neighbors.push_back(n);
+		}
 	return neighbors;
 }
 

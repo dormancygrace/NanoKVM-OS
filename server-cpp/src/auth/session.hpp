@@ -31,7 +31,8 @@ struct Guard {
 };
 
 // CheckToken (+ RequireRole, RequireRecentAuth) around a handler.
-http::Handler guarded(http::Handler handler, Guard guard = {});
+// The checks need no body: the server runs them from the request's headers too (http::CheckedHandler).
+http::CheckedHandler guarded(http::Handler handler, Guard guard = {});
 
 // The same around a WebSocket route, with the origin check of the upgrade (CheckWebSocketOrigin). The connection
 // joins the session registry: it is closed (4401) when the user's sessions are revoked, the account no longer

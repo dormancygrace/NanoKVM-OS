@@ -10,6 +10,7 @@
 #include <openssl/ssl.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -44,6 +45,7 @@ struct Session {
 	size_t sent = 0;
 	bool head = false;
 	bool body_expected = false;
+	std::size_t body_limit = Router::default_body_limit;
 	std::shared_ptr<BodySink> sink;  // a streamed body (upload route)
 	bool sink_ended = false;
 	int fd = -1;             // a file being sent
@@ -189,15 +191,43 @@ std::string peer_address(lws *wsi)
 	return peer;
 }
 
+void query_escape(std::string &out, std::string_view text)
+{
+	static const char hex[] = "0123456789ABCDEF";
+	for (unsigned char c : text) {
+		if (std::isalnum(c) || c == '-' || c == '.' || c == '_' || c == '~') {
+			out += static_cast<char>(c);
+		} else {
+			out += '%';
+			out += hex[c >> 4];
+			out += hex[c & 15];
+		}
+	}
+}
+
+// lws keeps the query as one fragment per argument, split at '&' and already decoded ('+' and %XX). Request::query
+// is a raw query that its readers split and decode once, so each argument's name and value are encoded again here:
+// joining the decoded fragments would turn a decoded '&', '+' or '%' of a value into syntax. A fragment of any length
+// is taken, and an empty one ("a=1&&b=2") does not end the list.
 std::string query_of(lws *wsi)
 {
-	std::string out;
-	char frag[1024];
-	for (int i = 0;; i++) {
-		int n = lws_hdr_copy_fragment(wsi, frag, sizeof frag, WSI_TOKEN_HTTP_URI_ARGS, i);
-		if (n <= 0) break;
-		if (!out.empty()) out += '&';
-		out.append(frag, static_cast<size_t>(n));
+	std::string out, frag;
+	bool first = true;
+	for (int i = 0; i < 4096; i++) {
+		int length = lws_hdr_fragment_length(wsi, WSI_TOKEN_HTTP_URI_ARGS, i);
+		frag.assign(static_cast<std::size_t>(std::max(length, 0)) + 1, '\0');
+		int n = lws_hdr_copy_fragment(wsi, frag.data(), static_cast<int>(frag.size()), WSI_TOKEN_HTTP_URI_ARGS, i);
+		if (n < 0) break;
+		if (n == 0) continue;
+		std::string_view argument(frag.data(), static_cast<std::size_t>(n));
+		if (!first) out += '&';
+		first = false;
+		auto eq = argument.find('=');
+		query_escape(out, argument.substr(0, eq));
+		if (eq != std::string_view::npos) {
+			out += '=';
+			query_escape(out, argument.substr(eq + 1));
+		}
 	}
 	return out;
 }
@@ -421,10 +451,19 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 		s.head = s.request.method == "HEAD";
 		(void)in;
 		(void)len;
-		// A body is read before the request is handled.
+		// A body is read before the request is handled. HTTP/1.1 announces one with Content-Length or
+		// Transfer-Encoding. An HTTP/2 stream may carry DATA with neither: its body ends with the stream, which
+		// lws reports as the body's completion. For a POST it reports that completion also when the headers ended
+		// the stream, so a POST waits for it on HTTP/2. For other methods lws is silent about a stream that ended
+		// with its headers, and nothing public tells it from one whose DATA is still to come: they are handled
+		// from their headers unless they declare a length.
 		char length[24] = {};
-		if (lws_hdr_copy(wsi, length, sizeof length, WSI_TOKEN_HTTP_CONTENT_LENGTH) > 0 ? std::atoll(length) > 0
-		                                                                              : lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING) > 0) {
+		bool declared = lws_hdr_copy(wsi, length, sizeof length, WSI_TOKEN_HTTP_CONTENT_LENGTH) > 0;
+		long long declared_length = declared ? std::atoll(length) : 0;
+		bool http2 = lws_get_network_wsi(wsi) != wsi;
+		bool takes_body = s.request.method == "POST";
+		if (declared ? declared_length > 0
+		             : http2 ? takes_body : lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING) > 0) {
 			s.body_expected = true;
 			if (vd->role == Role::serve && vd->router->is_upload(s.request.method, s.request.path)) {
 				s.sink = vd->router->dispatch_upload(s.request, s.response);
@@ -435,8 +474,20 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 					return respond(wsi, s);
 				}
 				s.response.pending = true;
+				return 0;
 			}
-			return 0;
+			// A body the route will not use is not read: the route refuses the request from its headers, or the
+			// declared length is beyond what the route takes. The request is handled now, without its body.
+			if (vd->role == Role::serve) {
+				s.body_limit = vd->router->body_limit(s.request);
+				bool admitted = vd->router->admits(s.request);
+				if (admitted && declared && static_cast<unsigned long long>(declared_length) > s.body_limit)
+					s.request.body_over_limit = true;
+				if (admitted && !s.request.body_over_limit) return 0;
+				s.body_expected = false;
+			} else {
+				return 0;
+			}
 		}
 		handle(wsi, s, *vd);
 		if (s.response.pending) return 0;
@@ -523,10 +574,23 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 			pss->session->sink->data(std::string_view(static_cast<const char *>(in), len));
 			return 0;
 		}
-		if (pss && pss->session && pss->session->body_expected) {
-			// Bodies of the routes in this skeleton are small; streaming bodies come with uploads.
-			if (pss->session->request.body.size() + len > (8u << 20)) return -1;
-			pss->session->request.body.append(static_cast<const char *>(in), len);
+		if (pss && pss->session && pss->session->body_expected && len > 0) {
+			Session &s = *pss->session;
+			if (s.request.body.size() + len <= s.body_limit) {
+				s.request.body.append(static_cast<const char *>(in), len);
+				return 0;
+			}
+			// Longer than the route takes, without a declared length to tell so from the headers: the rest is not
+			// kept and the request is handled as one over its limit.
+			auto *vd = static_cast<VhostData *>(lws_get_vhost_user(lws_get_vhost(wsi)));
+			if (!vd) return -1;
+			s.body_expected = false;
+			s.request.body.clear();
+			s.request.body.shrink_to_fit();
+			s.request.body_over_limit = true;
+			handle(wsi, s, *vd);
+			if (s.response.pending) return 0;
+			return respond(wsi, s);
 		}
 		return 0;
 	case LWS_CALLBACK_HTTP_BODY_COMPLETION: {

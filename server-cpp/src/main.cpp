@@ -186,18 +186,20 @@ int main(int argc, char **argv)
 		res.json(409, R"({"code":-1,"msg":"Settings recovery pending; reboot before changing settings."})");
 		res.done = true;
 	});
-	// middleware.LimitRequestBody: 1 MiB, except the routes that take uploads with their own limits (the server
-	// reads at most 8 MiB of any body).
-	router.use([](http::Request &req, http::Response &res) {
-		if (req.body.size() <= (1u << 20)) return;
-		if (req.path == "/api/vm/system/shutdown" || req.path == "/standby" || req.path.starts_with("/standby/") || req.path == "/standby.js") return;
+	// middleware.LimitRequestBody: 1 MiB, except the routes that take uploads with their own limits, which get the
+	// most the server keeps of any body. The server applies the limit while it reads: a longer body is not kept,
+	// and the request arrives here marked.
+	router.set_body_limit([](const http::Request &req) -> std::size_t {
 		static const std::set<std::string> own{"/api/download/file", "/api/storage/user-disk/files/upload",
 		                                       "/api/branding/logo", "/api/branding/favicon",
 		                                       "/api/extensions/openvpn/import", "/api/extensions/wireguard/import",
 		                                       "/api/vm/script/upload", "/api/vm/video/watermark",
 		                                       "/api/picoclaw/actions", "/api/picoclaw/mcp", "/api/picoclaw/load-image"};
-		if (own.count(req.path) || req.path.rfind("/api/system/recovery/", 0) == 0)
-			return;
+		if (own.count(req.path) || req.path.rfind("/api/system/recovery/", 0) == 0) return 8u << 20;
+		return http::Router::default_body_limit;
+	});
+	router.use([](http::Request &req, http::Response &res) {
+		if (!req.body_over_limit) return;
 		res.json(413, R"({"code":-1,"msg":"request body too large"})");
 		res.done = true;
 	});

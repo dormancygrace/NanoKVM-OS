@@ -128,7 +128,29 @@ void Router::use(Handler middleware) { middlewares_.push_back(std::move(middlewa
 
 void Router::add(std::string_view method, std::string_view path, Handler handler)
 {
-	routes_.push_back({std::string(method), std::string(path), std::move(handler)});
+	routes_.push_back({std::string(method), std::string(path), std::move(handler), nullptr});
+}
+
+void Router::add(std::string_view method, std::string_view path, CheckedHandler handler)
+{
+	routes_.push_back({std::string(method), std::string(path), std::move(handler.handler), std::move(handler.check)});
+}
+
+bool Router::admits(Request &request) const
+{
+	std::map<std::string, std::string> params;
+	for (const auto &r : routes_) {
+		if (r.method != request.method || !match(r.path, request.path, params)) continue;
+		return !r.check || r.check(request);
+	}
+	return true;
+}
+
+void Router::set_body_limit(std::function<std::size_t(const Request &)> limit) { body_limit_ = std::move(limit); }
+
+std::size_t Router::body_limit(const Request &request) const
+{
+	return body_limit_ ? body_limit_(request) : default_body_limit;
 }
 
 std::string url_decode(std::string_view s)

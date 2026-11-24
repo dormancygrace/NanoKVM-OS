@@ -366,29 +366,43 @@ bool authenticate(http::Request &request, bool &idle_over)
 	return true;
 }
 
-http::Handler guarded(http::Handler handler, Guard guard)
+namespace {
+
+// The guard's checks; false with the refusal in res.
+bool passes(const Guard &guard, http::Request &req, http::Response &res)
 {
-	return [handler = std::move(handler), guard = std::move(guard)](http::Request &req, http::Response &res) {
-		bool idle_over = false;
-		if (!authenticate(req, idle_over)) {
-			if (idle_over) clear_session_cookie(req, res);
-			api::plain_json(res, 401, "unauthorized");
-			return;
-		}
-		if (req.auth->must_change_password && !password_change_route(req)) {
-			res.json(403, "{\"code\":-10,\"msg\":\"password change required\"}");
-			return;
-		}
-		if (!guard.roles.empty() && std::find(guard.roles.begin(), guard.roles.end(), req.auth->role) == guard.roles.end()) {
-			api::plain_json(res, 403, "forbidden");
-			return;
-		}
-		if (guard.recent_auth && !recent_auth(req)) {
-			res.json(403, "{\"code\":-11,\"msg\":\"confirm your password to continue\"}");
-			return;
-		}
-		handler(req, res);
-	};
+	bool idle_over = false;
+	if (!authenticate(req, idle_over)) {
+		if (idle_over) clear_session_cookie(req, res);
+		api::plain_json(res, 401, "unauthorized");
+		return false;
+	}
+	if (req.auth->must_change_password && !password_change_route(req)) {
+		res.json(403, "{\"code\":-10,\"msg\":\"password change required\"}");
+		return false;
+	}
+	if (!guard.roles.empty() && std::find(guard.roles.begin(), guard.roles.end(), req.auth->role) == guard.roles.end()) {
+		api::plain_json(res, 403, "forbidden");
+		return false;
+	}
+	if (guard.recent_auth && !recent_auth(req)) {
+		res.json(403, "{\"code\":-11,\"msg\":\"confirm your password to continue\"}");
+		return false;
+	}
+	return true;
+}
+
+} // namespace
+
+http::CheckedHandler guarded(http::Handler handler, Guard guard)
+{
+	return {[handler = std::move(handler), guard](http::Request &req, http::Response &res) {
+		        if (passes(guard, req, res)) handler(req, res);
+	        },
+	        [guard](http::Request &req) {
+		        http::Response refusal;
+		        return passes(guard, req, refusal);
+	        }};
 }
 
 http::UploadRoute guarded_upload(http::UploadRoute route, Guard guard)

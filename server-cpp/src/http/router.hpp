@@ -39,6 +39,8 @@ struct Request {
 	std::string path;    // decoded path, without the query
 	std::string query;   // raw query, without '?'
 	std::string body;
+	// The body is longer than the route may take (Router::set_body_limit): it was not read, body is empty.
+	bool body_over_limit = false;
 	bool tls = false;
 	std::string peer;    // remote address, without port
 	std::map<std::string, std::string> params;  // ":name" path segments of the matched route
@@ -99,6 +101,15 @@ struct Response {
 
 using Handler = std::function<void(Request &, Response &)>;
 
+// A handler with the part of it that needs no body (authentication, role). The server asks check from the request's
+// headers and does not read the body of a request the handler is going to refuse.
+struct CheckedHandler {
+	Handler handler;
+	std::function<bool(Request &)> check;
+	void operator()(Request &request, Response &response) const { handler(request, response); }
+	operator Handler() const { return handler; }
+};
+
 // Finishes a pending request (Response::pending) with response. Safe from any thread; a request whose
 // connection has closed meanwhile is dropped.
 void complete(std::uint64_t id, Response response);
@@ -127,6 +138,15 @@ class Router {
 public:
 	void use(Handler middleware);
 	void add(std::string_view method, std::string_view path, Handler handler);
+	void add(std::string_view method, std::string_view path, CheckedHandler handler);
+	// From the headers, before the body is read: false when the matching route's check refuses the request. It is
+	// then dispatched at once, without its body, and the handler gives its refusal.
+	bool admits(Request &request) const;
+	// How much of a request's body the server keeps for its route; a longer one is not read and the request is
+	// dispatched with body_over_limit set. Without a limit function every body may be default_body_limit long.
+	static constexpr std::size_t default_body_limit = 1u << 20;
+	void set_body_limit(std::function<std::size_t(const Request &)> limit);
+	std::size_t body_limit(const Request &request) const;
 	// Runs once a response is final (answered by the handler or later with complete()), on the loop thread.
 	void after(std::function<void(const Request &, const Response &)> hook);
 	void finished(const Request &request, const Response &response) const;
@@ -146,6 +166,7 @@ private:
 	struct Route {
 		std::string method, path;
 		Handler handler;
+		std::function<bool(Request &)> check;
 	};
 	static bool match(const std::string &pattern, const std::string &path, std::map<std::string, std::string> &params);
 	std::vector<Handler> middlewares_;
@@ -157,6 +178,7 @@ private:
 		UploadRoute route;
 	};
 	std::vector<Upload> uploads_;
+	std::function<std::size_t(const Request &)> body_limit_;
 };
 
 } // namespace nkos::http

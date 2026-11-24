@@ -108,7 +108,7 @@ def build(archive, output, cross, jobs):
         if path.is_file() and path.read_bytes()[:4] == b'\x7fELF':
             subprocess.run([str(cross) + 'strip', '--strip-unneeded',
                             '--remove-section=.comment', '--remove-section=.note', str(path)], check=True)
-    license_dir = runtime / 'usr/share/licenses/nanokvm-openssl'
+    license_dir = runtime / 'usr/share/licenses/nanokvm-openssl3'
     license_dir.mkdir(parents=True)
     shutil.copy2(source / 'LICENSE.txt', license_dir / 'LICENSE.txt')
     shutil.copy2(ROOT / 'firmware/cpu/go-crypto-c906/LICENSE',

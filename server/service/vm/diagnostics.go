@@ -403,7 +403,7 @@ func rebootRequired() bool {
 	return err == nil
 }
 
-var diagnosticPackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-base", "nanokvm-release", "nanokvm-kernel", "nanokvm-kmod", "nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-tpu"}
+var diagnosticPackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-base", "nanokvm-release", "nanokvm-kernel", "nanokvm-kmod", "nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl3", "nanokvm-openssl", "nanokvm-tpu"}
 
 func installedPackageVersions() []DiagnosticPackage {
 	result := make([]DiagnosticPackage, 0, len(diagnosticPackages))

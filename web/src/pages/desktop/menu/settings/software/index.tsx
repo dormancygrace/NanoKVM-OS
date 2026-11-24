@@ -48,6 +48,7 @@ const protectedPackages = new Set([
   'nanokvm-firmware',
   'nanokvm-zlib',
   'nanokvm-openssl',
+  'nanokvm-openssl3',
   'nanokvm-bootloader',
   'nanokvm-tpu'
 ]);

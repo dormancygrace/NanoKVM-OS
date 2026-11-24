@@ -86,7 +86,9 @@ with tempfile.TemporaryDirectory() as directory:
     (fixture / 'scripts').mkdir(parents=True)
     shutil.copytree(ROOT / 'firmware/alpine/packages', fixture / 'firmware/alpine/packages')
     shutil.copy2(ROOT / 'firmware/alpine/release.env', fixture / 'firmware/alpine/release.env')
-    for filename in ('build-alpine-packages.sh', 'check-ec-key.sh'):
+    (fixture / 'platform').mkdir()
+    shutil.copy2(ROOT / 'platform/sources.lock', fixture / 'platform/sources.lock')
+    for filename in ('build-alpine-packages.sh', 'check-ec-key.sh', 'package-versions.py'):
         shutil.copy2(ROOT / 'scripts' / filename, fixture / 'scripts' / filename)
     for name in ('nanokvm-base', 'nanokvm-kernel', 'nanokvm-kmod', 'nanokvm-firmware'):
         recipe = fixture / 'firmware/alpine/packages' / name / 'APKBUILD'
@@ -95,7 +97,7 @@ with tempfile.TemporaryDirectory() as directory:
     run('sh', fixture / 'scripts/build-alpine-packages.sh', 'stock', env=env)
     repo = work / 'repo/stock/recipes/riscv64'
     packages = sorted(repo.glob('*.apk'))
-    assert len(packages) == 18
+    assert len(packages) == 20
     for path in packages + [repo / 'APKINDEX.tar.gz']:
         run('apk', '--keys-dir', ec, 'verify', path)
         run('apk', '--keys-dir', rsa, 'verify', path, ok=False)
@@ -164,4 +166,4 @@ with tempfile.TemporaryDirectory() as directory:
     run('apk', '--allow-untrusted', '--sign-key', key, 'adbsign', '--reset-signatures', repo / 'Packages.adb')
     run('apk', '--keys-dir', ec, 'verify', repo / 'Packages.adb')
     run('apk', '--keys-dir', rsa, 'verify', repo / 'Packages.adb', ok=False)
-    print('PASS: 18 real abuild packages; ECDSA/SHA-256 verified by apk and OpenSSL; tamper/wrong-key rejected; v2/v3 upgrade and index rotation')
+    print('PASS: 20 real abuild packages; ECDSA/SHA-256 verified by apk and OpenSSL; tamper/wrong-key rejected; v2/v3 upgrade and index rotation')

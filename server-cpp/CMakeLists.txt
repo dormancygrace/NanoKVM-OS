@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(nanokvm_server CXX C)
+project(nanokvm_server CXX C ASM)
 
 # NanoKVM-Server in C++. Built for the SG2002 (one T-Head C906) with the Buildroot toolchain and the userspace
 # profile of scripts/nanokvm_cpu_profile.py, passed in CMAKE_C_FLAGS/CMAKE_CXX_FLAGS by the build.
@@ -67,6 +67,7 @@ add_custom_command(
 
 add_executable(NanoKVM-Server
   src/main.cpp
+  src/common/string_c906.S
   src/ai/json.cpp
   src/ai/files.cpp
   src/ai/keys.cpp

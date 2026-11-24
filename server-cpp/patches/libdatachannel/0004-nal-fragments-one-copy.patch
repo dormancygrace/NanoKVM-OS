@@ -51,10 +51,10 @@ index 4061551..58e15b1 100644
  std::vector<H265NalUnit> H265RtpPacketizer::splitFrame(const binary &frame) {
 diff --git a/src/nalfragments.hpp b/src/nalfragments.hpp
 new file mode 100644
-index 0000000..2b9c22b
+index 0000000..5c89261
 --- /dev/null
 +++ b/src/nalfragments.hpp
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,144 @@
 +/**
 + * Fragmenting an H.264 or H.265 access unit with one copy per fragment: the NAL units are found by position, and
 + * each fragment is built from the frame directly, byte for byte what the NalUnit classes produced through their
@@ -164,9 +164,11 @@ index 0000000..2b9c22b
 +			bool first = offset == 0, last = !(offset + step < payload);
 +			if (last && offset + step > payload)
 +				step = uint16_t(payload - offset);
-+			binary &out = result.emplace_back(unitSize + step);
++			binary &out = result.emplace_back();
++			out.reserve(unitSize + step);
++			out.resize(unitSize);
 +			writeHeader(out.data(), nal, first, last && !first);
-+			std::memcpy(out.data() + unitSize, nal + headerSize + offset, step);
++			out.insert(out.end(), nal + headerSize + offset, nal + headerSize + offset + step);
 +			offset += step;
 +		}
 +	}

@@ -56,6 +56,7 @@ apply_mount_policy() {
 # (a reboot or a panic), watchdog (the hardware watchdog: Linux hung) or
 # overheat; empty when it cannot be read.
 boot_reason() {
+    local value inputs
     value=$(od -An -tu4 -N4 /sys/bus/nvmem/devices/cv1800-rtc-reason/nvmem 2>/dev/null | tr -d ' ')
     [ -n "$value" ] || return 0
     inputs=$((value >> 16))
@@ -70,14 +71,19 @@ boot_reason() {
 # output (every message level, kernel patch 0092), ending with the kernel's
 # own restart, power-off or halt line. They are no crash.
 clean_shutdown() {
-    for record in "$@"; do
-        case ${record##*/} in console-ramoops-*) ;; *) return 1 ;; esac
-    done
-    last=$(grep -v -e '^ECC:' -e '^[[:space:]]*$' "$@" | tail -n 1)
-    case $last in
-        *'reboot: Restarting system'* | *'reboot: Power down'* | *'reboot: System halted'*) return 0 ;;
-    esac
-    return 1
+    # Ramoops has one console record. Keep any separate dump or unknown record.
+    [ "$#" -eq 1 ] || return 1
+    case ${1##*/} in console-ramoops-*) ;; *) return 1 ;; esac
+    awk '
+        /^ECC: No errors detected$/ || /^ECC: [0-9]+ Corrected bytes, 0 unrecoverable blocks$/ { next }
+        /^ECC:/ { damaged = 1; next }
+        /[^[:space:]]/ { last = $0 }
+        END {
+            sub(/^(<[0-9]+>)?(\[[[:space:]]*[0-9]+\.[0-9]+\][[:space:]]*)?/, "", last)
+            if (damaged) exit 1
+            exit !(last ~ /^reboot: (Restarting system( with command .*)?|Power down|System halted|Power off not available: System halted instead)$/)
+        }
+    ' "$1"
 }
 
 # A kernel oops panics and reboots; ramoops (the board DT) keeps the dump and
@@ -90,22 +96,27 @@ clean_shutdown() {
 # or step back, so it only labels the directory. Removing a pstore file
 # erases its record, so the copy is synced to the card first.
 collect_crash() {
+    local reason
     pstore=/sys/fs/pstore
     crashes=/var/log/nanokvm-crash
     [ -d "$pstore" ] || return 0
     mountpoint -q "$pstore" || mount -t pstore pstore "$pstore" || return 1
     set -- "$pstore"/*
     [ -e "$1" ] || return 0
-    if clean_shutdown "$@"; then
-        rm -f "$@"
-        return 0
-    fi
+    reason=$(boot_reason)
+    case $reason in
+        restart|power)
+            if clean_shutdown "$@"; then
+                rm -f "$@"
+                return $?
+            fi
+            ;;
+    esac
     mkdir -p "$crashes" || return 1
     last=$(find "$crashes" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*-*' |
         sed 's|.*/||; s|-.*||' | awk '$1 + 0 > n { n = $1 + 0 } END { print n + 0 }')
     crash=$crashes/$(printf '%06d' $((last + 1)))-$(date -u +%Y%m%dT%H%M%SZ)
     mkdir "$crash" || return 1
-    reason=$(boot_reason)
     if ! cp "$@" "$crash"/ || ! { [ -z "$reason" ] || echo "$reason" > "$crash/reason"; } ||
         ! sync "$crash"/* "$crash" "$crashes" "${crashes%/*}"; then
         # An incomplete attempt must not count as another retained crash.

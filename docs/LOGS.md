@@ -36,9 +36,9 @@ came on: `restart` after a panic or reboot, `watchdog`, `overheat`), syncs
 the copy and only then frees the records, keeps the newest five crashes by
 sequence (the clock at boot may be wrong) and warns in the boot log; the
 diagnostics archive includes them. The records of a reboot or power-off
-that Linux finished (only console output, ending with its restart,
-power-off or halt line) are freed without being kept, so that they do not
-push real crashes out.
+are discarded only when the RTC reports a restart or power-on and the sole
+console record ends with the kernel’s restart, power-off or halt message.
+Records with unrecoverable ECC damage or an unknown reset cause are kept.
 
 An image installed before this setup keeps its `/etc/conf.d/syslog`
 unless it is Alpine's default (`SYSLOGD_OPTS="-t"`). The package update

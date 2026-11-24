@@ -167,15 +167,16 @@ def metadata(dump, filename):
     return info
 
 
-def verify_repository(output, apk='apk', keys=None):
+def verify_repository(output, apk='apk', keys=None, mirrored=None):
     """Verify signatures except for explicitly pinned, byte-verified add-ons."""
     entries = manifest((output / 'addons.json').read_bytes())
     for name, item in entries.items():
         checked(name, item, lambda url: (output / name).read_bytes())
     for package in sorted(output.glob('*.apk')):
         command = [apk]
-        if keys is not None:
-            command += ['--keys-dir', str(keys)]
+        package_keys = (mirrored or {}).get(package.name, keys)
+        if package_keys is not None:
+            command += ['--keys-dir', str(package_keys)]
         if package.name in entries:
             command += ['--allow-untrusted']
         subprocess.run(command + ['verify', str(package)], check=True)

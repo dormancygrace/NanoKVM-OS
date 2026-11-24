@@ -90,4 +90,15 @@ void apply(Settings update, int fps, std::function<void(std::string error)> done
 // The user confirmed the power cycle (the reminder goes); "" or the error.
 std::string clear_power_cycle_pending();
 
+// The upkeep of the saved profile once the capture runs (the Go server's start goroutine). The receiver keeps its
+// EDID in its own flash across restarts and reinstalls, so in order: a saved 1296x2304 portrait profile becomes its
+// successor; a profile the video memory of this boot cannot capture is lowered (then, 20 s later, restart replaces
+// the process once, so the capture detects the input again); a receiver left with the retired Windows pointer
+// block gets its profile as shipped; after an installation the saved profile is programmed (a Cube or Lite only
+// when its EDID advertises modes it cannot capture or lacks the RGB range declaration), and a write that needs a
+// power cycle raises the hdmi.power-cycle notification. Each step runs on the device thread, the EDID tool with
+// the capture paused. hdmi_disabled: HDMI capture is off, the receiver is not read. restart runs on the loop
+// thread and returns only when the process could not be replaced. Loop thread.
+void start(bool hdmi_disabled, std::function<void()> restart);
+
 } // namespace nkos::video::monitor

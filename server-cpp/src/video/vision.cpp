@@ -24,6 +24,7 @@ namespace nkos::video::vision {
 namespace {
 
 bool initialized = false;
+std::atomic<bool> released{false};  // deinit ran
 nk_capture_worker *worker = nullptr;
 nk_capture_shared *shared = nullptr;
 int ready_fd = -1, doorbell_fd = -1;
@@ -144,8 +145,11 @@ void deinit()
 	}
 	kvmv_deinit();
 	initialized = false;
+	released = true;
 	log::debug("stop kvm vision...");
 }
+
+bool closed() { return released; }
 
 bool start(const CaptureParams &params, std::function<void(Frame)> on_frame)
 {

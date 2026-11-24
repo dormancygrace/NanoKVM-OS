@@ -19,8 +19,11 @@ namespace nkos::video::vision {
 // kvmv_init with the saved settings applied (first capture mode, MJPEG chroma, frame detection). Before the
 // server runs; false when video is unavailable.
 bool init();
-// Stops the capture thread and releases the capture (kvmv_deinit). After the event loop has ended.
+// Stops the capture thread and releases the capture (kvmv_deinit). After the event loop has ended, or right
+// before the process replaces itself.
 void deinit();
+// The capture was released (deinit): the receiver must not be touched any more. Any thread.
+bool closed();
 
 struct CaptureParams {
 	std::uint16_t width = 0, height = 0, bitrate = 0;

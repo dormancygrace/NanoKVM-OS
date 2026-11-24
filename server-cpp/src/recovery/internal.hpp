@@ -17,6 +17,8 @@ const std::vector<std::string> &settings_list();
 const std::vector<std::string> &settings_trees();
 std::optional<std::vector<File>> inventory(const std::string &root, Error &error);
 bool allowed(const std::string &p);
+// A setting earlier releases backed up that no longer exists: archives holding it stay valid, restore leaves it out.
+bool retired(const std::string &p);
 bool users(const std::string &p);
 bool portable(const std::string &p);
 // ^[A-Za-z0-9_.][A-Za-z0-9+_.-]{0,127}$

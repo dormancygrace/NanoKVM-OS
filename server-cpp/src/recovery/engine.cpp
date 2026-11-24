@@ -240,6 +240,7 @@ bool Engine::prepare(const Archive *a, const Options &o, Plan &p, Preview &v, Er
 	}
 	if (o.action == "restore" && a->files) {
 		for (File f : *a->files) {
+			if (retired(f.path)) continue;
 			if (o.mode == "migrate" && !portable(f.path)) {
 				v.skipped.push_back(f.path);
 				continue;

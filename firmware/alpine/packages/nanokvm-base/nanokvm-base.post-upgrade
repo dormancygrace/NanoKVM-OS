@@ -276,5 +276,8 @@ if [ -f /root/.profile ] && [ "$(cat /root/.profile)" = "$legacy_root_profile" ]
 fi
 unset legacy_root_profile
 
+# The server memory limit setting is gone and nothing reads its file.
+rm -f /etc/kvm/GOMEMLIMIT
+
 # The Ethernet MAC record above failed: the update is not complete.
 [ -z "${eth_mac_lost:-}" ] || exit 1

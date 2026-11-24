@@ -127,7 +127,6 @@ add_executable(NanoKVM-Server
   src/system/log_mask.cpp
   src/system/diagnostics.cpp
   src/system/dev_archive.cpp
-  src/system/memory_limit.cpp
   src/system/logs.cpp
   src/system/notify.cpp
   src/notify/gostd.cpp

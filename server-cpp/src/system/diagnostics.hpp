@@ -1,11 +1,11 @@
 #pragma once
 
-// System > Diagnostics, as the Go server's service/vm/diagnostics.go, dev_archive.go and memory.go (administrators):
+// System > Diagnostics, as the Go server's service/vm/diagnostics.go and dev_archive.go (administrators):
 // GET /api/vm/diagnostics (an allow-listed status snapshot: versions, services, video, USB, apk, firewall hook
 // chains; collected at most every 20 s, one collection at a time, within 8 s), GET /api/vm/diagnostics/report (the
 // narrower issue-ready report as a JSON attachment), GET /api/vm/diagnostics/archive (the developer archive: the
 // collector of nanokvm-base gathers files into a temporary directory, each is cleaned and masked, then packed as
-// tar.gz) and GET/POST /api/vm/memory/limit (the saved /etc/kvm/GOMEMLIMIT setting).
+// tar.gz).
 
 #include "http/router.hpp"
 #include "video/edid_profiles.hpp"
@@ -29,8 +29,6 @@ struct Paths {
 	std::string proc_dir = "/proc";
 	std::string archive_script = "/usr/libexec/nanokvm/dev-archive";
 	std::string archive_etc = "/etc/kvm";
-	std::string memory_limit_file = "/etc/kvm/GOMEMLIMIT";
-	std::string meminfo = "/proc/meminfo";
 };
 Paths &paths();
 
@@ -105,17 +103,6 @@ std::optional<std::string> pack(const std::string &dir, const std::optional<std:
 // redactSettings: a JSON or YAML settings file with the values of credential-like keys hidden; nullopt when it
 // does not parse.
 std::optional<std::string> redact_settings(std::string_view data);
-
-// ---- memory limit (memory_limit.cpp) ----
-
-// GET /api/vm/memory/limit's data, or nullopt when the saved limit cannot be read.
-std::optional<std::string> memory_limit_json();
-// SetMemoryLimit: enabled saves limit (MiB), else removes the saved limit. False when that fails.
-bool set_memory_limit(bool enabled, std::int64_t limit);
-// proto.SetMemoryLimitReq as ShouldBind reads a request with this Content-Type, body and query; false for "invalid
-// arguments".
-bool bind_memory_limit(std::string_view content_type, std::string_view body, std::string_view query, bool &enabled,
-                       std::int64_t &limit);
 
 // The routes above.
 void add_routes(http::Router &router);

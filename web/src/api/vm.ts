@@ -496,25 +496,6 @@ export function setCPUFrequency(target: number, applyAtBoot: boolean) {
   return http.post('/api/vm/cpu-frequency', { target, applyAtBoot });
 }
 
-// MiB; current and default are 0 without a limit.
-export type MemoryLimit = {
-  enabled: boolean;
-  limit: number;
-  default: number;
-  current: number;
-  minimum: number;
-};
-
-// The Go memory limit of the NanoKVM server.
-export function getMemoryLimit() {
-  return http.get<MemoryLimit>('/api/vm/memory/limit');
-}
-
-// enabled false removes the saved limit and returns to the default.
-export function setMemoryLimit(enabled: boolean, limit: number) {
-  return http.post('/api/vm/memory/limit', { enabled, limit });
-}
-
 export function importSSHKeys(keys: string, password: string) {
   return http.post('/api/vm/ssh/keys/import', { keys, password }, { sensitive: true });
 }

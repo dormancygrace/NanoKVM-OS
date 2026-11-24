@@ -970,15 +970,7 @@
       "unavailable": "この機能を含む NanoKVM OS ビルドが必要です。",
       "loadError": "メモリの状態を読み取れませんでした",
       "changeError": "スワップ設定を変更できませんでした",
-      "limitTitle": "サーバーのメモリ上限",
-      "limitDescription": "この上限に近づくと、NanoKVM サーバーは apk やほかのシステムからメモリーを奪わず、より積極的に解放します。独自の上限は {{minimum}} MiB 以上で、すぐに適用されます。",
-      "limitValue": "上限",
-      "limitApply": "適用",
-      "limitNone": "現在の上限：なし。",
-      "limitError": "メモリ上限を変更できませんでした",
-      "zramUsage": "使用 {{used}}、RAM 上 {{stored}}（{{algorithm}}）",
-      "advanced": "詳細設定",
-      "limitDefault": "既定: RAM の 4 分の 1（{{default}} MiB）。"
+      "zramUsage": "使用 {{used}}、RAM 上 {{stored}}（{{algorithm}}）"
     },
     "services": {
       "title": "サービス"

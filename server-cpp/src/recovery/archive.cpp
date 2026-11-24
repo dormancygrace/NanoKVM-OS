@@ -26,7 +26,7 @@ constexpr int iterations = 600000;
 // arbitrary /etc are excluded.
 const char *const settings_text = R"(
  etc/kvm/frame_detect etc/kvm/encoder_codec etc/kvm/input-region.json etc/kvm/leader-key
- etc/kvm/mouse-jiggler etc/kvm/oled_sleep etc/kvm/oled_layout etc/kvm/memory.conf etc/kvm/GOMEMLIMIT
+ etc/kvm/mouse-jiggler etc/kvm/oled_sleep etc/kvm/oled_layout etc/kvm/memory.conf
  etc/kvm/web-title etc/kvm/update-check.disabled etc/kvm/cpufreq etc/kvm/cpufreq.boot
  etc/kvm/monitor_resolution etc/kvm/monitor_portrait
  etc/kvm/monitor_portrait_resolution etc/kvm/monitor_edid_sha256 etc/kvm/monitor_identity
@@ -359,9 +359,12 @@ bool version_pattern(const std::string &s, std::string &major, std::string &mino
 	return true;
 }
 
+bool retired(const std::string &p) { return p == "etc/kvm/GOMEMLIMIT"; }
+
 bool allowed(const std::string &p)
 {
 	if (p.empty() || go_clean(p) != p || p[0] == '/' || p.find_first_of(std::string("\\\0\r\n", 4)) != std::string::npos) return false;
+	if (retired(p)) return true;
 	for (const auto &s : settings_list())
 		if (p == s) return true;
 	for (const auto &s : settings_trees())

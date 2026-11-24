@@ -1010,21 +1010,6 @@ void add_routes(http::Router &router)
 			});
 		});
 	}, admin));
-
-	router.add("GET", "/api/vm/memory/limit", auth::guarded([](http::Request &, http::Response &res) {
-		auto data = memory_limit_json();
-		if (!data) return api::err(res, -1, "failed to get memory limit");
-		api::send(res, 0, "success", *data);
-	}, admin));
-	router.add("POST", "/api/vm/memory/limit", auth::guarded([](http::Request &req, http::Response &res) {
-		bool enabled = false;
-		std::int64_t limit = 0;
-		if (!bind_memory_limit(req.header("content-type"), req.body, req.query, enabled, limit)) return api::err(res, -1, "invalid arguments");
-		if (!set_memory_limit(enabled, limit)) return api::err(res, -2, "failed to set memory limit");
-		auto data = memory_limit_json();
-		if (!data) return api::err(res, -1, "failed to get memory limit");
-		api::send(res, 0, "success", *data);
-	}, admin));
 }
 
 } // namespace nkos::system::diagnostics

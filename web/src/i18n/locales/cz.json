@@ -1479,20 +1479,12 @@
       "zramAuto": "Automaticky ({{size}} MiB)",
       "loadError": "Nebylo možné číst stav paměti",
       "changeError": "Nebylo možné změnit nastavení odkládání stránek",
-      "limitTitle": "Limit paměti serveru",
-      "limitDescription": "Blízko tohoto limitu server NanoKVM uvolňuje paměť usilovněji, místo aby ji bral apk a zbytku systému. Vlastní limit je alespoň {{minimum}} MiB a platí hned.",
-      "limitValue": "Limit",
-      "limitApply": "Použít",
-      "limitNone": "Uplatňováno: bez limitu.",
-      "limitError": "Limit paměti nebylo možné změnit",
       "ramNote": "Paměť, která je k dispozici, zahrnuje i mezipaměť, kterou lze uvolnit.",
       "sdTitle": "Zapnout stránkování na SD kartu",
       "zramDescription": "Komprimovat neaktivní stránky v operační paměti. Kapacita je měřena před kompresí; operační paměť je přidělována dle potřeby.",
       "sdDescription": "Odkládací soubor na SD kartě, používá se po ZRAM, když dochází paměť. Pomalejší než RAM a opotřebovává kartu.",
       "unavailable": "Vyžaduje sestavení NanoKVM OS, obsahující tuto funkci.",
-      "zramUsage": "Použito {{used}}, v RAM {{stored}} ({{algorithm}})",
-      "advanced": "Pokročilé",
-      "limitDefault": "Výchozí: čtvrtina RAM ({{default}} MiB)."
+      "zramUsage": "Použito {{used}}, v RAM {{stored}} ({{algorithm}})"
     },
     "usb": {
       "identity": {

@@ -970,15 +970,7 @@
       "unavailable": "需要包含此功能的 NanoKVM OS 版本。",
       "loadError": "无法读取内存状态",
       "changeError": "无法更改交换设置",
-      "limitTitle": "服务器内存上限",
-      "limitDescription": "接近此上限时，NanoKVM 服务器会更积极地释放内存，而不是占用 apk 和系统其他部分的内存。自定义上限至少为 {{minimum}} MiB，并立即生效。",
-      "limitValue": "上限",
-      "limitApply": "应用",
-      "limitNone": "当前生效：无上限。",
-      "limitError": "无法更改内存上限",
-      "zramUsage": "已用 {{used}}，内存中 {{stored}}（{{algorithm}}）",
-      "advanced": "高级",
-      "limitDefault": "默认：内存的四分之一（{{default}} MiB）。"
+      "zramUsage": "已用 {{used}}，内存中 {{stored}}（{{algorithm}}）"
     },
     "services": {
       "title": "服务"

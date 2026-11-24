@@ -733,8 +733,8 @@ server() {
         unpack_git "$dep" . "$src/libdatachannel/deps/$dep"
     done
     PATH="$host:$PATH" CROSS="$cross" CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)" \
-        OPENSSL="$out/tools/openssl/openssl-$(lock openssl | awk '{ print $2 }' | sed -E 's/.*openssl-([0-9.]+)\.tar\.gz/\1/')" \
-        ZLIB="$out/tools/zlib-ng/build" NATIVE="$img/native" CMAKE="$host/cmake" JOBS="$jobs" \
+        OPENSSL="$out/component-support/tools/openssl" ZLIB="$out/component-support/tools/zlib-ng" \
+        NATIVE="$img/native" CMAKE="$host/cmake" JOBS="$jobs" \
         bash "$repo/server-cpp/build.sh" "$src" "$s/out"
     cp "$s/out/NanoKVM-Server" "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" \
         "$s/out/nkos-standby" "$img/server/"
@@ -888,6 +888,18 @@ tools() {
     missing=$(LC_ALL=C comm -23 "$repo/firmware/alpine/packages/nanokvm-zlib/zlib-1.3.2.symbols" "$t/zlib-ng/symbols")
     [ -z "$missing" ] || { echo "zlib-ng does not export these zlib 1.3.2 symbols:" $missing >&2; exit 1; }
     cp "$t/zlib-ng/LICENSE.md" "$img/tools/zlib-ng/"
+
+    # What the server step compiles and links against: OpenSSL's headers, its shared libraries for the server and
+    # its static ones for nkos-standby, and zlib-ng. The working tree above is not kept by the component cache;
+    # this export is a declared output, so a reused tools component still lets the server be rebuilt.
+    local sdk=$out/component-support/tools ossl
+    ossl=$t/openssl/openssl-$(lock openssl | awk '{ print $2 }' | sed -E 's/.*openssl-([0-9.]+)\.tar\.gz/\1/')
+    rm -rf "$sdk"
+    mkdir -p "$sdk/openssl/include" "$sdk/zlib-ng"
+    cp -rL "$ossl/include/openssl" "$sdk/openssl/include/"
+    cp -L "$ossl/libssl.so" "$ossl/libcrypto.so" "$ossl/libssl.a" "$ossl/libcrypto.a" "$sdk/openssl/"
+    cp -L "$t/zlib-ng/build/zlib.h" "$t/zlib-ng/build/zconf.h" "$t/zlib-ng/build/zlib_name_mangling.h" \
+        "$t/zlib-ng/build/libz.so" "$sdk/zlib-ng/"
 }
 
 # Firmware files: AIC8800 Wi-Fi firmware from the Radxa package that the

@@ -12,6 +12,15 @@ resulting .rela.dyn contains only R_RISCV_RELATIVE relocations, which
 relocate_kernel() handles. With RANDOMIZE_BASE on a NanoKVM the kernel keeps
 40 KB more than without RELOCATABLE instead of 0.9 MB.
 
+Give .pecoff_edata_padding its own load address. It has none in the script
+and took the load address of the previous section. With .dynamic gone, that
+is the empty .plt: ld drops it from the output but still uses it as the
+reference, at its VMA aligned up past the end of .got. When .got ends a few
+bytes below a PECOFF_FILE_ALIGNMENT boundary, the whole padding lies below
+that VMA, ld treats it as dot moving backwards, sets LMA = VMA, and
+objcopy fails to write the Image ("huge (ie negative) file offset"). Whether
+a configuration links then depends on the size of everything before .got.
+
 ---
 --- a/arch/riscv/Makefile
 +++ b/arch/riscv/Makefile
@@ -26,7 +35,7 @@ relocate_kernel() handles. With RANDOMIZE_BASE on a NanoKVM the kernel keeps
  ifeq ($(CONFIG_DYNAMIC_FTRACE),y)
 --- a/arch/riscv/kernel/vmlinux.lds.S
 +++ b/arch/riscv/kernel/vmlinux.lds.S
-@@ -139,11 +139,6 @@
+@@ -139,15 +139,16 @@
  #ifdef CONFIG_RELOCATABLE
  	.data.rel : { *(.data.rel*) }
  	.plt : { *(.plt) }
@@ -36,9 +45,20 @@ relocate_kernel() handles. With RANDOMIZE_BASE on a NanoKVM the kernel keeps
 -	.hash : { *(.hash) }
 -	.gnu.hash : { *(.gnu.hash) }
  #endif
- 
+
  #ifdef CONFIG_EFI
-@@ -171,4 +166,8 @@
+-	.pecoff_edata_padding : { BYTE(0); . = ALIGN(PECOFF_FILE_ALIGNMENT); }
++	/*
++	 * Its own load address: the empty .plt before it is dropped, but ld
++	 * still takes the load address of the next section from it.
++	 */
++	.pecoff_edata_padding : AT(ADDR(.pecoff_edata_padding) - LOAD_OFFSET) {
++		BYTE(0); . = ALIGN(PECOFF_FILE_ALIGNMENT);
++	}
+ 	__pecoff_data_raw_size = ABSOLUTE(. - __pecoff_text_end);
+ 	__pecoff_data_raw_end = ABSOLUTE(.);
+ #endif
+@@ -171,4 +172,8 @@
  	.riscv.attributes 0 : { *(.riscv.attributes) }
  
  	DISCARDS

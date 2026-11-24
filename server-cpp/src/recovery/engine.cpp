@@ -117,10 +117,12 @@ Error validate_plan(const Plan &p)
 	if ((p.options.action != "restore" && p.options.action != "reset") || (p.rolling_back && !p.started)) return "invalid recovery journal";
 	std::size_t n = p.changes ? p.changes->size() : 0;
 	if (n > max_files + 8) return "excessive recovery changes";
+	if (!valid_groups(p.covers).empty()) return "invalid recovery journal";
 	std::set<std::string> seen;
 	std::size_t total = 0;
 	if (p.changes)
 		for (const auto &c : *p.changes) {
+			if (!p.covers_path(c.path)) return "recovery change outside the plan's settings groups";
 			if ((!allowed(c.path) && c.path != "etc/shadow" && c.path != "etc/kvm/.jwt_secret" && c.path != "etc/kvm/.picoclaw_internal_token") ||
 			    seen.count(c.path))
 				return "invalid recovery destination";
@@ -147,6 +149,12 @@ Error validate_plan(const Plan &p)
 
 } // namespace
 
+bool Plan::covers_path(const std::string &name) const
+{
+	auto g = group(name);
+	return g.empty() || std::find(covers.begin(), covers.end(), g) != covers.end();
+}
+
 std::string to_json(const Plan &p)
 {
 	std::string out = "{";
@@ -166,6 +174,7 @@ std::string to_json(const Plan &p)
 		out += "]";
 	}
 	out += ",\"removePackages\":" + strings_json(p.remove_packages);
+	if (!p.covers.empty()) out += ",\"covers\":" + strings_json(p.covers);
 	out += ",\"world\":" + (p.world ? gojson::quote(base64::encode(*p.world)) : std::string("null"));
 	return out + "}";
 }
@@ -189,6 +198,13 @@ std::optional<Archive> Engine::snapshot(Error &error) const
 	auto files = inventory(root, error);
 	if (!files) return std::nullopt;
 	a.files = std::move(*files);
+	// A group the device had no state of is not covered, and its other files stay out: a backup made before ZeroTier
+	// started says nothing about an identity made later, which no restore could bring back once deleted.
+	a.covers = covered_groups(*a.files);
+	std::erase_if(*a.files, [&](const File &f) {
+		auto g = group(f.path);
+		return !g.empty() && std::find(a.covers.begin(), a.covers.end(), g) == a.covers.end();
+	});
 	auto world = read(root, "etc/apk/world", max_file, error);
 	if (!error.empty()) return std::nullopt;
 	if (world) {
@@ -228,6 +244,9 @@ bool Engine::prepare(const Archive *a, const Options &o, Plan &p, Preview &v, Er
 			return error = "board profile differs or is unknown; use migration mode", false;
 		v.version = a->version;
 		v.packages = a->packages;
+		p.covers = a->covers;
+	} else {
+		p.covers = all_groups();
 	}
 	auto current = inventory(root, error);
 	if (!current) return false;
@@ -236,6 +255,7 @@ bool Engine::prepare(const Archive *a, const Options &o, Plan &p, Preview &v, Er
 	for (const auto &f : *current) {
 		if (o.action == "reset" && o.keep_users && (users(f.path) || f.path == "etc/kvm/ssh_stop" || f.path.rfind("etc/ssh/", 0) == 0)) continue;
 		if (o.action == "restore" && o.mode == "migrate" && !portable(f.path)) continue;
+		if (!p.covers_path(f.path)) continue;
 		desired[f.path] = std::nullopt;
 	}
 	if (o.action == "restore" && a->files) {
@@ -471,6 +491,7 @@ bool decode_plan(const std::string &data, Plan &p, Error &error)
 				p.changes = std::move(list);
 			}
 		} else if (godecode::key_matches(k, "removePackages")) ok = godecode::get_strings(m, p.remove_packages) && ok;
+		else if (godecode::key_matches(k, "covers")) ok = decode_groups(m, p.covers) && ok;
 		else if (godecode::key_matches(k, "world")) ok = godecode::get_bytes(m, p.world) && ok;
 	}
 	if (!ok) error = "json: cannot unmarshal the recovery journal into recovery.Plan";
@@ -534,6 +555,10 @@ Error Engine::resume(const std::function<Error(const std::vector<std::string> &)
 			Plan next;
 			Preview preview;
 			if (!prepare(nullptr, p.options, next, preview, error)) return finish(error);
+			// Prepare covers every group this release knows; a reset changes only those recorded when it was
+			// queued. One queued before groups existed resets none of them.
+			next.covers = p.covers;
+			if (next.changes) std::erase_if(*next.changes, [&](const Change &c) { return !next.covers_path(c.path); });
 			next.world = p.world;
 			next.remove_packages = p.remove_packages;
 			p = std::move(next);
@@ -548,7 +573,7 @@ Error Engine::resume(const std::function<Error(const std::vector<std::string> &)
 			auto current = inventory(root, error);
 			if (!current) return finish(error);
 			for (auto &cf : *current) {
-				if (seen.count(cf.path) || (p.options.mode == "migrate" && !portable(cf.path))) continue;
+				if (seen.count(cf.path) || (p.options.mode == "migrate" && !portable(cf.path)) || !p.covers_path(cf.path)) continue;
 				if (!p.changes) p.changes = std::vector<Change>{};
 				p.changes->push_back(Change{cf.path, cf, std::nullopt});
 			}

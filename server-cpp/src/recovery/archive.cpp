@@ -51,8 +51,41 @@ const char *const settings_text = R"(
  etc/ssh/ssh_host_ecdsa_key etc/ssh/ssh_host_ecdsa_key.pub
  etc/kvm/server.crt etc/kvm/server.key etc/kvm/bmc/config.json
  etc/kvm/acme/settings.json var/lib/tailscale/tailscaled.state etc/netbird/config.json
+ var/lib/zerotier-one/identity.secret var/lib/zerotier-one/identity.public var/lib/zerotier-one/local.conf
  etc/kvm/notify/config.json etc/kvm/notify/addresses.json
 )";
+
+// Settings that a later release added to the backup, by group. An archive lists the groups it covers. Restoring one
+// made before a group existed leaves that group's files on the device as they are: their absence from the archive
+// does not mean they were absent from the device.
+struct SettingsGroup {
+	const char *name;
+	std::vector<std::string> prefixes;
+	// A backup covers the group only when the device had one of these files.
+	std::vector<std::string> markers;
+};
+
+// Sorted by name (allGroups). Prefixes do not overlap, so the order of lookup does not matter.
+const std::vector<SettingsGroup> &groups()
+{
+	static const std::vector<SettingsGroup> list{
+		// The node identity and the networks joined with it. Without identity.secret ZeroTier had not started:
+		// network files then are only preseeded join requests, and restoring them would delete the identity and
+		// networks made since.
+		{"zerotier", {"var/lib/zerotier-one/identity.", "var/lib/zerotier-one/networks.d/"}, {"var/lib/zerotier-one/identity.secret"}},
+		// Configuration, which does not depend on the identity: covered once there is one, or once ZeroTier started
+		// (it then had none).
+		{"zerotier-config", {"var/lib/zerotier-one/local.conf"}, {"var/lib/zerotier-one/local.conf", "var/lib/zerotier-one/identity.secret"}},
+	};
+	return list;
+}
+
+const SettingsGroup *find_group(const std::string &name)
+{
+	for (const auto &g : groups())
+		if (name == g.name) return &g;
+	return nullptr;
+}
 
 std::string json_bytes(const std::optional<std::string> &data) { return data ? gojson::quote(base64::encode(*data)) : "null"; }
 
@@ -246,6 +279,7 @@ bool decode_archive(const godecode::Value &v, Archive &a)
 			}
 		} else if (godecode::key_matches(k, "packages")) ok = godecode::get_strings(m, a.packages) && ok;
 		else if (godecode::key_matches(k, "rootHash")) ok = godecode::get(m, a.root_hash) && ok;
+		else if (godecode::key_matches(k, "covers")) ok = decode_groups(m, a.covers) && ok;
 		else return false;
 	}
 	return ok;
@@ -325,8 +359,67 @@ const std::vector<std::string> &settings_trees()
 {
 	static const std::vector<std::string> trees{"etc/kvm/network", "etc/kvm/wifi.saved", "etc/kvm/usb", "etc/kvm/branding",
 	                                            "etc/kvm/scripts", "etc/kvm/wireguard", "etc/kvm/openvpn", "etc/kvm/tls",
-	                                            "etc/kvm/acme/data", "etc/nanokvm-rustdesk"};
+	                                            "etc/kvm/acme/data", "etc/nanokvm-rustdesk", "var/lib/zerotier-one/networks.d"};
 	return trees;
+}
+
+std::string group(const std::string &p)
+{
+	for (const auto &g : groups())
+		for (const auto &prefix : g.prefixes)
+			if (p.rfind(prefix, 0) == 0) return g.name;
+	return "";
+}
+
+std::vector<std::string> covered_groups(const std::vector<File> &files)
+{
+	std::vector<std::string> names;
+	for (const auto &name : all_groups()) {
+		const auto &markers = find_group(name)->markers;
+		if (std::any_of(files.begin(), files.end(),
+		                [&](const File &f) { return std::find(markers.begin(), markers.end(), f.path) != markers.end(); }))
+			names.push_back(name);
+	}
+	return names;
+}
+
+std::vector<std::string> all_groups()
+{
+	std::vector<std::string> names;
+	for (const auto &g : groups()) names.push_back(g.name);
+	std::sort(names.begin(), names.end());
+	return names;
+}
+
+Error valid_groups(const std::vector<std::string> &names)
+{
+	std::set<std::string> seen;
+	for (const auto &name : names) {
+		// Groups are only added: an unknown one comes from a later release.
+		if (!find_group(name))
+			return "the backup holds settings of a later application version; install the same or a newer version before restoring";
+		if (!seen.insert(name).second) return "invalid settings group";
+	}
+	return "";
+}
+
+bool decode_groups(const godecode::Value &v, std::vector<std::string> &out)
+{
+	using K = godecode::Value::Kind;
+	if (v.kind == K::null) {
+		out.clear();
+		return true;
+	}
+	if (v.kind != K::array) return false;
+	bool ok = true;
+	std::vector<std::string> list;
+	for (std::size_t i = 0; i < v.items.size(); i++) {
+		std::string s = i < out.size() ? out[i] : std::string();
+		ok = godecode::get(v.items[i], s) && ok;
+		list.push_back(std::move(s));
+	}
+	out = std::move(list);
+	return ok;
 }
 
 bool package_name(const std::string &s)
@@ -382,7 +475,7 @@ bool portable(const std::string &p)
 	    prefix("etc/kvm/monitor_"))
 		return false;
 	for (const char *x : {"etc/kvm/wireguard/", "etc/kvm/openvpn/", "etc/kvm/tls/", "etc/kvm/acme/", "etc/nanokvm-rustdesk/",
-	                      "root/.picoclaw/", "etc/kvm/usb/"})
+	                      "var/lib/zerotier-one/", "root/.picoclaw/", "etc/kvm/usb/"})
 		if (prefix(x)) return false;
 	static const std::set<std::string> local{
 		"etc/kvm/bmc/config.json", "etc/kvm/cron/crontabs/root", "etc/kvm/cache/wol", "etc/netbird/config.json",
@@ -403,6 +496,7 @@ Error validate(const Archive &a)
 	if (nfiles > max_files || npackages > 2048 || a.board.size() > 128) return "archive inventory too large";
 	if (a.root_hash.size() > 1024 || a.root_hash.find_first_of(std::string(":\r\n\0", 4)) != std::string::npos)
 		return "invalid root password record";
+	if (auto e = valid_groups(a.covers); !e.empty()) return e;
 	std::size_t total = 0;
 	std::set<std::string> seen;
 	if (a.files)
@@ -412,6 +506,8 @@ Error validate(const Archive &a)
 			if (!allowed(f.path) || seen.count(f.path) || size > max_file || total > max_data || (f.mode & ~0777u) != 0)
 				return "invalid or excessive settings entry: " + f.path;
 			seen.insert(f.path);
+			if (auto g = group(f.path); !g.empty() && std::find(a.covers.begin(), a.covers.end(), g) == a.covers.end())
+				return "settings entry outside the archive's groups: " + f.path;
 			if (f.path == "etc/kvm/pwd")
 				if (auto e = validate_accounts(f.data.value_or("")); !e.empty()) return e;
 			if (f.path == "etc/kvm/server.yaml" && !yamlv3::valid_ports(f.data.value_or(""))) return "invalid server configuration";
@@ -445,6 +541,11 @@ std::string to_json(const Archive &a)
 		out += "]";
 	}
 	if (!a.root_hash.empty()) out += ",\"rootHash\":" + gojson::quote(a.root_hash);
+	if (!a.covers.empty()) {
+		out += ",\"covers\":[";
+		for (std::size_t i = 0; i < a.covers.size(); i++) out += (i ? "," : "") + gojson::quote(a.covers[i]);
+		out += "]";
+	}
 	return out + "}";
 }
 

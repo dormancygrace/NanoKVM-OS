@@ -218,6 +218,18 @@ void Router::dispatch(Request &request, Response &response) const
 			return;
 		}
 	}
+	// A plain GET to a WebSocket route: the Go handlers upgraded at once, and gorilla/websocket refused a request
+	// that is not an upgrade with 400, its status text and Sec-Websocket-Version.
+	if (request.method == "GET" || request.method == "HEAD") {
+		std::map<std::string, std::string> params;
+		for (const auto &ws_route : ws_routes_)
+			if (match(ws_route.first, request.path, params)) {
+				response.set_header("Sec-Websocket-Version", "13");
+				response.set_header("X-Content-Type-Options", "nosniff");
+				response.text(400, "Bad Request\n", "text/plain; charset=utf-8");
+				return;
+			}
+	}
 	// Gin's default for an unknown route.
 	response.text(404, "404 page not found");
 }

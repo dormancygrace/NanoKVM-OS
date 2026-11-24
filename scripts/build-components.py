@@ -56,7 +56,7 @@ COMPONENTS = {
                'scripts/build-qhd-edid.py', 'scripts/build-monitor-edids.py',
                'scripts/build-portrait-edid.py', 'scripts/build-wide-monitor-edids.py',
                'scripts/edid-rgb-range.py', 'scripts/build-usb-audio.py', 'scripts/build-openssl.py'],
-              ['busybox', 'exfatprogs', 'i2c-tools', 'lolcat', 'tinyalsa', 'openssl', 'zlib-ng'],
+              ['busybox', 'exfatprogs', 'lolcat', 'tinyalsa', 'openssl', 'zlib-ng'],
               ['kernel'], ['images/tools', 'tools/compress']),
     'server': (['server', 'firmware/cpu', 'scripts/build-server-existing-libs.py'],
                ['go'], ['native', 'tools'], ['images/server']),

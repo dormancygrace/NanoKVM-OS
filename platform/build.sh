@@ -19,7 +19,7 @@
 #   tpu        TPU runtime and the programs that run models on it
 #   system     kvm_system board service
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
-#              exfatprogs, i2c-tools, lolcat, OpenSSL and zlib-ng (also for the server)
+#              exfatprogs, lolcat, OpenSSL and zlib-ng (also for the server)
 #   server     NanoKVM-Server and update/USB internet helpers
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
@@ -807,15 +807,11 @@ tools() {
     "${cross}gcc" "${cpu_flags[@]}" -static -Wall -Wextra -Werror "$repo/firmware/boards/nkos-board-probe.c" -o "$t/nkos-board-probe"
     "${cross}strip" -o "$img/tools/nkos-board-probe" "$t/nkos-board-probe"
 
-    # exfatprogs and i2c-tools in place of Alpine's community packages
-    # (nanokvm-exfatprogs, nanokvm-i2c-tools). mkfs.exfat needs libblkid, which
-    # the toolchain has only as a shared library: exfatprogs links it and the C
-    # library dynamically (Alpine's libblkid on the device); i2c-tools is static.
-    local b exf i2c
+    # mkfs.exfat links the device's libblkid, available as a shared library.
+    local b exf
     exf=$(lock exfatprogs | awk '{ print $2 }'); exf=${exf##*/}
-    i2c=$(lock i2c-tools | awk '{ print $2 }'); i2c=${i2c##*/}
     tar -xJf "$dl/$exf" -C "$t"
-    exf=$t/${exf%.tar.xz} i2c=$t/${i2c%.tar.gz}
+    exf=$t/${exf%.tar.xz}
     # Link the SONAME directly: libtool's libblkid.la injects an absolute
     # sysroot RPATH. Removing its tag later leaves the path in .dynstr and
     # makes mkfs.exfat differ between hosts even after stripping.
@@ -826,7 +822,7 @@ tools() {
             RANLIB="${cross}ranlib" STRIP="${cross}strip" PKG_CONFIG="$host/pkg-config" \
             BLKID_LIBS="-l:libblkid.so.1" CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
         make -j"$jobs" > "$t/exfatprogs-make.log")
-    mkdir -p "$img/tools/exfatprogs" "$img/tools/i2c-tools"
+    mkdir -p "$img/tools/exfatprogs"
     for b in mkfs/mkfs.exfat fsck/fsck.exfat tune/tune.exfat label/exfatlabel dump/dump.exfat exfat2img/exfat2img; do
         "${cross}strip" --remove-section=.comment --remove-section=.note \
             -o "$img/tools/exfatprogs/${b##*/}" "$exf/$b"
@@ -834,14 +830,6 @@ tools() {
         "$host/patchelf" --remove-rpath "$img/tools/exfatprogs/${b##*/}"
     done
     cp "$exf/COPYING" "$img/tools/exfatprogs/"
-    tar -xzf "$dl/${i2c##*/}.tar.gz" -C "$t"
-    make -C "$i2c" -j"$jobs" CC="${cross}gcc" AR="${cross}ar" CFLAGS="${cpu_flags[*]} -g0 -Wall" \
-        LDFLAGS=-static BUILD_DYNAMIC_LIB=0 BUILD_STATIC_LIB=1 USE_STATIC_LIB=1 > "$t/i2c-tools-make.log"
-    for b in i2cdetect i2cget i2cset i2cdump i2ctransfer; do
-        "${cross}strip" --remove-section=.comment --remove-section=.note \
-            -o "$img/tools/i2c-tools/$b" "$i2c/tools/$b"
-    done
-    cp "$i2c/COPYING" "$i2c/COPYING.LGPL" "$img/tools/i2c-tools/"
 
     # lolcat for the rainbow SSH style (nanokvm-base's nanokvm-rainbow.sh),
     # static; Alpine has it only in edge/testing.
@@ -1407,7 +1395,7 @@ source_archive() {
     mkdir -p "$stage/$name/upstream/buildroot-packages" "$stage/$name/NanoKVM-OS"
     # The GPL-licensed inputs of the image. The rest of sources.lock is
     # fetched from its upstream by build.sh and is not redistributed here.
-    for pkg in buildroot linux u-boot osdrv aic8800 sipeed-sdk opensbi busybox exfatprogs i2c-tools; do
+    for pkg in buildroot linux u-boot osdrv aic8800 sipeed-sdk opensbi busybox exfatprogs; do
         url=$(lock "$pkg" | awk '{ print $2 }')
         if [[ $url == *.git ]]; then cp "$dl/$pkg.tar" "$stage/$name/upstream/"
         else cp "$dl/${url##*/}" "$stage/$name/upstream/"; fi

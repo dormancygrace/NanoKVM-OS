@@ -209,7 +209,7 @@ kernel tree /usr/lib/nanokvm/boot                  0644  @boot
 kernel tree /usr/share/licenses/nanokvm-kernel/initramfs 0644 @licenses/initramfs
 kmod   tree /lib/modules                           0644  @lib/modules
 
-# nanokvm-exfatprogs and nanokvm-i2c-tools: in place of Alpine's community packages
+# nanokvm-exfatprogs1: exFAT filesystem tools
 exfatprogs file /usr/sbin/mkfs.exfat                       0755  @tools/exfatprogs/mkfs.exfat
 exfatprogs file /usr/sbin/fsck.exfat                       0755  @tools/exfatprogs/fsck.exfat
 exfatprogs file /usr/sbin/tune.exfat                       0755  @tools/exfatprogs/tune.exfat
@@ -217,13 +217,6 @@ exfatprogs file /usr/sbin/exfatlabel                       0755  @tools/exfatpro
 exfatprogs file /usr/sbin/dump.exfat                       0755  @tools/exfatprogs/dump.exfat
 exfatprogs file /usr/sbin/exfat2img                        0755  @tools/exfatprogs/exfat2img
 exfatprogs file /usr/share/licenses/nanokvm-exfatprogs1/COPYING 0644 @tools/exfatprogs/COPYING
-i2c-tools file /usr/sbin/i2cdetect                         0755  @tools/i2c-tools/i2cdetect
-i2c-tools file /usr/sbin/i2cget                            0755  @tools/i2c-tools/i2cget
-i2c-tools file /usr/sbin/i2cset                            0755  @tools/i2c-tools/i2cset
-i2c-tools file /usr/sbin/i2cdump                           0755  @tools/i2c-tools/i2cdump
-i2c-tools file /usr/sbin/i2ctransfer                       0755  @tools/i2c-tools/i2ctransfer
-i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING 0644 @tools/i2c-tools/COPYING
-i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING.LGPL 0644 @tools/i2c-tools/COPYING.LGPL
 
 # OpenSSL 3.5 LTS runtime; headers/static libraries remain development artifacts.
 openssl tree /usr/bin 0755 @tools/openssl/usr/bin

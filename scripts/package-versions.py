@@ -36,7 +36,7 @@ PACKAGES = {
     'nanokvm-openssl': None,
     'nanokvm-exfatprogs1': 'exfatprogs',
     'nanokvm-exfatprogs': None,
-    'nanokvm-i2c-tools': 'i2c-tools',
+    'nanokvm-i2c-tools': None,
     'nanokvm-tpu': 'tpu',
     'nanokvm-release': 'release',
     # The names of nanokvm-kernel and the others before 3.7.0.

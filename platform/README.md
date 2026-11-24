@@ -320,10 +320,14 @@ the old ones (`apkrollback.LegacyTargets`).
 `nanokvm-exfatprogs1` supplies `mkfs.exfat` for formatting `/data` on first
 boot and `fsck.exfat` for checking it. The `tools` step builds exfatprogs
 from its pinned upstream release against the device's `libblkid`.
-The OS installs Alpine's `i2c-tools` package. HDMI receiver detection uses
-its `i2cdetect` command. For devices configured with Alpine main alone, the
-OS index also serves the identical Alpine-signed APK. A compatibility package
-preserves the old name for explicit installs and older rollback clients.
+The OS installs Alpine's `i2c-tools` package for HDMI receiver detection
+(`i2cdetect`). When installing from the local `release/apk/` repository,
+enable Alpine v3.24 community alongside main to resolve this dependency.
+The published OS index also serves the identical Alpine-signed APK, so devices
+can update with only Alpine main enabled. To update the mirrored APK, change
+its filename and SHA-256 together in `scripts/index-apk-repo.py`.
+A compatibility package preserves the old name for explicit installs and older
+rollback clients.
 
 The browser package requires `nanokvm-web-api=2`, provided by the server
 (2: the browser sends passwords as typed, marked `passwordEncoding: "plain"`,

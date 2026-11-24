@@ -213,19 +213,6 @@
       }
     },
     {
-      "name": "i2c-tools",
-      "lock_entry": "i2c-tools",
-      "path": "platform/sources.lock",
-      "pattern": "i2c-tools-([0-9.]+)\\.tar",
-      "kind": "index",
-      "url": "https://www.kernel.org/pub/software/utils/i2c-tools/",
-      "upstream_pattern": "i2c-tools-([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\\.tar",
-      "pull_request": {
-        "id": "i2c-tools",
-        "mode": "archive-pin"
-      }
-    },
-    {
       "name": "lolcat",
       "path": "platform/sources.lock",
       "pattern": "(?m)^lolcat\\s+\\S*/v([0-9.]+)\\.tar\\.gz",

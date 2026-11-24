@@ -7,7 +7,7 @@
 #
 # The payload tree is prepared by the NanoKVM image staging step. It may either
 # contain package directories directly or below the profile directory:
-#   PAYLOAD_ROOT/stock/{keys,base,kernel,kmod,firmware,bootloader,app,web,zlib,openssl,exfatprogs,i2c-tools,tpu,release}
+#   PAYLOAD_ROOT/stock/{keys,base,kernel,kmod,firmware,bootloader,app,web,zlib,openssl,exfatprogs,tpu,release}
 # Without keys/, nanokvm-keys holds firmware/alpine/keys; without release/,
 # a release marker is generated.
 #
@@ -79,7 +79,7 @@ else
 	PROFILE_ROOT=$PAYLOAD_ROOT
 fi
 
-for required in base kernel kmod firmware bootloader app web zlib openssl exfatprogs i2c-tools tpu; do
+for required in base kernel kmod firmware bootloader app web zlib openssl exfatprogs tpu; do
 	if [ ! -d "$PROFILE_ROOT/$required" ]; then
 		echo "build-alpine-packages: missing payload $PROFILE_ROOT/$required" >&2
 		exit 1
@@ -152,7 +152,6 @@ archive_payload nanokvm-bootloader "$PROFILE_ROOT/bootloader"
 archive_payload nanokvm "$PROFILE_ROOT/app"
 archive_payload nanokvm-web "$PROFILE_ROOT/web"
 archive_payload nanokvm-exfatprogs "$PROFILE_ROOT/exfatprogs"
-archive_payload nanokvm-i2c-tools "$PROFILE_ROOT/i2c-tools"
 archive_payload nanokvm-zlib "$PROFILE_ROOT/zlib"
 archive_payload nanokvm-openssl3 "$PROFILE_ROOT/openssl"
 archive_payload nanokvm-tpu "$PROFILE_ROOT/tpu"

@@ -23,7 +23,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware` |
 | `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license; zlib-ng is also linked statically into NanoKVM-Server for its gzip reader) | `nanokvm-zlib`, in place of Alpine's `zlib`; the license also in `nanokvm`, `/usr/share/licenses/nanokvm` |
-| `images/tools/exfatprogs/`, `images/tools/i2c-tools/` (exfatprogs 1.4.5 and i2c-tools 4.4 with their licenses) | `nanokvm-exfatprogs`, `nanokvm-i2c-tools` |
+| `images/tools/exfatprogs/` (exfatprogs 1.4.5 and its license) | `nanokvm-exfatprogs` |
 | `fip.bin`, `fip-licenses/` | `nanokvm-bootloader`; its trigger puts `fip.bin` on the boot partition |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
 | `release/apk/` | the signed APK repository of the nineteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
@@ -318,12 +318,12 @@ the old ones (`apkrollback.LegacyTargets`).
 ### Tools in place of Alpine community packages
 
 `nanokvm-exfatprogs` supplies `mkfs.exfat` for formatting `/data` on first
-boot and `fsck.exfat` for checking it. The optional `nanokvm-i2c-tools`
-package provides the five I2C diagnostic commands. Receiver provisioning
-uses the I2C interface directly. The `tools` step builds both packages from
-the pinned upstream releases with the image's toolchain. i2c-tools links
-statically and exfatprogs uses the device's `libblkid`. Each provides and
-replaces its Alpine community counterpart.
+boot and `fsck.exfat` for checking it. The `tools` step builds exfatprogs
+from its pinned upstream release against the device's `libblkid`.
+Receiver provisioning uses the kernel I2C interface directly. Install
+optional I2C diagnostic commands with `apk add i2c-tools` from Alpine
+community. The OS index retains the former `nanokvm-i2c-tools` name for
+old rollback clients and explicit package selections.
 
 The browser package requires `nanokvm-web-api=2`, provided by the server
 (2: the browser sends passwords as typed, marked `passwordEncoding: "plain"`,

@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory() as directory:
     run(validate, work / 'p384.key', work / 'p384.pub')
     payloads = work / 'payloads'
     for name in ('base', 'kernel', 'kmod', 'firmware',
-                 'bootloader', 'app', 'web', 'zlib', 'openssl', 'exfatprogs', 'i2c-tools', 'tpu'):
+                 'bootloader', 'app', 'web', 'zlib', 'openssl', 'exfatprogs', 'tpu'):
         path = payloads / name / 'usr/share/ec-test'
         path.mkdir(parents=True)
         (path / name).write_text(name)

@@ -35,6 +35,9 @@ struct Archive {
 	std::optional<std::vector<File>> files;
 	std::optional<std::vector<std::string>> packages;
 	std::string root_hash;
+	// The settings groups (groups in archive.cpp) the archive covers: those of which the device had state (see
+	// covered_groups). Archives made before groups existed have none. JSON omitempty: none and empty alike.
+	std::vector<std::string> covers;
 };
 
 struct Options {
@@ -52,7 +55,15 @@ struct Plan {
 	Options options;
 	std::optional<std::vector<Change>> changes;
 	std::optional<std::vector<std::string>> remove_packages;
+	// The settings groups the plan may change: those the restored archive covers, or all for a reset requested now.
+	// A journal without them, as a restore or reset queued by a release before groups existed, changes no file of
+	// any group: neither in the plan nor when the boot pass takes inventory again. JSON omitempty.
+	std::vector<std::string> covers;
+	// The source world is checked again at boot: do not execute a stale removal.
 	std::optional<std::string> world;
+
+	// Whether the plan may change a settings path: one outside every group, or one in a group the plan covers.
+	bool covers_path(const std::string &name) const;
 };
 
 struct Preview {

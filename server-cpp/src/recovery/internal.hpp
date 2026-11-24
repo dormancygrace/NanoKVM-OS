@@ -21,6 +21,15 @@ bool allowed(const std::string &p);
 bool retired(const std::string &p);
 bool users(const std::string &p);
 bool portable(const std::string &p);
+// Settings groups: the name of the group a settings path belongs to, or ""; the groups a backup of files covers;
+// all groups, sorted (those a new archive covers); validGroups (unknown or repeated names).
+std::string group(const std::string &p);
+std::vector<std::string> covered_groups(const std::vector<File> &files);
+std::vector<std::string> all_groups();
+Error valid_groups(const std::vector<std::string> &names);
+// json.Unmarshal of a []string into an existing value (covers): null clears it, null elements keep the value at
+// their index.
+bool decode_groups(const godecode::Value &v, std::vector<std::string> &out);
 // ^[A-Za-z0-9_.][A-Za-z0-9+_.-]{0,127}$
 bool package_name(const std::string &s);
 // versionPattern: ^v?([0-9]+)\.([0-9]+)\.([0-9]+)(?:[-._][A-Za-z0-9.-]+)?$ with its three groups.

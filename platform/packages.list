@@ -216,7 +216,7 @@ exfatprogs file /usr/sbin/tune.exfat                       0755  @tools/exfatpro
 exfatprogs file /usr/sbin/exfatlabel                       0755  @tools/exfatprogs/exfatlabel
 exfatprogs file /usr/sbin/dump.exfat                       0755  @tools/exfatprogs/dump.exfat
 exfatprogs file /usr/sbin/exfat2img                        0755  @tools/exfatprogs/exfat2img
-exfatprogs file /usr/share/licenses/nanokvm-exfatprogs/COPYING 0644 @tools/exfatprogs/COPYING
+exfatprogs file /usr/share/licenses/nanokvm-exfatprogs1/COPYING 0644 @tools/exfatprogs/COPYING
 i2c-tools file /usr/sbin/i2cdetect                         0755  @tools/i2c-tools/i2cdetect
 i2c-tools file /usr/sbin/i2cget                            0755  @tools/i2c-tools/i2cget
 i2c-tools file /usr/sbin/i2cset                            0755  @tools/i2c-tools/i2cset

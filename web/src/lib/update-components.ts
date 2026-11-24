@@ -22,6 +22,7 @@ const labels: Record<string, string> = {
   'nanokvm-openssl': 'openssl',
   'nanokvm-openssl3': 'openssl',
   'nanokvm-exfatprogs': 'exfatprogs',
+  'nanokvm-exfatprogs1': 'exfatprogs',
   'nanokvm-i2c-tools': 'i2ctools',
   'nanokvm-tpu': 'tpu'
 };

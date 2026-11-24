@@ -45,12 +45,12 @@ changes that identifier once, rebuilding every core package:
 - `nanokvm-release` always changes, since it carries the release version;
 - `nanokvm-kernel` and `nanokvm-kmod` share the upstream Linux version and
   revision. A change to either rebuilds the pair;
-- `nanokvm-openssl3` uses the upstream OpenSSL version. Its revision and the
-  Linux package revision identify the OS build that last changed their content.
+- `nanokvm-openssl3` and `nanokvm-exfatprogs1` use the upstream OpenSSL and
+  exfatprogs versions. Their revisions and the Linux package revision identify the OS build that last changed their content.
   The decimal revision encodes OS major, three-digit minor, three-digit patch
   and three-digit beta number (999 for stable). This keeps maintenance releases
   and beta builds ordered even when published on different branches. The first
-  published beta of each OS version builds these three packages so a device on a later
+  published beta of each OS version builds these four packages so a device on a later
   maintenance release can still upgrade to the published beta.
 
 `nanokvm-release` depends directly on the selected versions of all components
@@ -60,6 +60,9 @@ world selections do not require a separate compatibility package. A device may
 therefore show `nanokvm-web` 3.3.0 next to `nanokvm-release` 3.5.0. The packages
 step reads the previous repository from `NANOKVM_PREVIOUS`, a URL or a
 directory with `packages.json`; without it every package is built. It writes `packages.json` next to the indexes.
+
+The old `nanokvm-exfatprogs` name forwards explicit APK world entries to
+`nanokvm-exfatprogs1`. Fresh installs depend directly on the latter.
 
 ## Bootloader
 

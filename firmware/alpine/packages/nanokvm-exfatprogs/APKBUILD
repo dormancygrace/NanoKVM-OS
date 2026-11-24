@@ -1,29 +1,17 @@
 pkgname=nanokvm-exfatprogs
 pkgver=${PKGVER:-0.1.0}
 pkgrel=0
-pkgdesc="exFAT tools (exfatprogs), built for the C906"
-url="https://github.com/exfatprogs/exfatprogs"
+pkgdesc="Compatibility package for the NanoKVM exFAT utilities"
+url="https://github.com/dormancygrace/NanoKVM-OS"
 arch="riscv64"
 license="GPL-2.0-or-later"
-# In place of Alpine's exfatprogs from the community repository, so that
-# nanokvm-release needs nothing from it: installing this package removes it,
-# and a dependency on exfatprogs is satisfied by this one.
-provides="exfatprogs=1.4.5-r100"
-# mkfs.exfat probes devices with libblkid; the programs link it and musl.
-depends="libblkid"
-replaces="exfatprogs"
-provider_priority=100
-source="$pkgname-$pkgver.tar.gz"
-# Programs from build.sh (tools step), built with the image's toolchain.
+depends="nanokvm-exfatprogs1"
 options="!check !strip !tracedeps"
 
 build() {
-	:
+    :
 }
 
 package() {
-	mkdir -p "$pkgdir"
-	cp -a "$srcdir/$pkgname-$pkgver/." "$pkgdir/"
+    mkdir -p "$pkgdir"
 }
-
-sha256sums=""

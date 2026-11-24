@@ -5,7 +5,7 @@ A package keeps the version it was last published with while its content stays
 the same: its payload tree and its recipe directory. Most changed packages get the
 release's APK version. nanokvm-release always changes, since it carries the
 release version. nanokvm-kernel and nanokvm-kmod change together,
-with the upstream Linux version. OpenSSL also follows its upstream version.
+with the upstream Linux version. OpenSSL and exfatprogs also follow their upstream versions.
 
   select    write versions.json and versions.txt (NAME VERSION CHANGED PKGREL) from the
             payloads, the recipes and the packages.json of the previous release
@@ -34,7 +34,8 @@ PACKAGES = {
     'nanokvm-zlib': 'zlib',
     'nanokvm-openssl3': 'openssl',
     'nanokvm-openssl': None,
-    'nanokvm-exfatprogs': 'exfatprogs',
+    'nanokvm-exfatprogs1': 'exfatprogs',
+    'nanokvm-exfatprogs': None,
     'nanokvm-i2c-tools': 'i2c-tools',
     'nanokvm-tpu': 'tpu',
     'nanokvm-release': 'release',
@@ -51,7 +52,7 @@ SOURCE_LOCK = Path(__file__).resolve().parents[1] / 'platform/sources.lock'
 
 def component_versions():
     sources = dict(row.split()[:2] for row in SOURCE_LOCK.read_text().splitlines()
-                   if row.startswith(('linux ', 'openssl ')))
+                   if row.startswith(('linux ', 'openssl ', 'exfatprogs ')))
 
     def upstream(name):
         archive = sources[name].rsplit('/', 1)[-1]
@@ -63,7 +64,8 @@ def component_versions():
     linux = upstream('linux')
     if linux.count('.') == 1:
         linux += '.0'
-    return {**dict.fromkeys(KERNEL, linux), 'nanokvm-openssl3': upstream('openssl')}
+    return {**dict.fromkeys(KERNEL, linux), 'nanokvm-openssl3': upstream('openssl'),
+            'nanokvm-exfatprogs1': upstream('exfatprogs')}
 
 
 def release_revision(version):
@@ -136,7 +138,7 @@ def select(payloads, recipes, version, previous):
     # These upstream versions advance independently of the OS. At the same
     # upstream version, a changed build must sort after the previous APK,
     # including when it first reaches devices through the beta channel.
-    for group in (KERNEL, ('nanokvm-openssl3',)):
+    for group in (KERNEL, ('nanokvm-openssl3',), ('nanokvm-exfatprogs1',)):
         upstream = components[group[0]]
         old = [published.get(n, {}) for n in group]
         changed = any(chosen[n]['changed'] or p.get('version') != upstream or 'pkgrel' not in p

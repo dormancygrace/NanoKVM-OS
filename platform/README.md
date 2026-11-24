@@ -4,7 +4,7 @@
 - the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
-- the nineteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
+- the twenty `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
 Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
 
@@ -23,10 +23,10 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware` |
 | `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license; zlib-ng is also linked statically into NanoKVM-Server for its gzip reader) | `nanokvm-zlib`, in place of Alpine's `zlib`; the license also in `nanokvm`, `/usr/share/licenses/nanokvm` |
-| `images/tools/exfatprogs/`, `images/tools/i2c-tools/` (exfatprogs 1.4.5 and i2c-tools 4.4 with their licenses) | `nanokvm-exfatprogs`, `nanokvm-i2c-tools` |
+| `images/tools/exfatprogs/`, `images/tools/i2c-tools/` (exfatprogs 1.4.5 and i2c-tools 4.4 with their licenses) | `nanokvm-exfatprogs1`, `nanokvm-i2c-tools` |
 | `fip.bin`, `fip-licenses/` | `nanokvm-bootloader`; its trigger puts `fip.bin` on the boot partition |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
-| `release/apk/` | the signed APK repository of the nineteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
+| `release/apk/` | the signed APK repository of the twenty packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
 | `release/image/NanoKVM-OS-<version>.img.zip`, `SHA256SUMS` | the SD card image |
 | `release/stock-installer/nanokvm_X.Y.Z.tar.gz`, `SHA256SUMS` | stock Sipeed migration package (`stock-installer` step; included with SD image releases) |
@@ -298,7 +298,7 @@ APK owns the old MPI library paths and removes files no longer shipped when upgr
 
 ### Application package split
 
-The build produces nineteen core APKs. `nanokvm` owns the server, board service,
+The build produces twenty core APKs. `nanokvm` owns the server, board service,
 native libraries and application scripts; `nanokvm-web` owns
 `/kvmapp/server/web`. The separate `nanokvm-app` compatibility APK is no longer
 built. `nanokvm-release` provides its old name at the release's APK version
@@ -317,7 +317,7 @@ the old ones (`apkrollback.LegacyTargets`).
 
 ### Tools in place of Alpine community packages
 
-`nanokvm-exfatprogs` (exfatprogs 1.4.5: `mkfs.exfat` formats `/data` at first
+`nanokvm-exfatprogs1` (exfatprogs 1.4.5: `mkfs.exfat` formats `/data` at first
 boot) and `nanokvm-i2c-tools` (i2c-tools 4.4: `i2cdetect` identifies the board)
 are the only programs of `nanokvm-release` and its dependencies that Alpine
 ships in its community repository, so the release needs only Alpine main (the

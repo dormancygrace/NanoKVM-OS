@@ -51,9 +51,10 @@ def main():
 
     text = a.list.read_text().splitlines()
     first = next(i for i, l in enumerate(text) if 'KEEP(' in l)
-    # Retain the initial alignment and the hand-placed slots verbatim.
-    out = [l for l in text[:first] if l.strip() != '__hot_list = .;']
-    out.append('\t\t__hot_list = .;')
+    # Retain the start of the list (its anchor and __hot_list) and the hand-placed slots verbatim.
+    out = text[:first]
+    if not any(l.strip() == '__hot_list = .;' for l in out):
+        out.append('\t\t__hot_list = .;')
     base = last = None
     for i in range(first, len(text)):
         l = text[i]

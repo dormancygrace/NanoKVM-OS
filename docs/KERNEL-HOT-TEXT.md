@@ -30,15 +30,45 @@ At the start of `.text` (`arch/riscv/kernel/vmlinux.lds.S`):
    interrupt entry);
 2. the scheduler core: `kernel/sched/core.o`'s `.sched.text` (`__schedule`,
    `schedule`), then the rest of `.sched.text`, which keeps its bounds;
-3. the listed functions, starting at the cache set where the scheduler core
-   ends: the functions shared by the system-call paths, then each path's own
+3. the listed functions, starting at a fixed offset in the I-cache way
+   (0x740): the functions shared by the system-call paths, then each path's own
    functions (pipe, read, write, stat, open, getppid, page fault, Ethernet and
    Wi-Fi send and receive), so that a path is the shared block plus one run.
-   The shared block and the pipe path have a spare line after each function;
+   The shared block and the pipe path have a spare line after each function.
+   The paths' own runs lie two lines lower in the cache than the shared block
+   (a gap of one way less two lines between them);
 4. a slot of one I-cache way (16 KiB) for the functions of `stat()` of a
    missing name (the slow lookup and the negative dentry), at a measured
    offset in the slot. Being a whole way, the slot leaves the cache sets of the
    code after it unchanged.
+
+The start of the list does not follow the code before it. It used to begin on
+the line after the scheduler core; Linux 7.3.6 made `schedule()` 18 bytes
+longer, the core ended 20 bytes later, and the whole list moved by one line
+against the exception entry. Moving it back by that line made a pipe round
+trip 11 % slower (100 instead of 88 I-cache misses): the best place had moved
+with the scheduler code. The offset is measured, with the gap and the slot
+offset, against the list where the scheduler core put it: times from pathbench
+(three-character names) and page faults on the release kernels, cycles and
+I-cache misses per call on the same configuration with the counting module.
+The gap costs 16 KiB of kernel text; with the fixed data offsets after it,
+the kernel takes 32 KiB more memory.
+
+| Path | List after the scheduler core | Fixed list start |
+|---|---|---|
+| `open()`+`close()`, depth 1 / 4 / 8 | 6.50–6.57 / 6.92–7.00 / 7.89–8.10 µs | 5.56–5.59 / 6.24–6.33 / 7.17–7.32 µs |
+| `stat()` of a missing name | 6.49–6.58 µs | 5.41–5.44 µs |
+| `stat()`, depth 1 / 4 / 8 | 3.33–3.37 / 4.04–4.06 / 4.97–5.08 µs | 3.32–3.35 / 3.99–4.01 / 4.94–5.00 µs |
+| page fault (anonymous, first touch) | 18.0–18.1 µs | 18.0–18.1 µs |
+| pipe round trip (cycles, I-cache misses) | 28.2–29.1 k, 85–89 | 28.2–29.2 k, 88 |
+| `open()` depth 4 (I-cache misses) | 9.3–10.6 | 2.6–3.4 |
+
+A pipe round trip still takes about 7 more I-cache misses than with Linux
+7.3.4 (81) for the same number of instructions; the difference is in the
+context switch (a `sched_yield()` round trip: 19 against 22–23). Other starts
+of the list (two lines lower to two lines higher), the earlier list
+offsets, the open run alone two lines higher and the runs after the shared
+block one line either way were all slower for the pipe.
 
 Each listed function starts at a fixed offset from the first one
 (`. = MAX(., __hot_list + OFFSET);`, written by `scripts/kernel-hot-text/pin.py`

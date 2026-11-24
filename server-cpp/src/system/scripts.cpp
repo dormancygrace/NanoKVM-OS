@@ -725,10 +725,11 @@ std::int64_t now_unix()
 	return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
+// gin.H: the keys in sorted order.
 struct TasksRsp {
-	std::vector<TaskStatus> tasks;
-	std::vector<std::string> other;
 	bool crond = false;
+	std::vector<std::string> other;
+	std::vector<TaskStatus> tasks;
 };
 struct IdRsp {
 	std::string id;

@@ -4,7 +4,7 @@
 - the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
-- the eighteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
+- the nineteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
 Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
 
@@ -26,7 +26,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/tools/exfatprogs/`, `images/tools/i2c-tools/` (exfatprogs 1.4.5 and i2c-tools 4.4 with their licenses) | `nanokvm-exfatprogs`, `nanokvm-i2c-tools` |
 | `fip.bin`, `fip-licenses/` | `nanokvm-bootloader`; its trigger puts `fip.bin` on the boot partition |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
-| `release/apk/` | the signed APK repository of the eighteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
+| `release/apk/` | the signed APK repository of the nineteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
 | `release/image/NanoKVM-OS-<version>.img.zip`, `SHA256SUMS` | the SD card image |
 | `release/stock-installer/nanokvm_X.Y.Z.tar.gz`, `SHA256SUMS` | stock Sipeed migration package (`stock-installer` step; included with SD image releases) |
@@ -127,7 +127,7 @@ remain installed for old package verification and rollback. See the
 
 The package `nanokvm-keys` installs the public keys of `firmware/alpine/keys` (with `-d`, also the test keys) in `/etc/apk/keys` and owns them, so a later release can add or remove a key; on an older device it also moves the NanoKVM repository line to the v3 index. The rootfs step copies the keys into the root before it installs `nanokvm-release`, and apk takes over the identical files; the step fails if a key in `/etc/apk/keys` has no owner. Publishing a release, moving to the ECDSA key and replacing a key are described in [firmware/alpine/README.md](../firmware/alpine/README.md#signing-keys).
 
-The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), with NanoKVM-built zlib-ng and OpenSSL runtimes. `nanokvm-openssl` supplies OpenSSL 3.5.9 LTS with the C906 `-O3` profile and ABI3 libraries. Releases up to v2.0-b7 used a broader `c906-scalar` overlay; that overlay is not built here.
+The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), with NanoKVM-built zlib-ng and OpenSSL runtimes. `nanokvm-openssl3` supplies OpenSSL 3.5.9 LTS with the C906 `-O3` profile and ABI3 libraries. Releases up to v2.0-b7 used a broader `c906-scalar` overlay; that overlay is not built here.
 
 ## What is here
 
@@ -298,7 +298,7 @@ APK owns the old MPI library paths and removes files no longer shipped when upgr
 
 ### Application package split
 
-The build produces eighteen core APKs. `nanokvm` owns the server, board service,
+The build produces nineteen core APKs. `nanokvm` owns the server, board service,
 native libraries and application scripts; `nanokvm-web` owns
 `/kvmapp/server/web`. The separate `nanokvm-app` compatibility APK is no longer
 built. `nanokvm-release` provides its old name at the release's APK version

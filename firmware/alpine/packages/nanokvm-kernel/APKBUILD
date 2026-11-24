@@ -1,6 +1,6 @@
 pkgname=nanokvm-kernel
 pkgver=${PKGVER:-0.1.0}
-pkgrel=0
+pkgrel=${PKGREL:-0}
 pkgdesc="NanoKVM kernel and automatic boot activation"
 url="https://github.com/sipeed/NanoKVM"
 arch="riscv64"

@@ -24,8 +24,8 @@
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the eighteen NanoKVM packages, from packages.list
-#   packages   signed APK repository of the eighteen packages
+#   payloads   contents of the nineteen NanoKVM packages, from packages.list
+#   packages   signed APK repository of the nineteen packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -1180,12 +1180,20 @@ previous_file() {
 # the version and the file it was published with while its payload and recipe
 # stay the same. NANOKVM_PREVIOUS is the published repository directory with
 # the packages.json of the previous release. Without it, or before the first
-# release with packages.json, every package gets the release version.
+# release with packages.json, build every package.
 package_versions() {
-    local v=$b/build/versions apkver dir=$b/build/repo/stock/recipes/riscv64 file sum previous=()
+    local v=$b/build/versions apkver dir=$b/build/repo/stock/recipes/riscv64 file sum baseline previous=()
     apkver=${NANOKVM_APK_VERSION:-$(sed -n 's/^NANOKVM_APK_VERSION=//p' "$repo/firmware/alpine/release.env")}
     mkdir -p "$v"
     if [ -n "${NANOKVM_PREVIOUS:-}" ] && previous_file packages.json "$v/previous.json"; then
+        case $NANOKVM_PREVIOUS in
+            https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/*)
+                baseline=$("$host/python3" "$repo/scripts/package-versions.py" baseline --version "$apkver" --previous "$v/previous.json")
+                if [ "$baseline" = stable ]; then
+                    NANOKVM_PREVIOUS=${NANOKVM_PREVIOUS/\/beta\/alpine\//\/alpine\/}
+                    previous_file packages.json "$v/previous.json" || { echo "Missing stable package manifest" >&2; exit 1; }
+                fi ;;
+        esac
         previous=(--previous "$v/previous.json")
     fi
     "$host/python3" "$repo/scripts/package-versions.py" select --payloads "$b/build/payloads" \
@@ -1199,7 +1207,7 @@ package_versions() {
     done < "$v/reused"
 }
 
-# Build the eighteen packages with abuild in an Alpine riscv64 tree.
+# Build the nineteen packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -1324,9 +1332,9 @@ rootfs() {
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
         echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
     # One provider owns the OpenSSL command, configuration and both ABI3 libraries.
-    grep -qx 'P:nanokvm-openssl' "$r/lib/apk/db/installed" &&
+    grep -qx 'P:nanokvm-openssl3' "$r/lib/apk/db/installed" &&
         ! grep -qxE 'P:(openssl|openssl3|libcrypto3|libssl3)' "$r/lib/apk/db/installed" || {
-        echo "rootfs: OpenSSL is not exclusively nanokvm-openssl's" >&2; exit 1; }
+        echo "rootfs: OpenSSL is not exclusively nanokvm-openssl3's" >&2; exit 1; }
     # nanokvm-zlib replaces Alpine's zlib; both installed would share libz.so.1.
     ! grep -qx 'P:zlib' "$r/lib/apk/db/installed" && [ "$(readlink "$r/usr/lib/libz.so.1")" = libz.so.1.3.2.zlib-ng ] || {
         echo "rootfs: libz.so.1 is not nanokvm-zlib's" >&2; exit 1; }

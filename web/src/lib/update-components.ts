@@ -20,6 +20,7 @@ const labels: Record<string, string> = {
   'nanokvm-bootloader': 'bootloader',
   'nanokvm-zlib': 'zlib',
   'nanokvm-openssl': 'openssl',
+  'nanokvm-openssl3': 'openssl',
   'nanokvm-exfatprogs': 'exfatprogs',
   'nanokvm-i2c-tools': 'i2ctools',
   'nanokvm-tpu': 'tpu'

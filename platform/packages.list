@@ -229,5 +229,5 @@ i2c-tools file /usr/share/licenses/nanokvm-i2c-tools/COPYING.LGPL 0644 @tools/i2
 openssl tree /usr/bin 0755 @tools/openssl/usr/bin
 openssl tree /usr/lib 0755 @tools/openssl/usr/lib
 openssl tree /etc/ssl 0644 @tools/openssl/etc/ssl
-openssl tree /usr/share/licenses/nanokvm-openssl 0644 @tools/openssl/usr/share/licenses/nanokvm-openssl
+openssl tree /usr/share/licenses/nanokvm-openssl3 0644 @tools/openssl/usr/share/licenses/nanokvm-openssl3
 openssl tree /usr/share/nanokvm/openssl 0644 @tools/openssl/usr/share/nanokvm/openssl

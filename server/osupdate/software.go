@@ -124,6 +124,7 @@ var protectedPackages = map[string]bool{
 	"nanokvm-firmware":   true,
 	"nanokvm-zlib":       true,
 	"nanokvm-openssl":    true,
+	"nanokvm-openssl3":    true,
 	"nanokvm-bootloader": true,
 	"nanokvm-tpu":        true,
 }

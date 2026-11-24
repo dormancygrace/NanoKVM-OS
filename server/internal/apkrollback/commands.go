@@ -12,7 +12,7 @@ var RecoveryService []byte
 
 var CorePackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release",
 	"nanokvm-base", "nanokvm-keys", "nanokvm-kernel", "nanokvm-kmod",
-	"nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl",
+	"nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-openssl3",
 	"nanokvm-exfatprogs", "nanokvm-i2c-tools", "nanokvm-tpu",
 	// Their names before 3.7.0, now metapackages: a release from before
 	// then has them instead of the four above (LegacyTargets).
@@ -35,6 +35,8 @@ func LegacyTargets(name string) []string {
 	switch name {
 	case "nanokvm-openssl":
 		return []string{"!nanokvm-openssl", "openssl"}
+	case "nanokvm-openssl3":
+		return []string{"!nanokvm-openssl3"}
 	case "nanokvm-tpu":
 		// Before 3.7.0 the programs came with the models in an add-on.
 		return []string{"!nanokvm-tpu"}

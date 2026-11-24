@@ -51,6 +51,7 @@
 #include "input/jiggler.hpp"
 #include "input/ws.hpp"
 #include "video/hdmi.hpp"
+#include "video/monitor.hpp"
 #include "video/routes.hpp"
 #include "video/vision.hpp"
 #include "video/preview.hpp"
@@ -60,13 +61,20 @@
 #include "video/audio.hpp"
 #include "video/webrtc.hpp"
 
+#include "common/loop.hpp"
+#include "common/process.hpp"
+
 #include <cerrno>
+#include <cstring>
+#include <future>
+#include <memory>
 #include <sys/stat.h>
 #include <set>
 #include <fstream>
 #include <climits>
 #include <string>
 #include <unistd.h>
+#include <vector>
 
 namespace {
 
@@ -80,12 +88,53 @@ std::string web_root()
 	return exe.substr(0, exe.rfind('/')) + "/web";
 }
 
+char **program_arguments;
+
+// Replaces the process with a fresh start once the saved monitor profile was lowered (restartAfterMonitorFit), so
+// the capture detects the HDMI input again; the new process carries NKOS_MONITOR_FIT_RESTARTED and does not restart
+// again. The vendor media libraries open their devices without close-on-exec, so their descriptors would survive the
+// exec and the drivers would keep this process's VPSS group, VI pipe and video buffers next to the new set: the
+// capture is released first (with the device thread held still, as on a stop) and every other descriptor closes on
+// exec. Loop thread; returns only when the exec failed.
+void restart_after_monitor_fit()
+{
+	using namespace nkos;
+	log::info("restarting to re-detect the HDMI input after lowering the monitor profile");
+	auto parked = std::make_shared<std::promise<void>>();
+	auto release = std::make_shared<std::promise<void>>();
+	std::shared_future<void> resume = release->get_future().share();
+	std::future<void> held = parked->get_future();
+	loop::device([parked, resume] {
+		parked->set_value();
+		resume.wait();
+	});
+	held.wait();
+	video::vision::deinit();
+	char path[PATH_MAX];
+	ssize_t n = ::readlink("/proc/self/exe", path, sizeof path - 1);
+	if (n > 0) {
+		path[n] = 0;
+		std::vector<char *> env;
+		for (char **e = environ; *e; e++) env.push_back(*e);
+		std::string marker = "NKOS_MONITOR_FIT_RESTARTED=1";
+		env.push_back(marker.data());
+		env.push_back(nullptr);
+		// The stderr pipe's reader does not survive the exec.
+		system::logs::restore_native_stderr();
+		process::cloexec_inherited();
+		::execve(path, program_arguments, env.data());
+	}
+	log::error("restart after lowering the monitor profile failed: {}", std::strerror(errno));
+	release->set_value();
+}
+
 } // namespace
 
 int main(int argc, char **argv)
 {
 	// The SMB reader is this binary started again with --nanokvm-smb-reader: it runs before anything else.
 	if (int code = nkos::storage::run_smb_helper_if_requested(argc, argv); code >= 0) return code;
+	program_arguments = argv;
 	using namespace nkos;
 	// totp-reset USER, factory-reset: command-line modes that exit.
 	if (int status = system::run_cli(argc, argv); status >= 0) return status;
@@ -257,6 +306,10 @@ int main(int argc, char **argv)
 		// StartScreenWatch: crashes on the host's screen, once the capture runs.
 		video::screen_watch::start();
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");
+		// The monitor profile is kept in the HDMI receiver across restarts and reinstalls: it must not exceed the
+		// video memory of this boot, and it must be the saved one after an installation or a write by anything but
+		// this server. Programming can take a while (device thread).
+		if (!system::failsafe::video_disabled()) video::monitor::start(video::hdmi::disabled(), restart_after_monitor_fit);
 		input::hid::start();
 		ai::start();
 		input::jiggler::start();

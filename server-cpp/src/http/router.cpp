@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <unordered_map>
 
 namespace nkos::http {
 
@@ -17,29 +18,26 @@ bool iequals(std::string_view a, std::string_view b)
 	       std::equal(a.begin(), a.end(), b.begin(), [](char x, char y) { return std::tolower((unsigned char)x) == std::tolower((unsigned char)y); });
 }
 
-// Headers with an lws token; any other name is read as a custom header.
-struct Token {
-	const char *name;
-	lws_token_indexes index;
-};
-const Token tokens[] = {
-	{"host", WSI_TOKEN_HOST},
-	{"accept-encoding", WSI_TOKEN_HTTP_ACCEPT_ENCODING},
-	{"accept", WSI_TOKEN_HTTP_ACCEPT},
-	{"authorization", WSI_TOKEN_HTTP_AUTHORIZATION},
-	{"cookie", WSI_TOKEN_HTTP_COOKIE},
-	{"content-type", WSI_TOKEN_HTTP_CONTENT_TYPE},
-	{"content-length", WSI_TOKEN_HTTP_CONTENT_LENGTH},
-	{"origin", WSI_TOKEN_ORIGIN},
-	{"referer", WSI_TOKEN_HTTP_REFERER},
-	{"user-agent", WSI_TOKEN_HTTP_USER_AGENT},
-	{"if-modified-since", WSI_TOKEN_HTTP_IF_MODIFIED_SINCE},
-	{"if-none-match", WSI_TOKEN_HTTP_IF_NONE_MATCH},
-	{"range", WSI_TOKEN_HTTP_RANGE},
-	{"x-forwarded-for", WSI_TOKEN_X_FORWARDED_FOR},
-	{"upgrade", WSI_TOKEN_UPGRADE},
-	{"connection", WSI_TOKEN_CONNECTION},
-};
+// The header names lws keeps as tokens, from lws itself (lws_token_to_string): lws stores such a header only under
+// its token, so reading it as a custom header finds nothing (X-Auth-Token, Content-Range, ...). Any other name is a
+// custom header. Pseudo-headers (":authority") and request-line tokens ("get ") are not header names.
+const std::unordered_map<std::string, lws_token_indexes> &known_headers()
+{
+	static const auto map = [] {
+		std::unordered_map<std::string, lws_token_indexes> m;
+		for (int i = 0; i < WSI_TOKEN_COUNT; i++) {
+			auto *s = reinterpret_cast<const char *>(lws_token_to_string(static_cast<lws_token_indexes>(i)));
+			if (!s || !*s || *s == ':') continue;
+			std::string name(s);
+			if (name.find(' ') != std::string::npos) continue;
+			if (!name.empty() && name.back() == ':') name.pop_back();
+			for (auto &c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+			m.emplace(std::move(name), static_cast<lws_token_indexes>(i));
+		}
+		return m;
+	}();
+	return map;
+}
 
 } // namespace
 
@@ -57,9 +55,10 @@ std::vector<std::string> Request::header_values(std::string_view name) const
 			if (iequals(k, name)) out.push_back(v);
 		return out;
 	}
-	for (const auto &t : tokens) {
-		if (!iequals(name, t.name)) continue;
-		lws_token_indexes index = t.index;
+	std::string lower;
+	for (char c : name) lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+	if (auto it = known_headers().find(lower); it != known_headers().end()) {
+		lws_token_indexes index = it->second;
 		// HTTP/2 carries the host as :authority.
 		if (index == WSI_TOKEN_HOST && lws_hdr_total_length(wsi, WSI_TOKEN_HOST) <= 0) index = WSI_TOKEN_HTTP_COLON_AUTHORITY;
 		int len = lws_hdr_total_length(wsi, index);
@@ -70,9 +69,7 @@ std::vector<std::string> Request::header_values(std::string_view name) const
 		out.push_back(std::move(v));
 		return out;
 	}
-	std::string custom;
-	for (char c : name) custom += static_cast<char>(std::tolower((unsigned char)c));
-	custom += ':';
+	std::string custom = lower + ':';
 	int len = lws_hdr_custom_length(wsi, custom.c_str(), static_cast<int>(custom.size()));
 	if (len <= 0) return out;
 	std::string v(static_cast<size_t>(len) + 1, '\0');

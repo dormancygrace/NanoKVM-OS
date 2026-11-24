@@ -207,7 +207,7 @@ prepare_recipe() {
 	cp -a "$ROOT/firmware/alpine/packages/$pkg/." "$recipe_dir/"
 	# Metapackages have no payload.
 	case $pkg in
-	*-sg2002|nanokvm-openssl|nanokvm-exfatprogs) return 0 ;;
+	*-sg2002|nanokvm-openssl|nanokvm-exfatprogs|nanokvm-i2c-tools) return 0 ;;
 	esac
 	# A source name without an URL is local to the APKBUILD directory. Keep the
 	# generated archive there so both `abuild checksum` and the actual build read

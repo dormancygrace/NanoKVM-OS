@@ -108,7 +108,14 @@ with tempfile.TemporaryDirectory() as directory:
             names = archive.getnames()
             assert names == ['.SIGN.RSA256.test.pub'], names
             (work / 'signature').write_bytes(archive.extractfile(names[0]).read())
-        _, control, _ = member(rest)
+        archive_data, control, payload = member(rest)
+        if path.name.startswith('nanokvm-i2c-tools-'):
+            with tarfile.open(fileobj=io.BytesIO(archive_data)) as archive:
+                metadata = archive.extractfile('.PKGINFO').read().decode().splitlines()
+            assert [x for x in metadata if x.startswith('depend = ')] == ['depend = i2c-tools']
+            assert not any(x.startswith(('provides = ', 'replaces = ')) for x in metadata)
+            with tarfile.open(fileobj=io.BytesIO(gzip.decompress(payload))) as archive:
+                assert not archive.getmembers(), 'the compatibility APK must contain no files'
         (work / 'control').write_bytes(control)
         run('openssl', 'dgst', '-sha256', '-verify', public, '-signature', work / 'signature', work / 'control')
         tampered = work / path.name

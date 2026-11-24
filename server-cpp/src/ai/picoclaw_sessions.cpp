@@ -49,6 +49,14 @@ struct Time {
 // time.Time's UnmarshalJSON (RFC 3339).
 bool parse_time(const std::string &s, Time &out)
 {
+	// Every field is digits at its fixed place: sscanf alone would take a sign or a space for one.
+	auto digits = [&s](std::size_t from, std::size_t count) {
+		if (from + count > s.size()) return false;
+		for (std::size_t k = from; k < from + count; k++)
+			if (!std::isdigit(static_cast<unsigned char>(s[k]))) return false;
+		return true;
+	};
+	if (!digits(0, 4) || !digits(5, 2) || !digits(8, 2) || !digits(11, 2) || !digits(14, 2) || !digits(17, 2)) return false;
 	int Y, M, D, h, m, sec, n = 0;
 	if (std::sscanf(s.c_str(), "%4d-%2d-%2dT%2d:%2d:%2d%n", &Y, &M, &D, &h, &m, &sec, &n) != 6 || n != 19) return false;
 	std::size_t i = 19;
@@ -59,8 +67,10 @@ bool parse_time(const std::string &s, Time &out)
 	long offset = 0;
 	if (i < s.size() && (s[i] == 'Z' || s[i] == 'z') && i + 1 == s.size()) {
 	} else if (i + 6 == s.size() && (s[i] == '+' || s[i] == '-') && s[i + 3] == ':') {
-		int oh = std::atoi(s.substr(i + 1, 2).c_str()), om = std::atoi(s.substr(i + 4, 2).c_str());
-		offset = (oh * 3600 + om * 60) * (s[i] == '-' ? -1 : 1);
+		if (!digits(i + 1, 2) || !digits(i + 4, 2)) return false;
+		long oh = (s[i + 1] - '0') * 10 + (s[i + 2] - '0'), om = (s[i + 4] - '0') * 10 + (s[i + 5] - '0');
+		if (oh > 23 || om > 59) return false;
+		offset = (oh * 3600 + om * 60) * (s[i] == '-' ? -1L : 1L);
 	} else {
 		return false;
 	}

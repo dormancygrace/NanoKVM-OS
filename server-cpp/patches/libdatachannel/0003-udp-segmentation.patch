@@ -1,0 +1,126 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: UDP segmentation offload for batch sends
+
+The datagrams of a batch go grouped with UDP_SEGMENT, as the Go server's pion sent them: consecutive
+datagrams of one size (and one shorter after them) as one message, the route, IP and UDP work done once
+per group. A full socket buffer is waited for (at most 100 ms per batch) instead of dropping the rest of
+the frame.
+---
+--- a/deps/libjuice/src/conn_poll.c
++++ b/deps/libjuice/src/conn_poll.c
+@@ -12,6 +12,8 @@
+ 
+ #include <sys/syscall.h>
+ #include <unistd.h>
++#include <netinet/udp.h> // UDP_SEGMENT
++#include <stdint.h>
+ 
+ #include "conn_poll.h"
+ #include "agent.h"
+@@ -663,6 +665,16 @@
+ 	return ret;
+ }
+ 
++// A full socket buffer (a key frame on a slow link): wait for room, as a blocking write would, at most 5 x 20 ms per
++// batch; the sender's own queue drops frames when the link stays behind.
++static bool wait_writable(socket_t sock, int *waits) {
++	if (*waits >= 5)
++		return false;
++	++*waits;
++	struct pollfd pfd = {.fd = sock, .events = POLLOUT, .revents = 0};
++	return poll(&pfd, 1, 20) > 0;
++}
++
+ int conn_poll_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
+                          const size_t *sizes, int count, int ds) {
+ 	conn_impl_t *conn_impl = agent->conn_impl;
+@@ -684,32 +696,73 @@
+ 		else
+ 			conn_impl->send_ds = -1; // disable for next time
+ 	}
+-	int sent = 0, ret = 0;
++	int sent = 0, ret = 0, waits = 0;
+ 	while (sent < count) {
+-		struct mmsghdr msgs[64];
+-		struct iovec iov[64];
+-		int n = count - sent > 64 ? 64 : count - sent;
+-		memset(msgs, 0, sizeof(msgs[0]) * (size_t)n);
+-		for (int i = 0; i < n; ++i) {
+-			iov[i].iov_base = (void *)data[sent + i];
+-			iov[i].iov_len = sizes[sent + i];
+-			msgs[i].msg_hdr.msg_name = (void *)&dst->addr;
+-			msgs[i].msg_hdr.msg_namelen = dst->len;
+-			msgs[i].msg_hdr.msg_iov = &iov[i];
+-			msgs[i].msg_hdr.msg_iovlen = 1;
++		// Groups for UDP generic segmentation offload: consecutive datagrams of one size, and one shorter after
++		// them, go as one message whose payload the stack cuts into segments of that size (UDP_SEGMENT); the
++		// route, IP and UDP work is done once per group. At most 64 segments and 64 KiB per group.
++		enum { MaxIov = 64, MaxMsgs = 32, MaxGroupBytes = 65000 };
++		struct mmsghdr msgs[MaxMsgs];
++		struct iovec iov[MaxIov];
++		union {
++			char buf[CMSG_SPACE(sizeof(uint16_t))];
++			struct cmsghdr align;
++		} ctrl[MaxMsgs];
++		int segments[MaxMsgs];
++		int m = 0, used = 0, i = sent;
++		memset(msgs, 0, sizeof(msgs));
++		memset(ctrl, 0, sizeof(ctrl));
++		while (i < count && m < MaxMsgs && used < MaxIov) {
++			const size_t segment = sizes[i];
++			int first = used, k = 0;
++			size_t total = 0;
++			while (i + k < count && used < MaxIov && sizes[i + k] == segment && total + segment <= MaxGroupBytes) {
++				iov[used].iov_base = (void *)data[i + k];
++				iov[used].iov_len = segment;
++				total += segment;
++				++used;
++				++k;
++			}
++			if (i + k < count && used < MaxIov && sizes[i + k] < segment && total + sizes[i + k] <= MaxGroupBytes) {
++				iov[used].iov_base = (void *)data[i + k];
++				iov[used].iov_len = sizes[i + k];
++				++used;
++				++k;
++			}
++			struct msghdr *h = &msgs[m].msg_hdr;
++			h->msg_name = (void *)&dst->addr;
++			h->msg_namelen = dst->len;
++			h->msg_iov = &iov[first];
++			h->msg_iovlen = (size_t)(used - first);
++			if (k > 1) {
++				h->msg_control = ctrl[m].buf;
++				h->msg_controllen = sizeof(ctrl[m].buf);
++				struct cmsghdr *c = CMSG_FIRSTHDR(h);
++				c->cmsg_level = SOL_UDP;
++				c->cmsg_type = UDP_SEGMENT;
++				c->cmsg_len = CMSG_LEN(sizeof(uint16_t));
++				const uint16_t gso = (uint16_t)segment;
++				memcpy(CMSG_DATA(c), &gso, sizeof(gso));
++			}
++			segments[m] = k;
++			++m;
++			i += k;
+ 		}
+ 		// The system call itself: musl's sendmmsg loops over sendmsg on 64-bit targets. The headers are zeroed,
+ 		// padding included, so musl's msghdr is the kernel's.
+-		int r = (int)syscall(SYS_sendmmsg, conn_impl->udp_sock, msgs, (unsigned int)n, 0);
++		int r = (int)syscall(SYS_sendmmsg, conn_impl->udp_sock, msgs, (unsigned int)m, 0);
+ 		if (r < 0) {
+ 			if (sockerrno == SEINTR)
+ 				continue;
++			if ((sockerrno == SEAGAIN || sockerrno == SEWOULDBLOCK) && wait_writable(conn_impl->udp_sock, &waits))
++				continue;
+ 			ret = -sockerrno;
+ 			break;
+ 		}
+-		sent += r;
+-		if (r < n) {
+-			ret = -SEAGAIN; // the socket buffer is full
++		for (int j = 0; j < r; ++j)
++			sent += segments[j];
++		if (r < m && !wait_writable(conn_impl->udp_sock, &waits)) {
++			ret = -SEAGAIN; // the socket buffer stayed full
+ 			break;
+ 		}
+ 	}

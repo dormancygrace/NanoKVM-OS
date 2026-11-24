@@ -6,7 +6,7 @@ a crypto engine then protects a frame in one request instead of one per packet (
 SHA-1 per packet in one ioctl). Retransmissions go through the protector too, which keeps the rollover counters.
 RTCP stays with libsrtp. Without a factory nothing changes.
 
-The protected packets of a frame then go to libjuice together, which sends them with one sendmmsg on a direct UDP
+The protected packets of a frame then go to libjuice together, which sends them with one sendmmsg system call on a direct UDP
 pair (juice_send_batch; through a TURN relay one by one): a Wi-Fi driver gets them as a burst it can aggregate.
 
 --- /dev/null
@@ -383,18 +383,21 @@ pair (juice_send_batch; through a TURN relay one by one): a Wi-Fi driver gets th
  void conn_poll_tcp_connect(juice_agent_t *agent, const addr_record_t *dst);
 --- a/deps/libjuice/src/conn_poll.c
 +++ b/deps/libjuice/src/conn_poll.c
-@@ -5,6 +5,10 @@
+@@ -5,6 +5,13 @@
   * License, v. 2.0. If a copy of the MPL was not distributed with this
   * file, You can obtain one at https://mozilla.org/MPL/2.0/.
   */
 +
 +#ifndef _GNU_SOURCE
-+#define _GNU_SOURCE // sendmmsg
++#define _GNU_SOURCE // struct mmsghdr
 +#endif
++
++#include <sys/syscall.h>
++#include <unistd.h>
  
  #include "conn_poll.h"
  #include "agent.h"
-@@ -656,6 +660,66 @@
+@@ -656,6 +663,68 @@
  	return ret;
  }
  
@@ -433,7 +436,9 @@ pair (juice_send_batch; through a TURN relay one by one): a Wi-Fi driver gets th
 +			msgs[i].msg_hdr.msg_iov = &iov[i];
 +			msgs[i].msg_hdr.msg_iovlen = 1;
 +		}
-+		int r = sendmmsg(conn_impl->udp_sock, msgs, (unsigned int)n, 0);
++		// The system call itself: musl's sendmmsg loops over sendmsg on 64-bit targets. The headers are zeroed,
++		// padding included, so musl's msghdr is the kernel's.
++		int r = (int)syscall(SYS_sendmmsg, conn_impl->udp_sock, msgs, (unsigned int)n, 0);
 +		if (r < 0) {
 +			if (sockerrno == SEINTR)
 +				continue;

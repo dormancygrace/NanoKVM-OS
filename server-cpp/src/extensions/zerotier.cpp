@@ -4,12 +4,8 @@
 #include "extensions/vpn.hpp"
 #include "network/util.hpp"
 #include "osupdate/apkpkg.hpp"
-#include "osupdate/apkrun.hpp"
-#include "osupdate/files.hpp"
 #include "osupdate/godecode.hpp"
 #include "osupdate/goerr.hpp"
-#include "osupdate/gostr.hpp"
-#include "osupdate/internal.hpp"
 #include "osupdate/osupdate.hpp"
 
 #include <algorithm>
@@ -67,15 +63,9 @@ bool valid_network_id(const std::string &value, std::string &id)
 // records no package at all, is an error.
 bool installed_packages(const std::vector<std::string> &names, std::vector<std::string> &present, std::string &error)
 {
-	present.clear();
-	int err = 0;
-	auto data = osupdate::files::read(osupdate::installed_db_path, err);
-	if (!data) return error = osupdate::files::read_error(osupdate::installed_db_path, err), false;
-	auto versions = osupdate::parse_installed_db(*data);
-	if (versions.empty()) return error = "the APK installed database records no package", false;
-	for (const auto &name : names)
-		if (versions.count(name)) present.push_back(name);
-	return true;
+	auto found = osupdate::installed(names, error);
+	present = found ? std::move(*found) : std::vector<std::string>{};
+	return found.has_value();
 }
 
 // recorded: the installed database records the package; an unreadable database does not.
@@ -242,79 +232,6 @@ std::string stop_for_removal(std::function<std::string()> &restore)
 		return joined;
 	}
 	return "";
-}
-
-std::string apk_tail(const std::string &output)
-{
-	std::string s = output.size() > 4096 ? output.substr(output.size() - 4096) : output;
-	return gostr::trim_space(s);
-}
-
-// apkpkg.RemoveAfter: removes packages that the caller first stops, with prepare, and then runs then, all under the
-// package lock. The installed database decides what is installed. When it records none of names, nothing is stopped
-// or removed and then runs at once (removed false). Otherwise prepare runs only once apk is shown to purge every
-// installed one of names; its undo runs when apk fails or leaves a package installed, or when the installed
-// database cannot be read to show that it did not. then runs only after a confirmed removal (removed true).
-std::string remove_after(const std::function<std::string(std::function<std::string()> &undo)> &prepare,
-                         const std::function<std::string()> &then, const std::vector<std::string> &names, bool &removed)
-{
-	removed = false;
-	if (names.empty()) return "no APK package to remove";
-	for (const auto &name : names)
-		if (!osupdate::valid_package_name(name)) return "invalid APK package name";
-	std::string error;
-	auto lock = osupdate::lock(error);
-	if (!lock) return error;
-	std::vector<std::string> present;
-	if (!installed_packages(names, present, error)) return "cannot read the installed packages: " + error;
-	if (present.empty()) return then ? then() : "";
-	auto apk = [deadline = apkrun::Clock::now() + std::chrono::minutes(5)](std::vector<std::string> args, std::string &output) {
-		apkrun::Cmd cmd;
-		cmd.path = "/sbin/apk";
-		cmd.args = std::move(args);
-		cmd.deadline = deadline;
-		auto r = apkrun::combined_output(cmd);
-		output = r.output;
-		return r.ok;
-	};
-	auto with = [&present](std::vector<std::string> head) {
-		head.insert(head.end(), present.begin(), present.end());
-		return head;
-	};
-	std::string output;
-	if (!apk(with({"del", "--simulate", "--"}), output)) return "apk del failed: " + apk_tail(output);
-	// KeptByRemoval: apk exits 0 and keeps a package that another selected package still needs.
-	std::vector<std::string> kept;
-	{
-		std::vector<std::string> purged;
-		for (const auto &line : gostr::split(output, "\n")) {
-			std::string action, name, detail;
-			if (osupdate::detail::parse_apk_step(line, action, name, detail) && action == "Purging") purged.push_back(name);
-		}
-		for (const auto &name : present)
-			if (std::find(purged.begin(), purged.end(), name) == purged.end()) kept.push_back(name);
-	}
-	if (!kept.empty()) return "apk would not remove " + gostr::join(kept, ", ") + ": " + apk_tail(output);
-	std::function<std::string()> undo;
-	if (prepare)
-		if (auto e = prepare(undo); !e.empty()) return e;
-	std::string e;
-	if (!apk(with({"del", "--"}), output)) {
-		e = "apk del failed: " + apk_tail(output);
-	} else {
-		// Only a database read proves the removal; a failed one counts as a package left installed.
-		std::vector<std::string> left;
-		if (!installed_packages(names, left, error))
-			e = "cannot confirm that apk removed " + gostr::join(present, ", ") + ": " + error;
-		else if (!left.empty())
-			e = "apk del left " + gostr::join(left, ", ") + " installed";
-	}
-	if (!e.empty()) {
-		if (undo) e = join_errors({e, undo()});
-		return e;
-	}
-	removed = true;
-	return then ? then() : "";
 }
 
 // finishUninstall runs under the package lock once the package is gone or was never installed. A ZeroTier still
@@ -519,7 +436,12 @@ Reply uninstall(const std::string &body)
 	// boot runlevel, as it was.
 	std::string finish_error;
 	bool removed = false;
-	auto e = remove_after(stop_for_removal, [&] { return finish_error = finish_uninstall(purge); }, {package_name}, removed);
+	auto prepare = [] {
+		apkpkg::Prepared p;
+		p.error = stop_for_removal(p.undo);
+		return p;
+	};
+	auto e = apkpkg::remove_after(prepare, [&] { return finish_error = finish_uninstall(purge); }, {package_name}, removed);
 	if (e.empty()) return ok();
 	if (!finish_error.empty() && removed) return fail(-1, "ZeroTier was removed, but " + finish_error);
 	if (!finish_error.empty()) return fail(-1, "ZeroTier uninstall failed: " + finish_error);

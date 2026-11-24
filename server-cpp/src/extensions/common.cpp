@@ -410,7 +410,11 @@ Result run(const Command &cmd)
 		}
 		if (ei >= 0 && fds[ei].revents) {
 			ssize_t got = ::read(err[0], buf, sizeof buf);
-			if (got <= 0 && (got == 0 || (errno != EAGAIN && errno != EINTR))) err_open = false;
+			if (got > 0) {
+				if (cmd.keep_stderr) r.err_out.append(buf, static_cast<std::size_t>(got));
+			} else if (got == 0 || (errno != EAGAIN && errno != EINTR)) {
+				err_open = false;
+			}
 		}
 		if (ii >= 0 && fds[ii].revents) {
 			ssize_t put = ::write(in_fd, cmd.input->data() + written, cmd.input->size() - written);

@@ -73,6 +73,7 @@ struct Command {
 	bool kill_group_after = false;  // runGroup: the group is killed once the command ended
 	std::optional<std::chrono::milliseconds> wait_delay;
 	enum class Capture { output, combined, none } capture = Capture::output;
+	bool keep_stderr = false;  // with Capture::output: stderr kept in Result::err_out (cmd.Stderr set to a buffer)
 	// Combined output, given as it arrives (instead of keeping it in out).
 	std::function<void(std::string_view)> sink;
 };
@@ -83,6 +84,7 @@ struct Result {
 	bool exited = false;       // an *exec.ExitError (the program ran and exited non-zero or by a signal)
 	int exit_code = -1;        // ExitCode(): -1 for a signal
 	bool deadline = false;     // the context's deadline passed (ctx.Err() != nil)
+	std::string err_out;       // stderr, with Capture::output and keep_stderr
 	bool ok() const { return error.empty(); }
 };
 Result run(const Command &cmd);

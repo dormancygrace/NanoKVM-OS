@@ -164,6 +164,7 @@ add_executable(NanoKVM-Server
   src/extensions/tailscale.cpp
   src/extensions/vpn.cpp
   src/extensions/wireguard.cpp
+  src/extensions/zerotier.cpp
   src/osupdate/software.cpp
   src/recovery/archive.cpp
   src/recovery/engine.cpp

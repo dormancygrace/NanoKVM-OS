@@ -8,6 +8,7 @@
 #include "extensions/tailscale.hpp"
 #include "extensions/vpn.hpp"
 #include "extensions/wireguard.hpp"
+#include "extensions/zerotier.hpp"
 #include "network/util.hpp"
 
 namespace nkos::extensions {
@@ -71,6 +72,15 @@ void add_routes(http::Router &router)
 	simple("POST", "/netbird/start", netbird::start);
 	simple("POST", "/netbird/stop", netbird::stop);
 	simple("POST", "/netbird/restart", netbird::restart);
+
+	simple("POST", "/zerotier/install", zerotier::install);
+	add("POST", "/zerotier/uninstall", [](const In &in) { return zerotier::uninstall(in.data.body); });
+	simple("GET", "/zerotier/status", zerotier::get_status);
+	simple("POST", "/zerotier/start", zerotier::start);
+	simple("POST", "/zerotier/stop", zerotier::stop);
+	simple("POST", "/zerotier/restart", zerotier::restart);
+	add("POST", "/zerotier/join", [](const In &in) { return zerotier::join(in.data.body); });    // join a network by its 16-digit ID
+	add("POST", "/zerotier/leave", [](const In &in) { return zerotier::leave(in.data.body); });  // leave a joined network
 
 	simple("GET", "/acme/status", acme::get_status);        // acme.sh, settings, certificate, last run
 	simple("GET", "/acme/providers", acme::get_providers);  // installed DNS hooks and their variables

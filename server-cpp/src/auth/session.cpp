@@ -10,6 +10,7 @@
 #include <set>
 #include <arpa/inet.h>
 #include <cerrno>
+#include <charconv>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -56,9 +57,12 @@ bool prefix_contains(const std::string &prefix, const Addr &addr)
 	if (slash == std::string::npos) return false;
 	auto net = parse_addr(prefix.substr(0, slash));
 	if (!net || net->v4 != addr.v4) return false;
-	int bits = std::atoi(prefix.c_str() + slash + 1);
+	// The whole suffix must be a decimal length: a typo must not read as /0 and trust every address.
+	int bits = -1;
+	const char *first = prefix.data() + slash + 1, *last = prefix.data() + prefix.size();
+	auto [end, ec] = std::from_chars(first, last, bits);
 	int max = addr.v4 ? 32 : 128;
-	if (bits < 0 || bits > max) return false;
+	if (first == last || ec != std::errc{} || end != last || bits < 0 || bits > max) return false;
 	for (int i = 0; i < bits; i++) {
 		int byte = i / 8, bit = 7 - i % 8;
 		if (((net->b[byte] >> bit) & 1) != ((addr.b[byte] >> bit) & 1)) return false;

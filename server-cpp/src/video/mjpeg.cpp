@@ -567,7 +567,7 @@ std::string server_date()
 
 void add_routes(http::Router &router)
 {
-	router.add("GET", "/api/stream/mjpeg", auth::guarded([](http::Request &, http::Response &res) {
+	router.add("GET", "/api/stream/mjpeg", auth::guarded([](http::Request &req, http::Response &res) {
 		if (!system::failsafe::require_video(res)) return;
 		if (blocked()) return refuse(res);
 		auto client = std::make_shared<Client>();
@@ -579,7 +579,12 @@ void add_routes(http::Router &router)
 		res.stream = client->stream;
 		res.done = true;
 		client->stream->write(part_header);
-		client->stream->on_close = [raw = client.get()] { remove_client(raw); };
+		// The stream ends with its session: sign-out, a revoked or changed account, the token's expiry, idle sign-out.
+		auto session = auth::join_session(req, [stream = client->stream] { stream->abort(); });
+		client->stream->on_close = [raw = client.get(), session] {
+			auth::leave_session(session);
+			remove_client(raw);
+		};
 		add_client(client);
 	}, {{}, false, true}));
 

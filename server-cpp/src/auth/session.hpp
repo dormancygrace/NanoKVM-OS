@@ -71,6 +71,12 @@ void mark_recent_auth(const http::Request &request);
 void mark_recent_auth_key(const std::string &session_key);
 bool recent_auth(const http::Request &request);
 
+// A streamed HTTP response of an authenticated request joins the session registry like a guarded WebSocket: end()
+// runs when the user's sessions are revoked, the account no longer accepts the token, the token expires or the idle
+// limit is over. end() must close the response; its close path calls leave_session with the returned id. Loop thread.
+std::uint64_t join_session(const http::Request &request, std::function<void()> end);
+void leave_session(std::uint64_t id);
+
 // Ends every open session of username (streams, sockets) and runs the revoke hooks.
 void revoke_user_sessions(const std::string &username);
 void on_user_revoked(std::function<void(const std::string &)> hook);

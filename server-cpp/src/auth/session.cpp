@@ -473,16 +473,33 @@ struct OpenSession {
 	std::string idle_key;
 	std::int64_t issued = 0, expires = 0;
 	bool stream = false;
-	http::WebSocket *ws = nullptr;
+	std::function<void()> end;  // closes the connection; it leaves the registry from its own close path
 };
 
 constexpr auto recheck_interval = std::chrono::seconds(5);
 std::map<std::uint64_t, OpenSession> open_sessions;
 bool rechecking = false;
+// Streamed HTTP responses share the registry with WebSockets; their ids have the top bit, which no socket id has.
+std::uint64_t next_stream_id = 0;
 
-void end_session(http::WebSocket *ws) { ws->close(session_revoked_close_code, "session expired or revoked"); }
+void recheck();
 
-// Every session whose token the store no longer accepts, or whose idle limit is over, ends; the store is asked
+void add_session(std::uint64_t id, OpenSession session)
+{
+	open_sessions[id] = std::move(session);
+	if (!rechecking) {
+		rechecking = true;
+		loop::after(recheck_interval, recheck);
+	}
+}
+
+// Ending a session closes its connection, which removes it from the registry: run on copies, after the walk.
+void end_sessions(const std::vector<std::function<void()>> &ended)
+{
+	for (const auto &end : ended) end();
+}
+
+// Every session whose token has expired or the store no longer accepts, or whose idle limit is over, ends; the store is asked
 // once per distinct token. It catches what revoke_user_sessions does not: an account file reset or edited.
 void recheck()
 {
@@ -492,12 +509,17 @@ void recheck()
 	}
 	std::map<std::pair<std::string, std::uint64_t>, bool> valid;
 	auto now = Clock::now();
-	std::vector<http::WebSocket *> ended;
+	std::vector<std::function<void()>> ended;
 	for (auto &[id, s] : open_sessions) {
+		// The token's own expiry holds whatever the activity and whether or not idle sign-out is on.
+		if (s.has_token && s.expires != 0 && now >= from_seconds(s.expires)) {
+			ended.push_back(s.end);
+			continue;
+		}
 		if (s.stream && !s.idle_key.empty()) {
 			TimePoint issued = s.issued ? from_seconds(s.issued) : TimePoint{};
 			if (!idle_state(s.idle_key, issued, from_seconds(s.expires), false, now).first) {
-				ended.push_back(s.ws);
+				ended.push_back(s.end);
 				continue;
 			}
 		}
@@ -508,9 +530,9 @@ void recheck()
 			std::string error;
 			it = valid.emplace(key, store().validate_token(s.username, s.token_version, error).has_value()).first;
 		}
-		if (!it->second) ended.push_back(s.ws);
+		if (!it->second) ended.push_back(s.end);
 	}
-	for (auto *ws : ended) end_session(ws);
+	end_sessions(ended);
 	loop::after(recheck_interval, recheck);
 }
 
@@ -523,12 +545,8 @@ struct RegisteredHandler : http::WsHandler {
 	void opened(http::WebSocket &ws) override
 	{
 		id = ws.id();
-		session.ws = &ws;
-		open_sessions[id] = session;
-		if (!rechecking) {
-			rechecking = true;
-			loop::after(recheck_interval, recheck);
-		}
+		session.end = [&ws] { ws.close(session_revoked_close_code, "session expired or revoked"); };
+		add_session(id, session);
 		inner->opened(ws);
 	}
 	void received(http::WebSocket &ws, std::string_view data, bool binary) override { inner->received(ws, data, binary); }
@@ -756,12 +774,23 @@ http::WsRoute guarded_ws(http::WsRoute route, Guard guard)
 	};
 }
 
+std::uint64_t join_session(const http::Request &request, std::function<void()> end)
+{
+	const http::Auth &a = *request.auth;
+	std::uint64_t id = (std::uint64_t{1} << 63) | ++next_stream_id;
+	add_session(id, OpenSession{a.username, a.token_version, a.has_token, a.has_token ? a.session_key : "", a.issued,
+	                            a.expires, true, std::move(end)});
+	return id;
+}
+
+void leave_session(std::uint64_t id) { open_sessions.erase(id); }
+
 void revoke_user_sessions(const std::string &username)
 {
-	std::vector<http::WebSocket *> ended;
+	std::vector<std::function<void()>> ended;
 	for (auto &[id, s] : open_sessions)
-		if (s.username == username) ended.push_back(s.ws);
-	for (auto *ws : ended) end_session(ws);
+		if (s.username == username) ended.push_back(s.end);
+	end_sessions(ended);
 	for (const auto &hook : revoke_hooks) hook(username);
 }
 

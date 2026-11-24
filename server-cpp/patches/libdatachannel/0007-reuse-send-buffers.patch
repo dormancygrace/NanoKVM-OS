@@ -1,0 +1,325 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: Reused buffers for the SRTP copies and the fragments of a frame
+
+sendMediaBatch allocated a protected copy of every packet and the H.264/H.265 packetizers a buffer for every
+fragment, all freed after the frame. musl's allocator then created slot groups of the packet size class for
+each frame and unmapped them afterwards, so each frame paid mmap, munmap and page faults. Both now reuse
+their buffers from frame to frame: the protected copies live until the synchronous batch send returns (a copy
+that is still held elsewhere is replaced), the fragments until they are packetized.
+---
+--- a/src/nalfragments.hpp
++++ b/src/nalfragments.hpp
+@@ -90,16 +90,26 @@
+ 	return bounds(frame.data(), frame.size(), separator);
+ }
+ 
+-// The fragments of the frame. headerSize is the NAL header (1 for H.264, 2 for H.265), unitSize the FU headers
+-// (2 and 3); writeHeader(out, nal, start, end) writes the unitSize bytes of a fragment of the NAL unit at nal.
++// The fragments of the frame into out, reusing its buffers (their capacity stays from frame to frame); returns how
++// many of out's elements it filled, the rest are left for later. headerSize is the NAL header (1 for H.264, 2 for
++// H.265), unitSize the FU headers (2 and 3); writeHeader(out, nal, start, end) writes the unitSize bytes of a
++// fragment of the NAL unit at nal.
+ template <typename WriteHeader>
+-std::vector<binary> fragments(const std::byte *frame, size_t n, NalUnit::Separator separator,
+-                              size_t maxFragmentSize, size_t headerSize, size_t unitSize, WriteHeader writeHeader) {
+-	std::vector<binary> result;
++size_t fragments_into(const std::byte *frame, size_t n, NalUnit::Separator separator, size_t maxFragmentSize,
++                      size_t headerSize, size_t unitSize, WriteHeader writeHeader, std::vector<binary> &out) {
++	size_t k = 0;
++	auto next = [&]() -> binary & {
++		if (k == out.size())
++			out.emplace_back();
++		binary &o = out[k++];
++		o.clear();
++		return o;
++	};
+ 	for (auto [b, e] : bounds(frame, n, separator)) {
+ 		size_t size = e - b;
+ 		if (size <= maxFragmentSize) {
+-			result.emplace_back(frame + b, frame + e);
++			binary &o = next();
++			o.insert(o.end(), frame + b, frame + e);
+ 			continue;
+ 		}
+ 		// The sizes as NalUnit::generateFragments computed them: balanced fragments, the last one shorter.
+@@ -111,36 +121,52 @@
+ 			bool first = offset == 0, last = !(offset + step < payload);
+ 			if (last && offset + step > payload)
+ 				step = uint16_t(payload - offset);
+-			binary &out = result.emplace_back();
+-			out.reserve(unitSize + step);
+-			out.resize(unitSize);
+-			writeHeader(out.data(), nal, first, last && !first);
+-			out.insert(out.end(), nal + headerSize + offset, nal + headerSize + offset + step);
++			binary &o = next();
++			o.reserve(unitSize + step);
++			o.resize(unitSize);
++			writeHeader(o.data(), nal, first, last && !first);
++			o.insert(o.end(), nal + headerSize + offset, nal + headerSize + offset + step);
+ 			offset += step;
+ 		}
+ 	}
+-	return result;
++	return k;
++}
++
++inline void h264_header(std::byte *out, const std::byte *nal, bool start, bool end) {
++	auto h = uint8_t(nal[0]);
++	out[0] = std::byte((h & 0xE0) | 28); // FU-A indicator: F and NRI of the unit
++	out[1] = std::byte((start << 7) | (end << 6) | (h & 0x1F));
++}
++
++inline void h265_header(std::byte *out, const std::byte *nal, bool start, bool end) {
++	auto h0 = uint8_t(nal[0]);
++	out[0] = std::byte((h0 & 0x81) | (49 << 1)); // FU indicator: type 49, F and layer of the unit
++	out[1] = nal[1];
++	out[2] = std::byte((start << 7) | (end << 6) | ((h0 >> 1) & 0x3F));
++}
++
++inline size_t h264_into(const std::byte *frame, size_t n, NalUnit::Separator separator, size_t maxFragmentSize,
++                        std::vector<binary> &out) {
++	return fragments_into(frame, n, separator, maxFragmentSize, 1, 2, h264_header, out);
++}
++
++inline size_t h265_into(const std::byte *frame, size_t n, NalUnit::Separator separator, size_t maxFragmentSize,
++                        std::vector<binary> &out) {
++	return fragments_into(frame, n, separator, maxFragmentSize, 2, 3, h265_header, out);
+ }
+ 
+ inline std::vector<binary> h264(const std::byte *frame, size_t n, NalUnit::Separator separator,
+                                 size_t maxFragmentSize) {
+-	return fragments(frame, n, separator, maxFragmentSize, 1, 2,
+-	                 [](std::byte *out, const std::byte *nal, bool start, bool end) {
+-		                 auto h = uint8_t(nal[0]);
+-		                 out[0] = std::byte((h & 0xE0) | 28); // FU-A indicator: F and NRI of the unit
+-		                 out[1] = std::byte((start << 7) | (end << 6) | (h & 0x1F));
+-	                 });
++	std::vector<binary> r;
++	r.resize(h264_into(frame, n, separator, maxFragmentSize, r));
++	return r;
+ }
+ 
+ inline std::vector<binary> h265(const std::byte *frame, size_t n, NalUnit::Separator separator,
+                                 size_t maxFragmentSize) {
+-	return fragments(frame, n, separator, maxFragmentSize, 2, 3,
+-	                 [](std::byte *out, const std::byte *nal, bool start, bool end) {
+-		                 auto h0 = uint8_t(nal[0]);
+-		                 out[0] = std::byte((h0 & 0x81) | (49 << 1)); // FU indicator: type 49, F and layer of the unit
+-		                 out[1] = nal[1];
+-		                 out[2] = std::byte((start << 7) | (end << 6) | ((h0 >> 1) & 0x3F));
+-	                 });
++	std::vector<binary> r;
++	r.resize(h265_into(frame, n, separator, maxFragmentSize, r));
++	return r;
+ }
+ 
+ inline std::vector<binary> h264(const binary &frame, NalUnit::Separator separator, size_t maxFragmentSize) {
+--- a/include/rtc/rtppacketizer.hpp
++++ b/include/rtc/rtppacketizer.hpp
+@@ -48,6 +48,10 @@
+ 	/// Fragments a frame lent by the caller (Track::sendFrame with a pointer); by default a copy for fragment()
+ 	virtual std::vector<binary> fragment(const byte *data, size_t size);
+ 
++	/// Fragments a lent frame into out, reusing its buffers; returns how many elements it filled. By default
++	/// fragment() into out.
++	virtual size_t fragmentInto(const byte *data, size_t size, std::vector<binary> &out);
++
+ 	/// Creates an RTP packet for a payload
+ 	/// @note This function increases the sequence number.
+ 	/// @param payload RTP payload
+@@ -58,6 +62,8 @@
+ 	[[deprecated]] virtual message_ptr packetize(shared_ptr<binary> payload, bool mark);
+ 
+ private:
++	// The fragments of the last lent frame: their buffers are reused for the next one.
++	std::vector<binary> mFragments;
+ 	static const auto RtpHeaderSize = 12;
+ 	static const auto RtpExtHeaderCvoSize = 8;
+ };
+--- a/src/rtppacketizer.cpp
++++ b/src/rtppacketizer.cpp
+@@ -26,6 +26,11 @@
+ 
+ std::vector<binary> RtpPacketizer::fragment(const byte *data, size_t size) {
+ 	return fragment(binary(data, data + size));
++}
++
++size_t RtpPacketizer::fragmentInto(const byte *data, size_t size, std::vector<binary> &out) {
++	out = fragment(data, size);
++	return out.size();
+ }
+ 
+ message_ptr RtpPacketizer::packetize(const binary &payload, bool mark) {
+@@ -193,16 +198,24 @@
+ 		}
+ 
+ 		const auto &info = message->frameInfo;
+-		auto payloads = info && info->borrowedData ? fragment(info->borrowedData, info->borrowedSize)
+-		                                           : fragment(std::move(*message));
+-		for (size_t i = 0; i < payloads.size(); i++) {
++		std::vector<binary> owned;
++		std::vector<binary> *payloads = &owned;
++		size_t count;
++		if (info && info->borrowedData) {
++			count = fragmentInto(info->borrowedData, info->borrowedSize, mFragments);
++			payloads = &mFragments;
++		} else {
++			owned = fragment(std::move(*message));
++			count = owned.size();
++		}
++		for (size_t i = 0; i < count; i++) {
+ 			if (rtpConfig->dependencyDescriptorContext.has_value()) {
+ 				auto &ctx = *rtpConfig->dependencyDescriptorContext;
+ 				ctx.descriptor.startOfFrame = i == 0;
+-				ctx.descriptor.endOfFrame = i == payloads.size() - 1;
++				ctx.descriptor.endOfFrame = i == count - 1;
+ 			}
+-			bool mark = i == payloads.size() - 1;
+-			result.push_back(packetize(payloads[i], mark));
++			bool mark = i == count - 1;
++			result.push_back(packetize((*payloads)[i], mark));
+ 		}
+ 	}
+ 
+--- a/include/rtc/h264rtppacketizer.hpp
++++ b/include/rtc/h264rtppacketizer.hpp
+@@ -42,6 +42,7 @@
+ private:
+ 	std::vector<binary> fragment(binary data) override;
+ 	std::vector<binary> fragment(const byte *data, size_t size) override;
++	size_t fragmentInto(const byte *data, size_t size, std::vector<binary> &out) override;
+ 	std::vector<NalUnit> splitFrame(const binary &frame);
+ 
+ 	const Separator mSeparator;
+--- a/include/rtc/h265rtppacketizer.hpp
++++ b/include/rtc/h265rtppacketizer.hpp
+@@ -40,6 +40,7 @@
+ private:
+ 	std::vector<binary> fragment(binary data) override;
+ 	std::vector<binary> fragment(const byte *data, size_t size) override;
++	size_t fragmentInto(const byte *data, size_t size, std::vector<binary> &out) override;
+ 	std::vector<H265NalUnit> splitFrame(const binary &frame);
+ 
+ 	const NalUnit::Separator mSeparator;
+--- a/src/h264rtppacketizer.cpp
++++ b/src/h264rtppacketizer.cpp
+@@ -40,6 +40,10 @@
+ 
+ std::vector<binary> H264RtpPacketizer::fragment(const byte *data, size_t size) {
+ 	return nal_fragments::h264(data, size, mSeparator, mMaxFragmentSize);
++}
++
++size_t H264RtpPacketizer::fragmentInto(const byte *data, size_t size, std::vector<binary> &out) {
++	return nal_fragments::h264_into(data, size, mSeparator, mMaxFragmentSize, out);
+ }
+ 
+ std::vector<NalUnit> H264RtpPacketizer::splitFrame(const binary &frame) {
+--- a/src/h265rtppacketizer.cpp
++++ b/src/h265rtppacketizer.cpp
+@@ -40,6 +40,10 @@
+ 
+ std::vector<binary> H265RtpPacketizer::fragment(const byte *data, size_t size) {
+ 	return nal_fragments::h265(data, size, mSeparator, mMaxFragmentSize);
++}
++
++size_t H265RtpPacketizer::fragmentInto(const byte *data, size_t size, std::vector<binary> &out) {
++	return nal_fragments::h265_into(data, size, mSeparator, mMaxFragmentSize, out);
+ }
+ 
+ std::vector<H265NalUnit> H265RtpPacketizer::splitFrame(const binary &frame) {
+--- a/src/impl/dtlssrtptransport.hpp
++++ b/src/impl/dtlssrtptransport.hpp
+@@ -63,6 +63,12 @@
+ 	std::vector<unsigned char> mClientSessionKey;
+ 	std::vector<unsigned char> mServerSessionKey;
+ 	std::mutex sendMutex;
++	// sendMediaBatch's protected copies and their pointers and sizes, reused from frame to frame: a copy lives
++	// only until the batch is sent (synchronously). mBatchMutex covers them for the whole call.
++	std::mutex mBatchMutex;
++	message_vector mBatchPool, mBatch;
++	std::vector<std::byte *> mBatchData;
++	std::vector<size_t> mBatchSizes;
+ 	std::unique_ptr<rtc::SrtpProtector> mProtector;
+ };
+ 
+--- a/src/impl/dtlssrtptransport.cpp
++++ b/src/impl/dtlssrtptransport.cpp
+@@ -7,6 +7,8 @@
+  */
+ 
+ #include "dtlssrtptransport.hpp"
++
++#include <algorithm>
+ #include "logcounter.hpp"
+ #include "rtp.hpp"
+ #include "tls.hpp"
+@@ -107,35 +109,53 @@
+ 			ret = sendMedia(std::move(m));
+ 		return ret;
+ 	}
+-	std::vector<message_ptr> rtp;
++	// The protected copies are reused: each lives only until the batch below is sent, synchronously. A copy that
++	// something else still holds is replaced, not reused.
++	std::lock_guard batchLock(mBatchMutex);
+ 	bool ret = false;
++	size_t n = 0;
+ 	{
+ 		std::lock_guard lock(sendMutex);
+ 		if (!mInitDone) {
+ 			PLOG_ERROR << "SRTP media sent before keys are derived";
+ 			return false;
+ 		}
+-		std::vector<std::byte *> data;
+-		std::vector<size_t> sizes;
+ 		for (auto &m : messages) {
+ 			if (!m || IsRtcp(*m))
+ 				continue;
+ 			size_t size = m->size();
+-			auto copy = make_message(size + SrtpProtectorRoom, m);
++			if (n == mBatchPool.size()) {
++				mBatchPool.emplace_back();
++				mBatchData.push_back(nullptr);
++				mBatchSizes.push_back(0);
++			}
++			auto &copy = mBatchPool[n];
++			if (!copy || copy.use_count() != 1) {
++				copy = std::make_shared<Message>(binary{}, m->type);
++				copy->reserve(std::max<size_t>(size + SrtpProtectorRoom, 1500));
++			}
++			copy->assign(m->begin(), m->end());
++			copy->resize(size + SrtpProtectorRoom);
++			copy->type = m->type;
++			copy->stream = m->stream;
+ 			copy->dscp = m->dscp;
+-			data.push_back(copy->data());
+-			sizes.push_back(size);
+-			rtp.push_back(std::move(copy));
+-		}
+-		if (!rtp.empty()) {
+-			if (!mProtector->protect(data.data(), sizes.data(), rtp.size()))
++			copy->reliability = m->reliability;
++			mBatchData[n] = copy->data();
++			mBatchSizes[n] = size;
++			++n;
++		}
++		if (n) {
++			if (!mProtector->protect(mBatchData.data(), mBatchSizes.data(), n))
+ 				throw std::runtime_error("SRTP frame protect error");
+-			for (size_t i = 0; i < rtp.size(); ++i)
+-				rtp[i]->resize(sizes[i]);
+-		}
+-	}
+-	if (!rtp.empty())
+-		ret = Transport::outgoingBatch(rtp); // bypass DTLS DSCP marking
++			for (size_t i = 0; i < n; ++i)
++				mBatchPool[i]->resize(mBatchSizes[i]);
++		}
++	}
++	if (n) {
++		mBatch.assign(mBatchPool.begin(), mBatchPool.begin() + n);
++		ret = Transport::outgoingBatch(mBatch); // bypass DTLS DSCP marking
++		mBatch.clear(); // the pool holds the copies alone again
++	}
+ 	for (auto &m : messages)
+ 		if (m && IsRtcp(*m))
+ 			ret = sendMedia(std::move(m));

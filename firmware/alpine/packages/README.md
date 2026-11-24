@@ -50,7 +50,7 @@ changes that identifier once, rebuilding every core package:
   The decimal revision encodes OS major, three-digit minor, three-digit patch
   and three-digit beta number (999 for stable). This keeps maintenance releases
   and beta builds ordered even when published on different branches. The first
-  beta of each OS version builds these three packages so a device on a later
+  published beta of each OS version builds these three packages so a device on a later
   maintenance release can still upgrade to the published beta.
 
 `nanokvm-release` depends directly on the selected versions of all components

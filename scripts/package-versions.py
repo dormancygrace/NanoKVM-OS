@@ -118,6 +118,9 @@ def select(payloads, recipes, version, previous):
     published = (previous or {}).get('packages', {})
     if previous and release_revision(previous['release']) > revision:
         published = {}
+    release_line, beta, _ = version.partition('_beta')
+    previous_line, previous_beta, _ = (previous or {}).get('release', '').partition('_beta')
+    first_published_beta = bool(beta and (not previous_beta or previous_line != release_line))
     chosen = {}
     components = component_versions()
     for name in PACKAGES:
@@ -141,7 +144,7 @@ def select(payloads, recipes, version, previous):
         # Establish a revision for the new beta line before a lower-numbered
         # stable maintenance release can publish different bytes. A device
         # can then switch to this beta via an ordinary APK upgrade.
-        changed = changed or version.endswith('_beta1')
+        changed = changed or first_published_beta
         for name, prior in zip(group, old):
             chosen[name].update(version=upstream, changed=changed,
                                 pkgrel=revision if changed else prior['pkgrel'])

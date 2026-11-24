@@ -122,8 +122,8 @@ func SetChannel(channel string) error {
 	return writeRepositories([]byte(strings.Join(lines, "\n")))
 }
 
-// Only mandatory OS packages are pinned. Optional diagnostic tools stay under
-// the user's world selections; older releases pull their own dependencies.
+// Keep in step with scripts/package-versions.py. Add-ons are independent and
+// must never be included in a core firmware rollback.
 var corePackages = apkrollback.CorePackages
 var prereleasePackage = regexp.MustCompile(`_(alpha|beta|pre|rc)[0-9]*`)
 

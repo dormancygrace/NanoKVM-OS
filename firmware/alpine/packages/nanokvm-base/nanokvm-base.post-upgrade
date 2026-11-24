@@ -276,12 +276,5 @@ if [ -f /root/.profile ] && [ "$(cat /root/.profile)" = "$legacy_root_profile" ]
 fi
 unset legacy_root_profile
 
-# A live upgrade may restart the application before the next board boot.
-# Restore a matching receiver record without accessing hardware.
-if [ -e /run/openrc/softlevel ]; then
-    /usr/libexec/nanokvm/legacy/S15kvmhwd get_hdmi_version ||
-        echo "HDMI receiver identity unavailable for this boot" >&2
-fi
-
 # The Ethernet MAC record above failed: the update is not complete.
 [ -z "${eth_mac_lost:-}" ] || exit 1

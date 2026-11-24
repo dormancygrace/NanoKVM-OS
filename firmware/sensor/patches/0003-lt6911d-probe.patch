@@ -7,7 +7,7 @@ diff --git a/sensor/cv182x/lontium_lt6911/lt6911_sensor_ctl.c b/sensor/cv182x/lo
  
 +static int lt6911_is_d_board(void)
 +{
-+	FILE *version = fopen("/run/nanokvm/hdmi_version", "r");
++	FILE *version = fopen("/etc/kvm/hdmi_version", "r");
 +	if (version == NULL)
 +		return 0;
 +	int variant = fgetc(version);

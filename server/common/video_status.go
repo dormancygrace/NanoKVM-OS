@@ -21,7 +21,7 @@ func ReadVideoValue(path string) int {
 // Board and HDMI chip identifiers; variables so tests can select a board.
 var (
 	monitorBoardFile    = "/etc/kvm/hw"
-	monitorHDMIChipFile = "/run/nanokvm/hdmi_version"
+	monitorHDMIChipFile = "/etc/kvm/hdmi_version"
 )
 
 // The board decides how a new EDID takes effect: PCIe boards reset the
@@ -37,8 +37,8 @@ func receiverChip() string {
 	return hardwareIdentity(monitorHDMIChipFile, "c", "ux", "d", "ue")
 }
 
-// S15kvmhwd publishes both before the server starts. A receiver repair takes
-// effect on reboot, so a known value is read once per
+// S15kvmhwd publishes both before the server starts and keeps a known value
+// (only an explicit re-detect rewrites it), so a known value is read once per
 // file: the capability answer alone asks about 60 times, and a Go file read
 // costs nine system calls. Anything else is read again next time.
 var hardwareIdentities sync.Map

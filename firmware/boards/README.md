@@ -39,9 +39,6 @@ board's boot image beside `boot.sd`, checks it on the card, keeps a known-good
 same accepted kernel/initramfs and the appropriate DT. Normal init trusts this
 DT profile, while `/etc/kvm/hw` retains legacy naming for native application
 compatibility. `/etc/kvm/board-profile` controls the server's ATX mapping.
-The detection DT disables HDMI reset and I2C4. Board selection requests a
-one-time HDMI receiver identification for the first boot of the selected DT.
-Both the full SD image and the stock migration start with this detection DT.
 
 ## OLED at runtime
 

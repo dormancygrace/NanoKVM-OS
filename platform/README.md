@@ -320,11 +320,10 @@ the old ones (`apkrollback.LegacyTargets`).
 `nanokvm-exfatprogs1` supplies `mkfs.exfat` for formatting `/data` on first
 boot and `fsck.exfat` for checking it. The `tools` step builds exfatprogs
 from its pinned upstream release against the device's `libblkid`.
-Receiver provisioning uses the kernel I2C interface directly. Install
-optional I2C diagnostic commands with `apk add i2c-tools` from Alpine.
-For old rollback clients and explicit package selections, the OS index
-includes a compatibility package under the former name and the unchanged,
-Alpine-signed I2C tools even when only Alpine main is enabled.
+The OS installs Alpine's `i2c-tools` package. HDMI receiver detection uses
+its `i2cdetect` command. For devices configured with Alpine main alone, the
+OS index also serves the identical Alpine-signed APK. A compatibility package
+preserves the old name for explicit installs and older rollback clients.
 
 The browser package requires `nanokvm-web-api=2`, provided by the server
 (2: the browser sends passwords as typed, marked `passwordEncoding: "plain"`,

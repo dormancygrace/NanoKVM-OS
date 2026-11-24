@@ -129,7 +129,7 @@ for f in state width height input_fps now_fps now_kbps video_path video_width vi
 done
 # The HDMI receiver (LT6911 model, chip id, firmware, timing, raw status) as
 # kvm_system logs it on every signal change; no extra I2C access.
-run hardware/hdmi-receiver sh -c 'cat /run/nanokvm/hdmi_version 2>/dev/null; echo; for b in older previous current; do grep -h "\[hdmi\]" /var/log/nanokvm-boots/$b/application.log 2>/dev/null; done | tail -n 200'
+run hardware/hdmi-receiver sh -c 'cat /etc/kvm/hdmi_version 2>/dev/null; echo; for b in older previous current; do grep -h "\[hdmi\]" /var/log/nanokvm-boots/$b/application.log 2>/dev/null; done | tail -n 200' 
 for f in state width height fps now_fps res qlty type transport wifi_state; do
 	copy hardware/kvmapp-kvm "/kvmapp/kvm/$f"
 done
@@ -144,7 +144,7 @@ run hardware/monitor-identity sh -c '[ -f /etc/kvm/monitor_identity ] && echo cu
 run hardware/usb-gadget sh -c 'cd /sys/kernel/config/usb_gadget 2>/dev/null && find . -type f ! -name serialnumber | sort | while read -r f; do printf "%s: %s\n" "$f" "$(head -c 256 "$f" 2>/dev/null | tr "\n" " ")"; done'
 run hardware/udc sh -c 'for u in /sys/class/udc/*; do echo "$u $(cat "$u/state" 2>/dev/null) $(cat "$u/current_speed" 2>/dev/null)"; done'
 run hardware/lsusb lsusb
-run hardware/i2c-buses sh -c 'for a in /sys/class/i2c-adapter/*; do echo "$a $(cat "$a/name" 2>/dev/null)"; done'
+run hardware/i2c-buses sh -c 'i2cdetect -l; for a in /sys/class/i2c-adapter/*; do echo "$a $(cat "$a/name" 2>/dev/null)"; done'
 run hardware/gpio cat /sys/kernel/debug/gpio
 run hardware/gpio-exported sh -c 'for g in /sys/class/gpio/gpio*; do [ -d "$g" ] && echo "$g $(cat "$g/direction" 2>/dev/null) $(cat "$g/value" 2>/dev/null) $(cat "$g/active_low" 2>/dev/null)"; done; true'
 # Read-only registers the issues asked for: pinmux of the HDMI/MIPI pins

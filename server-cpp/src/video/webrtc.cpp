@@ -51,6 +51,8 @@ constexpr std::size_t rtp_header = 12;
 constexpr std::size_t max_signaling = 64 << 10;
 // The writer's queue: 32 frames and 2 MiB of video (Wi-Fi stalls); beyond, it drops all and waits for a key frame.
 constexpr std::size_t queue_frames = 32, queue_bytes = 2u << 20;
+// The most the capture hands over as one frame (its 64 MiB of storage and the packetizer's headroom).
+constexpr std::size_t single_frame_bytes = (64u << 20) + 9;
 constexpr auto keyframe_interval = 1s, keyframe_max_interval = 8s;
 
 struct Message {
@@ -71,43 +73,6 @@ constexpr glz::opts lenient{.error_on_unknown_keys = false};
 std::string message_json(const std::string &event, const std::string &data)
 {
 	return "{\"event\":" + gojson::quote(event) + ",\"data\":" + gojson::quote(data) + "}";
-}
-
-// The ICE servers of the configuration, as the Go server's iceservers.List, in rtc's form and as the page gets them.
-std::pair<std::vector<rtc::IceServer>, std::string> ice_servers()
-{
-	const auto &c = config::get();
-	std::vector<rtc::IceServer> servers;
-	std::vector<std::string> urls;
-	std::string field;
-	auto flush = [&] {
-		if (!field.empty() && field != "disable") urls.push_back("stun:" + field);
-		field.clear();
-	};
-	for (char ch : c.stun) {
-		if (ch == ',' || ch == ' ' || ch == '\t') flush();
-		else field += ch;
-	}
-	flush();
-	std::string json = "[";
-	if (!urls.empty()) {
-		json += "{\"urls\":[";
-		for (std::size_t i = 0; i < urls.size(); i++) {
-			json += (i ? "," : "") + gojson::quote(urls[i]);
-			servers.emplace_back(urls[i]);
-		}
-		json += "]}";
-	}
-	if (!c.turn.turn_addr.empty() && !c.turn.turn_user.empty() && !c.turn.turn_cred.empty()) {
-		std::string url = "turn:" + c.turn.turn_addr;
-		json += std::string(urls.empty() ? "" : ",") + "{\"urls\":[" + gojson::quote(url) + "],\"username\":" +
-		        gojson::quote(c.turn.turn_user) + ",\"credential\":" + gojson::quote(c.turn.turn_cred) + "}";
-		auto colon = c.turn.turn_addr.rfind(':');
-		std::string host = colon == std::string::npos ? c.turn.turn_addr : c.turn.turn_addr.substr(0, colon);
-		uint16_t port = colon == std::string::npos ? 3478 : static_cast<uint16_t>(std::atoi(c.turn.turn_addr.c_str() + colon + 1));
-		servers.emplace_back(host, port, c.turn.turn_user, c.turn.turn_cred, rtc::IceServer::RelayType::TurnUdp);
-	}
-	return {servers, json + "]"};
 }
 
 // The device address the page's signalling arrived at: the media stays on it (icelocal). Empty for a loopback one
@@ -161,23 +126,50 @@ public:
 		std::lock_guard lock(mutex_);
 		if (closed_) return false;
 		if (repairing_ && !frame.key()) return keyframe_due();
-		if (frame.key() && repairing_) repairing_ = false;
-		if (queue_.size() >= queue_frames || queued_bytes_ + frame.size > queue_bytes) {
-			// The peer cannot keep up: drop the queue and wait for a key frame (the browser sees no RTP gap
-			// and sends no PLI, so the server asks).
-			queue_.clear();
-			queued_bytes_ = 0;
-			repairing_ = true;
-			return keyframe_due();
-		}
-		queue_.push_back(frame);
-		queued_bytes_ += frame.size;
-		cv_.notify_one();
-		if (frame.key()) keyframe_wait_ = {};
-		return false;
+		if (enqueue(frame)) return false;
+		// The peer cannot keep up: drop the queue and wait for a key frame (the browser sees no RTP gap and
+		// sends no PLI, so the server asks). A key frame starts the emptied queue itself, also one larger than
+		// the queue's bytes: refusing it would leave the viewer waiting for a repair that every large key frame
+		// fails the same way.
+		queue_.clear();
+		queued_bytes_ = 0;
+		repairing_ = true;
+		if (frame.key() && enqueue(frame)) return false;
+		return keyframe_due();
 	}
 
 private:
+	// One frame beyond the queue's bytes is taken only by an empty queue; the next waits for it to drain.
+	bool enqueue(const Frame &frame)
+	{
+		if (frame.size > single_frame_bytes || queue_.size() >= queue_frames) return false;
+		if (!queue_.empty() && queued_bytes_ + frame.size > queue_bytes) return false;
+		queue_.push_back(frame);
+		queued_bytes_ += frame.size;
+		repairing_ = false;
+		if (frame.key()) keyframe_wait_ = {};
+		cv_.notify_one();
+		return true;
+	}
+	// The track's media time in microseconds. The capture counts from the start of its session, and the session
+	// ends when the last viewer pauses: the next one counts from zero again while the track and its SSRC stay. A
+	// timestamp that does not advance continues from the previous frame by the time that passed since it.
+	std::int64_t media_time(std::int64_t capture)
+	{
+		auto now = Clock::now();
+		if (!have_time_) {
+			have_time_ = true;
+			media_time_ = capture;
+		} else {
+			std::int64_t step = capture - last_capture_;
+			if (step <= 0)
+				step = std::max<std::int64_t>(1, std::chrono::duration_cast<std::chrono::microseconds>(now - last_frame_at_).count());
+			media_time_ += step;
+		}
+		last_capture_ = capture;
+		last_frame_at_ = now;
+		return media_time_;
+	}
 	// The first request at once, then after 1, 2, 4 and every 8 s while it keeps waiting: a peer that stays stalled
 	// must not make every viewer of the shared encoder pay for a key frame each second.
 	bool keyframe_due()
@@ -203,7 +195,7 @@ private:
 			}
 			try {
 				track_->sendFrame(reinterpret_cast<const rtc::byte *>(frame.data()), frame.size,
-				                  rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(frame.timestamp) / 1e6)));
+				                  rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(media_time(frame.timestamp)) / 1e6)));
 			} catch (const std::exception &e) {
 				// At most one line per 10 s, with the count of the failures since the last one: a failing peer must
 				// not flood the log, and later failures must not vanish either.
@@ -227,6 +219,9 @@ private:
 	Clock::time_point last_request_{};
 	Clock::duration keyframe_wait_{};
 	// Writer thread only.
+	bool have_time_ = false;
+	std::int64_t media_time_ = 0, last_capture_ = 0;
+	Clock::time_point last_frame_at_{};
 	Clock::time_point last_failure_log_{};
 	long failures_ = 0;
 };
@@ -276,15 +271,10 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 	{
 		ws = &socket;
 		ws->max_message = max_signaling;
-		auto [servers, json] = ice_servers();
-		rtc::Configuration config;
-		config.iceServers = servers;
-		if (!bind_address.empty()) config.bindAddress = bind_address;
-		config.mtu = rtp_mtu + 16 + 8 + 40;  // the SRTP tag, UDP and IPv6 around the RTP packet
-		config.certificateType = rtc::CertificateType::Ecdsa;
-		config.disableAutoNegotiation = true;
+		auto [servers, json] = rtc_common::ice_servers();
+		// The MTU: the SRTP tag, UDP and IPv6 around the RTP packet.
 		try {
-			pc = std::make_shared<rtc::PeerConnection>(config);
+			pc = std::make_shared<rtc::PeerConnection>(rtc_common::configuration(servers, bind_address, rtp_mtu + 16 + 8 + 40));
 		} catch (const std::exception &e) {
 			log::error("failed to create webrtc peer connection: {}", e.what());
 			ws->close(1011, "");

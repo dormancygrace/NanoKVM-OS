@@ -1,0 +1,66 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: A caller's DTLS cipher preference
+
+The OpenSSL transport offered and accepted its own fixed list. SetDtlsCipherList gives the suites of the
+connections created afterwards in the caller's order: offered in that order as a DTLS client, enforced as a
+DTLS server (SSL_OP_CIPHER_SERVER_PREFERENCE). Without a call nothing changes.
+---
+--- a/include/rtc/global.hpp
++++ b/include/rtc/global.hpp
+@@ -51,6 +51,10 @@
+ 
+ RTC_CPP_EXPORT void SetSctpSettings(SctpSettings s);
+ 
++// The DTLS cipher suites of the connections created from now on, in the order of preference (an OpenSSL cipher
++// list); empty for the library's own list. The order is offered as a client and enforced as a server.
++RTC_CPP_EXPORT void SetDtlsCipherList(string list);
++
+ // Optional global preload and cleanup
+ RTC_CPP_EXPORT void Preload();
+ RTC_CPP_EXPORT std::shared_future<void> Cleanup();
+--- a/src/impl/dtlstransport.cpp
++++ b/src/impl/dtlstransport.cpp
+@@ -27,6 +27,22 @@
+ 
+ using namespace std::chrono;
+ 
++namespace {
++
++std::mutex dtlsCipherListMutex;
++std::string dtlsCipherList;
++
++} // namespace
++
++namespace rtc {
++
++void SetDtlsCipherList(string list) {
++	std::lock_guard lock(dtlsCipherListMutex);
++	dtlsCipherList = std::move(list);
++}
++
++} // namespace rtc
++
+ namespace rtc::impl {
+ 
+ void DtlsTransport::enqueueRecv() {
+@@ -783,8 +799,18 @@
+ 		                   CertificateCallback);
+ 		SSL_CTX_set_verify_depth(mCtx, 1);
+ 
+-		openssl::check(SSL_CTX_set_cipher_list(mCtx, "ALL:!SHA256:!SHA384:!aPSK:!ECDSA+SHA1:!ADH:!LOW:!EXP:!MD5:!3DES:!SSLv3:!TLSv1"),
+-		               "Failed to set SSL priorities");
++		std::string cipherList;
++		{
++			std::lock_guard lock(dtlsCipherListMutex);
++			cipherList = dtlsCipherList;
++		}
++		if (cipherList.empty()) {
++			openssl::check(SSL_CTX_set_cipher_list(mCtx, "ALL:!SHA256:!SHA384:!aPSK:!ECDSA+SHA1:!ADH:!LOW:!EXP:!MD5:!3DES:!SSLv3:!TLSv1"),
++			               "Failed to set SSL priorities");
++		} else {
++			openssl::check(SSL_CTX_set_cipher_list(mCtx, cipherList.c_str()), "Failed to set SSL priorities");
++			SSL_CTX_set_options(mCtx, SSL_OP_CIPHER_SERVER_PREFERENCE);
++		}
+ 
+ #if OPENSSL_VERSION_NUMBER >= 0x30000000
+ 		openssl::check(SSL_CTX_set1_groups_list(mCtx, "P-256"), "Failed to set SSL groups");

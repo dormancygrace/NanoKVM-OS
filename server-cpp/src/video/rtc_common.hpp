@@ -1,7 +1,7 @@
 #pragma once
 
-// What every WebRTC connection of the server shares (video, audio): the ICE servers of the configuration (the Go
-// server's iceservers), the device address the page reached (icelocal: the media stays on it), the peer connection
+// What every WebRTC connection of the server shares (video, audio): the ICE servers and DTLS cipher order of the
+// WebRTC settings as they are when the connection is made (the Go server's iceservers and webrtcdtls), the device address the page reached (icelocal: the media stays on it), the peer connection
 // configuration, and trimming a reciprocated m-line to one codec.
 
 #include "http/router.hpp"
@@ -22,7 +22,8 @@ std::pair<std::vector<rtc::IceServer>, std::string> ice_servers();
 // elsewhere: every address then).
 std::string local_address(const http::Request &req);
 
-// A peer connection configuration for the page at bind_address (empty: any), with the shared ECDSA certificate.
+// A peer connection configuration for the page at bind_address (empty: any), with the shared ECDSA certificate
+// and the saved DTLS cipher preference.
 rtc::Configuration configuration(const std::vector<rtc::IceServer> &servers, const std::string &bind_address,
                                  std::size_t mtu);
 

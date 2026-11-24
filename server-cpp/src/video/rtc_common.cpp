@@ -1,7 +1,7 @@
 #include "video/rtc_common.hpp"
 
 #include "common/gojson.hpp"
-#include "config/config.hpp"
+#include "network/network.hpp"
 
 #include <libwebsockets.h>
 #include <openssl/rand.h>
@@ -17,7 +17,8 @@ namespace nkos::video::rtc_common {
 
 std::pair<std::vector<rtc::IceServer>, std::string> ice_servers()
 {
-	const auto &c = config::get();
+	// The settings as they are now: POST /api/network/webrtc changes them while the server runs.
+	const auto c = network::webrtc_servers();
 	std::vector<rtc::IceServer> servers;
 	std::vector<std::string> urls;
 	std::string field;
@@ -42,14 +43,14 @@ std::pair<std::vector<rtc::IceServer>, std::string> ice_servers()
 		}
 		json += "]}";
 	}
-	if (!c.turn.turn_addr.empty() && !c.turn.turn_user.empty() && !c.turn.turn_cred.empty()) {
-		std::string url = "turn:" + c.turn.turn_addr;
+	if (!c.turn_addr.empty() && !c.turn_user.empty() && !c.turn_cred.empty()) {
+		std::string url = "turn:" + c.turn_addr;
 		json += std::string(urls.empty() ? "" : ",") + "{\"urls\":[" + gojson::quote(url) + "],\"username\":" +
-		        gojson::quote(c.turn.turn_user) + ",\"credential\":" + gojson::quote(c.turn.turn_cred) + "}";
-		auto colon = c.turn.turn_addr.rfind(':');
-		std::string host = colon == std::string::npos ? c.turn.turn_addr : c.turn.turn_addr.substr(0, colon);
-		auto port = static_cast<std::uint16_t>(colon == std::string::npos ? 3478 : std::atoi(c.turn.turn_addr.c_str() + colon + 1));
-		servers.emplace_back(host, port, c.turn.turn_user, c.turn.turn_cred, rtc::IceServer::RelayType::TurnUdp);
+		        gojson::quote(c.turn_user) + ",\"credential\":" + gojson::quote(c.turn_cred) + "}";
+		auto colon = c.turn_addr.rfind(':');
+		std::string host = colon == std::string::npos ? c.turn_addr : c.turn_addr.substr(0, colon);
+		auto port = static_cast<std::uint16_t>(colon == std::string::npos ? 3478 : std::atoi(c.turn_addr.c_str() + colon + 1));
+		servers.emplace_back(host, port, c.turn_user, c.turn_cred, rtc::IceServer::RelayType::TurnUdp);
 	}
 	return {servers, json + "]"};
 }
@@ -83,6 +84,11 @@ std::string local_address(const http::Request &req)
 rtc::Configuration configuration(const std::vector<rtc::IceServer> &servers, const std::string &bind_address,
                                  std::size_t mtu)
 {
+	// The suites the Go server offered, the saved preference first. libdatachannel reads the list when the
+	// connection's DTLS transport starts.
+	static const std::string chacha = "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305";
+	static const std::string aes = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256";
+	rtc::SetDtlsCipherList(network::webrtc_servers().dtls_cipher == "aes-gcm" ? aes + ":" + chacha : chacha + ":" + aes);
 	rtc::Configuration config;
 	config.iceServers = servers;
 	if (!bind_address.empty()) config.bindAddress = bind_address;

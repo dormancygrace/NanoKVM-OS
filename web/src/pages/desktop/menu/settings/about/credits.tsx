@@ -23,6 +23,11 @@ export const Credits = () => {
       url: 'https://github.com/Lady-Galadriel'
     },
     {
+      name: 'Msprg',
+      contribution: tr('msprg'),
+      url: 'https://github.com/Msprg'
+    },
+    {
       name: 'neVERberleRfellerER',
       contribution: tr('neverberlerfellerer'),
       url: 'https://github.com/neVERberleRfellerER'

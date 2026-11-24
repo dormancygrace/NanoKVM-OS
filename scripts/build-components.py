@@ -57,7 +57,7 @@ COMPONENTS = {
                'scripts/build-portrait-edid.py', 'scripts/build-wide-monitor-edids.py',
                'scripts/edid-rgb-range.py', 'scripts/build-usb-audio.py', 'scripts/build-openssl.py'],
               ['busybox', 'exfatprogs', 'lolcat', 'tinyalsa', 'openssl', 'zlib-ng'],
-              ['kernel'], ['images/tools', 'tools/compress']),
+              ['kernel'], ['images/tools']),
     'server': (['server-cpp'],
                ['libwebsockets', 'glaze', 'rapidyaml', 'libdatachannel', 'libjuice', 'libsrtp', 'usrsctp',
                 'plog', 'libjpeg-turbo', 'libspng', 'curl'],

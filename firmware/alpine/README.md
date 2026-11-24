@@ -76,7 +76,9 @@ bundle described above is a separate full-system reinstallation path.
 ## Repository policy
 
 The default profile is `stock`. Ordinary userspace packages, including BusyBox,
-coreutils, LZ4, zstd and OpenSSL, come from official Alpine repositories.
+coreutils and LZ4, come from official Alpine repositories. APK installs the
+Zstandard shared library when other packages require it. The OpenSSL runtime
+is built with the NanoKVM C906 patches.
 NanoKVM still supplies its SG2002 kernel, drivers, board firmware and application.
 
 The target repository list is:

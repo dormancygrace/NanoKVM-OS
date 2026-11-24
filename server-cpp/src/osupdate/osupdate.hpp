@@ -92,6 +92,12 @@ std::string bounded_upgrades(const std::string &plan, const std::vector<std::str
 std::vector<std::string> other_install_changes(const std::string &simulation, const std::vector<std::string> &names);
 std::vector<std::string> installed_changes(const std::string &simulation, const std::vector<std::string> &reinstall);
 std::map<std::string, std::string> parse_installed_db(const std::string &data);
+// KeptByRemoval: the packages of names that an `apk del --simulate` does not purge (apk exits 0 and keeps a package
+// that another selected package still needs, after taking it out of the world).
+std::vector<std::string> kept_by_removal(const std::string &simulation, const std::vector<std::string> &names);
+// Installed: the named packages that the installed database records. A database that cannot be read, or that records
+// no package at all, proves nothing about the names: nullopt and error.
+std::optional<std::vector<std::string>> installed(const std::vector<std::string> &names, Error &error);
 std::optional<std::map<std::string, std::string>> installed_versions(Error &error);
 // PackageState: the named packages that are not installed, and the broken ones among them and their dependencies.
 bool package_state(const std::vector<std::string> &names, std::vector<std::string> &missing, std::vector<std::string> &broken,

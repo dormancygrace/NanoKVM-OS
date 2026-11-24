@@ -5,6 +5,7 @@
 // take minutes): run it on a thread of its own or the blocking pool, never on the event loop. Errors are Go's
 // texts; empty means success.
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,20 @@ std::string install_only(const std::vector<std::string> &names);
 
 // Remove: packages in one transaction.
 std::string remove(const std::vector<std::string> &names);
+
+// RemoveAfter: removes packages that a caller first stops, with prepare, and then runs then, all under the package
+// lock. The installed database decides what is installed, not the files a package ships. When it records none of
+// names, nothing is stopped or removed and then runs at once; removed is false. Otherwise prepare runs only once apk
+// is shown to purge every installed one of names; it returns how to undo what it did (undo, or an error), which runs
+// when apk fails or leaves a package installed, or when the installed database cannot be read to show that it did
+// not. then runs only after a confirmed removal; removed is true from there. Errors are Go's texts; "" is success.
+// An empty prepare, undo or then is Go's nil.
+struct Prepared {
+	std::function<std::string()> undo;
+	std::string error;
+};
+std::string remove_after(const std::function<Prepared()> &prepare, const std::function<std::string()> &then,
+                         const std::vector<std::string> &names, bool &removed);
 
 // Keep: selects an installed package in the APK world (apk add --no-network).
 std::string keep(const std::string &name);

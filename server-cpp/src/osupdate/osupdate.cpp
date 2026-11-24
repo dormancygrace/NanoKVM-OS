@@ -512,6 +512,32 @@ std::vector<std::string> other_install_changes(const std::string &simulation, co
 	return changed;
 }
 
+std::vector<std::string> kept_by_removal(const std::string &simulation, const std::vector<std::string> &names)
+{
+	std::set<std::string> purged;
+	for (const auto &raw : split(simulation, "\n")) {
+		std::string action, name, detail;
+		if (detail::parse_apk_step(raw, action, name, detail) && action == "Purging") purged.insert(name);
+	}
+	std::vector<std::string> kept;
+	for (const auto &name : names)
+		if (!purged.contains(name)) kept.push_back(name);
+	return kept;
+}
+
+std::optional<std::vector<std::string>> installed(const std::vector<std::string> &names, Error &error)
+{
+	int err = 0;
+	auto data = files::read(installed_db_path, err);
+	if (!data) return error = files::read_error(installed_db_path, err), std::nullopt;
+	auto versions = parse_installed_db(*data);
+	if (versions.empty()) return error = "the APK installed database records no package", std::nullopt;
+	std::vector<std::string> present;
+	for (const auto &name : names)
+		if (versions.contains(name)) present.push_back(name);
+	return present;
+}
+
 std::vector<std::string> installed_changes(const std::string &simulation, const std::vector<std::string> &reinstall)
 {
 	std::vector<std::string> changed;

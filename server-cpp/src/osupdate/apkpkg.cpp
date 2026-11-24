@@ -138,18 +138,79 @@ std::string install_only(const std::vector<std::string> &names)
 	return "";
 }
 
-std::string remove(const std::vector<std::string> &names)
+namespace {
+
+std::string valid_names(const std::vector<std::string> &names)
 {
 	if (names.empty()) return "no APK package to remove";
 	for (const auto &name : names)
 		if (!valid(name)) return "invalid APK package name";
-	std::string error;
-	auto lock = osupdate::lock(error);
-	if (!lock) return error;
-	Apk apk{apkrun::Clock::now() + std::chrono::minutes(5)};
+	return "";
+}
+
+std::string del(const Apk &apk, const std::vector<std::string> &names)
+{
 	std::string output;
 	if (!apk(with({"del", "--"}, names), output)) return "apk del failed: " + tail(output);
 	return "";
+}
+
+std::string join(const std::vector<std::string> &names)
+{
+	std::string out;
+	for (std::size_t i = 0; i < names.size(); i++) out += (i ? ", " : "") + names[i];
+	return out;
+}
+
+} // namespace
+
+std::string remove(const std::vector<std::string> &names)
+{
+	if (auto e = valid_names(names); !e.empty()) return e;
+	std::string error;
+	auto lock = osupdate::lock(error);
+	if (!lock) return error;
+	return del(Apk{apkrun::Clock::now() + std::chrono::minutes(5)}, names);
+}
+
+std::string remove_after(const std::function<Prepared()> &prepare, const std::function<std::string()> &then,
+                         const std::vector<std::string> &names, bool &removed)
+{
+	removed = false;
+	if (auto e = valid_names(names); !e.empty()) return e;
+	std::string error;
+	auto lock = osupdate::lock(error);
+	if (!lock) return error;
+	auto present = osupdate::installed(names, error);
+	if (!present) return "cannot read the installed packages: " + error;
+	if (present->empty()) return then ? then() : "";
+	Apk apk{apkrun::Clock::now() + std::chrono::minutes(5)};
+	std::string output;
+	if (!apk(with({"del", "--simulate", "--"}, *present), output)) return "apk del failed: " + tail(output);
+	if (auto kept = osupdate::kept_by_removal(output, *present); !kept.empty())
+		return "apk would not remove " + join(kept) + ": " + tail(output);
+	std::function<std::string()> undo;
+	if (prepare) {
+		auto p = prepare();
+		if (!p.error.empty()) return p.error;
+		undo = std::move(p.undo);
+	}
+	std::string err = del(apk, *present);
+	if (err.empty()) {
+		// Only a database read proves the removal; a failed one counts as a package left installed.
+		std::string check;
+		auto left = osupdate::installed(names, check);
+		if (!left) err = "cannot confirm that apk removed " + join(*present) + ": " + check;
+		else if (!left->empty()) err = "apk del left " + join(*left) + " installed";
+	}
+	if (!err.empty()) {
+		// errors.Join: the texts on separate lines, a nil one left out.
+		if (undo)
+			if (auto u = undo(); !u.empty()) err += "\n" + u;
+		return err;
+	}
+	removed = true;
+	return then ? then() : "";
 }
 
 std::string keep(const std::string &name)

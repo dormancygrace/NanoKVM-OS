@@ -205,8 +205,15 @@ private:
 				track_->sendFrame(reinterpret_cast<const rtc::byte *>(frame.data()), frame.size,
 				                  rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(frame.timestamp) / 1e6)));
 			} catch (const std::exception &e) {
-				static std::atomic<int> reported{0};
-				if (reported++ < 3) log::warn("webrtc video write: {}", e.what());
+				// At most one line per 10 s, with the count of the failures since the last one: a failing peer must
+				// not flood the log, and later failures must not vanish either.
+				++failures_;
+				auto now = Clock::now();
+				if (now - last_failure_log_ >= 10s) {
+					log::warn("webrtc video write: {} ({} failed frames since the last report)", e.what(), failures_);
+					failures_ = 0;
+					last_failure_log_ = now;
+				}
 			}
 		}
 	}
@@ -219,6 +226,9 @@ private:
 	bool closed_ = false, repairing_ = true;
 	Clock::time_point last_request_{};
 	Clock::duration keyframe_wait_{};
+	// Writer thread only.
+	Clock::time_point last_failure_log_{};
+	long failures_ = 0;
 };
 
 struct Peer;

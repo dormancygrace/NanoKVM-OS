@@ -1,0 +1,94 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: Sends wait for a full socket buffer until a deadline
+
+A batch waited at most 5 x 20 ms for room and then dropped the rest of the frame; a single datagram (a STUN
+response, an RTCP report) failed at once. The encoder's first frames of a session (about 1.7 MB within a
+tenth of a second of video) overran a 25-30 Mbit/s Wi-Fi link that way, and the browser got broken frames and
+missing STUN responses. A batch now waits until 500 ms after its first wait, a datagram 50 ms; the sender's
+queue drops whole frames when the link stays behind longer.
+---
+--- a/deps/libjuice/src/conn_poll.c
++++ b/deps/libjuice/src/conn_poll.c
+@@ -16,6 +16,7 @@
+ #include <stdint.h>
+ 
+ #include "conn_poll.h"
++#include "timestamp.h"
+ #include "agent.h"
+ #include "log.h"
+ #include "socket.h"
+@@ -619,6 +620,10 @@
+ 	return 0;
+ }
+ 
++// How long a send waits for room in a full socket buffer (see wait_writable).
++enum { BatchWaitMs = 500, DatagramWaitMs = 50 };
++static bool wait_writable(socket_t sock, timestamp_t *deadline, timediff_t budget);
++
+ int conn_poll_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+                    int ds) {
+ 	conn_impl_t *conn_impl = agent->conn_impl;
+@@ -648,6 +653,11 @@
+ 		}
+ 
+ 		ret = udp_sendto(conn_impl->udp_sock, data, size, dst);
++		// A full buffer (video): wait briefly, so that a STUN response or RTCP report still goes out.
++		timestamp_t deadline = 0;
++		while (ret < 0 && (sockerrno == SEAGAIN || sockerrno == SEWOULDBLOCK) &&
++		       wait_writable(conn_impl->udp_sock, &deadline, DatagramWaitMs))
++			ret = udp_sendto(conn_impl->udp_sock, data, size, dst);
+ 		if (ret < 0)
+ 			ret = -sockerrno;
+ 	}
+@@ -665,14 +675,18 @@
+ 	return ret;
+ }
+ 
+-// A full socket buffer (a key frame on a slow link): wait for room, as a blocking write would, at most 5 x 20 ms per
+-// batch; the sender's own queue drops frames when the link stays behind.
+-static bool wait_writable(socket_t sock, int *waits) {
+-	if (*waits >= 5)
++// A full socket buffer (the encoder's first frames of a session, a key frame on a slower link): wait for room, as a
++// blocking write would, until a deadline set at the first wait of a send: a batch's packets are not dropped halfway
++// through a frame, and the sender's own queue drops whole frames when the link stays behind.
++static bool wait_writable(socket_t sock, timestamp_t *deadline, timediff_t budget) {
++	timestamp_t now = current_timestamp();
++	if (!*deadline)
++		*deadline = now + budget;
++	timediff_t left = *deadline - now;
++	if (left <= 0)
+ 		return false;
+-	++*waits;
+ 	struct pollfd pfd = {.fd = sock, .events = POLLOUT, .revents = 0};
+-	return poll(&pfd, 1, 20) > 0;
++	return poll(&pfd, 1, (int)left) > 0;
+ }
+ 
+ int conn_poll_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
+@@ -696,7 +710,8 @@
+ 		else
+ 			conn_impl->send_ds = -1; // disable for next time
+ 	}
+-	int sent = 0, ret = 0, waits = 0;
++	int sent = 0, ret = 0;
++	timestamp_t deadline = 0;
+ 	while (sent < count) {
+ 		// Groups for UDP generic segmentation offload: consecutive datagrams of one size, and one shorter after
+ 		// them, go as one message whose payload the stack cuts into segments of that size (UDP_SEGMENT); the
+@@ -754,14 +769,14 @@
+ 		if (r < 0) {
+ 			if (sockerrno == SEINTR)
+ 				continue;
+-			if ((sockerrno == SEAGAIN || sockerrno == SEWOULDBLOCK) && wait_writable(conn_impl->udp_sock, &waits))
++			if ((sockerrno == SEAGAIN || sockerrno == SEWOULDBLOCK) && wait_writable(conn_impl->udp_sock, &deadline, BatchWaitMs))
+ 				continue;
+ 			ret = -sockerrno;
+ 			break;
+ 		}
+ 		for (int j = 0; j < r; ++j)
+ 			sent += segments[j];
+-		if (r < m && !wait_writable(conn_impl->udp_sock, &waits)) {
++		if (r < m && !wait_writable(conn_impl->udp_sock, &deadline, BatchWaitMs)) {
+ 			ret = -SEAGAIN; // the socket buffer stayed full
+ 			break;
+ 		}

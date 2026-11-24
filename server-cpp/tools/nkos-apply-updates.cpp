@@ -779,6 +779,15 @@ std::string go_errno(const std::string &op, const std::string &path)
 	return op + " " + path + ": " + std::strerror(errno);
 }
 
+// The worker did not start: the result says so, and pending stays for "nkos-apply-updates apply" to clear.
+std::string start_failed(const char *exe, int error)
+{
+	Report failed{"failed", {}, {}, {}, "0001-01-01T00:00:00Z"};
+	push(failed.failed, std::string("start ") + exe + " apply: " + std::strerror(error));
+	(void)write_json(state_dir + "/result.json", report_json(failed));
+	return std::string("fork/exec ") + exe + ": " + std::strerror(error) + "; run nkos-apply-updates apply";
+}
+
 std::string main_err(int argc, char **argv)
 {
 	// Early-boot factory reset may remove optional packages: no application services from the APK commit hook before
@@ -823,10 +832,18 @@ std::string main_err(int argc, char **argv)
 		exe[n] = 0;
 		// Release before starting the worker; pending prevents a second transaction.
 		::flock(lock, LOCK_UN);
+		// The worker reports a failed exec through a pipe that a successful exec closes: the hook must not say the
+		// application runs when nothing will clear pending.
+		int started[2];
+		if (::pipe2(started, O_CLOEXEC) != 0) {
+			::close(log);
+			return std::string("pipe: ") + std::strerror(errno);
+		}
 		pid_t pid = ::fork();
 		if (pid < 0) {
-			::close(log);
-			return std::string("fork/exec ") + exe + ": " + std::strerror(errno);
+			int saved = errno;
+			for (int fd : {log, started[0], started[1]}) ::close(fd);
+			return start_failed(exe, saved);
 		}
 		if (pid == 0) {
 			::setsid();
@@ -835,9 +852,22 @@ std::string main_err(int argc, char **argv)
 			::dup2(log, 1);
 			::dup2(log, 2);
 			::execl(exe, exe, "apply", static_cast<char *>(nullptr));
+			int saved = errno;
+			(void)!::write(started[1], &saved, sizeof saved);
 			::_exit(127);
 		}
 		::close(log);
+		::close(started[1]);
+		int exec_errno = 0;
+		ssize_t got;
+		while ((got = ::read(started[0], &exec_errno, sizeof exec_errno)) < 0 && errno == EINTR) {
+		}
+		::close(started[0]);
+		if (got == static_cast<ssize_t>(sizeof exec_errno)) {
+			while (::waitpid(pid, nullptr, 0) < 0 && errno == EINTR) {
+			}
+			return start_failed(exe, exec_errno);
+		}
 		std::puts("NanoKVM: applying changed components; nkos-apply-updates status shows the result");
 		return "";
 	}

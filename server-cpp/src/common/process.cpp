@@ -85,7 +85,8 @@ Result run(const std::vector<std::string> &argv, const Options &options)
 	}
 	::close(report[0]);
 
-	// Input, then the output until EOF or the timeout.
+	// Input, the output until EOF, and the child's exit, all within the timeout: a child whose output goes to
+	// /dev/null closes nothing the loop could wait on, so its exit is watched through a pidfd.
 	std::size_t written = 0;
 	int in_fd = in[1];
 	if (options.input.empty()) {
@@ -97,7 +98,9 @@ Result run(const std::vector<std::string> &argv, const Options &options)
 	::fcntl(out[0], F_SETFL, O_NONBLOCK);
 	auto deadline = std::chrono::steady_clock::now() + options.timeout;
 	bool out_open = true;
-	while (out_open || in_fd >= 0) {
+	int pidfd = static_cast<int>(::syscall(SYS_pidfd_open, pid, 0));
+	bool exited = pidfd < 0;
+	while (out_open || in_fd >= 0 || !exited) {
 		auto left = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - std::chrono::steady_clock::now()).count();
 		if (left <= 0) {
 			r.timed_out = true;
@@ -112,14 +115,16 @@ Result run(const std::vector<std::string> &argv, const Options &options)
 			}
 			left = std::min(left, decltype(left){100});
 		}
-		pollfd fds[2];
-		int n = 0, out_index = -1, in_index = -1;
+		pollfd fds[3];
+		int n = 0, out_index = -1, in_index = -1, pid_index = -1;
 		if (out_open) out_index = n, fds[n++] = {out[0], POLLIN, 0};
 		if (in_fd >= 0) in_index = n, fds[n++] = {in_fd, POLLOUT, 0};
+		if (!exited) pid_index = n, fds[n++] = {pidfd, POLLIN, 0};
 		if (::poll(fds, static_cast<nfds_t>(n), static_cast<int>(left)) < 0) {
 			if (errno == EINTR) continue;
 			break;
 		}
+		if (pid_index >= 0 && fds[pid_index].revents) exited = true;
 		if (out_index >= 0 && fds[out_index].revents) {
 			char buf[4096];
 			ssize_t got = ::read(out[0], buf, sizeof buf);
@@ -138,6 +143,7 @@ Result run(const std::vector<std::string> &argv, const Options &options)
 	}
 	if (in_fd >= 0) ::close(in_fd);
 	::close(out[0]);
+	if (pidfd >= 0) ::close(pidfd);
 	int status = 0;
 	while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
 	}

@@ -34,7 +34,7 @@ constexpr auto software_lock_wait = std::chrono::seconds(12);
 
 const std::vector<std::string> protected_packages{
 	"apk-tools", "busybox", "musl", "openrc", "nanokvm-app", "nanokvm", "nanokvm-web", "nanokvm-base", "nanokvm-release",
-	"nanokvm-kernel", "nanokvm-kmod", "nanokvm-firmware", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-bootloader", "nanokvm-tpu"};
+	"nanokvm-kernel", "nanokvm-kmod", "nanokvm-firmware", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-openssl3", "nanokvm-bootloader", "nanokvm-tpu"};
 
 bool is_protected(const std::string &name)
 {

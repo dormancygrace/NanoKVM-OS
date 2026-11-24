@@ -67,13 +67,17 @@ std::string find_version(std::string_view text, bool three_parts)
 Reply versions()
 {
 	static const std::map<std::string, std::string> tools{
-		{"netbird", "netbird"}, {"openvpn", "openvpn"}, {"tailscale", "tailscale"}, {"wireguard", "wg"}};
+		{"netbird", "netbird"}, {"openvpn", "openvpn"}, {"tailscale", "tailscale"}, {"wireguard", "wg"},
+		{"zerotier", "zerotier-one"}};
+	// versionFlag: --version except for the tools that have another switch.
+	static const std::map<std::string, std::string> version_flag{{"zerotier", "-v"}};
 	std::string data = "{";
 	bool first = true;
 	for (const auto &[name, tool] : tools) {
 		auto path = look_path(tool);
 		if (!path) continue;
-		auto [out, err] = cache().output(*path, {"--version"});
+		auto flag = version_flag.find(name);
+		auto [out, err] = cache().output(*path, {flag == version_flag.end() ? "--version" : flag->second});
 		if (!err.empty()) continue;
 		std::string line = out.substr(0, out.find('\n'));
 		data += (first ? "" : ",") + q(name) + ":" + q(find_version(line, false));

@@ -130,6 +130,8 @@ void ApChannelCache::reset()
 
 bool RadioControl::present() const { return exists(net); }
 
+bool wifi_hardware_present() { return wifi_control.hardware(); }
+
 std::string RadioControl::chip_alias() const
 {
 	if (sdio.empty()) return "";

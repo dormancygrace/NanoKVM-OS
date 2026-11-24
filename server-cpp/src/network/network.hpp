@@ -17,6 +17,8 @@ void add_routes(http::Router &router);
 // Start-up work, in the Go server's order (see main.cpp). Before the listeners: initialize_ipv6 and
 // ensure_dhcp_integration (main.go initialize), publish_discovery (main.go), then, with the routes, restore_pending_trial
 // and start_gateway_check (router/network.go). None needs the event loop.
+// WiFiHardwarePresent: the SDIO radio, also detected when Wi-Fi is switched off.
+bool wifi_hardware_present();
 bool initialize_ipv6();          // logs its own failure
 bool ensure_dhcp_integration();  // logs its own failure
 void publish_discovery();

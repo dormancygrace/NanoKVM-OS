@@ -10,6 +10,7 @@
 #include "common/loop.hpp"
 #include "common/process.hpp"
 #include "common/tz.hpp"
+#include "network/network.hpp"
 #include "notify/json.hpp"
 #include "osupdate/osupdate.hpp"
 #include "storage/go.hpp"
@@ -154,7 +155,7 @@ const std::vector<std::string> &package_names()
 {
 	static const std::vector<std::string> names = {
 		"nanokvm",        "nanokvm-web",      "nanokvm-app",        "nanokvm-base",  "nanokvm-release", "nanokvm-kernel",
-		"nanokvm-kmod",   "nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib",  "nanokvm-openssl", "nanokvm-tpu"};
+		"nanokvm-kmod",   "nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib",  "nanokvm-openssl3", "nanokvm-openssl", "nanokvm-tpu"};
 	return names;
 }
 
@@ -336,7 +337,7 @@ std::vector<Service> service_statuses(Clock::time_point budget)
 		{"nanokvm-app", "enabled", "", false},     {"nanokvm-usb", "enabled", "", false},
 		{"nanokvm-ssh", "enabled", "/etc/kvm/ssh_stop", false}, {"chronyd", "enabled", "", false},
 		{"dnsmasq", "on-demand", "", true},        {"tailscaled", "optional", "", true},
-		{"netbird", "optional", "", true},
+		{"netbird", "optional", "", true},         {"zerotier-one", "optional", "", true},
 	};
 	constexpr std::size_t count = std::size(specs);
 	std::vector<Service> results(count + 1);
@@ -520,11 +521,39 @@ Out chain_json(const HookChain &c)
 	return o;
 }
 
+// collectReportHardware: public hardware fields, a model or capability shared by devices.
+Out report_hardware()
+{
+	Out o = Out::object();
+	std::string board = text("/etc/kvm/board-profile");
+	if (board == "alpha" || board == "beta" || board == "lite" || board == "pcie") o.set("boardProfile", Out::str(board));
+	std::string receiver = video::monitor::receiver_model();
+	if (!receiver.empty()) o.set("hdmiReceiver", Out::str(receiver));
+	o.set("ethernetPresent", Out::boolean(stat_error("/sys/class/net/eth0") == 0));
+	o.set("wifiPresent", Out::boolean(network::wifi_hardware_present()));
+	const std::string card = "/sys/block/mmcblk0/";
+	// The SD product name reported by the kernel is five ASCII bytes.
+	std::string name = text(card + "device/name");
+	bool name_ok = !name.empty() && name.size() <= 5 &&
+	               std::all_of(name.begin(), name.end(), [](unsigned char c) {
+		               return std::isalnum(c) || c == '.' || c == '_' || c == '+' || c == ' ' || c == '-';
+	               });
+	if (name_ok) o.set("sdCardModel", Out::str(name));
+	// Linux reports block device size in 512-byte sectors (strconv.ParseUint(s, 10, 55)).
+	std::string size = text(card + "size");
+	std::uint64_t sectors = 0;
+	auto [end, ec] = std::from_chars(size.data(), size.data() + size.size(), sectors);
+	if (!size.empty() && ec == std::errc() && end == size.data() + size.size() && sectors < (std::uint64_t{1} << 55) &&
+	    sectors != 0)
+		o.set("sdCardCapacityBytes", Out::lit(std::to_string(sectors * 512)));
+	return o;
+}
+
 Out report(const Snapshot &s)
 {
 	static const std::set<std::string_view> service_names = {
 		"nanokvm-storage", "nanokvm-modules", "nanokvm-board", "nanokvm-network", "nanokvm-app", "nanokvm-usb",
-		"nanokvm-ssh",     "chronyd",         "dnsmasq",       "tailscaled",      "netbird",     "openvpn client"};
+		"nanokvm-ssh",     "chronyd",         "dnsmasq",       "tailscaled",      "netbird",     "zerotier-one",  "openvpn client"};
 	static const std::set<std::string_view> usb_names = {"keyboard", "relative mouse", "absolute mouse", "network",
 	                                                     "disk",     "serial",         "audio"};
 	Out versions = Out::object();
@@ -577,6 +606,7 @@ Out report(const Snapshot &s)
 	firewall.set("HookChains", std::move(chains));
 
 	Out o = Out::object();
+	o.set("hardware", report_hardware());
 	o.set("schema", Out::str("nanokvm-diagnostics/v1"));
 	o.set("collectedAt", Out::number(s.collected_at));
 	o.set("privacy", Out::str("Allow-listed status only; no credentials, configuration contents, network addresses, "

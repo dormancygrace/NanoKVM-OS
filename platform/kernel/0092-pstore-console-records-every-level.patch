@@ -1,0 +1,54 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] pstore: the console records every message level
+
+NanoKVM boots with loglevel=0: the serial console stays quiet, which keeps
+the boot fast. The console loglevel applies to every console, so the
+pstore console (ramoops) got only emergency messages too, and a reset
+without an oops (the hardware watchdog after a hang) left a record without
+the kernel's last messages. A console flag, CON_ALL_LEVELS, makes a console
+take every message whatever the console loglevel; pstore sets it for its
+console. Other consoles are unchanged.
+---
+--- a/include/linux/console.h
++++ b/include/linux/console.h
+@@ -192,6 +192,7 @@
+ 	CON_SUSPENDED		= BIT(7),
+ 	CON_NBCON		= BIT(8),
+ 	CON_NBCON_ATOMIC_UNSAFE	= BIT(9),
++	CON_ALL_LEVELS		= BIT(10),
+ };
+ 
+ /**
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -3125,7 +3125,8 @@
+  */
+ static bool console_emit_next_record(struct console *con, bool *handover, int cookie)
+ {
+-	bool is_extended = console_srcu_read_flags(con) & CON_EXTENDED;
++	short con_flags = console_srcu_read_flags(con);
++	bool is_extended = con_flags & CON_EXTENDED;
+ 	char *outbuf = &printk_shared_pbufs.outbuf[0];
+ 	struct printk_message pmsg = {
+ 		.pbufs = &printk_shared_pbufs,
+@@ -3134,7 +3135,8 @@
+ 
+ 	*handover = false;
+ 
+-	if (!printk_get_next_message(&pmsg, con->seq, is_extended, true))
++	/* A console that records every level (pstore) ignores the console loglevel. */
++	if (!printk_get_next_message(&pmsg, con->seq, is_extended, !(con_flags & CON_ALL_LEVELS)))
+ 		return false;
+ 
+ 	con->dropped += pmsg.dropped;
+--- a/fs/pstore/platform.c
++++ b/fs/pstore/platform.c
+@@ -420,7 +420,7 @@
+ 	 * Always initialize flags here since prior unregister_console()
+ 	 * calls may have changed settings (specifically CON_ENABLED).
+ 	 */
+-	pstore_console.flags = CON_PRINTBUFFER | CON_ENABLED | CON_ANYTIME;
++	pstore_console.flags = CON_PRINTBUFFER | CON_ENABLED | CON_ANYTIME | CON_ALL_LEVELS;
+ 	register_console(&pstore_console);
+ }
+ 

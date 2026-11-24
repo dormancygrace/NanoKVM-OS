@@ -22,16 +22,23 @@ A new boot moves `current` to `previous` and `previous` to `older`; the
 oldest is deleted.
 
 **Kernel crashes.** A kernel oops panics and reboots after 10 s, before
-the minute's archive write. The kernel keeps the dump and its last
-console output in 128 KiB of RAM (pstore/ramoops at `0x8d000000`, set in
+the minute's archive write. The kernel keeps the dump and its console
+output in 128 KiB of RAM (pstore/ramoops at `0x8d000000`, set in
 `firmware/boards/nanokvm-common.dtsi`), which a power loss clears and a
-reboot normally keeps. ECC (16 bytes per block) corrects or flags damaged blocks,
+reboot normally keeps. The console record takes every message level
+(kernel patch 0092), although the serial console prints none (`loglevel=0`),
+so a reset by the hardware watchdog after a hang still leaves the kernel's
+last messages. ECC (16 bytes per block) corrects or flags damaged blocks,
 and a record may still arrive with blocks marked unrecoverable. At the next
 boot `nanokvm-storage` copies them to
-`/var/log/nanokvm-crash/<sequence>-<UTC time>/`, syncs the copy and only
-then frees the records, keeps the newest five crashes by sequence (the
-clock at boot may be wrong) and warns in the boot log; the diagnostics
-archive includes them.
+`/var/log/nanokvm-crash/<sequence>-<UTC time>/` with `reason` (why the chip
+came on: `restart` after a panic or reboot, `watchdog`, `overheat`), syncs
+the copy and only then frees the records, keeps the newest five crashes by
+sequence (the clock at boot may be wrong) and warns in the boot log; the
+diagnostics archive includes them. The records of a reboot or power-off
+are discarded only when the RTC reports a restart or power-on and the sole
+console record ends with the kernel’s restart, power-off or halt message.
+Records with unrecoverable ECC damage or an unknown reset cause are kept.
 
 An image installed before this setup keeps its `/etc/conf.d/syslog`
 unless it is Alpine's default (`SYSLOGD_OPTS="-t"`). The package update

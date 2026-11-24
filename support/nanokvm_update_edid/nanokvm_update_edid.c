@@ -154,6 +154,64 @@ int i2c_read_bytes(uint8_t offset, uint8_t reg, uint8_t *data, size_t len)
 
 // =======================================================================================================
 
+// The stock address hints select the ID bank; an address NACK alone must
+// never authorize the D programming sequence on a UXC.
+static int responds_at(unsigned int address)
+{
+    union i2c_smbus_data value;
+    struct i2c_smbus_ioctl_data read_byte = {
+        .read_write = I2C_SMBUS_READ, .size = I2C_SMBUS_BYTE, .data = &value
+    };
+    if (ioctl(client, I2C_SLAVE, address) < 0) return -1;
+    if (ioctl(client, I2C_SMBUS, &read_byte) == 0) return 1;
+    return errno == ENXIO || errno == EREMOTEIO ? 0 : -1;
+}
+
+static const char *identify_receiver(void)
+{
+    int c = responds_at(0x2c);
+    if (c < 0) return NULL;
+    int ux = 0;
+    if (!c) {
+        if (responds_at(0x2b) != 1) return NULL;
+        ux = responds_at(0x44);
+        if (ux < 0) return NULL;
+    }
+    chip_version_t chip = c ? CHIP_LT6911C : ux ? CHIP_LT6911UXC : CHIP_LT6911D;
+    if (select_receiver(chip) < 0) return NULL;
+    uint8_t control = chip == CHIP_LT6911D ? 0xe0 : 0x80;
+    uint8_t bank = c ? 0xa0 : ux ? 0x81 : 0xe1;
+    uint8_t high, low;
+    int ok = i2c_write_byte(control, 0xee, 1) == 0 &&
+        i2c_read_byte(bank, 0, &high) == 0 && i2c_read_byte(bank, 1, &low) == 0;
+    // Release the MCU even if enabling the ID window or reading it failed.
+    if (i2c_write_byte(control, 0xee, 0) < 0 || !ok) return NULL;
+    if (c && high == 0x16 && low == 0x05) return "c";
+    if (ux && high == 0x17 && low == 0x04) return "ux";
+    if (!c && !ux && high == 0x21 && low == 0x02) return "d";
+    return NULL;
+}
+
+static int print_receiver(void)
+{
+    int lock = maintenance_lock();
+    if (lock < 0) { perror("Receiver lock"); return 1; }
+    const char *model = NULL;
+    // The selected DT has just released HDMI reset. Use the longest of the
+    // supported firmware load times before the first register access.
+    if (nanokvm_receiver_wait_ready_for('d') == 0) {
+        client = open(I2C_DEVICE, O_RDWR | O_CLOEXEC);
+        if (client >= 0) {
+            model = identify_receiver();
+            close(client);
+        }
+    }
+    nanokvm_receiver_unlock(lock);
+    if (!model) { fputs("Could not confirm HDMI receiver ID\n", stderr); return 1; }
+    puts(model);
+    return 0;
+}
+
 int lt6911_enable(void) {
     // Enable the LT6911UXC by writing to the appropriate register
     if (i2c_write_byte(LT6911_SYS_OFFSET, 0xEE, 0x01) != 0) {
@@ -922,6 +980,8 @@ int get_user_confirmation() {
 // =======================================================================================================
 
 int main(int argc, char *argv[]) {
+
+    if (argc == 2 && strcmp(argv[1], "--identify") == 0) return print_receiver();
 
     if (argc == 3 && strcmp(argv[1], "--check") == 0) {
         uint8_t data[EDID_BUFFER_SIZE];

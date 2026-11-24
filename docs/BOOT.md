@@ -43,10 +43,20 @@ restored configuration cannot be used and they stay stopped. The board's
 hardware steps (configuration, identity, receiver detection) and the media
 modules do not stop them: if one fails, the board warns and the server
 still starts, without video if need be, so settings, updates, ATX power and
-the keyboard and mouse stay reachable. The receiver model is probed once
-per chip and kept (`/etc/kvm/hdmi_version`, with the chip UID in
-`/etc/kvm/hdmi_uid`); a boot does not touch I2C4 for it again, and
-`S15kvmhwd re-detect` probes it anew. The hardware watchdog needs only
+the keyboard and mouse stay reachable. Fresh SD images and stock migrations select the board DT first. The detection
+DT has no I2C4 or HDMI reset. On the first boot of the selected DT,
+`nanokvm_update_edid --identify` confirms the receiver's hardware ID and
+`S15kvmhwd` records its model in `/etc/kvm/hdmi_version` and its SoC UID
+in `/etc/kvm/hdmi_uid`. Ordinary boots publish a matching model in
+`/run/nanokvm/hdmi_version` for video and EDID operations. Existing installations keep their recorded model
+when upgraded, including installations that predate the UID stamp.
+
+A moved card on the same board revision, or a missing receiver record, leaves
+video unavailable. For the same electrical board profile, run
+`/etc/init.d/S15kvmhwd re-detect` and reboot to identify the receiver before
+video starts. For a different board revision, use a fresh image to select
+the correct DT. An unsuccessful identification is retried at the next boot.
+The hardware watchdog needs only
 the storage setup: its daemon feeds it on its own timer, so a failed
 application does not turn into a reboot loop.
 

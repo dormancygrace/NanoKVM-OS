@@ -4,6 +4,11 @@ set -eu
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 [ "$(tr -d '\000' < /sys/firmware/devicetree/base/sipeed,board-revision)" = detect ]
 profile=$(/usr/sbin/nkos-board-probe)
+# The detection DT leaves HDMI reset and I2C4 disabled. Identify the
+# receiver after reboot with the selected electrical profile.
+mkdir -p /etc/kvm
+: > /etc/kvm/hdmi-provision
+sync -f /etc/kvm
 /usr/libexec/nanokvm/activate-kernel "$profile"
 echo "NanoKVM selected $profile; restarting"
 reboot -f

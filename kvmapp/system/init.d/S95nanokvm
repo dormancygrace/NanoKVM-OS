@@ -113,7 +113,7 @@ prepare_hdmi_receiver() {
     # (docs/VIDEO.md): a minimum quiet window, so not an I2C poll. UXC keeps
     # its one-second startup warmup; C/D load firmware more slowly.
     model=
-    [ ! -r /etc/kvm/hdmi_version ] || read -r model < /etc/kvm/hdmi_version || true
+    [ ! -r /run/nanokvm/hdmi_version ] || read -r model < /run/nanokvm/hdmi_version || true
     case "$model" in
         ux) sleep 1 ;;
         *) sleep 2.5 ;;

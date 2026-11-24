@@ -13,7 +13,7 @@ var RecoveryService []byte
 var CorePackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release",
 	"nanokvm-base", "nanokvm-keys", "nanokvm-kernel", "nanokvm-kmod",
 	"nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-openssl3",
-	"nanokvm-exfatprogs", "nanokvm-i2c-tools", "nanokvm-tpu",
+	"nanokvm-exfatprogs", "nanokvm-tpu",
 	// Their names before 3.7.0, now metapackages: a release from before
 	// then has them instead of the four above (LegacyTargets).
 	"nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002", "nanokvm-bootloader-sg2002"}

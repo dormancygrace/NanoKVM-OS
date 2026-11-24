@@ -317,16 +317,13 @@ the old ones (`apkrollback.LegacyTargets`).
 
 ### Tools in place of Alpine community packages
 
-`nanokvm-exfatprogs` (exfatprogs 1.4.5: `mkfs.exfat` formats `/data` at first
-boot) and `nanokvm-i2c-tools` (i2c-tools 4.4: `i2cdetect` identifies the board)
-are the only programs of `nanokvm-release` and its dependencies that Alpine
-ships in its community repository, so the release needs only Alpine main (the
-image installs LLDP and UPS from community next to it, see
-[the repository list](../firmware/alpine/README.md)). The `tools` step builds them
-from the pinned upstream releases with the image's toolchain: i2c-tools
-statically, exfatprogs against the device's `libblkid`. Each package
-`provides` and `replaces` the Alpine package of the same tool, so an upgrade
-removes the Alpine package and a dependency on the tool's name is satisfied.
+`nanokvm-exfatprogs` supplies `mkfs.exfat` for formatting `/data` on first
+boot and `fsck.exfat` for checking it. The optional `nanokvm-i2c-tools`
+package provides the five I2C diagnostic commands. Receiver provisioning
+uses the I2C interface directly. The `tools` step builds both packages from
+the pinned upstream releases with the image's toolchain. i2c-tools links
+statically and exfatprogs uses the device's `libblkid`. Each provides and
+replaces its Alpine community counterpart.
 
 The browser package requires `nanokvm-web-api=2`, provided by the server
 (2: the browser sends passwords as typed, marked `passwordEncoding: "plain"`,

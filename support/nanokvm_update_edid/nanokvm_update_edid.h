@@ -16,7 +16,7 @@
 #define LT6911C_WR_SIZE         16              // LT6911C单次读写最大字节数
 #define LT6911D_WR_SIZE         32              // LT6911D单次读写最大字节数
 
-#define VERSION_PATH "/etc/kvm/hdmi_version"
+#define VERSION_PATH "/run/nanokvm/hdmi_version"
 #define PRODUCT_PATH "/etc/kvm/hw"
 
 typedef enum {

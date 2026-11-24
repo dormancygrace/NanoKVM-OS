@@ -2,14 +2,18 @@
 # NanoKVM OS counterpart of the stock S15kvmhwd. Pinmux and board reset/enable
 # ownership are in DT; do not export global GPIOs or reload i2c-gpio here.
 #
-# The board is the DT profile that first boot selected (firmware/boards). The
-# HDMI receiver is fixed hardware: it is probed on I2C4 once for this chip and
-# kept; `re-detect` probes it again.
+# The selected DT owns the board. A saved receiver belongs to one chip UID.
+# Runtime consumers share its validated model in /run/nanokvm/hdmi_version.
 set -eu
 
 : "${NANOKVM_KVM_ETC:=/etc/kvm}"
+: "${NANOKVM_KVM_RUN:=/run/nanokvm}"
 : "${NANOKVM_BOARD_REVISION:=/sys/firmware/devicetree/base/sipeed,board-revision}"
 : "${NANOKVM_CHIP_UID:=/sys/class/cvi-base/base_uid}"
+stamp=$NANOKVM_KVM_ETC/hdmi_uid
+model=$NANOKVM_KVM_ETC/hdmi_version
+live=$NANOKVM_KVM_RUN/hdmi_version
+pending=$NANOKVM_KVM_ETC/hdmi-provision
 
 die() { echo "S15kvmhwd: $*" >&2; exit 1; }
 
@@ -24,90 +28,78 @@ board_profile() {
     esac
 }
 
-# The stock targeted SMBus-read probe. No response is a normal negative
-# result; a failed `i2cdetect` is an I2C error and stops the detection.
-responds() {
-    result=$(i2cdetect -ry 4 "$1" "$1") || die "I2C4 probe failed at $1"
-    case " $result " in
-        *[[:space:]]"${1#0x}"[[:space:]]*) return 0 ;;
-    esac
-    return 1
-}
-detect_hdmi() {
-    if responds 0x2c; then
-        hdmi=c
-    elif responds 0x2b; then
-        if responds 0x44; then hdmi=ux; else hdmi=d; fi
-    else
-        die "HDMI receiver not identified; keeping previous configuration"
-    fi
-}
-
-# read_file NAME: the first line of /etc/kvm/NAME, or nothing.
-read_file() {
+read_value() {
     value=
-    [ ! -r "$NANOKVM_KVM_ETC/$1" ] || read -r value < "$NANOKVM_KVM_ETC/$1" || true
+    if [ -r "$1" ]; then IFS= read -r value < "$1" || true; fi
 }
 publish() {
-    read_file "$1"
+    read_value "$1"
     [ "$value" != "$2" ] || return 0
-    mkdir -p "$NANOKVM_KVM_ETC"
-    temporary=$(mktemp "$NANOKVM_KVM_ETC/.$1.XXXXXX")
-    trap 'rm -f "$temporary"' EXIT
-    printf '%s\n' "$2" > "$temporary"
-    chmod 644 "$temporary"
-    mv -f "$temporary" "$NANOKVM_KVM_ETC/$1"
+    tmp=$(mktemp "$1.XXXXXX")
+    trap 'rm -f "$tmp"' EXIT
+    printf '%s\n' "$2" > "$tmp"
+    chmod 644 "$tmp"
+    mv -f "$tmp" "$1"
     trap - EXIT
 }
 
-# The model probed on this chip before: a card moved to another board probes
-# its receiver again (the D EDID writer must never reach a UXC).
-chip=
-[ ! -r "$NANOKVM_CHIP_UID" ] || read -r chip < "$NANOKVM_CHIP_UID" || true
-cached_model() {
-    read_file hdmi_version
-    case "$value" in c|ux|d) hdmi=$value ;; *) return 1 ;; esac
-    [ -n "$chip" ] || return 1
-    # Installations from before the chip stamp have a model and no stamp. That
-    # model was identified on this board, and a start never turned a UXC into
-    # a D: keep it and stamp the chip. Probing here could store a D for a UXC
-    # whose 0x44 did not answer once, and no later start would correct it.
-    if [ ! -e "$NANOKVM_KVM_ETC/hdmi_uid" ]; then
-        publish hdmi_uid "$chip"
-        return 0
-    fi
-    read_file hdmi_uid
-    [ "$value" = "$chip" ]
-}
-probe_and_publish() {
-    detect_hdmi
-    publish hdmi_version "$hdmi"
-    [ -z "$chip" ] || publish hdmi_uid "$chip"
-}
+valid_model() { case "$1" in c|ux|d) return 0 ;; *) return 1 ;; esac; }
 
 case "${1:-}" in
     stop) exit 0 ;;
-    check)
+    check) board_profile; echo "NanoKVM OS: detected board=$board"; exit 0 ;;
+    re-detect)
         board_profile
-        echo "NanoKVM OS: detected board=$board"
-        ;;
-    start|re-init|re-detect)
-        board_profile
-        # The board is known now: publish it before the receiver, so a receiver
-        # that does not answer never costs ATX and the board-dependent paths.
-        publish hw "$board"
-        publish board-profile "$declared_board"
-        if [ "$1" != start ] || ! cached_model; then
-            probe_and_publish
-        fi
-        echo "NanoKVM OS: board=$board HDMI=$hdmi"
-        ;;
-    get_hdmi_version)
-        # Native initialization calls this more than once, also while the
-        # detector may use the I2C bus: a published model stands.
-        read_file hdmi_version
-        case "$value" in c|ux|d) exit 0 ;; esac
-        probe_and_publish
-        ;;
+        mkdir -p "$NANOKVM_KVM_ETC"
+        : > "$pending"
+        echo "HDMI receiver identification requested for the next boot"
+        exit 0 ;;
+    start|re-init|get_hdmi_version) ;;
     *) echo "Usage: $0 {start|stop|check|re-init|re-detect|get_hdmi_version}" >&2; exit 2 ;;
 esac
+
+if [ "$1" != get_hdmi_version ]; then
+    board_profile
+    [ -d "$NANOKVM_KVM_ETC" ] || mkdir -p "$NANOKVM_KVM_ETC"
+    publish "$NANOKVM_KVM_ETC/hw" "$board"
+    publish "$NANOKVM_KVM_ETC/board-profile" "$declared_board"
+fi
+[ -d "$NANOKVM_KVM_RUN" ] || mkdir -p "$NANOKVM_KVM_RUN"
+read_value "$NANOKVM_CHIP_UID"
+chip=$value
+if [ -z "$chip" ]; then
+    rm -f "$live"
+    die "chip UID unavailable; HDMI receiver not enabled"
+fi
+
+if [ -e "$pending" ]; then
+    rm -f "$live"
+    [ "$1" = start ] || die "receiver provisioning pending until boot"
+    identified=$(nanokvm_update_edid --identify) || die "HDMI identification failed; will retry provisioning"
+    valid_model "$identified" || die "invalid HDMI receiver"
+    # A power cut between these writes cannot associate an old model with a
+    # new UID. An absent stamp has a different meaning on old installations.
+    publish "$stamp" pending
+    sync -f "$stamp"
+    publish "$model" "$identified"
+    sync -f "$model"
+    publish "$stamp" "$chip"
+    sync -f "$stamp"
+    rm -f "$pending"
+fi
+
+read_value "$model"
+identified=$value
+read_value "$stamp"
+if valid_model "$identified" && [ ! -e "$stamp" ]; then
+    # Before 4.2 the receiver was recorded on this board without a UID.
+    # Preserve that model, including a UXC whose second address is asleep.
+    publish "$stamp" "$chip"
+    value=$chip
+fi
+if ! valid_model "$identified" || [ "$value" != "$chip" ]; then
+    rm -f "$live"
+    die "receiver not provisioned for this chip; use re-detect and reboot"
+fi
+publish "$live" "$identified"
+[ "$1" = get_hdmi_version ] || echo "NanoKVM OS: board=$board HDMI=$identified"

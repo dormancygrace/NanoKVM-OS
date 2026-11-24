@@ -92,7 +92,7 @@ struct kvmv_cfg_t {
     uint8_t hdmi_cable_state = 0;
     uint8_t try_exit_thread = 0;
     uint8_t thread_is_running = 0;
-    uint8_t hdmi_version = 0;
+    uint8_t hdmi_version = UINT8_MAX;
     uint8_t hw_version = 0;
     uint8_t hdmi_mode = 0;
     std::atomic<uint8_t> hdmi_res_type{0};     // written by detection, read by kvmv_read_img
@@ -772,27 +772,17 @@ static bool poll_hdmi_receiver(bool allow_auto_mode, bool initial = false,
 
 // ==============================================================
 
-void get_hdmi_version()
+static bool read_hdmi_version()
 {
-	char RW_Data[3];
-    system("/kvmapp/system/init.d/S15kvmhwd get_hdmi_version");
-	if(nanokvm::read_small_file("/etc/kvm/hdmi_version", RW_Data, sizeof(RW_Data)) > 0){
-        if(RW_Data[0] == 'u'){
-            // 6911uxc; S15kvmhwd publishes "ux"
-            kvmv_cfg.hdmi_version = 1;
-            debug("[hdmi]HDMI-UX exist!\n");
-        } else if(RW_Data[0] == 'd'){
-            // 6911d
-            kvmv_cfg.hdmi_version = 3;
-            debug("[hdmi]HDMI-D exist!\n");
-        } else {
-            // 6911c
-            kvmv_cfg.hdmi_version = 0;
-            debug("[hdmi]HDMI-C exist!\n");
-        }
-    } else {
-        kvmv_cfg.hdmi_version = 0;
+    kvmv_cfg.hdmi_version = UINT8_MAX;
+    char model[5];
+    if (nanokvm::read_small_file("/run/nanokvm/hdmi_version", model, sizeof(model)) > 0) {
+        model[strcspn(model, "\n")] = 0;
+        if (strcmp(model, "ux") == 0) { kvmv_cfg.hdmi_version = 1; return true; }
+        if (strcmp(model, "d") == 0) { kvmv_cfg.hdmi_version = 3; return true; }
+        if (strcmp(model, "c") == 0) { kvmv_cfg.hdmi_version = 0; return true; }
     }
+    return false;
 }
 
 // A real edge retains permission for automatic mode detection across a paused
@@ -813,7 +803,6 @@ void* vi_subsystem_detection(void *)
 {
     uint8_t auto_change_mode = 0;
     kvmv_cfg.thread_is_running = 1;
-    get_hdmi_version();
     const auto receiver_kind = nanokvm::receiver_kind(kvmv_cfg.hdmi_version);
     nanokvm::HdmiEvents<> events;
     bool gpio_announced = false, previous_gpio_active = false;
@@ -1606,7 +1595,12 @@ void kvmv_init(uint8_t _debug_info_en)
     // bridge size errors, pre-raw retries) until detection restarts the
     // capture. The later detection thread still handles hot-plug/resolution
     // changes, and a failed read here leaves the provisional geometry.
-    get_hdmi_version();
+    if (!read_hdmi_version()) {
+        capture_stopped.store(true);
+        set_hdmi_capture_enabled(0);
+        fprintf(stderr, "[hdmi] No receiver identity for this board; video is unavailable\n");
+        return;
+    }
     poll_hdmi_receiver(false, true);
 
     cam->hmirror(1);
@@ -2263,6 +2257,7 @@ static void load_hdmi_board()
 // The EDID utility may pulse reset itself, so restore its entry state on exit.
 int kvmv_edid_maintenance(uint8_t pause)
 {
+    if (kvmv_cfg.hdmi_version == UINT8_MAX) { errno = ENODEV; return -1; }
     std::lock_guard<std::mutex> guard(hdmi_control_mutex);
     if (pause ? hdmi_maintenance_active : !hdmi_maintenance_active) {
         errno = pause ? EBUSY : EINVAL;
@@ -2343,6 +2338,7 @@ static int control_hdmi_receiver(uint8_t _en)
 int kvmv_hdmi_control(uint8_t enabled)
 {
     std::lock_guard<std::mutex> guard(hdmi_control_mutex);
+    if (enabled && kvmv_cfg.hdmi_version == UINT8_MAX) { errno = ENODEV; return -1; }
     if (hdmi_maintenance_active) { errno = EBUSY; return -1; }
     pthread_mutex_lock(&vi_mutex);
     int result = control_hdmi_receiver(enabled);

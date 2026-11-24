@@ -1,0 +1,108 @@
+import { useRef, useState } from 'react';
+import { Alert, Checkbox, Modal } from 'antd';
+import { Trash2Icon } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import * as api from '@/api/extensions/zerotier.ts';
+
+type UninstallProps = {
+  onSuccess: () => void;
+};
+
+export const Uninstall = ({ onSuccess }: UninstallProps) => {
+  const { t } = useTranslation();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [purge, setPurge] = useState(false);
+  const [errMsg, setErrMsg] = useState('');
+  // React state does not update synchronously. Keep the request lock in a ref
+  // as well so a rapid second confirmation or a close event cannot slip
+  // through before the loading render has committed.
+  const uninstallInFlight = useRef(false);
+  function uninstall() {
+    if (uninstallInFlight.current) return;
+    uninstallInFlight.current = true;
+    setIsLoading(true);
+    setErrMsg('');
+
+    api
+      .uninstall(purge)
+      .then((rsp) => {
+        if (rsp.code !== 0) {
+          setErrMsg(rsp.msg || t('settings.zerotier.error.uninstallFailed'));
+          return;
+        }
+
+        setIsModalOpen(false);
+        // Only a confirmed success is safe to refresh. On a rejected request
+        // or a transport failure the server may have stopped or partly removed
+        // ZeroTier; keep this modal and its error visible for recovery.
+        onSuccess();
+      })
+      .catch((err) => {
+        setErrMsg(err?.message || t('settings.zerotier.error.uninstallFailed'));
+      })
+      .finally(() => {
+        uninstallInFlight.current = false;
+        setIsLoading(false);
+      });
+  }
+
+  const title = (
+    <div className="text-danger flex items-center gap-1">
+      <Trash2Icon size={16} />
+      <span>{t('settings.zerotier.uninstall')}</span>
+    </div>
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        className="nanokvm-button-base text-fg hover:bg-surface-raised flex h-[30px] w-full cursor-pointer items-center space-x-1 rounded px-2 py-1"
+        onClick={() => {
+          setPurge(false);
+          setIsModalOpen(true);
+        }}
+      >
+        <span>{t('settings.zerotier.uninstall')}</span>
+      </button>
+
+      <Modal
+        title={title}
+        open={isModalOpen}
+        centered={true}
+        okType="danger"
+        okText={t('settings.zerotier.okBtn')}
+        cancelText={t('settings.zerotier.cancelBtn')}
+        onOk={uninstall}
+        // A failed uninstall can leave a partial device state. Do not allow the
+        // result to disappear into a closed modal while that request is still
+        // in flight; after it resolves, the user can see and act on its error.
+        onCancel={() => {
+          if (!uninstallInFlight.current) setIsModalOpen(false);
+        }}
+        confirmLoading={isLoading}
+        cancelButtonProps={{ disabled: isLoading }}
+        closable={!isLoading}
+        keyboard={!isLoading}
+        maskClosable={!isLoading}
+      >
+        <div className="py-5">
+          <p className="text-base">{t('settings.zerotier.uninstallDesc')}</p>
+          <Checkbox
+            className="pt-3"
+            checked={purge}
+            disabled={isLoading}
+            onChange={(e) => setPurge(e.target.checked)}
+          >
+            {t('settings.zerotier.uninstallPurge')}
+          </Checkbox>
+          <p className="text-fg-muted pt-2 text-sm">{t('settings.zerotier.uninstallWarning')}</p>
+          {errMsg && <Alert className="mt-3" type="error" showIcon message={errMsg} />}
+        </div>
+      </Modal>
+    </>
+  );
+};

@@ -52,25 +52,73 @@ apply_mount_policy() {
     done
 }
 
+# Why the chip came on (RTC_ST_ON_REASON, kernel patch 0086): power, restart
+# (a reboot or a panic), watchdog (the hardware watchdog: Linux hung) or
+# overheat; empty when it cannot be read.
+boot_reason() {
+    local value inputs
+    value=$(od -An -tu4 -N4 /sys/bus/nvmem/devices/cv1800-rtc-reason/nvmem 2>/dev/null | tr -d ' ')
+    [ -n "$value" ] || return 0
+    inputs=$((value >> 16))
+    if [ $((value & 15)) -eq 0 ]; then echo power
+    elif [ $((inputs & 2048)) -ne 0 ]; then echo watchdog
+    elif [ $((inputs & 512)) -ne 0 ]; then echo overheat
+    elif [ $((inputs & 1280)) -ne 0 ]; then echo restart
+    fi
+}
+
+# The records of a reboot or power-off that Linux finished: only the console
+# output (every message level, kernel patch 0092), ending with the kernel's
+# own restart, power-off or halt line. They are no crash.
+clean_shutdown() {
+    # Ramoops has one console record. Keep any separate dump or unknown record.
+    [ "$#" -eq 1 ] || return 1
+    case ${1##*/} in console-ramoops-*) ;; *) return 1 ;; esac
+    awk '
+        /^ECC: No errors detected$/ || /^ECC: [0-9]+ Corrected bytes, 0 unrecoverable blocks$/ { next }
+        /^ECC:/ { damaged = 1; next }
+        /[^[:space:]]/ { last = $0 }
+        END {
+            sub(/^(<[0-9]+>)?(\[[[:space:]]*[0-9]+\.[0-9]+\][[:space:]]*)?/, "", last)
+            if (damaged) exit 1
+            exit !(last ~ /^reboot: (Restarting system( with command .*)?|Power down|System halted|Power off not available: System halted instead)$/)
+        }
+    ' "$1"
+}
+
 # A kernel oops panics and reboots; ramoops (the board DT) keeps the dump and
-# the last console output across that reboot. Keep the newest five crashes in
-# /var/log/nanokvm-crash and free the region for the next one.
+# the console output (every level) across that reboot, also across a reset by
+# the hardware watchdog after a hang. Keep the newest five crashes in
+# /var/log/nanokvm-crash, with why the chip came on, and free the region for
+# the next one. The records of a finished reboot or power-off are freed
+# without being kept: they must not push real crashes out.
 # Each crash gets the next sequence number: the clock at boot may be wrong
 # or step back, so it only labels the directory. Removing a pstore file
 # erases its record, so the copy is synced to the card first.
 collect_crash() {
+    local reason
     pstore=/sys/fs/pstore
     crashes=/var/log/nanokvm-crash
     [ -d "$pstore" ] || return 0
     mountpoint -q "$pstore" || mount -t pstore pstore "$pstore" || return 1
     set -- "$pstore"/*
     [ -e "$1" ] || return 0
+    reason=$(boot_reason)
+    case $reason in
+        restart|power)
+            if clean_shutdown "$@"; then
+                rm -f "$@"
+                return $?
+            fi
+            ;;
+    esac
     mkdir -p "$crashes" || return 1
     last=$(find "$crashes" -mindepth 1 -maxdepth 1 -type d -name '[0-9]*-*' |
         sed 's|.*/||; s|-.*||' | awk '$1 + 0 > n { n = $1 + 0 } END { print n + 0 }')
     crash=$crashes/$(printf '%06d' $((last + 1)))-$(date -u +%Y%m%dT%H%M%SZ)
     mkdir "$crash" || return 1
-    if ! cp "$@" "$crash"/ || ! sync "$crash"/* "$crash" "$crashes" "${crashes%/*}"; then
+    if ! cp "$@" "$crash"/ || ! { [ -z "$reason" ] || echo "$reason" > "$crash/reason"; } ||
+        ! sync "$crash"/* "$crash" "$crashes" "${crashes%/*}"; then
         # An incomplete attempt must not count as another retained crash.
         # mkdir above succeeded, so this directory belongs to this attempt.
         rm -rf "$crash"

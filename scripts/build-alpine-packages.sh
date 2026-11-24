@@ -7,7 +7,7 @@
 #
 # The payload tree is prepared by the NanoKVM image staging step. It may either
 # contain package directories directly or below the profile directory:
-#   PAYLOAD_ROOT/stock/{keys,base,kernel,kmod,firmware,bootloader,app,web,zlib,openssl,exfatprogs,i2c-tools,tpu,release}
+#   PAYLOAD_ROOT/stock/{keys,base,kernel,kmod,firmware,bootloader,app,web,zlib,openssl,exfatprogs,tpu,release}
 # Without keys/, nanokvm-keys holds firmware/alpine/keys; without release/,
 # a release marker is generated.
 #
@@ -28,7 +28,7 @@ Environment:
   ABUILD_FLAGS  optional abuild flags (for example -F in an isolated chroot)
   PACKAGER_PRIVKEY / PACKAGER_PUBKEY  ECDSA private/public key paths
   PKGVER        package version (default: firmware/alpine/release.env)
-  PKGVERSIONS   optional file of "NAME VERSION CHANGED" lines
+  PKGVERSIONS   optional file of "NAME VERSION CHANGED PKGREL" lines
                 (scripts/package-versions.py). A package with CHANGED 0 keeps
                 its published file, which must already be in the repository.
 EOF
@@ -57,19 +57,12 @@ PKGVERSIONS=${PKGVERSIONS:-}
 }
 
 # The version of package $1, and whether it is built (1) or reused (0).
-pkg_version() {
-	if [ -n "$PKGVERSIONS" ]; then
-		awk -v n="$1" '$1 == n { print $2; found = 1 } END { exit !found }' "$PKGVERSIONS" || {
-			echo "build-alpine-packages: $PKGVERSIONS has no version for $1" >&2
-			exit 1
-		}
-	else
-		echo "$PKGVER"
-	fi
+pkg_field() {
+	awk -v n="$1" -v col="$2" '$1 == n { print (col == 4 && NF == 3 ? 0 : $col); found = 1 } END { if (!found) { print "missing package version: " n > "/dev/stderr"; exit 1 } }' "$PKGVERSIONS"
 }
-pkg_changed() {
-	[ -z "$PKGVERSIONS" ] || [ "$(awk -v n="$1" '$1 == n { print $3 }' "$PKGVERSIONS")" = 1 ]
-}
+pkg_version() { pkg_field "$1" 2; }
+pkg_changed() { [ "$(pkg_field "$1" 3)" = 1 ]; }
+pkg_revision() { pkg_field "$1" 4; }
 
 command -v "$ABUILD" >/dev/null 2>&1 || {
 	echo "build-alpine-packages: abuild is required" >&2
@@ -86,7 +79,7 @@ else
 	PROFILE_ROOT=$PAYLOAD_ROOT
 fi
 
-for required in base kernel kmod firmware bootloader app web zlib openssl exfatprogs i2c-tools tpu; do
+for required in base kernel kmod firmware bootloader app web zlib openssl exfatprogs tpu; do
 	if [ ! -d "$PROFILE_ROOT/$required" ]; then
 		echo "build-alpine-packages: missing payload $PROFILE_ROOT/$required" >&2
 		exit 1
@@ -95,6 +88,10 @@ done
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/nanokvm-apk.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT INT TERM
+if [ -z "$PKGVERSIONS" ]; then
+	PKGVERSIONS=$WORK/versions.txt
+	python3 "$ROOT/scripts/package-versions.py" initial --version "$PKGVER" > "$PKGVERSIONS"
+fi
 REPODEST=$REPODEST/$PROFILE
 mkdir -p "$SRCDEST" "$REPODEST"
 
@@ -154,10 +151,9 @@ archive_payload nanokvm-firmware "$PROFILE_ROOT/firmware"
 archive_payload nanokvm-bootloader "$PROFILE_ROOT/bootloader"
 archive_payload nanokvm "$PROFILE_ROOT/app"
 archive_payload nanokvm-web "$PROFILE_ROOT/web"
-archive_payload nanokvm-exfatprogs "$PROFILE_ROOT/exfatprogs"
-archive_payload nanokvm-i2c-tools "$PROFILE_ROOT/i2c-tools"
+archive_payload nanokvm-exfatprogs1 "$PROFILE_ROOT/exfatprogs"
 archive_payload nanokvm-zlib "$PROFILE_ROOT/zlib"
-archive_payload nanokvm-openssl "$PROFILE_ROOT/openssl"
+archive_payload nanokvm-openssl3 "$PROFILE_ROOT/openssl"
 archive_payload nanokvm-tpu "$PROFILE_ROOT/tpu"
 release_payload=$(make_release_payload)
 archive_payload nanokvm-release "$release_payload"
@@ -166,10 +162,14 @@ export CARCH=riscv64
 export REPODEST SRCDEST PKGVER
 # The versions of the other packages, for the dependencies of
 # nanokvm-release: V_nanokvm_web for nanokvm-web, and so on.
-for pkg in nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
-	 nanokvm nanokvm-web nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
-	 nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002; do
-	export "V_$(echo "$pkg" | tr - _)=$(pkg_version "$pkg")"
+packages="nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
+	 nanokvm nanokvm-web nanokvm-zlib nanokvm-openssl3 nanokvm-openssl nanokvm-exfatprogs1 nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
+	 nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002"
+for pkg in $packages; do
+	key=$(echo "$pkg" | tr - _)
+	version=$(pkg_version "$pkg")
+	revision=$(pkg_revision "$pkg")
+	export "V_$key=$version" "F_$key=$version-r$revision"
 done
 
 # APK v2's historical RSA256 marker selects SHA-256 in apk-tools; OpenSSL
@@ -207,7 +207,7 @@ prepare_recipe() {
 	cp -a "$ROOT/firmware/alpine/packages/$pkg/." "$recipe_dir/"
 	# Metapackages have no payload.
 	case $pkg in
-	*-sg2002) return 0 ;;
+	*-sg2002|nanokvm-openssl|nanokvm-exfatprogs|nanokvm-i2c-tools) return 0 ;;
 	esac
 	# A source name without an URL is local to the APKBUILD directory. Keep the
 	# generated archive there so both `abuild checksum` and the actual build read
@@ -230,14 +230,14 @@ prepare_recipe() {
 	fi
 }
 
-for pkg in nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
-	 nanokvm nanokvm-web nanokvm-zlib nanokvm-openssl nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
-	 nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002; do
+for pkg in $packages; do
 	version=$(pkg_version "$pkg")
+	PKGREL=$(pkg_revision "$pkg")
+	export PKGREL
 	if ! pkg_changed "$pkg"; then
 		# abuild indexes every package in the directory, this one included.
-		[ -f "$REPODEST/recipes/$CARCH/$pkg-$version-r0.apk" ] || {
-			echo "build-alpine-packages: unchanged $pkg-$version-r0.apk is not in $REPODEST/recipes/$CARCH" >&2
+		[ -f "$REPODEST/recipes/$CARCH/$pkg-$version-r$PKGREL.apk" ] || {
+			echo "build-alpine-packages: unchanged $pkg-$version-r$PKGREL.apk is not in $REPODEST/recipes/$CARCH" >&2
 			exit 1
 		}
 		echo "keeping $pkg $version (unchanged)"
@@ -253,7 +253,7 @@ for pkg in nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmwar
 		verify_keys=$WORK/verify-keys
 		mkdir -p "$verify_keys"
 		cp "$PACKAGER_PUBKEY" "$verify_keys/"
-		apk --keys-dir "$verify_keys" verify "$REPODEST/recipes/$CARCH/$pkg-$version-r0.apk"
+		apk --keys-dir "$verify_keys" verify "$REPODEST/recipes/$CARCH/$pkg-$version-r$PKGREL.apk"
 	)
 done
 
@@ -275,8 +275,8 @@ mkdir -p "$verify_keys"
 cp "$PACKAGER_PUBKEY" "$verify_keys/"
 apk --keys-dir "$verify_keys" verify "$index"
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
-[ "$apk_count" -ge 18 ] || {
-	echo "build-alpine-packages: expected at least eighteen APKs, found $apk_count" >&2
+[ "$apk_count" -ge 20 ] || {
+	echo "build-alpine-packages: expected at least twenty APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do

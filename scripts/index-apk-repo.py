@@ -9,12 +9,15 @@ anew.
 The signing job adds the ECDSA production signature after this read-only-key job.
 """
 import argparse
+import hashlib
 import importlib.util
 import json
 import operator
 from pathlib import Path
 import re
 import subprocess
+import urllib.error
+import urllib.request
 
 import addon_packages
 
@@ -61,6 +64,42 @@ def satisfied(depends, records):
     return True
 
 
+# Older updaters select nanokvm-i2c-tools by its concrete name during rollback,
+# including on systems with only the OS and Alpine main repositories. Expose
+# the unmodified community APK when the signed OS index carries the forwarder.
+I2C_APK = 'i2c-tools-4.4-r3.apk'
+I2C_SHA256 = '462c958a5271fddd54190c5efdd81f235461f6e94bca1519878c363dba899737'
+ALPINE_KEYS = Path('/usr/share/apk/keys/riscv64')
+
+
+def alpine_i2c(repo):
+    path = repo / I2C_APK
+    # Alpine can prune superseded package revisions. Reuse the verified bytes
+    # from a previously published channel when they are no longer on its CDN.
+    urls = ('https://dl-cdn.alpinelinux.org/alpine/v3.24/community/riscv64/',
+            'https://dormancygrace.github.io/NanoKVM-OS/alpine/v3.24/riscv64/',
+            'https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/v3.24/riscv64/')
+    if path.exists():
+        data = path.read_bytes()
+    else:
+        for base in urls:
+            try:
+                with urllib.request.urlopen(base + I2C_APK, timeout=30) as response:
+                    data = response.read(68_370 + 1)
+                break
+            except urllib.error.HTTPError as error:
+                if error.code != 404 and error.code < 500:
+                    raise
+            except (urllib.error.URLError, TimeoutError):
+                continue
+        else:
+            raise ValueError(f'Cannot locate the pinned Alpine {I2C_APK}')
+    if hashlib.sha256(data).hexdigest() != I2C_SHA256:
+        raise ValueError(f'Unexpected SHA256 for {I2C_APK}')
+    if not path.exists():
+        path.write_bytes(data)
+
+
 def build_index(repo, keys, apk='apk', addons_only=False):
     repo, keys = Path(repo).resolve(), Path(keys).resolve()
     def run(*args):
@@ -70,9 +109,20 @@ def build_index(repo, keys, apk='apk', addons_only=False):
         # Check the OS release's original indexes before replacing the v3 index.
         for name in assembler.INDEXES:
             run('verify', str(repo / name))
-    addon_packages.verify_repository(repo, apk, keys)
+    mirrored = {}
+    forwarder = False
     if not addons_only:
-        core = assembler.index_packages((repo / 'APKINDEX.tar.gz').read_bytes())
+        index = (repo / 'APKINDEX.tar.gz').read_bytes()
+        core = assembler.index_packages(index)
+        # Retain the official file for cached indexes while the feed still
+        # serves a release with the old package name. Seeding it on legacy
+        # heads also makes the first transition independent of CDN retention.
+        if any(repo.glob('nanokvm-i2c-tools-*.apk')):
+            alpine_i2c(repo)
+            mirrored[I2C_APK] = ALPINE_KEYS
+            forwarder = any(p['P'] == 'nanokvm-i2c-tools' and 'i2c-tools' in p.get('D', '').split()
+                            for p in assembler.index_records(index))
+    addon_packages.verify_repository(repo, apk, keys, mirrored)
     addons = addon_packages.manifest((repo / 'addons.json').read_bytes())
     newest = {}
     for filename in addons:
@@ -91,7 +141,7 @@ def build_index(repo, keys, apk='apk', addons_only=False):
             version = version_key(info['version'])
             if match[1] not in newest or version > newest[match[1]][0]:
                 newest[match[1]] = (version, filename)
-    selected = sorted(set(core) | {filename for _, filename in newest.values()})
+    selected = sorted(set(core) | ({I2C_APK} if forwarder else set()) | {filename for _, filename in newest.values()})
     pending = repo / 'Packages.pending.adb'
     description = 'NanoKVM OS add-ons' if addons_only else 'NanoKVM OS packages'
     run('--allow-untrusted', 'mkndx', '--description', description,

@@ -42,7 +42,7 @@ diff --git a/Makefile b/Makefile
 diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
 --- a/arch/riscv/kernel/vmlinux.lds.S
 +++ b/arch/riscv/kernel/vmlinux.lds.S
-@@ -31,15 +31,44 @@
+@@ -31,15 +31,43 @@
  	HEAD_TEXT_SECTION
  	. = ALIGN(PAGE_SIZE);
  
@@ -57,8 +57,8 @@ diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
 +		 * itself, differently after every change elsewhere. Exception
 +		 * entry, the noinstr text and the scheduler core come first, then
 +		 * the listed functions (vmlinux-hot.lds.h, from
-+		 * platform/kernel/hot-text.lds), continuing the cache sets where
-+		 * the scheduler core ends. All of it is kept (KEEP) when the
++		 * platform/kernel/hot-text.lds) from a fixed cache set, whatever
++		 * the size of the code before it. All of it is kept (KEEP) when the
 +		 * linker discards unreferenced sections: a function nothing calls
 +		 * in this configuration must not move the ones after it.
 +		 */
@@ -79,7 +79,6 @@ diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
 +		__hot_entry_end = .;
 +		KEEP(*(.sched.text))
 +		__sched_text_end = .;
-+		. = . + ((__hot_entry_end - .) & 0x3fff);
 +#include "vmlinux-hot.lds.h"
  		TEXT_TEXT
 -		SCHED_TEXT

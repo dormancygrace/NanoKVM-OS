@@ -107,6 +107,9 @@ const DateTimeSettings = lazyPage(() =>
 const MCP = lazyPage(() => import('./mcp').then((module) => ({ default: module.MCP })));
 const Memory = lazyPage(() => import('./memory').then((module) => ({ default: module.Memory })));
 const Netbird = lazyPage(() => import('./netbird').then((module) => ({ default: module.Netbird })));
+const Zerotier = lazyPage(() =>
+  import('./zerotier').then((module) => ({ default: module.Zerotier }))
+);
 const Notifications = lazyPage(() =>
   import('./notifications').then((module) => ({ default: module.Notifications }))
 );
@@ -404,6 +407,7 @@ export const Settings = ({
         'vpn-openvpn': <OpenVPN setIsLocked={setIsLocked} />,
         'vpn-tailscale': <Tailscale setIsLocked={setIsLocked} />,
         'vpn-netbird': <Netbird setIsLocked={setIsLocked} />,
+        'vpn-zerotier': <Zerotier setIsLocked={setIsLocked} />,
         services: null,
         'services-bmc': <BmcSettingsPage />,
         'services-rustdesk': <RustDeskControls />,

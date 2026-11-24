@@ -33,8 +33,7 @@ payloads; `nanokvm-keys` refuses anything but public keys in `/etc/apk/keys`.
 
 ## Package versions
 
-Each package has its own version: the release in which its content last
-changed. The content is the payload tree (paths, modes, links and file
+Most packages carry the OS release in which their content last changed. The content is the payload tree (paths, modes, links and file
 contents), the recipe directory and the signing-policy identifier.
 `scripts/package-versions.py` compares their combined fingerprint with
 `packages.json` from the previous release. The ECDSA transition in v3.4.0
@@ -42,10 +41,17 @@ changes that identifier once, rebuilding every core package:
 
 - an unchanged package keeps its published version, and the release reuses its
   published file instead of rebuilding it;
-- a changed package gets the release's APK version;
+- most changed packages get the release's APK version;
 - `nanokvm-release` always changes, since it carries the release version;
-- `nanokvm-kernel` and `nanokvm-kmod` change together, because
-  the kernel requires its modules at exactly its own version.
+- `nanokvm-kernel` and `nanokvm-kmod` share the upstream Linux version and
+  revision. A change to either rebuilds the pair;
+- `nanokvm-openssl3` and `nanokvm-exfatprogs1` use the upstream OpenSSL and
+  exfatprogs versions. Their revisions and the Linux package revision identify the OS build that last changed their content.
+  The decimal revision encodes OS major, three-digit minor, three-digit patch
+  and three-digit beta number (999 for stable). This keeps maintenance releases
+  and beta builds ordered even when published on different branches. The first
+  published beta of each OS version builds these four packages so a device on a later
+  maintenance release can still upgrade to the published beta.
 
 `nanokvm-release` depends directly on the selected versions of all components
 (`V_nanokvm_web` and so on in the build environment), including the server and
@@ -53,8 +59,10 @@ web UI. It provides the old `nanokvm-app` name at its own version, so existing
 world selections do not require a separate compatibility package. A device may
 therefore show `nanokvm-web` 3.3.0 next to `nanokvm-release` 3.5.0. The packages
 step reads the previous repository from `NANOKVM_PREVIOUS`, a URL or a
-directory with `packages.json`; without it every package gets the release
-version, as before. It writes `packages.json` next to the indexes.
+directory with `packages.json`; without it every package is built. It writes `packages.json` next to the indexes.
+
+The old `nanokvm-exfatprogs` name forwards explicit APK world entries to
+`nanokvm-exfatprogs1`. Fresh installs depend directly on the latter.
 
 ## Bootloader
 
@@ -90,11 +98,11 @@ Alpine moves to a newer zlib.
 
 ## OpenSSL runtime
 
-`nanokvm-openssl` replaces Alpine's `openssl`, `libssl3` and `libcrypto3`
+`nanokvm-openssl3` replaces Alpine's `openssl`, `libssl3` and `libcrypto3`
 with the unmodified OpenSSL 3.5.9 LTS sources pinned in `platform/sources.lock`.
 It provides their package names and ABI3 SONAMEs, so curl, OpenSSH and apk
 continue to use their existing linkage. As with `nanokvm-zlib`, the release depends on the named
-NanoKVM package at its selected minimum version; the provided upstream version is tracked separately.
+NanoKVM package at its selected minimum revision.
 Alpine development, static and FIPS packages require an exact upstream package
 version and are not supplied by this runtime package.
 
@@ -110,7 +118,7 @@ built engines, plus the build flags and pinned-source metadata under
 The pin follows the OpenSSL 3.5 LTS branch, supported upstream through
 8 April 2030. The provided package revision `r100` only outranks
 Alpine revisions of the same upstream version. Provider priority does not pin
-a newer versioned alias. The named `nanokvm-openssl>=...` dependency in
+a newer versioned alias. The named `nanokvm-openssl3>=...` dependency in
 `nanokvm-release` keeps the selected runtime installed even when Alpine offers
 a higher upstream version; signed APK tests cover that case during fresh
 installation and upgrade. Requests requiring a newer library version fail
@@ -121,14 +129,15 @@ NanoKVM maintainers own OpenSSL security updates for this runtime. They must
 review upstream 3.5 LTS security/patch releases, update the source checksum and
 provided upstream versions together, rerun compatibility and correctness tests,
 and publish a signed OS/package update. An Alpine security update alone does
-not update `nanokvm-openssl`. The upstream monitor
+not update `nanokvm-openssl3`. The upstream monitor
 reports patch releases only within 3.5.x and requests review before changing
 the qualified pin and package aliases.
 
-Rollback to a signed release index that predates `nanokvm-openssl` adds an
-exclusion for this package and restores Alpine's OpenSSL in the same APK
-transaction. The solver refuses the transaction if the target release still
-requires `nanokvm-openssl`.
+Older installations may list `nanokvm-openssl` in APK world. This name now
+installs an empty compatibility package depending on `nanokvm-openssl3`.
+Fresh installations require the new package directly. Switching back to an
+older stable repository restores the runtime shipped by that release, including
+Alpine's OpenSSL on releases predating the NanoKVM runtime.
 
 ## Sophgo `devmem` dependency
 

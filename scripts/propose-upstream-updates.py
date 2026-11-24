@@ -229,7 +229,7 @@ def pin_changes(source, result, root=ROOT):
             files[build_path] = build
         if name == 'openssl':
             # Only the versioned virtual packages track upstream. Leave SONAMEs and revisions alone.
-            path = 'firmware/alpine/packages/nanokvm-openssl/APKBUILD'
+            path = 'firmware/alpine/packages/nanokvm-openssl3/APKBUILD'
             text = (root / path).read_text()
             provides = re.findall(r'^provides="([^"\n]*)"$', text, re.MULTILINE)
             if len(provides) != 1:

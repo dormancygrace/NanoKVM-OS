@@ -65,7 +65,7 @@ with tempfile.TemporaryDirectory() as directory:
     run(validate, work / 'p384.key', work / 'p384.pub')
     payloads = work / 'payloads'
     for name in ('base', 'kernel', 'kmod', 'firmware',
-                 'bootloader', 'app', 'web', 'zlib', 'openssl', 'exfatprogs', 'i2c-tools', 'tpu'):
+                 'bootloader', 'app', 'web', 'zlib', 'openssl', 'exfatprogs', 'tpu'):
         path = payloads / name / 'usr/share/ec-test'
         path.mkdir(parents=True)
         (path / name).write_text(name)
@@ -86,7 +86,9 @@ with tempfile.TemporaryDirectory() as directory:
     (fixture / 'scripts').mkdir(parents=True)
     shutil.copytree(ROOT / 'firmware/alpine/packages', fixture / 'firmware/alpine/packages')
     shutil.copy2(ROOT / 'firmware/alpine/release.env', fixture / 'firmware/alpine/release.env')
-    for filename in ('build-alpine-packages.sh', 'check-ec-key.sh'):
+    (fixture / 'platform').mkdir()
+    shutil.copy2(ROOT / 'platform/sources.lock', fixture / 'platform/sources.lock')
+    for filename in ('build-alpine-packages.sh', 'check-ec-key.sh', 'package-versions.py'):
         shutil.copy2(ROOT / 'scripts' / filename, fixture / 'scripts' / filename)
     for name in ('nanokvm-base', 'nanokvm-kernel', 'nanokvm-kmod', 'nanokvm-firmware'):
         recipe = fixture / 'firmware/alpine/packages' / name / 'APKBUILD'
@@ -95,7 +97,7 @@ with tempfile.TemporaryDirectory() as directory:
     run('sh', fixture / 'scripts/build-alpine-packages.sh', 'stock', env=env)
     repo = work / 'repo/stock/recipes/riscv64'
     packages = sorted(repo.glob('*.apk'))
-    assert len(packages) == 18
+    assert len(packages) == 20
     for path in packages + [repo / 'APKINDEX.tar.gz']:
         run('apk', '--keys-dir', ec, 'verify', path)
         run('apk', '--keys-dir', rsa, 'verify', path, ok=False)
@@ -106,7 +108,14 @@ with tempfile.TemporaryDirectory() as directory:
             names = archive.getnames()
             assert names == ['.SIGN.RSA256.test.pub'], names
             (work / 'signature').write_bytes(archive.extractfile(names[0]).read())
-        _, control, _ = member(rest)
+        archive_data, control, payload = member(rest)
+        if path.name.startswith('nanokvm-i2c-tools-'):
+            with tarfile.open(fileobj=io.BytesIO(archive_data)) as archive:
+                metadata = archive.extractfile('.PKGINFO').read().decode().splitlines()
+            assert [x for x in metadata if x.startswith('depend = ')] == ['depend = i2c-tools']
+            assert not any(x.startswith(('provides = ', 'replaces = ')) for x in metadata)
+            with tarfile.open(fileobj=io.BytesIO(gzip.decompress(payload))) as archive:
+                assert not archive.getmembers(), 'the compatibility APK must contain no files'
         (work / 'control').write_bytes(control)
         run('openssl', 'dgst', '-sha256', '-verify', public, '-signature', work / 'signature', work / 'control')
         tampered = work / path.name
@@ -164,4 +173,4 @@ with tempfile.TemporaryDirectory() as directory:
     run('apk', '--allow-untrusted', '--sign-key', key, 'adbsign', '--reset-signatures', repo / 'Packages.adb')
     run('apk', '--keys-dir', ec, 'verify', repo / 'Packages.adb')
     run('apk', '--keys-dir', rsa, 'verify', repo / 'Packages.adb', ok=False)
-    print('PASS: 18 real abuild packages; ECDSA/SHA-256 verified by apk and OpenSSL; tamper/wrong-key rejected; v2/v3 upgrade and index rotation')
+    print('PASS: 20 real abuild packages; ECDSA/SHA-256 verified by apk and OpenSSL; tamper/wrong-key rejected; v2/v3 upgrade and index rotation')

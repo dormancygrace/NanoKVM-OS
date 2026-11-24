@@ -4,14 +4,14 @@
 - the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
-- the eighteen `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
+- the twenty `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
 Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
 
 | Output | Shipped in |
 |---|---|
-| `images/Image` (Linux `7.3.5-nanokvm-os-r10`) | every `boot.sd` |
-| `images/lib/modules/7.3.5-nanokvm-os-r10/` (70 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod` |
+| `images/Image` (Linux `7.3.6-nanokvm-os-r10`) | every `boot.sd` |
+| `images/lib/modules/7.3.6-nanokvm-os-r10/` (70 in-tree and 17 out-of-tree modules, `modules.*`) | `nanokvm-kmod` |
 | `images/boot/*.sd`, `*.sha256`, `kernel.release` (one per board, `NAME.dtb`, each with the 144 MiB CMA video region) | `nanokvm-kernel`, `/usr/lib/nanokvm/boot` |
 | `images/dtb/*.dtb`, `images/initramfs.cpio.lz4` | inside the `boot.sd` images |
 | `images/licenses/initramfs/` (Buildroot `legal-info`: `manifest.csv` and the license texts of the initramfs userland and C library) | `nanokvm-kernel`, `/usr/share/licenses/nanokvm-kernel/initramfs` |
@@ -23,10 +23,10 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware` |
 | `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license; zlib-ng is also linked statically into NanoKVM-Server for its gzip reader) | `nanokvm-zlib`, in place of Alpine's `zlib`; the license also in `nanokvm`, `/usr/share/licenses/nanokvm` |
-| `images/tools/exfatprogs/`, `images/tools/i2c-tools/` (exfatprogs 1.4.5 and i2c-tools 4.4 with their licenses) | `nanokvm-exfatprogs`, `nanokvm-i2c-tools` |
+| `images/tools/exfatprogs/` (exfatprogs 1.4.5 and its license) | `nanokvm-exfatprogs1` |
 | `fip.bin`, `fip-licenses/` | `nanokvm-bootloader`; its trigger puts `fip.bin` on the boot partition |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
-| `release/apk/` | the signed APK repository of the eighteen packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
+| `release/apk/` | the signed APK repository of the twenty packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
 | `release/image/NanoKVM-OS-<version>.img.zip`, `SHA256SUMS` | the SD card image |
 | `release/stock-installer/nanokvm_X.Y.Z.tar.gz`, `SHA256SUMS` | stock Sipeed migration package (`stock-installer` step; included with SD image releases) |
@@ -98,7 +98,8 @@ A mismatch prints a unified diff and stops the build.
 The debug kernel has a `-debug` release suffix and adds `kernel/config-debug.fragment`:
 perf and the CPU counters, frame pointers, function, syscall and block I/O
 tracing, kprobes, SysRq, hung-task and lockup detectors, dynamic debug,
-`/proc/config.gz` and per-task accounting, plus DWARF for `vmlinux` on the
+`/proc/config.gz` and per-task accounting, every kernel export (the release
+kernel exports only what its modules import), plus DWARF for `vmlinux` on the
 build host (its installed modules are stripped). It costs time on every call
 and interrupt, so it is not for measuring release behaviour.
 
@@ -126,7 +127,7 @@ remain installed for old package verification and rollback. See the
 
 The package `nanokvm-keys` installs the public keys of `firmware/alpine/keys` (with `-d`, also the test keys) in `/etc/apk/keys` and owns them, so a later release can add or remove a key; on an older device it also moves the NanoKVM repository line to the v3 index. The rootfs step copies the keys into the root before it installs `nanokvm-release`, and apk takes over the identical files; the step fails if a key in `/etc/apk/keys` has no owner. Publishing a release, moving to the ECDSA key and replacing a key are described in [firmware/alpine/README.md](../firmware/alpine/README.md#signing-keys).
 
-The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), with NanoKVM-built zlib-ng and OpenSSL runtimes. `nanokvm-openssl` supplies OpenSSL 3.5.9 LTS with the C906 `-O3` profile and ABI3 libraries. Releases up to v2.0-b7 used a broader `c906-scalar` overlay; that overlay is not built here.
+The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), with NanoKVM-built zlib-ng and OpenSSL runtimes. `nanokvm-openssl3` supplies OpenSSL 3.5.9 LTS with the C906 `-O3` profile and ABI3 libraries. Releases up to v2.0-b7 used a broader `c906-scalar` overlay; that overlay is not built here.
 
 ## What is here
 
@@ -136,7 +137,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `sources.lock` | Every upstream input: archives by SHA-256, Git trees by commit and tree id |
 | `build.sh` | All build steps |
 | `packages.list` | The contents of the fifteen APK packages: each file, its mode and where it comes from |
-| `kernel/` | `config` and patches for kernel.org Linux 7.3.5 |
+| `kernel/` | `config` and patches for kernel.org Linux 7.3.6 |
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi; `hwcrypto/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
 | `lolcat/` | Byte I/O and terminal-output fixes for lolcat 1.5, the rainbow SSH shell's filter (original 1.4 optimization: 15 times faster on the C906) |
@@ -297,7 +298,7 @@ APK owns the old MPI library paths and removes files no longer shipped when upgr
 
 ### Application package split
 
-The build produces eighteen core APKs. `nanokvm` owns the server, board service,
+The build produces twenty core APKs. `nanokvm` owns the server, board service,
 native libraries and application scripts; `nanokvm-web` owns
 `/kvmapp/server/web`. The separate `nanokvm-app` compatibility APK is no longer
 built. `nanokvm-release` provides its old name at the release's APK version
@@ -316,16 +317,17 @@ the old ones (`apkrollback.LegacyTargets`).
 
 ### Tools in place of Alpine community packages
 
-`nanokvm-exfatprogs` (exfatprogs 1.4.5: `mkfs.exfat` formats `/data` at first
-boot) and `nanokvm-i2c-tools` (i2c-tools 4.4: `i2cdetect` identifies the board)
-are the only programs of `nanokvm-release` and its dependencies that Alpine
-ships in its community repository, so the release needs only Alpine main (the
-image installs LLDP and UPS from community next to it, see
-[the repository list](../firmware/alpine/README.md)). The `tools` step builds them
-from the pinned upstream releases with the image's toolchain: i2c-tools
-statically, exfatprogs against the device's `libblkid`. Each package
-`provides` and `replaces` the Alpine package of the same tool, so an upgrade
-removes the Alpine package and a dependency on the tool's name is satisfied.
+`nanokvm-exfatprogs1` supplies `mkfs.exfat` for formatting `/data` on first
+boot and `fsck.exfat` for checking it. The `tools` step builds exfatprogs
+from its pinned upstream release against the device's `libblkid`.
+The OS installs Alpine's `i2c-tools` package for HDMI receiver detection
+(`i2cdetect`). When installing from the local `release/apk/` repository,
+enable Alpine v3.24 community alongside main to resolve this dependency.
+The published OS index also serves the identical Alpine-signed APK, so devices
+can update with only Alpine main enabled. To update the mirrored APK, change
+its filename and SHA-256 together in `scripts/index-apk-repo.py`.
+A compatibility package preserves the old name for explicit installs and older
+rollback clients.
 
 The browser package requires `nanokvm-web-api=2`, provided by the server
 (2: the browser sends passwords as typed, marked `passwordEncoding: "plain"`,

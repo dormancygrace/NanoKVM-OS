@@ -15,11 +15,14 @@ const labels: Record<string, string> = {
   'nanokvm-keys': 'keys',
   'nanokvm-rustdesk': 'rustdesk',
   'nanokvm-host-sensors': 'hostSensors',
+  'nanokvm-zerotier': 'zerotier',
   'nanokvm-model-screen': 'screenModel',
   'nanokvm-bootloader': 'bootloader',
   'nanokvm-zlib': 'zlib',
   'nanokvm-openssl': 'openssl',
+  'nanokvm-openssl3': 'openssl',
   'nanokvm-exfatprogs': 'exfatprogs',
+  'nanokvm-exfatprogs1': 'exfatprogs',
   'nanokvm-i2c-tools': 'i2ctools',
   'nanokvm-tpu': 'tpu'
 };

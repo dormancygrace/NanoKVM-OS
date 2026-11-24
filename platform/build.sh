@@ -7,7 +7,7 @@
 # Steps, in order (default: all of them):
 #   fetch      download and verify every input in sources.lock
 #   toolchain  Buildroot 2026.08.2: cross toolchain, host tools, initramfs userland
-#   kernel     Linux 7.3.5 with kernel/*.patch and kernel/config
+#   kernel     Linux 7.3.6 with kernel/*.patch and kernel/config
 #              (NANOKVM_KERNEL_PROFILE=debug adds kernel/config-debug.fragment)
 #   modules    out-of-tree modules; stage /lib/modules like nanokvm-kmod
 #   uboot      U-Boot 2026.10 with uboot/*.patch and uboot/defconfig
@@ -19,13 +19,13 @@
 #   tpu        TPU runtime and the programs that run models on it
 #   system     kvm_system board service
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
-#              exfatprogs, i2c-tools, lolcat, OpenSSL and zlib-ng (also for the server)
+#              exfatprogs, lolcat, OpenSSL and zlib-ng (also for the server)
 #   server     NanoKVM-Server (server-cpp) and its helpers
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
-#   payloads   contents of the eighteen NanoKVM packages, from packages.list
-#   packages   signed APK repository of the eighteen packages
+#   payloads   contents of the twenty NanoKVM packages, from packages.list
+#   packages   signed APK repository of the twenty packages
 #   rootfs     Alpine 3.24 root file system with nanokvm-release
 #   image      SD card image
 # Not in the default list:
@@ -46,7 +46,7 @@
 # with a throwaway key made in OUTPUT/keys/build; the image trusts only the
 # published keys, and scripts/sign-release.sh then signs the repository with
 # the release key, outside the build. NANOKVM_KERNEL_PROFILE=debug builds
-# the kernel and its modules with kernel/config-debug.fragment (release 7.3.5-nanokvm-os-rN-debug)
+# the kernel and its modules with kernel/config-debug.fragment (release 7.3.6-nanokvm-os-rN-debug)
 # and, with -d only, packages and an image that add platform/debug-packages.
 # With NANOKVM_PREVIOUS (the URL or directory of the
 # published repository's riscv64/ with packages.json) a package whose content
@@ -115,11 +115,11 @@ case " ${steps[*]} " in
 esac
 # Official Alpine packages.
 profile=stock
-release=7.3.5-nanokvm-os-r10
+release=7.3.6-nanokvm-os-r10
 [ "$kernel_profile" = release ] || release=$release-debug
 # Fixed build times keep identical inputs reproducible. The kernel timestamp
-# is the upstream Linux 7.3.5 release date (00:00 UTC).
-kernel_timestamp='Tue Nov 17 00:00:00 UTC 2026'
+# is the upstream Linux 7.3.6 release date (00:00 UTC).
+kernel_timestamp='Mon Nov 23 00:00:00 UTC 2026'
 uboot_epoch=1788737047
 rtl8733bs_epoch=1788607804
 isa=$(python3 "$repo/scripts/nanokvm_cpu_profile.py" kernel)
@@ -289,8 +289,8 @@ kernel_make() {
 kernel_source() {
     rm -rf "$out/kernel"
     mkdir -p "$out/kernel" "$kbuild"
-    tar -xf "$dl/linux-7.3.5.tar.xz" -C "$out/kernel"
-    mv "$out/kernel/linux-7.3.5" "$ksrc"
+    tar -xf "$dl/linux-7.3.6.tar.xz" -C "$out/kernel"
+    mv "$out/kernel/linux-7.3.6" "$ksrc"
     # The order of the hot kernel functions, included by vmlinux.lds.S (patch
     # 0088, docs/KERNEL-HOT-TEXT.md).
     cp "$here/kernel/hot-text.lds" "$ksrc/arch/riscv/kernel/vmlinux-hot.lds.h"
@@ -815,15 +815,11 @@ tools() {
     "${cross}gcc" "${cpu_flags[@]}" -static -Wall -Wextra -Werror "$repo/firmware/boards/nkos-board-probe.c" -o "$t/nkos-board-probe"
     "${cross}strip" -o "$img/tools/nkos-board-probe" "$t/nkos-board-probe"
 
-    # exfatprogs and i2c-tools in place of Alpine's community packages
-    # (nanokvm-exfatprogs, nanokvm-i2c-tools). mkfs.exfat needs libblkid, which
-    # the toolchain has only as a shared library: exfatprogs links it and the C
-    # library dynamically (Alpine's libblkid on the device); i2c-tools is static.
-    local b exf i2c
+    # mkfs.exfat links the device's libblkid, available as a shared library.
+    local b exf
     exf=$(lock exfatprogs | awk '{ print $2 }'); exf=${exf##*/}
-    i2c=$(lock i2c-tools | awk '{ print $2 }'); i2c=${i2c##*/}
     tar -xJf "$dl/$exf" -C "$t"
-    exf=$t/${exf%.tar.xz} i2c=$t/${i2c%.tar.gz}
+    exf=$t/${exf%.tar.xz}
     # Link the SONAME directly: libtool's libblkid.la injects an absolute
     # sysroot RPATH. Removing its tag later leaves the path in .dynstr and
     # makes mkfs.exfat differ between hosts even after stripping.
@@ -834,7 +830,7 @@ tools() {
             RANLIB="${cross}ranlib" STRIP="${cross}strip" PKG_CONFIG="$host/pkg-config" \
             BLKID_LIBS="-l:libblkid.so.1" CFLAGS="${cpu_flags[*]} -g0" > "$t/exfatprogs-configure.log" &&
         make -j"$jobs" > "$t/exfatprogs-make.log")
-    mkdir -p "$img/tools/exfatprogs" "$img/tools/i2c-tools"
+    mkdir -p "$img/tools/exfatprogs"
     for b in mkfs/mkfs.exfat fsck/fsck.exfat tune/tune.exfat label/exfatlabel dump/dump.exfat exfat2img/exfat2img; do
         "${cross}strip" --remove-section=.comment --remove-section=.note \
             -o "$img/tools/exfatprogs/${b##*/}" "$exf/$b"
@@ -842,14 +838,6 @@ tools() {
         "$host/patchelf" --remove-rpath "$img/tools/exfatprogs/${b##*/}"
     done
     cp "$exf/COPYING" "$img/tools/exfatprogs/"
-    tar -xzf "$dl/${i2c##*/}.tar.gz" -C "$t"
-    make -C "$i2c" -j"$jobs" CC="${cross}gcc" AR="${cross}ar" CFLAGS="${cpu_flags[*]} -g0 -Wall" \
-        LDFLAGS=-static BUILD_DYNAMIC_LIB=0 BUILD_STATIC_LIB=1 USE_STATIC_LIB=1 > "$t/i2c-tools-make.log"
-    for b in i2cdetect i2cget i2cset i2cdump i2ctransfer; do
-        "${cross}strip" --remove-section=.comment --remove-section=.note \
-            -o "$img/tools/i2c-tools/$b" "$i2c/tools/$b"
-    done
-    cp "$i2c/COPYING" "$i2c/COPYING.LGPL" "$img/tools/i2c-tools/"
 
     # lolcat for the rainbow SSH style (nanokvm-base's nanokvm-rainbow.sh),
     # static; Alpine has it only in edge/testing.
@@ -1181,12 +1169,20 @@ previous_file() {
 # the version and the file it was published with while its payload and recipe
 # stay the same. NANOKVM_PREVIOUS is the published repository directory with
 # the packages.json of the previous release. Without it, or before the first
-# release with packages.json, every package gets the release version.
+# release with packages.json, build every package.
 package_versions() {
-    local v=$b/build/versions apkver dir=$b/build/repo/stock/recipes/riscv64 file sum previous=()
+    local v=$b/build/versions apkver dir=$b/build/repo/stock/recipes/riscv64 file sum baseline previous=()
     apkver=${NANOKVM_APK_VERSION:-$(sed -n 's/^NANOKVM_APK_VERSION=//p' "$repo/firmware/alpine/release.env")}
     mkdir -p "$v"
     if [ -n "${NANOKVM_PREVIOUS:-}" ] && previous_file packages.json "$v/previous.json"; then
+        case $NANOKVM_PREVIOUS in
+            https://dormancygrace.github.io/NanoKVM-OS/beta/alpine/*)
+                baseline=$("$host/python3" "$repo/scripts/package-versions.py" baseline --version "$apkver" --previous "$v/previous.json")
+                if [ "$baseline" = stable ]; then
+                    NANOKVM_PREVIOUS=${NANOKVM_PREVIOUS/\/beta\/alpine\//\/alpine\/}
+                    previous_file packages.json "$v/previous.json" || { echo "Missing stable package manifest" >&2; exit 1; }
+                fi ;;
+        esac
         previous=(--previous "$v/previous.json")
     fi
     "$host/python3" "$repo/scripts/package-versions.py" select --payloads "$b/build/payloads" \
@@ -1200,7 +1196,7 @@ package_versions() {
     done < "$v/reused"
 }
 
-# Build the eighteen packages with abuild in an Alpine riscv64 tree.
+# Build the twenty packages with abuild in an Alpine riscv64 tree.
 packages() (
     local b=$out/apk-builder
     register_qemu
@@ -1325,9 +1321,9 @@ rootfs() {
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
         echo "rootfs: boot.sd and modules differ" >&2; exit 1; }
     # One provider owns the OpenSSL command, configuration and both ABI3 libraries.
-    grep -qx 'P:nanokvm-openssl' "$r/lib/apk/db/installed" &&
+    grep -qx 'P:nanokvm-openssl3' "$r/lib/apk/db/installed" &&
         ! grep -qxE 'P:(openssl|openssl3|libcrypto3|libssl3)' "$r/lib/apk/db/installed" || {
-        echo "rootfs: OpenSSL is not exclusively nanokvm-openssl's" >&2; exit 1; }
+        echo "rootfs: OpenSSL is not exclusively nanokvm-openssl3's" >&2; exit 1; }
     # nanokvm-zlib replaces Alpine's zlib; both installed would share libz.so.1.
     ! grep -qx 'P:zlib' "$r/lib/apk/db/installed" && [ "$(readlink "$r/usr/lib/libz.so.1")" = libz.so.1.3.2.zlib-ng ] || {
         echo "rootfs: libz.so.1 is not nanokvm-zlib's" >&2; exit 1; }
@@ -1400,7 +1396,7 @@ source_archive() {
     mkdir -p "$stage/$name/upstream/buildroot-packages" "$stage/$name/NanoKVM-OS"
     # The GPL-licensed inputs of the image. The rest of sources.lock is
     # fetched from its upstream by build.sh and is not redistributed here.
-    for pkg in buildroot linux u-boot osdrv aic8800 sipeed-sdk opensbi busybox exfatprogs i2c-tools; do
+    for pkg in buildroot linux u-boot osdrv aic8800 sipeed-sdk opensbi busybox exfatprogs; do
         url=$(lock "$pkg" | awk '{ print $2 }')
         if [[ $url == *.git ]]; then cp "$dl/$pkg.tar" "$stage/$name/upstream/"
         else cp "$dl/${url##*/}" "$stage/$name/upstream/"; fi

@@ -46,6 +46,7 @@ struct Call {
 	bool return_token;
 	std::string client;  // login key
 	std::string address;  // the client's address (GetClientIP)
+	bool holds_slot = false;  // admitted by begin_login_attempt and not yet released
 };
 
 std::shared_ptr<Call> start(Request &req, Response &res)
@@ -66,7 +67,20 @@ std::shared_ptr<Call> start(Request &req, Response &res)
 	return call;
 }
 
-void finish(const std::shared_ptr<Call> &call) { http::complete(call->id, std::move(call->response)); }
+// The address's login slot is held until the answer is out: the failure is recorded and its delay has passed
+// before the next waiter of the same address is admitted.
+void release_slot(const std::shared_ptr<Call> &call)
+{
+	if (!call->holds_slot) return;
+	call->holds_slot = false;
+	release_login(call->client);
+}
+
+void finish(const std::shared_ptr<Call> &call)
+{
+	http::complete(call->id, std::move(call->response));
+	release_slot(call);
+}
 
 void finish_after(const std::shared_ptr<Call> &call, std::chrono::milliseconds delay)
 {
@@ -247,7 +261,7 @@ void login_totp(Request &req, Response &res)
 		return fail(call, 3 * penalty, -1, "invalid parameters");
 	begin_login_attempt(call->client, [call, id = *challenge, otp = *otp](std::optional<Refusal> refused) {
 		if (refused) return fail(call, 3 * penalty, refused->code, refused->message);
-		release_login(call->client);
+		call->holds_slot = true;
 		auto c = take_challenge(id, call->client);
 		if (!c) return fail(call, 2 * penalty, -8, "the login expired; sign in again");
 		bool recovery = false;
@@ -287,16 +301,13 @@ void login(Request &req, Response &res)
 	begin_login_attempt(call->client, [call, username = *username, password = *password, encoding = encoding.value_or(""),
 	                                   otp = otp.value_or("")](std::optional<Refusal> refused) {
 		if (refused) return fail(call, 3 * penalty, refused->code, refused->message);
+		call->holds_slot = true;
 		auto plain = decode_credential(password, encoding);
-		if (!plain || plain->empty()) {
-			release_login(call->client);
-			return login_failed(call, "");
-		}
+		if (!plain || plain->empty()) return login_failed(call, "");
 		loop::work([call, username, plain = *plain, otp] {
 			std::string error;
 			auto user = store().authenticate(username, plain, error);
 			loop::post([call, username, user, error, otp] {
-				release_login(call->client);
 				if (!error.empty()) {
 					log::error("load account during login: {}", error);
 					return fail(call, 2 * penalty, -3, "authentication unavailable");
@@ -477,11 +488,11 @@ void change_password(Request &req, Response &res)
 	}
 	begin_login_attempt(call->client, [call, username, current = *plain, apply](std::optional<Refusal> refused) {
 		if (refused) return fail(call, 3 * penalty, refused->code, refused->message);
+		call->holds_slot = true;
 		loop::work([call, username, current, apply] {
 			std::string error;
 			auto user = store().authenticate(username, current, error);
 			loop::post([call, username, user, error, apply] {
-				release_login(call->client);
 				if (!error.empty()) return fail(call, 0ms, -4, "authentication unavailable");
 				if (!user) {
 					if (auto refused = record_login_failure(call->client, username))
@@ -713,17 +724,21 @@ void check_credentials(Request &req, Response &res, bool otp_required, bool requ
 	begin_login_attempt(call->client, [call, username, plain = *plain, code = otp.value_or(""), require_second_factor,
 	                                   done](std::optional<Refusal> refused) {
 		if (refused) return fail(call, 3 * penalty, refused->code, refused->message);
+		call->holds_slot = true;
 		loop::work([call, username, plain, code, require_second_factor, done] {
 			std::string error;
 			auto account = store().authenticate(username, plain, error);
 			loop::post([call, username, account, error, code, require_second_factor, done] {
-				release_login(call->client);
 				if (!error.empty()) return fail(call, 0ms, -4, "authentication unavailable");
 				if (!account) {
 					if (auto r = record_login_failure(call->client, username)) return fail(call, 2 * penalty, r->code, r->message);
 					return fail(call, 2 * penalty, -3, "current password is incorrect");
 				}
-				if (!require_second_factor && !account->totp) return done(call, username);
+				// The checks are over: what follows is the caller's own work.
+				if (!require_second_factor && !account->totp) {
+					release_slot(call);
+					return done(call, username);
+				}
 				bool recovery = false;
 				int left = 0;
 				std::string verify_error;
@@ -732,6 +747,7 @@ void check_credentials(Request &req, Response &res, bool otp_required, bool requ
 				if (!verified && verify_error == totp::not_enabled) return fail(call, 0ms, -5, totp::not_enabled);
 				if (!verified) return second_factor_failed(call, username);
 				log_recovery(username, recovery, left);
+				release_slot(call);
 				done(call, username);
 			});
 		});

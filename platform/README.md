@@ -4,7 +4,7 @@
 - the toolchain, the Linux kernel and all kernel modules, U-Boot, OpenSBI, `fip.bin`, the initramfs and the `boot.sd` images;
 - the SOPHGO media libraries, the board service `kvm_system`, the server, the update helpers and the web UI;
 - the board tools, the EDID profiles and the firmware files;
-- the twenty `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
+- the `nanokvm-*` APK packages, the Alpine 3.24 root file system and the SD card image.
 
 Every upstream input is pinned in `sources.lock` and checked when it is downloaded. Two builds of the same tree give identical outputs, and CI lists the outputs that each change alters (see [Verification](#verification)). The full image and the `nanokvm-bootloader` package install the built `fip.bin` (see [opensbi/README.md](opensbi/README.md)).
 
@@ -26,7 +26,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/tools/exfatprogs/` (exfatprogs 1.4.5 and its license) | `nanokvm-exfatprogs1` |
 | `fip.bin`, `fip-licenses/` | `nanokvm-bootloader`; its trigger puts `fip.bin` on the boot partition |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
-| `release/apk/` | the signed APK repository of the twenty packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
+| `release/apk/` | the signed APK repository of the OS packages: `recipes/riscv64/` with the packages, `APKINDEX.tar.gz` and `Packages.adb`, and the public keys |
 | `release/alpine-rootfs.tar.gz`, `release/installed-packages.txt`, `release/installed-licenses.txt` | the root file system, its package versions and their declared licenses |
 | `release/image/NanoKVM-OS-<version>.img.zip`, `SHA256SUMS` | the SD card image |
 | `release/stock-installer/nanokvm_X.Y.Z.tar.gz`, `SHA256SUMS` | stock Sipeed migration package (`stock-installer` step; included with SD image releases) |
@@ -310,7 +310,7 @@ APK owns the old MPI library paths and removes files no longer shipped when upgr
 
 ### Application package split
 
-The build produces twenty core APKs. `nanokvm` owns the server, board service,
+The build produces eighteen core APKs. `nanokvm` owns the server, board service,
 native libraries and application scripts; `nanokvm-web` owns
 `/kvmapp/server/web`. The separate `nanokvm-app` compatibility APK is no longer
 built. `nanokvm-release` provides its old name at the release's APK version
@@ -319,13 +319,14 @@ valid while APK removes the old monolith or metapackage. The split packages decl
 `replaces=nanokvm-app` so APK can transfer ownership during the upgrade.
 The OpenRC service is still named `nanokvm-app`.
 
-In the same way `nanokvm-kernel`, `nanokvm-kmod`, `nanokvm-firmware` and
-`nanokvm-bootloader` were named with a `-sg2002` suffix before 3.7.0 (there is
-no other board). The old names are file-free metapackages depending on the new
-ones (`nanokvm-release` depends on them, and older
-installations list them in their world); the new packages replace them.
-A rollback to a release from before 3.7.0 removes the new packages and installs
-the old ones (`apkrollback.LegacyTargets`).
+Before 3.7.0 the kernel, modules, board firmware and bootloader packages had
+a `-sg2002` suffix. The kernel and modules now provide their old names
+directly, so existing APK world entries still resolve. Firmware and bootloader
+retain file-free compatibility packages.
+
+An existing 4.x installation can upgrade to 5.x. Returning to 4.x requires
+writing a 4.x image to the SD card. Switching from beta to stable within 5.x
+continues to use the package updater.
 
 ### Tools in place of Alpine community packages
 

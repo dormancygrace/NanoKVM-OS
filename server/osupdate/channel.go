@@ -163,6 +163,9 @@ func stablePackageTargets(output string) ([]string, error) {
 		}
 		found[match[1]] = match[2]
 	}
+	if release := found["nanokvm-release"]; release != "" && compareAPKVersions(release, "5.0.0_alpha0") < 0 {
+		return nil, errors.New("to return to NanoKVM OS 4.x, write a 4.x image to the SD card")
+	}
 	var targets []string
 	for _, name := range corePackages {
 		if found[name] == "" {

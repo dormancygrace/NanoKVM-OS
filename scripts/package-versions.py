@@ -40,8 +40,6 @@ PACKAGES = {
     'nanokvm-tpu': 'tpu',
     'nanokvm-release': 'release',
     # The names of nanokvm-kernel and the others before 3.7.0.
-    'nanokvm-kernel-sg2002': None,
-    'nanokvm-kmod-sg2002': None,
     'nanokvm-firmware-sg2002': None,
     'nanokvm-bootloader-sg2002': None,
 }

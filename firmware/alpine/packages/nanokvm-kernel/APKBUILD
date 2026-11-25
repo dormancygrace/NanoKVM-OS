@@ -8,6 +8,7 @@ license="GPL-2.0-only"
 depends="nanokvm-base>=2.0_beta2-r0 nanokvm-kmod=$pkgver-r$pkgrel"
 triggers="$pkgname.trigger=/usr/lib/nanokvm/boot/*:/lib/modules/*"
 # Named nanokvm-kernel-sg2002 before 3.7.0.
+provides="nanokvm-kernel-sg2002=$pkgver-r$pkgrel"
 replaces="nanokvm-kernel-sg2002"
 source="$pkgname-$pkgver.tar.gz"
 options="!check !strip"

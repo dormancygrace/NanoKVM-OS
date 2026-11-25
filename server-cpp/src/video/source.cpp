@@ -51,8 +51,8 @@ bool keyframe_requested = false;
 // The bit rate below the setting while no viewer of the stream takes it cleanly: in a window a viewer lags when it
 // lost at least lag_share of the pictures, and keeps up when it lost less than clean_share. A step down (0.75x)
 // follows two windows running in which one lagged and none kept up (one viewer keeping up keeps the rate for all; a
-// viewer that keeps up only by crowding the others off a shared link loses a few pictures too), a step up (1.25x) a calm
-// while with no viewer lagging, but for ceiling_hold not above 0.9x the rate the viewers last lagged at. The encoder
+// viewer that keeps up only by crowding the others off a shared link loses a few pictures too), a step up (1.5x) a calm
+// while without such a window, but for ceiling_hold not above 0.9x the rate the viewers last lagged at. The encoder
 // takes a new rate at an IDR (osdrv 0030), so each step asks for one.
 struct RateCap {
 	static constexpr int min_kbps = 1000;
@@ -64,9 +64,10 @@ struct RateCap {
 	int frames = 0;                     // pictures published in the current window
 	int lagging_windows = 0;            // windows running in which every viewer lagged
 	int ceiling = 0;                    // 0.9x the rate of the last step down, for ceiling_hold
+	int setting = 0;                    // the setting the cap applies to
 	int viewers = 0;                    // the viewer count of the last window
 	Clock::time_point viewers_changed{};  // a viewer joining or leaving: losses there are no lag
-	Clock::time_point window_start{}, last_lag{}, last_change{}, last_down{};
+	Clock::time_point window_start{}, last_struggle{}, last_change{}, last_down{};
 };
 RateCap cap;
 
@@ -93,6 +94,11 @@ bool encoder_takes_rate()
 int capped_bitrate(int setting, Clock::time_point now)
 {
 	if (!encoder_takes_rate()) return setting;
+	// A new setting starts over from it: a cap below the old one says nothing about the new one.
+	if (setting != cap.setting) {
+		cap.setting = setting;
+		cap.kbps = cap.ceiling = cap.lagging_windows = 0;
+	}
 	cap.frames++;
 	if (cap.window_start == Clock::time_point{}) cap.window_start = now;
 	if (now - cap.window_start >= RateCap::window) {
@@ -106,9 +112,12 @@ int capped_bitrate(int setting, Clock::time_point now)
 			if (n >= RateCap::lag_share * cap.frames) lagging++;
 			if (n >= RateCap::clean_share * cap.frames) losing++;
 		}
-		if (lagging > 0) cap.last_lag = now;
 		bool settled = now - cap.viewers_changed >= RateCap::settle;
-		cap.lagging_windows = settled && viewers > 0 && lagging > 0 && losing >= viewers ? cap.lagging_windows + 1 : 0;
+		// The same condition steps down and holds a step up: a viewer that keeps up beside a slow one (or a WebRTC or
+		// RustDesk viewer, which counts as keeping up) lets the rate come back.
+		bool struggling = settled && viewers > 0 && lagging > 0 && losing >= viewers;
+		if (struggling) cap.last_struggle = now;
+		cap.lagging_windows = struggling ? cap.lagging_windows + 1 : 0;
 		int current = cap.kbps ? cap.kbps : setting;
 		if (cap.lagging_windows >= 2 && current > RateCap::min_kbps) {
 			cap.kbps = std::max(RateCap::min_kbps, current * 3 / 4);
@@ -116,9 +125,9 @@ int capped_bitrate(int setting, Clock::time_point now)
 			cap.last_change = cap.last_down = now;
 			cap.lagging_windows = 0;
 			log::info("video: no viewer keeps up; bit rate {} -> {} kbit/s", current, cap.kbps);
-		} else if (cap.kbps && now - cap.last_lag >= RateCap::calm && now - cap.last_change >= RateCap::calm &&
+		} else if (cap.kbps && now - cap.last_struggle >= RateCap::calm && now - cap.last_change >= RateCap::calm &&
 		           !(now - cap.last_down < RateCap::ceiling_hold && current >= cap.ceiling)) {
-			int up = current * 5 / 4;
+			int up = current * 3 / 2;
 			if (now - cap.last_down < RateCap::ceiling_hold) up = std::min(up, std::max(cap.ceiling, current));
 			cap.kbps = up >= setting ? 0 : up;
 			cap.last_change = now;
@@ -360,7 +369,7 @@ void request_keyframe() { keyframe_requested = true; }
 
 void report_lag(const void *viewer) { cap.lost[viewer]++; }
 
-int bitrate_cap() { return session ? cap.kbps : 0; }
+int bitrate_cap() { return session && cap.kbps && cap.kbps < cap.setting ? cap.kbps : 0; }
 
 void count_mjpeg_frame()
 {

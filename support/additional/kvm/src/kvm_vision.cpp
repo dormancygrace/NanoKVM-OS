@@ -1497,6 +1497,23 @@ static uint8_t video_output_fps(const nanokvm::GeometrySnapshot &src, int width,
     return fps;
 }
 
+/*
+ * Whether the running encoder module takes a new bit rate at a requested IDR (osdrv 0030, the read-only parameter
+ * nk_idr_bitrate). Only then is a bit rate set on the running channel; the previous module, which runs until the
+ * reboot after an update, may defer it indefinitely, so a change of the bit rate recreates the channel there.
+ */
+static bool encoder_takes_bitrate(void)
+{
+	static int takes = -1;
+	if (takes < 0) {
+		int v = 0;
+		FILE *f = fopen("/sys/module/cvi_vc_driver/parameters/nk_idr_bitrate", "r");
+		takes = f && fscanf(f, "%d", &v) == 1 && v == 1;
+		if (f) fclose(f);
+	}
+	return takes;
+}
+
 static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int width, int height,
 	uint16_t bitrate, uint8_t codec, uint8_t fps)
 {
@@ -1543,18 +1560,20 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 	fps = video_output_fps(src, width, height, fps);
 	int8_t ret = 0;
 	mmf_stream_t stream = {};
-	if (!video_encoder_matches(src, width, height, kvm_venc.kvm_venc_cfg.bitrate, codec, fps)) {
+	const uint16_t running_rate = encoder_takes_bitrate() ? kvm_venc.kvm_venc_cfg.bitrate : bitrate;
+	bool recreate = !video_encoder_matches(src, width, height, running_rate, codec, fps);
+	if (!recreate && bitrate != kvm_venc.kvm_venc_cfg.bitrate) {
+		// Only the bit rate, on a module that takes it at the next IDR: set on the running channel. A channel
+		// that refuses it is recreated, as with the previous module.
+		if (mmf_venc_set_bitrate(kvm_venc.mmf_venc_chn, bitrate) == 0) kvm_venc.kvm_venc_cfg.bitrate = bitrate;
+		else recreate = true;
+	}
+	if (recreate) {
 		debug("[kvmv]init video codec=%d %dx%d bitrate=%d fps=%d\n",
 			codec, width, height, bitrate, fps);
 		if (init_venc_video(width, height, bitrate, codec, fps) != 0) {
 			return -1;
 		}
-	} else if (bitrate != kvm_venc.kvm_venc_cfg.bitrate) {
-		// Only the bit rate: the rate control of the running channel takes it, with no IDR. A channel that
-		// refuses keeps its rate (logged by kvm_mmf) and is not asked again for this value; recreating it on
-		// every step of an adaptive rate would cost an IDR each time.
-		(void)mmf_venc_set_bitrate(kvm_venc.mmf_venc_chn, bitrate);
-		kvm_venc.kvm_venc_cfg.bitrate = bitrate;
 	}
 
 	// The capture mode follows the video encoder (4:2:0 for H.264 straight
@@ -1925,9 +1944,11 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
             if ((_type == VENC_H264 || _type == VENC_H265)
                     && pending_vi == cam->get_channel() && capture_format == nanokvm::nv21_format()
                     && kvmv_cfg.fresh_frame_count == 0
-                    // The bit rate alone does not end the channel: frame_to_video sets it on the running one.
+                    // On a module that takes a new bit rate at an IDR, the bit rate alone does not end the
+                    // channel: frame_to_video sets it on the running one.
                     && video_encoder_matches(geometry, output.width, output.height,
-                        kvm_venc.kvm_venc_cfg.bitrate, _type, kvmvenc_fps)) {
+                        encoder_takes_bitrate() ? kvm_venc.kvm_venc_cfg.bitrate : maxmin_data(20000, 500, (int)_qlty),
+                        _type, kvmvenc_fps)) {
                 submitted = true;
                 native_vi_ch = pending_vi;
                 native_width = output.width;

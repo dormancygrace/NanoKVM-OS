@@ -83,6 +83,7 @@ struct Worker {
 		}
 	}
 };
+std::atomic<bool> detaching{false};
 Worker *worker;
 Worker *device_worker;
 std::vector<Worker *> pool;
@@ -172,8 +173,12 @@ bool quiet(Worker *w, const std::size_t &threads)
 
 } // namespace
 
+bool stopping() { return detaching.load(); }
+
 void detach()
 {
+	// Long jobs look at stopping() and end early (a download in progress).
+	detaching = true;
 	// Every thread stays available until all of them are idle and nothing is posted: a job still running may need
 	// another one to finish (a screen read waits on a pool thread for the recognition it queues on the pool), a
 	// posted function or a timer. Only then are they told to stop; a thread told to stop while a job still ran

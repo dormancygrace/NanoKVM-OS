@@ -798,8 +798,12 @@ void stream_file(std::uint64_t id, std::vector<std::pair<std::string, std::strin
 		for (;;) {
 			// Over as well when the client left before the response was attached (the stream then never closes),
 			// and when the session that asked for the file ended.
+			// ... and when the server is stopping: the transfer ends now, so that the disk is unmounted and
+			// unlocked before the process exits.
 			auto [closed, written] = ask([stream, id, revoked] {
-				return std::pair<bool, std::uint64_t>(stream->closed() || revoked->load() || !http::request_open(id), stream->written());
+				if (loop::stopping()) stream->abort();
+				return std::pair<bool, std::uint64_t>(
+				    stream->closed() || revoked->load() || loop::stopping() || !http::request_open(id), stream->written());
 			});
 			if (closed) {
 				gone = true;
@@ -936,7 +940,9 @@ void add_user_disk_routes(http::Router &router)
 			stream->abort();
 		});
 		stream->on_close = [session] { auth::leave_session(session); };
-		std::thread([id = req.id, headers = res.headers, name, stream, revoked, session] {
+		// On the pool, which the stopping server waits for: the reader holds the mount and the disk's lock, and
+		// must have let them go before the process exits. One download runs at a time (the disk's lock).
+		loop::blocking([id = req.id, headers = res.headers, name, stream, revoked, session] {
 			// A stream that was never attached never closes: an error answered without it, or a client that
 			// left first. This runs on the loop after the response of this thread, whichever it was.
 			struct Leave {
@@ -973,7 +979,7 @@ void add_user_disk_routes(http::Router &router)
 				return fail(path_error(), root);
 			}
 			stream_file(id, headers, root, fd, st.st_size, name, stream, revoked);
-		}).detach();
+		});
 	}, admin));
 	auto upload = [](http::Request &req, http::Response &res) -> std::shared_ptr<http::BodySink> { return begin_upload(req, res); };
 	router.upload("POST", "/api/storage/user-disk/files/upload", auth::guarded_upload(upload, admin));

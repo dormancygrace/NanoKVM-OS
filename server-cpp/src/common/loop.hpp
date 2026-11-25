@@ -28,6 +28,10 @@ void work(std::function<void()> fn);
 // between them. Safe from any thread.
 void blocking(std::function<void()> fn);
 
+// Whether the server is stopping: the loop no longer serves connections and waits for the jobs still running. A
+// long job checks this to end early and release what it holds. Safe from any thread.
+bool stopping();
+
 // Runs fn on the device thread (one, in order): native device calls that can take long (HDMI capture on/off takes
 // about 0.3 s), apart from the worker so a password hash does not hold them up. Safe from any thread.
 void device(std::function<void()> fn);

@@ -48,8 +48,8 @@ void select_codec(Codec codec);
 void request_keyframe();
 
 // A viewer lost a picture because its connection (or its decoder) is slower than the stream: Direct and RTSP call
-// this for each picture they drop until an IDR resumes them. While every viewer of the H.264/H.265 stream loses a
-// good share of the pictures, the bit rate steps down (see Subscriber::reports_lag); after
+// this for each picture they drop until an IDR resumes them. While no viewer of the H.264/H.265 stream takes it
+// cleanly and one loses a good share of the pictures, the bit rate steps down (see Subscriber::reports_lag); after
 // a calm while it steps back up to the setting. viewer identifies one viewer. Loop thread.
 void report_lag(const void *viewer);
 // The bit rate the stream is held to below the setting, kbit/s; 0 when it uses the setting.

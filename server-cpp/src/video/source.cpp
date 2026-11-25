@@ -48,13 +48,15 @@ std::optional<Session> session;
 std::vector<Subscription> subscribers;
 bool keyframe_requested = false;
 
-// The bit rate below the setting while every viewer of the stream lags: one lags in a window when it lost at least
-// lag_share of the window's pictures. A step down (0.75x) follows two such windows running, a step up (1.25x) a calm
+// The bit rate below the setting while no viewer of the stream takes it cleanly: in a window a viewer lags when it
+// lost at least lag_share of the pictures, and keeps up when it lost less than clean_share. A step down (0.75x)
+// follows two windows running in which one lagged and none kept up (one viewer keeping up keeps the rate for all; a
+// viewer that keeps up only by crowding the others off a shared link loses a few pictures too), a step up (1.25x) a calm
 // while with no viewer lagging, but for ceiling_hold not above 0.9x the rate the viewers last lagged at. The encoder
 // takes a new rate at an IDR (osdrv 0030), so each step asks for one.
 struct RateCap {
 	static constexpr int min_kbps = 1000;
-	static constexpr double lag_share = 0.15;
+	static constexpr double lag_share = 0.15, clean_share = 0.02;
 	static constexpr auto window = std::chrono::seconds(1), calm = std::chrono::seconds(8),
 	                      ceiling_hold = std::chrono::seconds(60), settle = std::chrono::seconds(5);
 	int kbps = 0;  // 0: the setting
@@ -99,18 +101,21 @@ int capped_bitrate(int setting, Clock::time_point now)
 			cap.viewers = viewers;
 			cap.viewers_changed = now;
 		}
-		for (auto &[viewer, n] : cap.lost)
+		int losing = 0;  // viewers that do not keep up
+		for (auto &[viewer, n] : cap.lost) {
 			if (n >= RateCap::lag_share * cap.frames) lagging++;
+			if (n >= RateCap::clean_share * cap.frames) losing++;
+		}
 		if (lagging > 0) cap.last_lag = now;
 		bool settled = now - cap.viewers_changed >= RateCap::settle;
-		cap.lagging_windows = settled && viewers > 0 && lagging >= viewers ? cap.lagging_windows + 1 : 0;
+		cap.lagging_windows = settled && viewers > 0 && lagging > 0 && losing >= viewers ? cap.lagging_windows + 1 : 0;
 		int current = cap.kbps ? cap.kbps : setting;
 		if (cap.lagging_windows >= 2 && current > RateCap::min_kbps) {
 			cap.kbps = std::max(RateCap::min_kbps, current * 3 / 4);
 			cap.ceiling = current * 9 / 10;
 			cap.last_change = cap.last_down = now;
 			cap.lagging_windows = 0;
-			log::info("video: every viewer lags; bit rate {} -> {} kbit/s", current, cap.kbps);
+			log::info("video: no viewer keeps up; bit rate {} -> {} kbit/s", current, cap.kbps);
 		} else if (cap.kbps && now - cap.last_lag >= RateCap::calm && now - cap.last_change >= RateCap::calm &&
 		           !(now - cap.last_down < RateCap::ceiling_hold && current >= cap.ceiling)) {
 			int up = current * 5 / 4;

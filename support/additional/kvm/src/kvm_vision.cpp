@@ -1550,8 +1550,8 @@ static void submit_next_video_frame(int vi_ch, int width, int height)
 		mmf_vi_frame_release(vi_ch);
 }
 
-// frame_to_video restarted the capture for another capture mode; no frame.
-static constexpr int8_t IMG_CAPTURE_RESTARTED = -100;
+// The capture must supply a fresh frame after a channel or capture-mode change.
+static constexpr int8_t IMG_RETRY_CAPTURE = -100;
 
 int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int width, int height,
 	int format, int vi_ch, kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec,
@@ -1574,6 +1574,8 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 		if (init_venc_video(width, height, bitrate, codec, fps) != 0) {
 			return -1;
 		}
+		// Teardown drained the pre-submitted frame and released its VI lease.
+		if (submitted) return IMG_RETRY_CAPTURE;
 	}
 
 	// The capture mode follows the video encoder (4:2:0 for H.264 straight
@@ -1584,7 +1586,7 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 		debug("[kvmv]capture restart for the %s capture mode\n",
 			mmf_vi_yuv420_active() ? "4:2:2" : "4:2:0");
 		restart_capture_locked();
-		return IMG_CAPTURE_RESTARTED;
+		return IMG_RETRY_CAPTURE;
 	}
 
  if (requested_keyframe.exchange(false, std::memory_order_relaxed)) {
@@ -2128,8 +2130,8 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
 				native_vi_ch, &frame, maxmin_data(20000, 500, (int)_qlty),
 				kvmv_cfg.venc_type, kvmvenc_fps, submitted);
 			delete img;
-            // A new capture in the other mode: read from it.
-            if (ret == IMG_CAPTURE_RESTARTED) continue;
+            // The previous frame is gone; acquire one for the current channel.
+            if (ret == IMG_RETRY_CAPTURE) continue;
             if(ret < 0){
                 if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
                 // One failure is the VI-direct path switch: an encoder keeps

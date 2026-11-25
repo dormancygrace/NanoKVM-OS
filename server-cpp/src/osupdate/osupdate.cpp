@@ -39,8 +39,7 @@ using gostr::trim_space;
 const std::vector<std::string> core_packages{
 	"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release", "nanokvm-base", "nanokvm-keys", "nanokvm-kernel",
 	"nanokvm-kmod", "nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-openssl3",
-	"nanokvm-exfatprogs", "nanokvm-exfatprogs1", "nanokvm-i2c-tools", "nanokvm-tpu", "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002",
-	"nanokvm-bootloader-sg2002"};
+	"nanokvm-exfatprogs", "nanokvm-exfatprogs1", "nanokvm-i2c-tools", "nanokvm-tpu"};
 
 // ---- Lock and files ----
 
@@ -1042,6 +1041,9 @@ std::vector<std::string> stable_package_targets(const std::string &output, Error
 		if (!found[name].empty()) return error = "ambiguous stable package " + name, std::vector<std::string>{};
 		found[name] = version;
 	}
+	auto release = found.find("nanokvm-release");
+	if (release != found.end() && compare_apk_versions(release->second, "5.0.0_alpha0") < 0)
+		return error = "to return to NanoKVM OS 4.x, write a 4.x image to the SD card", std::vector<std::string>{};
 	std::vector<std::string> targets;
 	for (const auto &name : core_packages) {
 		if (found[name].empty()) {
@@ -1053,8 +1055,7 @@ std::vector<std::string> stable_package_targets(const std::string &output, Error
 				targets.insert(targets.end(), {"!nanokvm-openssl", "openssl"});
 				continue;
 			}
-			if (name == "nanokvm-openssl3" || name == "nanokvm-exfatprogs1" || name == "nanokvm-tpu" || name == "nanokvm-kernel" || name == "nanokvm-kmod" || name == "nanokvm-firmware" ||
-			    name == "nanokvm-bootloader") {
+			if (name == "nanokvm-openssl3" || name == "nanokvm-exfatprogs1" || name == "nanokvm-tpu") {
 				targets.push_back("!" + name);
 				continue;
 			}

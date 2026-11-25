@@ -174,6 +174,19 @@ Direct playback (lowest latency by default, or smooth), JPEG colour sampling, fr
 
 File: `/etc/kvm/watermark.json` (on/off, margin, block places and pictures, the editor's design), replaced whole on every change and part of the settings that backup, restore and reset handle. API: `GET` and `POST /api/vm/video/watermark` (administrators). `POST` takes `enabled`, `margin`, `design` and `blocks`, each `{x, y, image}` with `x` and `y` in thousandths of the free room (0 left or top, 1000 right or bottom) and `image` a base64 PNG; a block without `image` keeps the saved picture of the same index.
 
+## RTSP stream
+
+**Settings → Services → RTSP** (administrators) offers the video to programs that open a stream by its address: OBS (Media Source), VLC, ffmpeg, recorders. It is off by default.
+
+- **Address.** `rtsp://stream:<password>@<device>:8554/stream`. The page shows it with a copy button. The password is generated when the stream is first turned on; **New password** replaces it and disconnects the programs that use the old one. Authentication is RTSP Digest, so the password does not cross the network in clear; the video itself is not encrypted.
+- **Picture.** The H.264 or H.265 stream of the remote console, at its codec, resolution, frame rate and bit rate: the device encodes once for every viewer. A codec change disconnects the RTSP clients; they reconnect at the new codec.
+- **Sound.** With USB audio on, the session has a second track: the computer's sound as Opus (48 kHz stereo, 20 ms packets), from the same capture as the browser's audio. Video and sound carry times of one clock, so players keep them in step. The computer must play to the NanoKVM audio device.
+- **Transport.** RTP over the RTSP TCP connection only, in packets of up to 16 KiB. A program that asks for UDP gets `461 Unsupported Transport` and retries over TCP (ffmpeg and OBS do this at once). The device sends key frames only when asked, so a lost UDP packet would spoil the picture until the next one.
+- **Several programs** watch at once; each starts at a key frame. A program that cannot keep up loses whole frames and resumes at the next key frame, which the device then sends at once.
+- **Failed logins** count like web logins: after `security.loginMaxFailures` failures within `security.loginLockoutDuration`, the address is refused, even with the right password, until the lockout ends.
+
+The server is [live555](http://www.live555.com/liveMedia/), built into NanoKVM-Server and running on a thread of its own. File: `/etc/kvm/rtsp.json` (on/off, port, password, mode 0600), part of the settings that backup, restore and reset handle. API: `GET` and `POST /api/stream/rtsp` (administrators); `POST` takes `enabled`, `port` (1–65535, not 80 or 443) and `newPassword: true`.
+
 ## Video straight from capture
 
 The receiver's frame arrives in DDR as packed 4:2:2 (UYVY). Normally the VPSS reads it and writes a converted copy for the encoder. Video straight from capture lets the encoder read the capture buffer itself, which saves one frame copy of memory traffic and about 6 ms from the end of a captured frame to the encoded frame at 1080p60 (about 25 ms at 2160p30). The colours do not change.

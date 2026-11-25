@@ -1,0 +1,47 @@
+RTSPServer: a switch to refuse RTP over UDP, as disableStreamingRTPOverTCP() refuses TCP.
+
+diff -ru a/liveMedia/RTSPServer.cpp b/liveMedia/RTSPServer.cpp
+--- a/liveMedia/RTSPServer.cpp
++++ b/liveMedia/RTSPServer.cpp
+@@ -182,7 +182,7 @@
+     fTCPStreamingDatabase(HashTable::create(ONE_WORD_HASH_KEYS)),
+     fPendingRegisterOrDeregisterRequests(HashTable::create(ONE_WORD_HASH_KEYS)),
+     fRegisterOrDeregisterRequestCounter(0), fAuthDB(authDatabase),
+-    fAllowStreamingRTPOverTCP(True),
++    fAllowStreamingRTPOverTCP(True), fAllowStreamingRTPOverUDP(True),
+     fOurConnectionsUseTLS(False), fWeServeSRTP(False) {
+ }
+ 
+@@ -1609,6 +1609,10 @@
+       rtpChannelId = fTCPStreamIdCount; rtcpChannelId = fTCPStreamIdCount+1;
+     }
+     if (streamingMode == RTP_TCP) fTCPStreamIdCount += 2;
++    if (streamingMode != RTP_TCP && !fOurRTSPServer.fAllowStreamingRTPOverUDP) {
++      ourClientConnection->handleCmd_unsupportedTransport();
++      break;
++    }
+     
+     Port clientRTPPort(clientRTPPortNum);
+     Port clientRTCPPort(clientRTCPPortNum);
+diff -ru a/liveMedia/include/RTSPServer.hh b/liveMedia/include/RTSPServer.hh
+--- a/liveMedia/include/RTSPServer.hh
++++ b/liveMedia/include/RTSPServer.hh
+@@ -100,6 +100,10 @@
+   void disableStreamingRTPOverTCP() {
+     fAllowStreamingRTPOverTCP = False;
+   }
++  void disableStreamingRTPOverUDP() {
++    fAllowStreamingRTPOverUDP = False;
++  }
++      // A "SETUP" for RTP over UDP then gets "461 Unsupported Transport", and clients retry with RTP over TCP.
+ 
+   Boolean setUpTunnelingOverHTTP(Port httpPort);
+       // (Attempts to) enable RTSP-over-HTTP tunneling on the specified port.
+@@ -335,6 +339,7 @@
+   unsigned fRegisterOrDeregisterRequestCounter;
+   UserAuthenticationDatabase* fAuthDB;
+   Boolean fAllowStreamingRTPOverTCP; // by default, True
++  Boolean fAllowStreamingRTPOverUDP; // by default, True
+   Boolean fOurConnectionsUseTLS; // by default, False
+   Boolean fWeServeSRTP; // used only if "fOurConnectionsUseTLS" is True
+   Boolean fWeEncryptSRTP; // used only if "fWeServeSRTP" is True

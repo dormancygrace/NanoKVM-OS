@@ -60,7 +60,7 @@ COMPONENTS = {
               ['kernel'], ['images/tools', 'component-support/tools']),
     'server': (['server-cpp'],
                ['libwebsockets', 'glaze', 'rapidyaml', 'libdatachannel', 'libjuice', 'libsrtp', 'usrsctp',
-                'plog', 'libjpeg-turbo', 'libspng', 'curl'],
+                'plog', 'libjpeg-turbo', 'libspng', 'live555', 'curl'],
                ['native', 'tools'], ['images/server']),
     'web': (['web', '.nvmrc'], ['node', 'pnpm'], [], ['images/web']),
     'firmware': ([], ['aic8800', 'regdb', 'sipeed-sdk'], [], ['images/firmware']),

@@ -1,0 +1,25 @@
+RTPInterface: wait for room in the TCP send buffer before an RTP packet, instead of leaving the packet out.
+
+diff -ru a/liveMedia/RTPInterface.cpp b/liveMedia/RTPInterface.cpp
+--- a/liveMedia/RTPInterface.cpp
++++ b/liveMedia/RTPInterface.cpp
+@@ -348,16 +348,15 @@
+ #endif
+   // Send a RTP/RTCP packet over TCP, using the encoding defined in RFC 2326, section 10.12:
+   //     $<streamChannelId><packetSize><packet>
+-  // (If the initial "send()" of '$<streamChannelId><packetSize>' succeeds, then we force
+-  // the subsequent "send()" for the <packet> data to succeed, even if we have to do so with
+-  // a blocking "send()".)
++  // Both "send()"s are forced to succeed, with a blocking "send()" if need be: a packet left out when the send
++  // buffer was full corrupts every following picture of a stream whose key frames come only on request.
+   do {
+     u_int8_t framingHeader[4];
+     framingHeader[0] = '$';
+     framingHeader[1] = streamChannelId;
+     framingHeader[2] = (u_int8_t) ((packetSize&0xFF00)>>8);
+     framingHeader[3] = (u_int8_t) (packetSize&0xFF);
+-    if (!sendDataOverTCP(socketNum, tlsState, framingHeader, 4, False)) break;
++    if (!sendDataOverTCP(socketNum, tlsState, framingHeader, 4, True)) break;
+ 
+     if (!sendDataOverTCP(socketNum, tlsState, packet, packetSize, True)) break;
+ #ifdef DEBUG_SEND

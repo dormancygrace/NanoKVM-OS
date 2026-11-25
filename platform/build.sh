@@ -713,17 +713,18 @@ system() {
 
 # NanoKVM-Server (server-cpp) and its helpers, from the inputs pinned in
 # sources.lock: libwebsockets, glaze, rapidyaml, libdatachannel with its
-# libjuice, libsrtp, usrsctp and plog, libjpeg-turbo, libspng and curl's
+# libjuice, libsrtp, usrsctp and plog, libjpeg-turbo, libspng, live555 and curl's
 # headers; OpenSSL and zlib-ng of the tools step, libkvm of the native step.
 server() {
     local s=$out/server src=$out/server/src name file dep
     rm -rf "$s" "${img:?}/server"
     mkdir -p "$src" "$img/server"
-    for name in libwebsockets glaze rapidyaml libjpeg-turbo libspng curl; do
+    for name in libwebsockets glaze rapidyaml libjpeg-turbo libspng live555 curl; do
         file=$(lock "$name" | awk '{ print $2 }')
         file=$dl/${file##*/}
         case $name in
             rapidyaml) cp "$file" "$src/rapidyaml.hpp" ;;
+            live555) tar -xf "$file" -C "$src" && mv "$src/live" "$src/live555" ;;
             *) tar -xf "$file" -C "$src" && mv "$src/$name"-* "$src/$name" ;;
         esac
     done

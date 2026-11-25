@@ -2,7 +2,7 @@
 # build.sh SOURCES OUTPUT: NanoKVM-Server and its helpers from the unpacked inputs of platform/sources.lock.
 #
 # SOURCES holds: libwebsockets/, glaze/, rapidyaml.hpp, libdatachannel/ (with deps/libjuice, deps/libsrtp,
-# deps/usrsctp, deps/plog filled in), libjpeg-turbo/, libspng/, curl/. The environment gives the rest:
+# deps/usrsctp, deps/plog filled in), libjpeg-turbo/, libspng/, live555/, curl/. The environment gives the rest:
 #   CROSS     the toolchain prefix (.../riscv64-buildroot-linux-musl-)
 #   CFLAGS    the userspace CPU profile (scripts/nanokvm_cpu_profile.py userspace)
 #   OPENSSL   the nanokvm-openssl build (include/, libssl.so, libcrypto.so)
@@ -73,13 +73,16 @@ ninja -C "$deps/curl.build" -j "$JOBS" >> "$deps/curl.log" 2>&1 || { tail -20 "$
 curl_lib=$(find "$deps/curl.build" -name 'libcurl.so.4' | head -1)
 [ -n "$curl_lib" ]
 
+log "live555 (built with the server)"
+patches "$src/live555" live555
+
 log NanoKVM-Server
 "$CMAKE" -S "$here" -B "$out/build" -G Ninja -DCMAKE_TOOLCHAIN_FILE="$toolchain" -DCMAKE_BUILD_TYPE=Release \
     "-DCMAKE_C_FLAGS=$CFLAGS" "-DCMAKE_CXX_FLAGS=$CFLAGS -ffile-prefix-map=$here=server-cpp" \
     -DLWS_ROOT="$deps/lws" -DOPENSSL_ROOT="$OPENSSL" -DGLAZE_ROOT="$src/glaze" -DRYML_HEADER="$src/rapidyaml.hpp" \
     -DKVM_INCLUDE="$here/../support/additional/kvm/include" -DKVM_LIB_DIR="$NATIVE" -DTURBOJPEG_ROOT="$deps/turbo" \
     -DSPNG_SRC="$src/libspng/spng" -DZLIB_ROOT="$ZLIB" -DCURL_INCLUDE="$src/curl/include" -DCURL_LIB="$curl_lib" \
-    -DLDC_ROOT="$deps/ldc" > "$out/server.cmake.log" 2>&1 || { tail -30 "$out/server.cmake.log" >&2; exit 1; }
+    -DLDC_ROOT="$deps/ldc" -DLIVE555_SRC="$src/live555" > "$out/server.cmake.log" 2>&1 || { tail -30 "$out/server.cmake.log" >&2; exit 1; }
 ninja -C "$out/build" -j "$JOBS" > "$out/server.log" 2>&1 || { grep -E "error|FAILED" "$out/server.log" | head -30 >&2; exit 1; }
 for exe in "$out"/build/NanoKVM-Server "$out"/build/nkos-*; do
     [ -f "$exe" ] || continue

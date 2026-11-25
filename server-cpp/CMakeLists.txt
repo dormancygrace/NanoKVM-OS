@@ -15,6 +15,7 @@ project(nanokvm_server CXX C ASM)
 #                ZLIB_ROOT the image's zlib-ng (/usr/lib/libz.so.1 on the device)
 #   LDC_ROOT     libdatachannel install with its libjuice, libsrtp2 and usrsctp static libraries (WebRTC)
 #   CURL_INCLUDE, CURL_LIB  libcurl headers and the image's libcurl.so.4 (Alpine's, on nanokvm-openssl)
+#   LIVE555_SRC  live555 source tree (the RTSP server), built here as a static library
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,12 +35,31 @@ set(ZLIB_ROOT "" CACHE PATH "zlib-ng build (zlib.h, zconf.h, libz.so)")
 set(CURL_INCLUDE "" CACHE PATH "libcurl headers (curl/curl.h)")
 set(LDC_ROOT "" CACHE PATH "libdatachannel install (include/rtc, lib/*.a)")
 set(CURL_LIB "" CACHE FILEPATH "the image's libcurl.so.4")
+set(LIVE555_SRC "" CACHE PATH "live555 source tree (liveMedia/, groupsock/, UsageEnvironment/, BasicUsageEnvironment/)")
 
-foreach(v LWS_ROOT OPENSSL_ROOT GLAZE_ROOT RYML_HEADER KVM_INCLUDE KVM_LIB_DIR TURBOJPEG_ROOT SPNG_SRC ZLIB_ROOT CURL_INCLUDE CURL_LIB LDC_ROOT)
+foreach(v LWS_ROOT OPENSSL_ROOT GLAZE_ROOT RYML_HEADER KVM_INCLUDE KVM_LIB_DIR TURBOJPEG_ROOT SPNG_SRC ZLIB_ROOT CURL_INCLUDE CURL_LIB LDC_ROOT LIVE555_SRC)
   if(NOT ${v})
     message(FATAL_ERROR "${v} is not set")
   endif()
 endforeach()
+
+# live555: the RTSP server of the video stream (src/video/rtsp.cpp). Without OpenSSL: no RTSP over TLS or SRTP.
+set(LIVE555_DIRS liveMedia groupsock UsageEnvironment BasicUsageEnvironment)
+set(LIVE555_SOURCES)
+set(LIVE555_INCLUDES)
+foreach(d ${LIVE555_DIRS})
+  file(GLOB s ${LIVE555_SRC}/${d}/*.cpp ${LIVE555_SRC}/${d}/*.c)
+  list(APPEND LIVE555_SOURCES ${s})
+  list(APPEND LIVE555_INCLUDES ${LIVE555_SRC}/${d}/include)
+endforeach()
+add_library(live555 STATIC ${LIVE555_SOURCES})
+target_include_directories(live555 PUBLIC ${LIVE555_INCLUDES})
+# A blocking RTP send over TCP gives the client up after this; live555's 500 ms is shorter than a Wi-Fi pause.
+target_compile_definitions(live555 PRIVATE SOCKLEN_T=socklen_t NO_OPENSSL=1 _LARGEFILE_SOURCE=1 _FILE_OFFSET_BITS=64 BSD=1
+  RTPINTERFACE_BLOCKING_WRITE_TIMEOUT_MS=4000)
+target_compile_definitions(live555 PUBLIC NO_OPENSSL=1)
+set_target_properties(live555 PROPERTIES CXX_STANDARD 20 POSITION_INDEPENDENT_CODE ON)
+target_compile_options(live555 PRIVATE -w)
 
 # The single header is included under a fixed name.
 configure_file(${RYML_HEADER} ${CMAKE_BINARY_DIR}/third_party/ryml_all.hpp COPYONLY)
@@ -207,6 +227,7 @@ add_executable(NanoKVM-Server
   src/video/monitor.cpp
   src/video/parameter_sets.cpp
   src/video/routes.cpp
+  src/video/rtsp.cpp
   src/video/screen.cpp
   src/video/settings.cpp
   src/video/setters.cpp
@@ -291,6 +312,7 @@ target_link_libraries(NanoKVM-Server PRIVATE
   ${LDC_ROOT}/lib/libjuice.a
   ${LDC_ROOT}/lib/libsrtp2.a
   ${LDC_ROOT}/lib/libusrsctp.a
+  live555
   pthread
 )
 

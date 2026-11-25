@@ -44,6 +44,10 @@ jobs:
 
   dependency-prs:
     if: github.repository == 'dormancygrace/NanoKVM-OS' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        base: [main, v4]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -52,9 +56,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ matrix.base }}
           persist-credentials: false
       - name: Propose configured upstream updates
         env:
+          BASE_BRANCH: ${{ matrix.base }}
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/propose-upstream-updates.py --publish --cadence "$UPSTREAM_CADENCE"
+        run: python3 scripts/propose-upstream-updates.py --publish --base "$BASE_BRANCH" --cadence "$UPSTREAM_CADENCE"

@@ -1,5 +1,14 @@
 # Dependency maintenance
 
+Go module version updates target `v4`. Dependabot reads the five Go manifests
+on that branch. The scheduled upstream workflow also checks out `v4` for the
+Go runtime, patched Pion sources and Go proxy exceptions. These produce draft
+review PRs against `v4`; other upstream proposals continue to target `main`.
+Major Go version updates get separate PRs. The Go groups and ignore rules apply
+to version updates on `v4`. GitHub targets the default branch for Dependabot
+security-update PRs. Maintainers review security fixes for `v4` and the two
+modules tracked through the Go proxy. Go changes run the server and patched-module CI suites.
+
 NanoKVM OS uses two complementary update checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary. Separate jobs propose eligible Linux updates and the configured native/platform dependencies as draft PRs. Neither job creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
 
 ## Dependabot
@@ -12,7 +21,7 @@ NanoKVM OS uses two complementary update checks: Dependabot creates dependency P
 - `addons/rustdesk/Cargo.toml` and `Cargo.lock`.
 - Both Pion Dockerfiles.
 
-Minor/patch updates are grouped; major npm/Go/Cargo upgrades remain separate candidates. Security updates have separate groups and are enabled in repository settings. The explicit **three-day cooldown** delays normal update PRs, not the check's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
+Minor/patch updates are grouped; major npm/Cargo upgrades remain separate candidates. Security updates have separate groups and are enabled in repository settings. The explicit **three-day cooldown** delays normal update PRs, not the check's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
 
 Intentional exceptions have separate monitoring:
 
@@ -23,9 +32,7 @@ Intentional exceptions have separate monitoring:
 | `github.com/rs/cors/wrapper/gin` | The watcher checks the Go module proxy's actual nested-module release; the parent module's tags do not contain this package. |
 | `github.com/mervick/aes-bridge-go` | The watcher checks the Go proxy for the actual module. Upstream tagged `v2.0.0` without the required `/v2` module path, so the valid latest pseudo-version is pinned instead. This dependency is used only by compatibility/auth tests; normal server builds do not import it. |
 
-The last two are intentionally handled as manual update candidates, not silently treated as current. Dependabot does not generate updates for ignored module paths, including security updates; these exceptions therefore still need maintainer security review.
-
-The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
+The frontend and script CI suites remain mandatory. RustDesk has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
 
 ## Independent upstream checks
 
@@ -68,7 +75,7 @@ Run `python3 scripts/propose-kernel-update.py` for a read-only preview; `--publi
 
 ## Native dependencies and integration notifications
 
-The dependency publisher runs daily at 05:23 UTC on main, independently of the report and kernel jobs; tinyalsa uses the quarterly schedule described above. Explicit pull_request policies in .github/upstream-watch.json cover 33 configured sources:
+The scheduled workflow starts on `main` at 05:23 UTC. Its proposal jobs check out `main` and `v4` independently. Tinyalsa uses the quarterly schedule described above. The `pull_request` policies in `.github/upstream-watch.json` select the sources below.
 
 | Sources | Draft PR behavior |
 |---|---|
@@ -87,11 +94,11 @@ Pin-update PRs hash downloaded archive bytes over HTTPS without extracting or ex
 
 Every proposal includes a small .github/upstream-candidates/<component>.json record and is a draft. **Review-only PRs do not change an active dependency.** Their record preserves the candidate, links and integration work; merging it acknowledges the notification, not completion of an upgrade. Active pins must be updated and validated separately before calling the dependency upgraded.
 
-Each component/candidate has a deterministic branch, `deps/upstream-<component>-<digest>` (Linux: `deps/upstream-linux-<version>`). The bots recognise a candidate by the branch name after its prefix. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes recorded output hashes.
+Candidate branches use `deps/upstream-<component>-<digest>` for `main` and `deps/v4-upstream-<component>-<digest>` for `v4`. Linux uses `deps/upstream-linux-<version>`. The bots recognise a candidate by the branch name after its prefix. A rerun preserves open PRs and manual edits; closed proposals are not recreated. Changed candidates may create new PRs. Merged candidate records also suppress repeated notifications. Neither publisher rewrites existing proposal branches, enables auto-merge, installs software, nor changes recorded output hashes.
 
 Stock Alpine APK updates remain report-only. Dependabot continues owning normal npm/Go/Cargo/Docker/Actions/Rust toolchain updates. Linux keeps its dedicated first-point-release policy.
 
-Run python3 scripts/propose-upstream-updates.py for a read-only preview (including archive hashing). Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary.
+For a read-only preview, run `python3 scripts/propose-upstream-updates.py --base main` from a `main` checkout or use `--base v4` from a `v4` checkout. Add --publish to create PRs, and optionally --output /tmp/upstream-candidates.json to save the result summary.
 
 ## Which BusyBox and QEMU?
 

@@ -323,8 +323,10 @@ No automatic merge or device installation is enabled. For GITHUB_TOKEN-created P
                 body=body, files=files, preparation_error=error)
 
 
-def collect(root=ROOT, cadence='all'):
+def collect(root=ROOT, cadence='all', base_branch='main'):
     sources = upstream.select_sources(policies(root), cadence)
+    sources = [s for s in sources if (s['path'].endswith('/go.mod') or s.get('lock_entry') == 'go')
+               == (base_branch == 'v4')]
     with ThreadPoolExecutor(max_workers=4) as workers:
         results = list(workers.map(lambda source: upstream.check(source, root), sources))
     return list(zip(sources, results))
@@ -334,12 +336,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--publish', action='store_true')
     parser.add_argument('--cadence', choices=('all', 'daily', 'quarterly'), default='all')
+    parser.add_argument('--base', choices=('main', 'v4'), default='main')
     parser.add_argument('--output', type=Path, help='save candidate/error summary as JSON')
     args = parser.parse_args()
     summary = []
     failures = []
-    pulls = publisher.pull_requests() if args.publish else []
-    for source, result in collect(cadence=args.cadence):
+    pulls = publisher.pull_requests(args.base) if args.publish else []
+    for source, result in collect(cadence=args.cadence, base_branch=args.base):
         status = result['status']
         item = dict(name=source['name'], status=status, current=result['current'], latest=result['latest'])
         try:
@@ -348,6 +351,8 @@ def main():
             if status in CHANGED or (source.get('kind') == 'github-channel' and status == 'repository-managed'):
                 key = result.get('candidate_key', result['latest'])
                 branch = branch_for(source['pull_request']['id'], key)
+                if args.base == 'v4':
+                    branch = branch.replace('upstream-', 'v4-upstream-', 1)
                 existing = publisher.proposed(branch, pulls)
                 if existing:
                     item['pr'] = existing[0]['html_url']
@@ -355,11 +360,12 @@ def main():
                 else:
                     plan = proposal(source, result)
                     if plan:
+                        plan['branch'] = branch
                         item['branch'] = branch
                         item['files'] = sorted(plan['files'])
                         item['status'] = 'proposal'
                         if args.publish:
-                            item['pr'] = publisher.publish(plan)
+                            item['pr'] = publisher.publish(plan, base_branch=args.base)
                         if plan.get('preparation_error'):
                             raise ValueError(plan['preparation_error'])
                     else:

@@ -108,7 +108,10 @@ export const QuickVideo = ({ open }: { open: boolean }) => {
       : [
           t('videoSettings.measuredBitrate', {
             value: ((status.measuredKbps || 0) / 1000).toFixed(1)
-          })
+          }),
+          ...(status.bitRateCap
+            ? [t('videoSettings.bitrateHeld', { value: (status.bitRateCap / 1000).toFixed(1) })]
+            : [])
         ])
   ].join(' · ');
   const mbps = (kbps: number) => t('videoSettings.mbps', { value: kbps / 1000 });

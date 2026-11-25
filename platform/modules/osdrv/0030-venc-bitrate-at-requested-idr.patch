@@ -1,0 +1,37 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] venc: take a new bit rate at a requested IDR
+
+The rate control takes a changed bit rate (CVI_VENC_SetChnAttr) only on a
+frame of an I period. cviCheckIdrPeriod computes is_i_period before a
+requested IDR restarts the GOP, so that frame never counts, and every
+requested IDR restarts the count toward the periodic one: with key frames
+on request, a new bit rate never took effect. It now takes effect at a
+requested IDR too, where the rate control starts over anyway. The read-only
+module parameter nk_idr_bitrate tells user space.
+---
+--- a/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
++++ b/interdrv/cvi_vc_drv/vcodec/sample/main_enc_cvitest.c
+@@ -114,6 +114,10 @@
+ 				 EncOpenParam *encOP, EncParam *encParam,
+ 				 Uint32 frameIdx, Uint32 fieldDone,
+ 				 int field_flag, vpu_buffer_t vbRoi); */
++/* Lets user space detect a driver that takes a new bit rate at a requested IDR. */
++static int nk_idr_bitrate = 1;
++module_param(nk_idr_bitrate, int, 0444);
++
+ static void cviPicParamChangeCtrl(EncHandle handle, TestEncConfig *pEncConfig,
+ 				  EncOpenParam *pEncOP, EncParam *encParam,
+ 				  Uint32 frameIdx);
+@@ -1713,8 +1717,10 @@
+ 			rateChangeCmd = TRUE;
+ 		}
+ 	} else {
+-		// detect bitrate change
+-		if (encParam->is_i_period &&
++		// detect bitrate change: at an I period, or at a requested IDR, which also restarts the GOP
++		// (cviCheckIdrPeriod ran before that restart, so is_i_period stays false on it). With IDRs
++		// on request only, a new bit rate otherwise never took effect.
++		if ((encParam->is_i_period || encParam->idr_request) &&
+ 		    pEncOP->bitRate != cviEncRc_GetParam(pRcInfo, E_BITRATE)) {
+ 			cviEncRc_SetParam(&handle->rcInfo, pEncOP, E_BITRATE);
+ 			rateChangeCmd = TRUE;

@@ -40,6 +40,10 @@ constexpr auto queue_delay = 150ms;
 constexpr std::size_t default_queue_bytes = 2 * 1024 * 1024;
 // The capture applies a request at most every 500 ms and the encoder then needs a frame or two for the IDR.
 constexpr auto keyframe_request_interval = 1s;
+// A viewer that drops again soon after an IDR resumed it cannot take the stream: its requests space out (doubling up
+// to the maximum), since every IDR goes to all viewers and costs the bits of many pictures. A viewer that keeps up
+// for relapse_calm asks at keyframe_request_interval again.
+constexpr auto relapse_window = 3s, relapse_calm = 10s, keyframe_request_interval_max = 8s;
 // A frame over the byte limit suggests the next IDR will not fit either: requests pause, the pause doubling while
 // oversized frames keep arriving after it ran out, and forgotten after a whole maximum without one.
 constexpr auto oversized_backoff_min = 2s, oversized_backoff_max = 30s;
@@ -120,6 +124,7 @@ public:
 		window_ = std::clamp(window, 1, max_flow_window);
 		flow_controlled_ = true;
 		waiting_for_keyframe_ = true;
+		lagging_ = false;
 		diag_.begin("join", Clock::now());
 		reset_oversized();
 	}
@@ -147,8 +152,12 @@ public:
 				note("oversized-keyframe", queued_frames, queued_bytes, frame.bytes());
 				return false;
 			}
-			if (waiting_for_keyframe_) diag_.recovered(now);
+			if (waiting_for_keyframe_) {
+				diag_.recovered(now);
+				recovered_at_ = now;
+			}
 			waiting_for_keyframe_ = false;
+			lagging_ = false;
 			reset_oversized();
 			push(frame);
 			return true;
@@ -156,6 +165,8 @@ public:
 		bool oversized = frame.bytes() > max_bytes_;
 		if (waiting_for_keyframe_) {
 			// The decoder is still configured and cannot tell frames stopped: keep asking for the IDR here.
+			// A picture lost after a drop counts against the bit rate (not while a new viewer waits for its first).
+			if (lagging_) video::report_lag(this);
 			diag_.deltas_refused++;
 			diag_.sequence_drops++;
 			if (oversized) diag_.oversized_deltas++;
@@ -246,6 +257,15 @@ public:
 private:
 	bool start_wait(const char *reason)
 	{
+		lagging_ = true;
+		video::report_lag(this);
+		if (recovered_at_ != Clock::time_point{}) {
+			auto since = Clock::now() - recovered_at_;
+			if (since < relapse_window)
+				request_interval_ = std::min<Clock::duration>(request_interval_ * 2, keyframe_request_interval_max);
+			else if (since >= relapse_calm)
+				request_interval_ = keyframe_request_interval;
+		}
 		if (waiting_for_keyframe_) return false;
 		waiting_for_keyframe_ = true;
 		diag_.begin(reason, Clock::now());
@@ -293,7 +313,7 @@ private:
 	{
 		auto now = Clock::now();
 		if (oversized_suppressed(now)) return;
-		if (last_keyframe_request_ != Clock::time_point{} && now - last_keyframe_request_ < keyframe_request_interval)
+		if (last_keyframe_request_ != Clock::time_point{} && now - last_keyframe_request_ < request_interval_)
 			return;
 		last_keyframe_request_ = now;
 		diag_.keyframe_requests++;
@@ -331,7 +351,9 @@ private:
 	std::size_t max_bytes_ = default_queue_bytes;
 	int window_ = 0;
 	bool flow_controlled_ = false, waiting_for_keyframe_ = true, closed_ = false;
-	Clock::time_point last_keyframe_request_{}, oversized_at_{};
+	bool lagging_ = false;  // dropped pictures; reported until an IDR resumes the viewer
+	Clock::time_point last_keyframe_request_{}, oversized_at_{}, recovered_at_{};
+	Clock::duration request_interval_ = keyframe_request_interval;
 	Clock::duration oversized_backoff_{};
 	Diagnostics diag_;
 };
@@ -341,6 +363,7 @@ struct Client;
 // The viewers on one subscription of the device stream.
 class Streamer : public Subscriber {
 public:
+	bool reports_lag() const override { return true; }
 	// An error message when the client cannot join (codec conflict, H.264 blocked).
 	std::optional<std::string> add(Client *client, Codec codec);
 	void remove(Client *client);

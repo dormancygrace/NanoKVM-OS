@@ -1543,12 +1543,18 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 	fps = video_output_fps(src, width, height, fps);
 	int8_t ret = 0;
 	mmf_stream_t stream = {};
-	if (!video_encoder_matches(src, width, height, bitrate, codec, fps)) {
+	if (!video_encoder_matches(src, width, height, kvm_venc.kvm_venc_cfg.bitrate, codec, fps)) {
 		debug("[kvmv]init video codec=%d %dx%d bitrate=%d fps=%d\n",
 			codec, width, height, bitrate, fps);
 		if (init_venc_video(width, height, bitrate, codec, fps) != 0) {
 			return -1;
 		}
+	} else if (bitrate != kvm_venc.kvm_venc_cfg.bitrate) {
+		// Only the bit rate: the rate control of the running channel takes it, with no IDR. A channel that
+		// refuses keeps its rate (logged by kvm_mmf) and is not asked again for this value; recreating it on
+		// every step of an adaptive rate would cost an IDR each time.
+		(void)mmf_venc_set_bitrate(kvm_venc.mmf_venc_chn, bitrate);
+		kvm_venc.kvm_venc_cfg.bitrate = bitrate;
 	}
 
 	// The capture mode follows the video encoder (4:2:0 for H.264 straight
@@ -1919,8 +1925,9 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
             if ((_type == VENC_H264 || _type == VENC_H265)
                     && pending_vi == cam->get_channel() && capture_format == nanokvm::nv21_format()
                     && kvmv_cfg.fresh_frame_count == 0
+                    // The bit rate alone does not end the channel: frame_to_video sets it on the running one.
                     && video_encoder_matches(geometry, output.width, output.height,
-                        maxmin_data(20000, 500, (int)_qlty), _type, kvmvenc_fps)) {
+                        kvm_venc.kvm_venc_cfg.bitrate, _type, kvmvenc_fps)) {
                 submitted = true;
                 native_vi_ch = pending_vi;
                 native_width = output.width;

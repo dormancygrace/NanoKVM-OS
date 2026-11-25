@@ -537,6 +537,9 @@ export type ScreenStatus = {
   // The MJPEG stream alone (older servers: absent).
   mjpegMeasuredFps?: number;
   measuredKbps: number;
+  // The bit rate the stream is held to below bitRate while every viewer lags, kbit/s; 0 when it uses bitRate (older
+  // servers: absent).
+  bitRateCap?: number;
   // Where the H.264/H.265 encoder takes its frames (kvm_mmf.hpp): 0 no video
   // encoder, 1 straight from capture, 2-8 through VPSS and why (older
   // servers: absent).

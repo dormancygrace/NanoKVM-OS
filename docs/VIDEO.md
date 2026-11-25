@@ -14,6 +14,8 @@ A video mode combines the monitor resolution and the stream frame rate. The page
 
 The **bitrate** is a ceiling for motion, from 1 to 20 Mbit/s. New devices use 20 Mbit/s, which keeps QHD@60 sharp in motion; 3 Mbit/s suits remote and mobile connections. A still desktop sends much less than the ceiling.
 
+**Slow connections.** When every H.264/H.265 viewer loses pictures because its connection cannot carry the stream (a Direct viewer that drops at least 15 % of a second's pictures, two seconds running), the device lowers the bit rate by a quarter, down to 1 Mbit/s, and raises it by a quarter again after eight seconds without losses, for a minute no higher than just below the rate that was too much. Each step takes effect at an IDR. Video settings and the video menu show the lowered rate ("held at 8.2 Mbit/s: slow connection"); the setting itself does not change, and a new session starts at the setting. WebRTC and RustDesk viewers count as keeping up, and one fast viewer keeps the setting for everyone: a slow viewer beside it gets fewer pictures instead. A viewer that drops again within three seconds of an IDR asks for the next one later, doubling up to every eight seconds, so its IDRs do not crowd the stream of the others. Below about 4–5 Mbit/s at 1440p60 the encoder may send more than the lowered rate.
+
 The encoder applies its rate-control limits before capture starts and uses NormalP, with a keyframe when a viewer asks for one and at least every ten seconds. There are no GOP or SmartP settings. H.264 uses the Main profile. Native encoder diagnostics go to the application log.
 
 ## HDMI receivers

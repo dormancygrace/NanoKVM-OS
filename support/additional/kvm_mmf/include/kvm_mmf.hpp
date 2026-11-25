@@ -120,6 +120,9 @@ extern "C" int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg);
 int mmf_del_venc_channel(int ch);
 int mmf_venc_push(int ch, uint8_t *data, int w, int h, int format);
 int mmf_venc_push_vi(int ch, int vi_ch);
+// The CBR target of a running H.264/H.265 channel in kbit/s, from its next frame, without recreating the channel
+// (no IDR). 0, or the CVI error.
+int mmf_venc_set_bitrate(int ch, int kbps);
 // Capture owner must serialize calls; busy encoder storage is retained.
 int mmf_trim_idle_copy_buffers(void);
 int mmf_venc_pop(int ch, mmf_stream_t *stream);

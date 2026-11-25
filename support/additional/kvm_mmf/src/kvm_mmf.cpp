@@ -3325,6 +3325,24 @@ int mmf_trim_idle_copy_buffers(void) {
     return priv.enc_jpg_running ? CVI_SUCCESS : _mmf_release_jpg_copy();
 }
 
+int mmf_venc_set_bitrate(int ch, int kbps) {
+	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || kbps <= 0) return -1;
+	venc_info_t *info = (venc_info_t *)&priv.venc[ch];
+	if (!info->is_inited) return -1;
+	VENC_CHN_ATTR_S attr = {};
+	CVI_S32 ret = CVI_VENC_GetChnAttr(ch, &attr);
+	if (ret != CVI_SUCCESS) return ret;
+	switch (attr.stRcAttr.enRcMode) {
+	case VENC_RC_MODE_H264CBR: attr.stRcAttr.stH264Cbr.u32BitRate = (CVI_U32)kbps; break;
+	case VENC_RC_MODE_H265CBR: attr.stRcAttr.stH265Cbr.u32BitRate = (CVI_U32)kbps; break;
+	default: return -1;
+	}
+	ret = CVI_VENC_SetChnAttr(ch, &attr);
+	fprintf(stderr, "[kvm_mmf] VENC channel %d bitrate -> %d kbit/s: %#x\n", ch, kbps, ret);
+	fflush(stderr);
+	return ret;
+}
+
 int mmf_venc_push_vi(int ch, int vi_ch) {
 	if (ch < 0 || ch >= MMF_VENC_MAX_CHN || vi_ch < 0 || vi_ch >= MMF_VI_MAX_CHN
 		|| !priv.vi_frame_valid[vi_ch] || !priv.vi_frame_deferred[vi_ch]) {

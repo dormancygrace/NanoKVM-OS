@@ -22,6 +22,8 @@ void start();
 // taken before the update, so before a viewer wakes the capture, with the background OCR already ended; released
 // when none are left. Updates that come while the gate waits for that OCR are applied in order once it has ended.
 void set_viewers(const std::string &source, int count);
+// One transport's viewer count (0 when it has none).
+int viewers_of(const std::string &source);
 int viewer_count();
 
 // A capture that came on gives a reader the picture from before first: the first successful reader after it

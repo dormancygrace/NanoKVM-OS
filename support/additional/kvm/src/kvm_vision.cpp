@@ -1497,6 +1497,23 @@ static uint8_t video_output_fps(const nanokvm::GeometrySnapshot &src, int width,
     return fps;
 }
 
+/*
+ * Whether the running encoder module takes a new bit rate at a requested IDR (osdrv 0030, the read-only parameter
+ * nk_idr_bitrate). Only then is a bit rate set on the running channel; the previous module, which runs until the
+ * reboot after an update, may defer it indefinitely, so a change of the bit rate recreates the channel there.
+ */
+static bool encoder_takes_bitrate(void)
+{
+	static int takes = -1;
+	if (takes < 0) {
+		int v = 0;
+		FILE *f = fopen("/sys/module/cvi_vc_driver/parameters/nk_idr_bitrate", "r");
+		takes = f && fscanf(f, "%d", &v) == 1 && v == 1;
+		if (f) fclose(f);
+	}
+	return takes;
+}
+
 static bool video_encoder_matches(const nanokvm::GeometrySnapshot &src, int width, int height,
 	uint16_t bitrate, uint8_t codec, uint8_t fps)
 {
@@ -1533,8 +1550,8 @@ static void submit_next_video_frame(int vi_ch, int width, int height)
 		mmf_vi_frame_release(vi_ch);
 }
 
-// frame_to_video restarted the capture for another capture mode; no frame.
-static constexpr int8_t IMG_CAPTURE_RESTARTED = -100;
+// The capture must supply a fresh frame after a channel or capture-mode change.
+static constexpr int8_t IMG_RETRY_CAPTURE = -100;
 
 int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int width, int height,
 	int format, int vi_ch, kvmv_data_t *ret_stream, uint16_t bitrate, uint8_t codec,
@@ -1543,12 +1560,22 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 	fps = video_output_fps(src, width, height, fps);
 	int8_t ret = 0;
 	mmf_stream_t stream = {};
-	if (!video_encoder_matches(src, width, height, bitrate, codec, fps)) {
+	const uint16_t running_rate = encoder_takes_bitrate() ? kvm_venc.kvm_venc_cfg.bitrate : bitrate;
+	bool recreate = !video_encoder_matches(src, width, height, running_rate, codec, fps);
+	if (!recreate && bitrate != kvm_venc.kvm_venc_cfg.bitrate) {
+		// Only the bit rate, on a module that takes it at the next IDR: set on the running channel. A channel
+		// that refuses it is recreated, as with the previous module.
+		if (mmf_venc_set_bitrate(kvm_venc.mmf_venc_chn, bitrate) == 0) kvm_venc.kvm_venc_cfg.bitrate = bitrate;
+		else recreate = true;
+	}
+	if (recreate) {
 		debug("[kvmv]init video codec=%d %dx%d bitrate=%d fps=%d\n",
 			codec, width, height, bitrate, fps);
 		if (init_venc_video(width, height, bitrate, codec, fps) != 0) {
 			return -1;
 		}
+		// Teardown drained the pre-submitted frame and released its VI lease.
+		if (submitted) return IMG_RETRY_CAPTURE;
 	}
 
 	// The capture mode follows the video encoder (4:2:0 for H.264 straight
@@ -1559,7 +1586,7 @@ int8_t frame_to_video(const nanokvm::GeometrySnapshot &src, uint8_t *data, int w
 		debug("[kvmv]capture restart for the %s capture mode\n",
 			mmf_vi_yuv420_active() ? "4:2:2" : "4:2:0");
 		restart_capture_locked();
-		return IMG_CAPTURE_RESTARTED;
+		return IMG_RETRY_CAPTURE;
 	}
 
  if (requested_keyframe.exchange(false, std::memory_order_relaxed)) {
@@ -1919,8 +1946,11 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
             if ((_type == VENC_H264 || _type == VENC_H265)
                     && pending_vi == cam->get_channel() && capture_format == nanokvm::nv21_format()
                     && kvmv_cfg.fresh_frame_count == 0
+                    // On a module that takes a new bit rate at an IDR, the bit rate alone does not end the
+                    // channel: frame_to_video sets it on the running one.
                     && video_encoder_matches(geometry, output.width, output.height,
-                        maxmin_data(20000, 500, (int)_qlty), _type, kvmvenc_fps)) {
+                        encoder_takes_bitrate() ? kvm_venc.kvm_venc_cfg.bitrate : maxmin_data(20000, 500, (int)_qlty),
+                        _type, kvmvenc_fps)) {
                 submitted = true;
                 native_vi_ch = pending_vi;
                 native_width = output.width;
@@ -2100,8 +2130,8 @@ static int kvmv_read_img_locked(uint16_t _width, uint16_t _height, uint8_t _type
 				native_vi_ch, &frame, maxmin_data(20000, 500, (int)_qlty),
 				kvmv_cfg.venc_type, kvmvenc_fps, submitted);
 			delete img;
-            // A new capture in the other mode: read from it.
-            if (ret == IMG_CAPTURE_RESTARTED) continue;
+            // The previous frame is gone; acquire one for the current channel.
+            if (ret == IMG_RETRY_CAPTURE) continue;
             if(ret < 0){
                 if (native_vi_ch >= 0) mmf_vi_frame_release(native_vi_ch);
                 // One failure is the VI-direct path switch: an encoder keeps

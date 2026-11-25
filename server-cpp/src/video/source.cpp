@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <format>
 #include <fstream>
+#include <map>
 #include <set>
 #include <vector>
 
@@ -33,6 +34,7 @@ struct Session {
 	bool h265_fallback = false;  // H.265 because the selected H.264 could not encode the picture; kept until it ends
 	Clock::time_point started, refreshed, last_keyframe_request;
 	vision::CaptureParams params;
+	int setting_kbps = 0;  // the bit rate setting; params.bitrate may be capped below it
 	Screen screen;
 	std::shared_ptr<hdmi::Lease> lease;  // the capture runs while the session does
 	std::shared_ptr<videogate::Hold> gate;  // the video gate, held while the session runs
@@ -45,6 +47,98 @@ std::optional<Codec> selected = [] {
 std::optional<Session> session;
 std::vector<Subscription> subscribers;
 bool keyframe_requested = false;
+
+// The bit rate below the setting while no viewer of the stream takes it cleanly: in a window a viewer lags when it
+// lost at least lag_share of the pictures, and keeps up when it lost less than clean_share. A step down (0.75x)
+// follows two windows running in which one lagged and none kept up (one viewer keeping up keeps the rate for all; a
+// viewer that keeps up only by crowding the others off a shared link loses a few pictures too), a step up (1.5x) a calm
+// while without such a window, but for ceiling_hold not above 0.9x the rate the viewers last lagged at. The encoder
+// takes a new rate at an IDR (osdrv 0030), so each step asks for one.
+struct RateCap {
+	static constexpr int min_kbps = 1000;
+	static constexpr double lag_share = 0.15, clean_share = 0.02;
+	static constexpr auto window = std::chrono::seconds(1), calm = std::chrono::seconds(8),
+	                      ceiling_hold = std::chrono::seconds(60), settle = std::chrono::seconds(5);
+	int kbps = 0;  // 0: the setting
+	std::map<const void *, int> lost;  // pictures each viewer lost in the current window
+	int frames = 0;                     // pictures published in the current window
+	int lagging_windows = 0;            // windows running in which every viewer lagged
+	int ceiling = 0;                    // 0.9x the rate of the last step down, for ceiling_hold
+	int setting = 0;                    // the setting the cap applies to
+	int viewers = 0;                    // the viewer count of the last window
+	Clock::time_point viewers_changed{};  // a viewer joining or leaving: losses there are no lag
+	Clock::time_point window_start{}, last_struggle{}, last_change{}, last_down{};
+};
+RateCap cap;
+
+// The viewers the lag reports cover, or 0 while a subscriber reports none (its viewers keep the rate).
+int lag_viewers()
+{
+	for (auto &s : subscribers)
+		if (!s.subscriber->reports_lag()) return 0;
+	return hdmi::viewers_of("direct") + hdmi::viewers_of("rtsp");
+}
+
+// The encoder module takes a new bit rate at a requested IDR (osdrv 0030). Until a reboot after an update the old
+// module may still run: it would never apply a lowered rate, so the rate stays at the setting.
+bool encoder_takes_rate()
+{
+	static const bool takes = [] {
+		std::ifstream in("/sys/module/cvi_vc_driver/parameters/nk_idr_bitrate");
+		int v = 0;
+		return in >> v && v == 1;
+	}();
+	return takes;
+}
+
+int capped_bitrate(int setting, Clock::time_point now)
+{
+	if (!encoder_takes_rate()) return setting;
+	// A new setting starts over from it: a cap below the old one says nothing about the new one.
+	if (setting != cap.setting) {
+		cap.setting = setting;
+		cap.kbps = cap.ceiling = cap.lagging_windows = 0;
+	}
+	cap.frames++;
+	if (cap.window_start == Clock::time_point{}) cap.window_start = now;
+	if (now - cap.window_start >= RateCap::window) {
+		int viewers = lag_viewers(), lagging = 0;
+		if (viewers != cap.viewers) {
+			cap.viewers = viewers;
+			cap.viewers_changed = now;
+		}
+		int losing = 0;  // viewers that do not keep up
+		for (auto &[viewer, n] : cap.lost) {
+			if (n >= RateCap::lag_share * cap.frames) lagging++;
+			if (n >= RateCap::clean_share * cap.frames) losing++;
+		}
+		bool settled = now - cap.viewers_changed >= RateCap::settle;
+		// The same condition steps down and holds a step up: a viewer that keeps up beside a slow one (or a WebRTC or
+		// RustDesk viewer, which counts as keeping up) lets the rate come back.
+		bool struggling = settled && viewers > 0 && lagging > 0 && losing >= viewers;
+		if (struggling) cap.last_struggle = now;
+		cap.lagging_windows = struggling ? cap.lagging_windows + 1 : 0;
+		int current = cap.kbps ? cap.kbps : setting;
+		if (cap.lagging_windows >= 2 && current > RateCap::min_kbps) {
+			cap.kbps = std::max(RateCap::min_kbps, current * 3 / 4);
+			cap.ceiling = current * 9 / 10;
+			cap.last_change = cap.last_down = now;
+			cap.lagging_windows = 0;
+			log::info("video: no viewer keeps up; bit rate {} -> {} kbit/s", current, cap.kbps);
+		} else if (cap.kbps && now - cap.last_struggle >= RateCap::calm && now - cap.last_change >= RateCap::calm &&
+		           !(now - cap.last_down < RateCap::ceiling_hold && current >= cap.ceiling)) {
+			int up = current * 3 / 2;
+			if (now - cap.last_down < RateCap::ceiling_hold) up = std::min(up, std::max(cap.ceiling, current));
+			cap.kbps = up >= setting ? 0 : up;
+			cap.last_change = now;
+			log::info("video: viewers keep up; bit rate {} -> {} kbit/s", current, cap.kbps ? cap.kbps : setting);
+		}
+		cap.lost.clear();
+		cap.frames = 0;
+		cap.window_start = now;
+	}
+	return cap.kbps && cap.kbps < setting ? cap.kbps : setting;
+}
 
 // Frames and bytes per second of the published stream, averaged over five seconds: /run/nanokvm/now_fps (the main
 // stream as the OLED and the dashboard show it), now_kbps and mjpeg_fps.
@@ -115,6 +209,7 @@ void stop_session()
 	if (!session) return;
 	vision::stop();
 	session.reset();
+	cap = {};
 }
 
 // Ends the session with every subscriber; they are told after the source is idle, so they may subscribe again.
@@ -146,7 +241,16 @@ void on_frame(Frame frame)
 			end_session();
 			return;
 		}
+		auto applied = session->params.bitrate;
 		session->params = capture_params(session->codec, capture_screen());
+		session->setting_kbps = session->params.bitrate;
+		session->params.bitrate = static_cast<std::uint16_t>(capped_bitrate(session->setting_kbps, now));
+		// The encoder takes a new bit rate at an IDR (osdrv 0030): a changed one asks for it, whoever changed it.
+		if (session->params.bitrate != applied) keyframe_requested = true;
+		vision::update(session->params);
+	} else if (int rate = capped_bitrate(session->setting_kbps, now); rate != session->params.bitrate) {
+		session->params.bitrate = static_cast<std::uint16_t>(rate);
+		keyframe_requested = true;
 		vision::update(session->params);
 	}
 	frame.duration = std::chrono::microseconds(1'000'000 / session->params.fps);
@@ -206,6 +310,7 @@ bool start_session(Codec codec)
 	s.started = s.refreshed = Clock::now();
 	s.screen = screen();
 	s.params = capture_params(codec, capture_screen());
+	s.setting_kbps = s.params.bitrate;
 	session = s;
 	// Background OCR gives way, and has ended, before the capture lease can wake the capture and before the encoder
 	// takes its memory; until then the session waits with its subscribers.
@@ -261,6 +366,10 @@ void select_codec(Codec codec)
 }
 
 void request_keyframe() { keyframe_requested = true; }
+
+void report_lag(const void *viewer) { cap.lost[viewer]++; }
+
+int bitrate_cap() { return session && cap.kbps && cap.kbps < cap.setting ? cap.kbps : 0; }
 
 void count_mjpeg_frame()
 {

@@ -278,6 +278,12 @@ void set_viewers(const std::string &source, int count)
 
 int viewer_count() { return viewer_total; }
 
+int viewers_of(const std::string &source)
+{
+	auto it = viewers.find(source);
+	return it == viewers.end() ? 0 : it->second;
+}
+
 bool needs_fresh_frame() { return needs_fresh; }
 
 bool claim_fresh_frame()

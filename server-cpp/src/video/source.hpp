@@ -19,6 +19,9 @@ struct Subscriber {
 	virtual void frame(const Frame &frame) = 0;
 	// The session ended; the subscription is gone.
 	virtual void ended() = 0;
+	// Whether it reports its viewers' lag (report_lag): Direct and RTSP. While any subscriber does not (WebRTC,
+	// RustDesk), its viewers count as keeping up and the bit rate does not step down.
+	virtual bool reports_lag() const { return false; }
 };
 
 struct SubscribeError {
@@ -43,6 +46,14 @@ void select_codec(Codec codec);
 
 // Coalesced key frame request of any viewer.
 void request_keyframe();
+
+// A viewer lost a picture because its connection (or its decoder) is slower than the stream: Direct and RTSP call
+// this for each picture they drop until an IDR resumes them. While no viewer of the H.264/H.265 stream takes it
+// cleanly and one loses a good share of the pictures, the bit rate steps down (see Subscriber::reports_lag); after
+// a calm while it steps back up to the setting. viewer identifies one viewer. Loop thread.
+void report_lag(const void *viewer);
+// The bit rate the stream is held to below the setting, kbit/s; 0 when it uses the setting.
+int bitrate_cap();
 // One MJPEG picture went to a viewer (/run/nanokvm/mjpeg_fps). Loop thread.
 void count_mjpeg_frame();
 

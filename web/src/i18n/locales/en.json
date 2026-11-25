@@ -270,6 +270,7 @@
     "modeHint": "The resolution and refresh rate the computer renders, advertised by the NanoKVM monitor; the stream carries the same rate. Changing it briefly reconnects HDMI.",
     "bitrateCeiling": "A ceiling for motion (video, scrolling); a still screen sends far less. 3 Mbit/s suits remote and mobile connections.",
     "bitrateLimit": "limit {{value}} Mbit/s",
+    "bitrateHeld": "held at {{value}} Mbit/s: slow connection",
     "measuredBitrate": "≈ {{value}} Mbit/s",
     "codecHint": "H.265 needs about a third less traffic for the same picture; H.264 plays in more browsers.",
     "browserSection": "This browser",

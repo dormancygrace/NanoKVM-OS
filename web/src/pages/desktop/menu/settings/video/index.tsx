@@ -143,7 +143,7 @@ export const VideoSettings = ({ setIsLocked }: { setIsLocked: (locked: boolean) 
             line(
               t('videoSettings.bitrate'),
               enabled && status
-                ? `${t('videoSettings.measuredBitrate', { value: ((status.measuredKbps || 0) / 1000).toFixed(1) })} · ${t('videoSettings.bitrateLimit', { value: (saved?.bitRate ?? 0) / 1000 })}`
+                ? `${t('videoSettings.measuredBitrate', { value: ((status.measuredKbps || 0) / 1000).toFixed(1) })} · ${t('videoSettings.bitrateLimit', { value: (saved?.bitRate ?? 0) / 1000 })}${status.bitRateCap ? ` · ${t('videoSettings.bitrateHeld', { value: (status.bitRateCap / 1000).toFixed(1) })}` : ''}`
                 : '—'
             )}
           {caps?.monitor.programmable &&

@@ -28,6 +28,7 @@
 #include "video/vision.hpp"
 
 #include <arpa/inet.h>
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <curl/curl.h>
@@ -316,10 +317,11 @@ public:
 	}
 
 	void run(std::function<void(const std::string &, bool)> on_message, std::function<void(int, const std::string &)> on_closed,
-	         std::chrono::milliseconds read_timeout, std::chrono::milliseconds ping_interval)
+	         std::chrono::milliseconds read_timeout, std::chrono::milliseconds ping_interval, std::size_t max_message,
+	         std::function<bool()> renew_lock)
 	{
 		auto self = shared_from_this();
-		std::thread([self, on_message, on_closed, read_timeout, ping_interval] {
+		std::thread([self, on_message, on_closed, read_timeout, ping_interval, max_message, renew_lock] {
 			std::string message;
 			bool binary = false;
 			int close_code = 1006;
@@ -336,6 +338,11 @@ public:
 				}
 				if (ping_interval.count() > 0 && now - last_ping >= ping_interval) {
 					last_ping = now;
+					if (!renew_lock()) {
+						close_code = 4004;
+						close_reason = "session lock lost";
+						break;
+					}
 					std::lock_guard lock(self->mu_);
 					std::size_t sent = 0;
 					curl_ws_send(self->curl_, "upstream", 8, &sent, 0, CURLWS_PING);
@@ -344,11 +351,13 @@ public:
 				for (;;) {
 					char buf[16384];
 					std::size_t got = 0;
-					const curl_ws_frame *meta = nullptr;
+					curl_ws_frame frame{};
 					CURLcode rc;
 					{
 						std::lock_guard lock(self->mu_);
+						const curl_ws_frame *meta = nullptr;
 						rc = curl_ws_recv(self->curl_, buf, sizeof buf, &got, &meta);
+						if (rc == CURLE_OK) frame = *meta;
 					}
 					if (rc == CURLE_AGAIN) break;
 					if (rc != CURLE_OK) {
@@ -356,16 +365,23 @@ public:
 						break;
 					}
 					last_rx = std::chrono::steady_clock::now();
-					if (meta->flags & CURLWS_CLOSE) {
+					if (frame.flags & CURLWS_CLOSE) {
 						close_code = got >= 2 ? (static_cast<unsigned char>(buf[0]) << 8 | static_cast<unsigned char>(buf[1])) : 1005;
 						close_reason = got > 2 ? std::string(buf + 2, got - 2) : "";
 						self->closed_ = true;
 						break;
 					}
-					if (meta->flags & (CURLWS_PING | CURLWS_PONG)) continue;
-					if (meta->flags & CURLWS_BINARY) binary = true;
+					if (frame.flags & (CURLWS_PING | CURLWS_PONG)) continue;
+					const std::size_t room = max_message - message.size();
+					if (got > room || frame.bytesleft > static_cast<curl_off_t>(room - got)) {
+						close_code = 1009;
+						close_reason = "gateway message too large";
+						self->closed_ = true;
+						break;
+					}
+					if (frame.flags & CURLWS_BINARY) binary = true;
 					message.append(buf, got);
-					if (meta->bytesleft == 0 && !(meta->flags & CURLWS_CONT)) {
+					if (frame.bytesleft == 0 && !(frame.flags & CURLWS_CONT)) {
 						on_message(message, binary);
 						message.clear();
 						binary = false;
@@ -462,7 +478,7 @@ struct Downstream : picoclaw::Link {
 	{
 		if (!state->open) return false;
 		loop::post([s = state, data] {
-			if (s->ws && !s->ws->closing()) s->ws->send(http::make_message(data, false));
+			if (s->open && s->ws && !s->ws->closing()) s->ws->send(http::make_message(data, false));
 		});
 		return true;
 	}
@@ -526,8 +542,10 @@ struct Relay : http::WsHandler, std::enable_shared_from_this<Relay> {
 	std::string session;
 	std::shared_ptr<Downstream> downstream = std::make_shared<Downstream>();
 	std::shared_ptr<Serial> serial = std::make_shared<Serial>();
-	bool connected = false;
-	std::vector<std::string> pending;
+	// The loop is the sole producer; the serial worker releases the budget after each send.
+	// Count the write in progress and messages waiting behind the dial, including empty ones.
+	static constexpr std::size_t max_queued_messages = 64;
+	std::atomic<std::size_t> queued_messages{0}, queued_bytes{0};
 
 	void opened(http::WebSocket &ws) override
 	{
@@ -540,23 +558,29 @@ struct Relay : http::WsHandler, std::enable_shared_from_this<Relay> {
 		picoclaw::set_downstream(session, downstream);
 		auto self = shared_from_this();
 		serial->post([self] {
-			bool ok = picoclaw::connect_gateway(self->session);
-			loop::post([self, ok] {
-				if (!ok) return;
-				picoclaw::attach_downstream(self->session, self->downstream);
-				self->connected = true;
-				for (auto &m : self->pending) self->serial->post([id = self->session, m] { picoclaw::downstream_message(id, m, false); });
-				self->pending.clear();
-			});
+			if (!self->downstream->state->open) return;
+			if (!picoclaw::connect_gateway(self->session)) {
+				self->downstream->state->open = false;
+				return;
+			}
+			if (self->downstream->state->open) picoclaw::attach_downstream(self->session, self->downstream);
 		});
 	}
-	void received(http::WebSocket &, std::string_view data, bool binary) override
+	void received(http::WebSocket &ws, std::string_view data, bool binary) override
 	{
-		if (!connected) {
-			pending.emplace_back(data);
+		if (!downstream->state->open || ws.closing()) return;
+		if (queued_messages >= max_queued_messages || data.size() > ws.max_message - queued_bytes.load()) {
+			downstream->state->open = false;
+			ws.close(1013, "gateway send queue full");
 			return;
 		}
-		serial->post([id = session, m = std::string(data), binary] { picoclaw::downstream_message(id, m, binary); });
+		++queued_messages;
+		queued_bytes += data.size();
+		serial->post([self = shared_from_this(), message = std::string(data), binary] {
+			if (self->downstream->state->open) picoclaw::downstream_message(self->session, message, binary);
+			self->queued_bytes -= message.size();
+			--self->queued_messages;
+		});
 	}
 	void closed(http::WebSocket &ws) override
 	{
@@ -604,13 +628,14 @@ void setup_platform()
 		return 0;
 	};
 	p.connect = [](const std::string &url, const std::string &token, std::chrono::milliseconds timeout,
-	               std::function<void(const std::string &, bool)> on_message, std::function<void(int, const std::string &)> on_closed, int &status,
+	               std::function<void(const std::string &, bool)> on_message, std::function<void(int, const std::string &)> on_closed, std::function<bool()> renew_lock, int &status,
 	               std::string &error) -> std::shared_ptr<picoclaw::Link> {
 		auto link = CurlLink::dial(url, token, timeout, status, error);
 		if (!link) return nullptr;
 		int read_timeout = 0, ping = 0, max_bytes = 0;
 		picoclaw::relay_settings(read_timeout, ping, max_bytes);
-		link->run(std::move(on_message), std::move(on_closed), std::chrono::milliseconds(read_timeout), std::chrono::milliseconds(ping));
+		link->run(std::move(on_message), std::move(on_closed), std::chrono::milliseconds(read_timeout), std::chrono::milliseconds(ping),
+		          static_cast<std::size_t>(max_bytes > 0 ? max_bytes : 1 << 20), std::move(renew_lock));
 		return link;
 	};
 	p.port_in_use = port_in_use;
@@ -649,13 +674,14 @@ http::Handler blocking(void (*handler)(http::Request &, http::Response &))
 	};
 }
 
-http::Handler loopback(void (*handler)(http::Request &, http::Response &))
+http::CheckedHandler loopback(void (*handler)(http::Request &, http::Response &))
 {
 	auto run = blocking(handler);
-	return [run](http::Request &req, http::Response &res) {
-		if (!internal_caller(req)) return api::plain_json(res, 401, "unauthorized");
-		run(req, res);
-	};
+	return {[run](http::Request &req, http::Response &res) {
+		        if (!internal_caller(req)) return api::plain_json(res, 401, "unauthorized");
+		        run(req, res);
+	        },
+	        internal_caller};
 }
 
 void serve_mcp(http::Request &req, http::Response &res)

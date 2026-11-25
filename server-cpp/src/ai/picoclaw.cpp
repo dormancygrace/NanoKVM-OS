@@ -2506,7 +2506,6 @@ std::optional<Refusal> admit_gateway(const std::string &requested, std::string &
 			if (it->second->state == "closing" || it->second->state == "closed") {
 				sessions.erase(it);
 			} else {
-				lock_release(id);
 				return Refusal{409, "{\"code\":\"AI_LOCK_HELD\",\"message\":\"session is already connected\"}"};
 			}
 		}
@@ -2564,7 +2563,7 @@ bool connect_gateway(const std::string &id)
 			                        int c = code == 1000 || code == 1001 || code == 1005 || code == 1006 || code == 0 ? 4005 : code;
 			                        close_session(s, c, reason.empty() ? "closed" : reason);
 		                        },
-		                        status, error);
+		                        [id] { return lock_renew(id); }, status, error);
 	}
 	if (!up) {
 		runtime_update([&](RuntimeStatus &s) {

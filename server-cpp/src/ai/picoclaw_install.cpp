@@ -9,6 +9,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <climits>
 #include <filesystem>
 #include <fstream>
 #include <openssl/evp.h>
@@ -149,6 +150,10 @@ std::string extract(const std::string &archive, const std::string &dir, std::str
 		char type = header[156];
 		unsigned long long padded = (size + 511) / 512 * 512;
 		if (type == 'L') {
+			if (size > PATH_MAX) {
+				error = "failed to extract archive: file name too long";
+				return {};
+			}
 			std::string data(padded, '\0');
 			if (read(data.data(), padded) != padded) {
 				error = "failed to extract archive: unexpected EOF";
@@ -177,11 +182,21 @@ std::string extract(const std::string &archive, const std::string &dir, std::str
 					error = "failed to extract picoclaw binary: unexpected EOF";
 					return {};
 				}
-				file.write(buf.data(), static_cast<std::streamsize>(n));
+				if (!file.write(buf.data(), static_cast<std::streamsize>(n))) {
+					error = "failed to write extracted binary: " + out;
+					return {};
+				}
 				left -= n;
 			}
 			file.close();
-			::chmod(out.c_str(), 0755);
+			if (!file) {
+				error = "failed to close extracted binary: " + out;
+				return {};
+			}
+			if (::chmod(out.c_str(), 0755) != 0) {
+				error = "failed to chmod extracted binary: " + errno_text(errno);
+				return {};
+			}
 			return out;
 		}
 		// Skip the entry's data.

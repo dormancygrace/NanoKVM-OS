@@ -81,7 +81,7 @@ struct Platform {
 	std::function<int(const std::string &url, const std::string &token, std::chrono::milliseconds timeout, std::string &error)> probe;
 	std::function<std::shared_ptr<Link>(const std::string &url, const std::string &token, std::chrono::milliseconds timeout,
 	                                    std::function<void(const std::string &, bool)> on_message,
-	                                    std::function<void(int, const std::string &)> on_closed, int &status, std::string &error)>
+	                                    std::function<void(int, const std::string &)> on_closed, std::function<bool()> renew_lock, int &status, std::string &error)>
 	    connect;
 	// Something listens on host:port (the gateway's port taken by another program).
 	std::function<bool(const std::string &host_port, std::chrono::milliseconds timeout)> port_in_use;

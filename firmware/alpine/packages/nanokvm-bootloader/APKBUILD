@@ -7,6 +7,7 @@ arch="riscv64"
 license="BSD-2-Clause AND GPL-2.0-or-later AND custom:NanoKVM-vendor"
 triggers="$pkgname.trigger=/usr/lib/nanokvm/bootloader"
 # Named nanokvm-bootloader-sg2002 before 3.7.0.
+provides="nanokvm-bootloader-sg2002=$pkgver-r$pkgrel"
 replaces="nanokvm-bootloader-sg2002"
 source="$pkgname-$pkgver.tar.gz"
 options="!check !strip !tracedeps"

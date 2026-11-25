@@ -160,9 +160,43 @@ StateRsp state()
 // bytes. Then: login, password, shell (a prompt ends the text), text, or silent.
 std::pair<std::string, std::string> classify(const std::string &data)
 {
-	static const std::regex csi("\x1b\\[[0-9;?]*[ -/]*[@-~]"), osc("\x1b\\][^\x07\x1b]*(\x07|\x1b\\\\)"),
-		esc("\x1b[^\\[\\]]");
-	std::string clean = std::regex_replace(std::regex_replace(std::regex_replace(data, csi, ""), osc, ""), esc, "");
+	// The three patterns of the Go server, each removed in its own pass, by scanning: std::regex recurses once per
+	// repeated character, and what the host sends here is read on a pool thread's small stack.
+	//   CSI  ESC [ [0-9;?]* [ -/]* [@-~]
+	//   OSC  ESC ] [^BEL ESC]* (BEL | ESC \)
+	//   ESC  ESC and one byte other than [ and ]
+	auto strip = [](const std::string &in, std::size_t (*match)(const std::string &, std::size_t)) {
+		std::string out;
+		for (std::size_t i = 0; i < in.size();) {
+			std::size_t n = in[i] == '\x1b' ? match(in, i) : 0;
+			if (n) {
+				i += n;
+			} else {
+				out += in[i++];
+			}
+		}
+		return out;
+	};
+	auto csi = [](const std::string &in, std::size_t i) -> std::size_t {
+		std::size_t j = i + 1;
+		if (j >= in.size() || in[j] != '[') return 0;
+		j++;
+		while (j < in.size() && ((in[j] >= '0' && in[j] <= '9') || in[j] == ';' || in[j] == '?')) j++;
+		while (j < in.size() && in[j] >= ' ' && in[j] <= '/') j++;
+		return j < in.size() && in[j] >= '@' && in[j] <= '~' ? j + 1 - i : 0;
+	};
+	auto osc = [](const std::string &in, std::size_t i) -> std::size_t {
+		std::size_t j = i + 1;
+		if (j >= in.size() || in[j] != ']') return 0;
+		j++;
+		while (j < in.size() && in[j] != '\x07' && in[j] != '\x1b') j++;
+		if (j < in.size() && in[j] == '\x07') return j + 1 - i;
+		return j + 1 < in.size() && in[j + 1] == '\\' ? j + 2 - i : 0;
+	};
+	auto esc = [](const std::string &in, std::size_t i) -> std::size_t {
+		return i + 1 < in.size() && in[i + 1] != '[' && in[i + 1] != ']' ? 2 : 0;
+	};
+	std::string clean = strip(strip(strip(data, csi), osc), esc);
 	std::string mapped;
 	for (unsigned char c : clean) {
 		if (c == '\n' || c == '\r' || c == '\t') mapped += ' ';

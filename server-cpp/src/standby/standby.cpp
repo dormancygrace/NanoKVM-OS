@@ -1,5 +1,5 @@
 #include "standby/standby.hpp"
-#include "system/tls.hpp"
+#include "http/server.hpp"
 
 #include "auth/session.hpp"
 #include "common/log.hpp"
@@ -10,11 +10,7 @@
 #include "storage/go.hpp"
 #include "system/journal.hpp"
 
-#include <openssl/bio.h>
-#include <openssl/evp.h>
-#include <openssl/pem.h>
 #include <openssl/rand.h>
-#include <openssl/x509.h>
 
 #include <cerrno>
 #include <csignal>
@@ -485,53 +481,6 @@ Error remove_stale()
 	return "";
 }
 
-// The pair the HTTPS listener presents: the configured files, or the generated pair when they cannot be used (as
-// the Go server falls back), re-encoded as PEM certificates and a PKCS #8 key.
-Error served_certificate_pem(std::string &cert_pem, std::string &key_pem)
-{
-	auto load = [&](const std::string &crt, const std::string &key) -> bool {
-		cert_pem.clear();
-		key_pem.clear();
-		std::string crt_data, key_data;
-		if (go::read_file(crt, crt_data) || go::read_file(key, key_data)) return false;
-		BIO *in = BIO_new_mem_buf(crt_data.data(), static_cast<int>(crt_data.size()));
-		BIO *out = BIO_new(BIO_s_mem());
-		X509 *leaf = nullptr;
-		while (X509 *x = PEM_read_bio_X509(in, nullptr, nullptr, nullptr)) {
-			PEM_write_bio_X509(out, x);
-			if (!leaf) leaf = x;
-			else X509_free(x);
-		}
-		BIO_free(in);
-		BUF_MEM *mem = nullptr;
-		BIO_get_mem_ptr(out, &mem);
-		if (mem) cert_pem.assign(mem->data, mem->length);
-		BIO_free(out);
-		BIO *kin = BIO_new_mem_buf(key_data.data(), static_cast<int>(key_data.size()));
-		EVP_PKEY *pkey = PEM_read_bio_PrivateKey(kin, nullptr, nullptr, nullptr);
-		BIO_free(kin);
-		bool ok = leaf && pkey && X509_check_private_key(leaf, pkey) == 1;
-		if (ok) {
-			BIO *kout = BIO_new(BIO_s_mem());
-			ok = PEM_write_bio_PKCS8PrivateKey(kout, pkey, nullptr, nullptr, 0, nullptr, nullptr) == 1;
-			BUF_MEM *km = nullptr;
-			BIO_get_mem_ptr(kout, &km);
-			if (ok && km) key_pem.assign(km->data, km->length);
-			BIO_free(kout);
-		}
-		X509_free(leaf);
-		EVP_PKEY_free(pkey);
-		return ok && !cert_pem.empty() && !key_pem.empty();
-	};
-	if (auto served = system::tls::server_certificate().current(); !served.crt.empty() && load(served.crt, served.key)) return "";
-	config::Cert cert = config::get().cert.with_defaults();
-	if (load(cert.crt, cert.key)) return "";
-	if ((cert.crt != config::default_cert_file || cert.key != config::default_key_file) &&
-	    load(config::default_cert_file, config::default_key_file))
-		return "";
-	return "no served certificate";
-}
-
 // --- the route's state ---------------------------------------------------------------------------------------------
 
 struct Page {
@@ -655,13 +604,12 @@ void answer_shutdown(const ShutdownCall &call, http::Response &out)
 			return;
 		}
 		cfg.port = call.https_port;
-		std::string cert, key;
-		if (Error e = served_certificate_pem(cert, key); !e.empty()) {
+		if (call.cert_pem.empty() || call.key_pem.empty()) {
 			network::fail(out, -1, "could not stage the current HTTPS certificate");
 			return;
 		}
-		cfg.certificate = cert;
-		cfg.private_key = key;
+		cfg.certificate = call.cert_pem;
+		cfg.private_key = call.key_pem;
 	}
 	std::unique_ptr<Prepared> p;
 	if (Error e = prepare(cfg, p); !e.empty()) {
@@ -722,8 +670,9 @@ void add_routes(http::Router &router)
 	    [](http::Request &req, http::Response &res) {
 		    const auto &conf = config::get();
 		    ShutdownCall call{req.body, req.header("host"), req.peer, req.auth ? req.auth->username : "", conf.proto,
-		                      req.tls, conf.port.http, conf.port.https};
-		    http::defer(req, res, [call](http::Response &out) { answer_shutdown(call, out); });
+		                      req.tls, conf.port.http, conf.port.https, {}, {}};
+		    if (call.tls && call.proto == "https") http::current_certificate_pem(call.cert_pem, call.key_pem);
+		    http::defer(req, res, [call = std::move(call)](http::Response &out) { answer_shutdown(call, out); });
 	    },
 	    auth::Guard{{"admin"}});
 	router.add("POST", "/api/vm/system/shutdown", [inner](http::Request &req, http::Response &res) {

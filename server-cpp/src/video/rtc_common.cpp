@@ -91,6 +91,7 @@ rtc::Configuration configuration(const std::vector<rtc::IceServer> &servers, con
 	rtc::SetDtlsCipherList(network::webrtc_servers().dtls_cipher == "aes-gcm" ? aes + ":" + chacha : chacha + ":" + aes);
 	rtc::Configuration config;
 	config.iceServers = servers;
+	config.preferDtlsServer = true;  // The device chooses the negotiated suite for normal browser offers.
 	if (!bind_address.empty()) config.bindAddress = bind_address;
 	if (mtu) config.mtu = mtu;
 	config.certificateType = rtc::CertificateType::Ecdsa;

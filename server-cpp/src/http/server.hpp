@@ -32,6 +32,9 @@ bool needs_loopback_listener(std::string host);
 // Serves a new pair (PEM) from now on, without disturbing the open connections; false when it cannot be loaded (the
 // old one is kept). Loop thread.
 bool serve_certificate(const std::string &cert_pem, const std::string &key_pem);
+// On the event loop, snapshot the HTTPS listener's active leaf, chain and private key for the standby listener.
+bool current_certificate_pem(std::string &cert, std::string &key);
+
 
 // The interface the request's connection arrived on, as the kernel saw it (IP_PKTINFO of its last packet), not the
 // destination address the peer chose; nullopt when it cannot be read. Loop thread, during the request.

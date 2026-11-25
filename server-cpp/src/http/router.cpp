@@ -143,7 +143,9 @@ bool Router::admits(Request &request) const
 		if (r.method != request.method || !match(r.path, request.path, params)) continue;
 		return !r.check || r.check(request);
 	}
-	return true;
+	// API endpoints are registered routes. Dispatch an unknown method or path from its headers;
+	// middleware-owned endpoints elsewhere (including Redfish) still receive their bodies.
+	return !request.path.starts_with("/api/");
 }
 
 void Router::set_body_limit(std::function<std::size_t(const Request &)> limit) { body_limit_ = std::move(limit); }

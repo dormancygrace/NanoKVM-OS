@@ -1,4 +1,5 @@
 #include "auth/password.hpp"
+#include "http/router.hpp"
 
 #include <openssl/core_names.h>
 #include <openssl/crypto.h>
@@ -7,6 +8,9 @@
 #include <openssl/rand.h>
 
 #include <crypt.h>
+#include <algorithm>
+#include <climits>
+#include <memory>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -53,6 +57,40 @@ std::optional<std::vector<unsigned char>> unb64(std::string_view s)
 		}
 	}
 	return out;
+}
+
+// CryptoJS encodes "Salted__", an eight-byte salt and PKCS#7-padded AES-CBC ciphertext in standard Base64.
+std::optional<std::string> decrypt_legacy(std::string_view wire)
+{
+	if (wire.empty()) return std::string{};
+	std::string encoded(wire);
+	std::erase(encoded, '\r');
+	std::erase(encoded, '\n');
+	if (encoded.size() < 44 || encoded.size() > INT_MAX || encoded.size() % 4 != 0) return std::nullopt;
+	const size_t padding = encoded.ends_with("==") ? 2 : encoded.ends_with("=") ? 1 : 0;
+	constexpr std::string_view alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	if (std::string_view(encoded).substr(0, encoded.size() - padding).find_first_not_of(alphabet) != std::string_view::npos)
+		return std::nullopt;
+	std::vector<unsigned char> raw(encoded.size() / 4 * 3);
+	int n = EVP_DecodeBlock(raw.data(), reinterpret_cast<const unsigned char *>(encoded.data()), static_cast<int>(encoded.size()));
+	if (n < 0) return std::nullopt;
+	raw.resize(static_cast<size_t>(n) - padding);
+	if (raw.size() < 32 || (raw.size() - 16) % 16 || std::memcmp(raw.data(), "Salted__", 8) != 0) return std::nullopt;
+
+	// This public passphrase is the original API's wire format. HTTPS protects credentials in transit.
+	static constexpr unsigned char passphrase[] = "nanokvm-sipeed-2024";
+	unsigned char key[32], iv[16];
+	if (EVP_BytesToKey(EVP_aes_256_cbc(), EVP_md5(), raw.data() + 8, passphrase, sizeof passphrase - 1, 1, key, iv) != 32)
+		return std::nullopt;
+	std::unique_ptr<EVP_CIPHER_CTX, decltype(&EVP_CIPHER_CTX_free)> ctx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
+	if (!ctx || EVP_DecryptInit_ex(ctx.get(), EVP_aes_256_cbc(), nullptr, key, iv) != 1) return std::nullopt;
+	std::string plain(raw.size() - 16, '\0');
+	auto *out = reinterpret_cast<unsigned char *>(plain.data());
+	int len = 0, tail = 0;
+	if (EVP_DecryptUpdate(ctx.get(), out, &len, raw.data() + 16, static_cast<int>(raw.size() - 16)) != 1 ||
+	    EVP_DecryptFinal_ex(ctx.get(), out + len, &tail) != 1) return std::nullopt;
+	plain.resize(static_cast<size_t>(len + tail));
+	return plain;
 }
 
 bool argon2id(std::string_view password, const unsigned char *salt, size_t salt_size, std::uint32_t m, std::uint32_t t,
@@ -140,7 +178,12 @@ bool verify_password(const std::string &hash, std::string_view password)
 
 std::optional<std::string> decode_credential(std::string_view value, std::string_view encoding)
 {
-	if (encoding.empty() || encoding == "plain") return std::string(value);
+	if (encoding == "plain") return std::string(value);
+	if (encoding.empty() || encoding == "cryptojs") {
+		if (auto plain = decrypt_legacy(value)) return plain;
+		// Form parsing already unescapes the value; the older JSON clients percent-encode their Base64.
+		if (value.find('%') != std::string_view::npos) return decrypt_legacy(http::url_decode(value));
+	}
 	return std::nullopt;
 }
 

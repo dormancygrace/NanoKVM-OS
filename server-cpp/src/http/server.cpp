@@ -32,6 +32,37 @@ namespace {
 
 enum class Role { serve, redirect };
 
+// All listeners run on one lws service thread. Count physical clients for their entire
+// lifetime, including after a protocol upgrade. HTTP/2 child streams share the same slot.
+constexpr std::size_t max_connections = 256, max_connections_per_source = 64;
+std::map<lws *, std::string> counted_clients;
+std::map<std::string, std::size_t> source_counts;
+
+std::string connection_source(const sockaddr_storage &addr)
+{
+	const unsigned char *v4;
+	if (addr.ss_family == AF_INET) {
+		v4 = reinterpret_cast<const unsigned char *>(&reinterpret_cast<const sockaddr_in &>(addr).sin_addr);
+	} else if (addr.ss_family == AF_INET6) {
+		const auto &v6 = reinterpret_cast<const sockaddr_in6 &>(addr).sin6_addr;
+		if (IN6_IS_ADDR_LOOPBACK(&v6)) return {};
+		if (!IN6_IS_ADDR_V4MAPPED(&v6)) return {reinterpret_cast<const char *>(v6.s6_addr), 8};
+		v4 = v6.s6_addr + 12;
+	} else {
+		return {};
+	}
+	if (v4[0] == 127) return {};
+	return {reinterpret_cast<const char *>(v4), 4};
+}
+
+bool connection_full(const std::string &source)
+{
+	if (source.empty()) return false;
+	auto it = source_counts.find(source);
+	return counted_clients.size() >= max_connections ||
+	       (it != source_counts.end() && it->second >= max_connections_per_source);
+}
+
 struct VhostData {
 	Role role;
 	const Router *router;
@@ -427,6 +458,33 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 {
 	auto *pss = static_cast<Pss *>(user);
 	switch (reason) {
+	case LWS_CALLBACK_FILTER_NETWORK_CONNECTION: {
+		// lws asks before adoption and TLS, then synchronously adopts before its next accept.
+		auto *args = static_cast<lws_filter_network_conn_args *>(user);
+		return connection_full(connection_source(args->cli_addr)) ? 1 : 0;
+	}
+	case LWS_CALLBACK_SERVER_NEW_CLIENT_INSTANTIATED: {
+		if (lws_get_network_wsi(wsi) != wsi || counted_clients.contains(wsi)) return 0;
+		sockaddr_storage peer{};
+		socklen_t size = sizeof peer;
+		if (::getpeername(lws_get_socket_fd(wsi), reinterpret_cast<sockaddr *>(&peer), &size) != 0) return -1;
+		auto source = connection_source(peer);
+		if (!source.empty()) {
+			if (connection_full(source)) return -1;
+			counted_clients.emplace(wsi, source);
+			++source_counts[source];
+		}
+		return 0;
+	}
+	case LWS_CALLBACK_WSI_DESTROY: {
+		auto client = counted_clients.find(wsi);
+		if (client != counted_clients.end()) {
+			auto count = source_counts.find(client->second);
+			if (--count->second == 0) source_counts.erase(count);
+			counted_clients.erase(client);
+		}
+		return 0;
+	}
 	case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS:
 		vhost_ssl_ctx = static_cast<SSL_CTX *>(user);
 		return 0;
@@ -451,17 +509,14 @@ int callback(lws *wsi, enum lws_callback_reasons reason, void *user, void *in, s
 		s.head = s.request.method == "HEAD";
 		(void)in;
 		(void)len;
-		// A body is read before the request is handled. HTTP/1.1 announces one with Content-Length or
-		// Transfer-Encoding. An HTTP/2 stream may carry DATA with neither: its body ends with the stream, which
-		// lws reports as the body's completion. For a POST it reports that completion also when the headers ended
-		// the stream, so a POST waits for it on HTTP/2. For other methods lws is silent about a stream that ended
-		// with its headers, and nothing public tells it from one whose DATA is still to come: they are handled
-		// from their headers unless they declare a length.
+		// HTTP/2 bodies can omit Content-Length. The body-method dispatch reports completion even when
+		// the request ends in HEADERS or an empty DATA frame.
 		char length[24] = {};
 		bool declared = lws_hdr_copy(wsi, length, sizeof length, WSI_TOKEN_HTTP_CONTENT_LENGTH) > 0;
 		long long declared_length = declared ? std::atoll(length) : 0;
 		bool http2 = lws_get_network_wsi(wsi) != wsi;
-		bool takes_body = s.request.method == "POST";
+		bool takes_body = s.request.method == "POST" || s.request.method == "PUT" ||
+		                  s.request.method == "PATCH" || s.request.method == "DELETE";
 		if (declared ? declared_length > 0
 		             : http2 ? takes_body : lws_hdr_total_length(wsi, WSI_TOKEN_HTTP_TRANSFER_ENCODING) > 0) {
 			s.body_expected = true;
@@ -893,6 +948,32 @@ bool serve_certificate(const std::string &cert_pem, const std::string &key_pem)
 		ERR_clear_error();
 		BIO_free(bio);
 	}
+	return true;
+}
+
+bool current_certificate_pem(std::string &cert, std::string &key)
+{
+	if (!vhost_ssl_ctx) return false;
+	X509 *leaf = SSL_CTX_get0_certificate(vhost_ssl_ctx);
+	EVP_PKEY *private_key = SSL_CTX_get0_privatekey(vhost_ssl_ctx);
+	if (!leaf || !private_key || SSL_CTX_check_private_key(vhost_ssl_ctx) != 1) return false;
+	std::unique_ptr<BIO, decltype(&BIO_free)> certificates(BIO_new(BIO_s_mem()), BIO_free);
+	std::unique_ptr<BIO, decltype(&BIO_free)> secret(BIO_new(BIO_s_mem()), BIO_free);
+	if (!certificates || !secret || PEM_write_bio_X509(certificates.get(), leaf) != 1) return false;
+	STACK_OF(X509) *chain = nullptr;
+	SSL_CTX_get0_chain_certs(vhost_ssl_ctx, &chain);
+	if (!chain) SSL_CTX_get_extra_chain_certs_only(vhost_ssl_ctx, &chain);
+	for (int i = 0; i < sk_X509_num(chain); ++i)
+		if (PEM_write_bio_X509(certificates.get(), sk_X509_value(chain, i)) != 1) return false;
+	if (PEM_write_bio_PKCS8PrivateKey(secret.get(), private_key, nullptr, nullptr, 0, nullptr, nullptr) != 1) return false;
+	char *bytes;
+	const auto cert_len = BIO_get_mem_data(certificates.get(), &bytes);
+	if (cert_len <= 0) return false;
+	std::string cert_out(bytes, static_cast<size_t>(cert_len));
+	const auto key_len = BIO_get_mem_data(secret.get(), &bytes);
+	if (key_len <= 0) return false;
+	key.assign(bytes, static_cast<size_t>(key_len));
+	cert = std::move(cert_out);
 	return true;
 }
 

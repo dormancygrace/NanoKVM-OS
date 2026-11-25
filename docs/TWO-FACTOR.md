@@ -63,4 +63,7 @@ The secret, the last accepted step and SHA-256 hashes of the unused recovery cod
 | `DELETE /api/auth/users/:username/totp` | administrators | | off for another account, not the device owner |
 | `GET /api/auth/users` | administrators | | `totpEnabled` per user |
 
-Passwords use the same `passwordEncoding` as the other account requests.
+For all account requests and SSH setup, send passwords over HTTPS with `passwordEncoding: "plain"`.
+The server uses the supplied password verbatim, including percent escapes. For compatibility with the original API,
+omitting the field or setting it to `"cryptojs"` selects the salted CryptoJS format. Send its Base64 value directly
+or percent-encoded. A malformed legacy value is rejected before any password change.

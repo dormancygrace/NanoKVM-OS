@@ -122,8 +122,15 @@ void password_tests()
 	auto fresh = auth::hash_password("new password");
 	CHECK(fresh && auth::verify_password(*fresh, "new password") && !auth::verify_password(*fresh, "new passwore"));
 	// Passwords travel as entered: any other encoding is refused, not guessed at.
-	CHECK(auth::decode_credential("p%41ss", "") == "p%41ss" && auth::decode_credential("p%41ss", "plain") == "p%41ss");
-	for (const char *enc : {"aes", "base64", "PLAIN", "cryptojs"}) CHECK(!auth::decode_credential("x", enc), enc);
+	// A known answer from the original server, including Base64 '+' and '/' and their JSON-escaped forms.
+	const char *raw = "U2FsdGVkX18zLUxaLNGy7jL96oMO4tq6wDYwVzUMO3XfTY2Zy/ipO4LDEqtBT+fx";
+	const char *escaped = "U2FsdGVkX18zLUxaLNGy7jL96oMO4tq6wDYwVzUMO3XfTY2Zy%2FipO4LDEqtBT%2Bfx";
+	for (const char *enc : {"", "cryptojs"}) {
+		CHECK(auth::decode_credential(raw, enc) == "operator-password" && auth::decode_credential(escaped, enc) == "operator-password");
+		CHECK(!auth::decode_credential("p%41ss", enc) && !auth::decode_credential(std::string(raw) + "=", enc));
+	}
+	CHECK(auth::decode_credential(raw, "plain") == raw && auth::decode_credential("p%41ss", "plain") == "p%41ss");
+	for (const char *enc : {"aes", "base64", "PLAIN"}) CHECK(!auth::decode_credential(raw, enc), enc);
 }
 
 void store_tests(const std::string &dir)

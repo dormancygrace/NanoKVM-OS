@@ -30,16 +30,19 @@ if [ ! -f "$b/glaze.stamp" ] || [ "$(cat "$b/glaze.stamp")" != "$glaze" ]; then
 	rm -rf "$b/glaze" && mkdir "$b/glaze" && tar -xzf "$glaze" -C "$b/glaze" --strip-components=1
 	echo "$glaze" > "$b/glaze.stamp"
 fi
-if [ ! -f "$b/lws.stamp" ] || [ "$(cat "$b/lws.stamp")" != "$lws" ]; then
+lws_patches=("$tests"/../patches/libwebsockets/*.patch)
+lws_stamp="$lws $(cat "${lws_patches[@]}" | sha256sum)"
+if [ ! -f "$b/lws.stamp" ] || [ "$(cat "$b/lws.stamp")" != "$lws_stamp" ]; then
 	rm -rf "$b/lws-src" "$b/lws-build" "$b/lws" && mkdir "$b/lws-src"
 	tar -xzf "$lws" -C "$b/lws-src" --strip-components=1
+	for patch_file in "${lws_patches[@]}"; do patch -d "$b/lws-src" -p1 < "$patch_file"; done
 	cmake -S "$b/lws-src" -B "$b/lws-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$b/lws" \
 		-DLWS_WITH_SSL=ON -DLWS_WITH_HTTP2=ON -DLWS_WITH_HTTP3=OFF -DLWS_WITH_RANGES=ON -DLWS_WITH_SHARED=OFF \
 		-DLWS_WITH_STATIC=ON -DLWS_WITHOUT_TESTAPPS=ON -DLWS_WITHOUT_TEST_SERVER=ON -DLWS_WITHOUT_TEST_CLIENT=ON \
 		-DLWS_WITH_MINIMAL_EXAMPLES=OFF -DLWS_WITH_ZLIB=OFF -DLWS_WITHOUT_EXTENSIONS=ON -DLWS_IPV6=ON \
 		-DLWS_WITH_LIBUV=OFF -DLWS_WITH_LIBEVENT=OFF -DLWS_WITH_GLIB=OFF -DDISABLE_WERROR=ON > "$b/lws.log" 2>&1 \
 		&& ninja -C "$b/lws-build" install >> "$b/lws.log" 2>&1 || { tail -30 "$b/lws.log" >&2; exit 1; }
-	echo "$lws" > "$b/lws.stamp"
+	echo "$lws_stamp" > "$b/lws.stamp"
 fi
 
 # The server units the tests reach, as one archive.

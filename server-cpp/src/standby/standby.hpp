@@ -54,6 +54,7 @@ struct ShutdownCall {
 	std::string body, host, client, user, proto;
 	bool tls = false;
 	long long http_port = 80, https_port = 443;
+	std::string cert_pem, key_pem;
 };
 void answer_shutdown(const ShutdownCall &call, http::Response &out);
 // The standby page as served now (Go's handler variable); the request as the page's handler reads it.

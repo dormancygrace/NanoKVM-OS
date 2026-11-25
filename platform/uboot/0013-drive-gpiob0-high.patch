@@ -1,0 +1,32 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] sophgo: drive GPIOB0 high as Sipeed's board init does
+
+Sipeed's cvi_board_init() sets XGPIOB[0] (pad PWM0_BUCK) to a GPIO
+output at high level on every LicheeRV Nano based board. Some NanoKVM
+Lite units need it for Ethernet: without it the PHY never gets a link
+partner and eth0 stays at NO-CARRIER. Linux does not claim the pad, so
+the state set here holds.
+
+Latch first, then direction, then the pinmux, so the pad never drives
+low as an output. Only bit 0 of the GPIOB registers changes.
+
+---
+--- a/board/sophgo/licheerv_nano/board.c
++++ b/board/sophgo/licheerv_nano/board.c
+@@ -39,5 +39,14 @@
+ 	 */
+ 	writel(0x11, (void __iomem *)0x05027078);
+
++	/* XGPIOB[0] on pad PWM0_BUCK: output, high. Sipeed's board init does
++	 * this on every board; some NanoKVM Lite units have no Ethernet link
++	 * without it. Latch, direction, then the pinmux, so the pad never
++	 * drives low.
++	 */
++	setbits_le32((void __iomem *)0x03021000, BIT(0)); /* data: high */
++	setbits_le32((void __iomem *)0x03021004, BIT(0)); /* direction: out */
++	writel(3, (void __iomem *)0x030010ec);             /* pinmux: XGPIOB_0 */
++
+ 	return 0;
+ }
+--
+2.43.0

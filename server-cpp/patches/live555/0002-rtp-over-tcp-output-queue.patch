@@ -3,7 +3,7 @@ RTPInterface, RTSPServer: RTP, RTCP and RTSP replies over TCP through one bounde
 diff -ru a/liveMedia/RTPInterface.cpp b/liveMedia/RTPInterface.cpp
 --- a/liveMedia/RTPInterface.cpp
 +++ b/liveMedia/RTPInterface.cpp
-@@ -23,6 +23,132 @@
+@@ -23,6 +23,133 @@
  #include "RTPInterface.hh"
  #include <GroupsockHelper.hh>
  #include <stdio.h>
@@ -18,6 +18,7 @@ diff -ru a/liveMedia/RTPInterface.cpp b/liveMedia/RTPInterface.cpp
 +unsigned RTPInterfaceMaxBacklogBytes = 2 << 20;
 +void (*RTPInterfaceBacklogHook)(int socketNum, unsigned backlogBytes) = NULL;
 +void (*RTPInterfaceClosedHook)(int socketNum) = NULL;
++void (*RTPInterfaceStreamRemovedHook)(int socketNum, unsigned char channelId) = NULL;
 +
 +namespace {
 +struct TcpOutput {
@@ -136,7 +137,15 @@ diff -ru a/liveMedia/RTPInterface.cpp b/liveMedia/RTPInterface.cpp
  
  ////////// Helper Functions - Definition //////////
  
-@@ -346,6 +472,20 @@
+@@ -208,6 +335,7 @@
+ 
+ 	// And 'deregister' this socket,channelId pair:
+ 	deregisterSocket(envir(), sockNum, streamChannelIdToRemove);
++	if (RTPInterfaceStreamRemovedHook != NULL) (*RTPInterfaceStreamRemovedHook)(sockNum, streamChannelIdToRemove);
+ 
+ 	if (streamChannelId != 0xFF) return; // we're done
+ 	break; // start again from the beginning of the list, in case the list has changed
+@@ -346,6 +474,20 @@
    fprintf(stderr, "sendRTPorRTCPPacketOverTCP: %d bytes over channel %d (socket %d)\n",
  	  packetSize, streamChannelId, socketNum); fflush(stderr);
  #endif
@@ -189,7 +198,7 @@ diff -ru a/liveMedia/RTSPServer.cpp b/liveMedia/RTSPServer.cpp
 diff -ru a/liveMedia/include/RTPInterface.hh b/liveMedia/include/RTPInterface.hh
 --- a/liveMedia/include/RTPInterface.hh
 +++ b/liveMedia/include/RTPInterface.hh
-@@ -23,6 +23,24 @@
+@@ -23,6 +23,26 @@
  #ifndef _RTP_INTERFACE_HH
  #define _RTP_INTERFACE_HH
  
@@ -204,6 +213,8 @@ diff -ru a/liveMedia/include/RTPInterface.hh b/liveMedia/include/RTPInterface.hh
 +extern void (*RTPInterfaceBacklogHook)(int socketNum, unsigned backlogBytes);
 +// Called when the queue of a socket is dropped: the connection closed, or the client was disconnected.
 +extern void (*RTPInterfaceClosedHook)(int socketNum);
++// Called when a track stops streaming over a socket (its TEARDOWN, or the connection's end), for each channel.
++extern void (*RTPInterfaceStreamRemovedHook)(int socketNum, unsigned char channelId);
 +// Writes bytes to a TCP socket behind what is queued for it. False when the client was disconnected.
 +bool RTPInterfaceWrite(TaskScheduler& scheduler, int socketNum, char const* data, unsigned size);
 +// Drops the queue of a socket (the connection closes; a new connection may reuse the number).

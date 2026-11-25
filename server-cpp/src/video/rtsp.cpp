@@ -27,6 +27,7 @@
 #include <cerrno>
 #include <cctype>
 #include <map>
+#include <set>
 #include <climits>
 #include <chrono>
 #include <cstring>
@@ -620,6 +621,9 @@ void audio_queued(void *)
 // ---------------------------------------------------------------------------------------------------------------
 // live555 objects (RTSP thread)
 
+// A client set up the video track over its TCP connection on this channel (defined with the server below).
+void video_set_up(int socket, unsigned char channel);
+
 class Subsession : public OnDemandServerMediaSubsession {
 public:
 	static Subsession *createNew(UsageEnvironment &env, Codec codec) { return new Subsession(env, codec); }
@@ -636,6 +640,17 @@ protected:
 		source->codec_ = codec_;
 		if (codec_ == Codec::h264) return H264VideoStreamDiscreteFramer::createNew(envir(), source);
 		return H265VideoStreamDiscreteFramer::createNew(envir(), source);
+	}
+	// The video channel of a client over TCP: only clients with one count for the lag of the stream.
+	void getStreamParameters(unsigned id, sockaddr_storage const &client, Port const &rtp, Port const &rtcp, int tcp_socket,
+	                         unsigned char rtp_channel, unsigned char rtcp_channel, TLSState *tls,
+	                         sockaddr_storage &destination, u_int8_t &ttl, Boolean &multicast, Port &server_rtp,
+	                         Port &server_rtcp, void *&token) override
+	{
+		OnDemandServerMediaSubsession::getStreamParameters(id, client, rtp, rtcp, tcp_socket, rtp_channel, rtcp_channel,
+		                                                   tls, destination, ttl, multicast, server_rtp, server_rtcp,
+		                                                   token);
+		if (tcp_socket >= 0) video_set_up(tcp_socket, rtp_channel);
 	}
 	// A client joining a stream that already runs starts at an IDR too.
 	void startStream(unsigned id, void *token, TaskFunc *rr, void *rr_data, unsigned short &seq, unsigned &ts,
@@ -802,15 +817,29 @@ protected:
 	}
 
 public:
-	// RTSP thread: the output queue of a client receiving the stream, after a packet or a drain (live555 patch 0002).
+	// RTSP thread: the output queue of a client, after a packet or a drain (live555 patch 0002). It counts only while
+	// the client has a video track: audio and control alone do not take the video late.
 	void backlog(int socket, unsigned bytes)
 	{
+		if (!video_channels_.contains(socket)) return;
 		backlogs_[socket] = bytes;
+		update_least();
+	}
+	// RTSP thread: a client set up the video track on this channel.
+	void video_set_up(int socket, unsigned char channel) { video_channels_[socket].insert(channel); }
+	// RTSP thread: a track stopped streaming over the socket (TEARDOWN, or the end of the connection).
+	void stream_removed(int socket, unsigned char channel)
+	{
+		auto it = video_channels_.find(socket);
+		if (it == video_channels_.end() || !it->second.erase(channel) || !it->second.empty()) return;
+		video_channels_.erase(it);
+		backlogs_.erase(socket);
 		update_least();
 	}
 	// RTSP thread: the client's connection closed, or it was disconnected.
 	void closed(int socket)
 	{
+		video_channels_.erase(socket);
 		backlogs_.erase(socket);
 		update_least();
 	}
@@ -856,7 +885,8 @@ private:
 	ServerMediaSession *session_ = nullptr;
 	Subsession *subsession_ = nullptr;
 	bool audio_ = false;
-	std::map<int, unsigned> backlogs_;  // output queues of the clients receiving the stream
+	std::map<int, unsigned> backlogs_;  // output queues of the clients receiving the video
+	std::map<int, std::set<unsigned char>> video_channels_;  // video channels of each client's connection
 
 	void update_least()
 	{
@@ -871,6 +901,11 @@ private:
 
 // The server of the RTSP thread, for live555's backlog hook (a plain function). RTSP thread.
 Server *active_server = nullptr;
+
+void video_set_up(int socket, unsigned char channel)
+{
+	if (active_server) active_server->video_set_up(socket, channel);
+}
 
 class Runner {
 public:
@@ -923,6 +958,9 @@ private:
 		RTPInterfaceClosedHook = [](int socket) {
 			if (active_server) active_server->closed(socket);
 		};
+		RTPInterfaceStreamRemovedHook = [](int socket, unsigned char channel) {
+			if (active_server) active_server->stream_removed(socket, channel);
+		};
 		command_event_ = scheduler->createEventTrigger(run_commands);
 		frame_event_ = scheduler->createEventTrigger(frame_queued);
 		audio_event_ = scheduler->createEventTrigger(audio_queued);
@@ -939,6 +977,7 @@ private:
 		audio_feed.detach();
 		RTPInterfaceBacklogHook = nullptr;
 		RTPInterfaceClosedHook = nullptr;
+		RTPInterfaceStreamRemovedHook = nullptr;
 		active_server = nullptr;
 		least_backlog.store(0);
 		Medium::close(server_);

@@ -27,6 +27,7 @@
 #include <cerrno>
 #include <cctype>
 #include <map>
+#include <climits>
 #include <chrono>
 #include <cstring>
 #include <format>
@@ -57,11 +58,14 @@ constexpr std::size_t max_queued_frames = 60;
 // it: they count as lagging for the adaptive bit rate, before the queue overflows.
 constexpr std::size_t backlog_lag_frames = 12;
 // A client with more than this waiting in its output queue (live555 patch 0002; about 25 ms of a 20 Mbit/s stream)
-// takes the stream late: lag for the adaptive bit rate. Its queue holds at most 2 MiB; past that it is disconnected.
+// takes the stream late. All RTSP clients share one encoder rate, so that is lag for the adaptive bit rate only when
+// every client is that far behind: one slow client does not lower the picture of the others. Its queue holds at most
+// 2 MiB; past that it is disconnected.
 constexpr unsigned backlog_lag_bytes = 64 << 10;
 
-// The largest output queue of an RTSP client, set on the RTSP thread and read on the loop thread.
-std::atomic<unsigned> largest_backlog{0};
+// The smallest output queue of the clients receiving the stream (0 without one): set on the RTSP thread, read on the
+// loop thread.
+std::atomic<unsigned> least_backlog{0};
 // The parameter sets for the SDP come from the first key frame; without a picture DESCRIBE answers without them.
 constexpr unsigned sdp_wait_ms = 3000;
 constexpr unsigned max_connections = 32;
@@ -241,7 +245,7 @@ public:
 				want_key_ = false;
 				lagging_ = false;
 				queue_.push_back({frame, SteadyClock::now()});
-				if (queue_.size() > backlog_lag_frames || largest_backlog.load() > backlog_lag_bytes) report_lag(this);
+				if (queue_.size() > backlog_lag_frames || least_backlog.load() > backlog_lag_bytes) report_lag(this);
 				scheduler_->triggerEvent(event_, this);
 			}
 		}
@@ -787,7 +791,7 @@ protected:
 		}
 		close_on_exec(socket);
 		RTPInterfaceForgetSocket(socket);
-		backlogs_.erase(socket);
+		closed(socket);
 		int bytes = 256 << 10;
 		if (setsockopt(socket, SOL_SOCKET, SO_SNDBUFFORCE, &bytes, sizeof bytes) != 0)
 			log::error("rtsp: cannot enlarge the send buffer: {}", std::strerror(errno));
@@ -798,14 +802,17 @@ protected:
 	}
 
 public:
-	// RTSP thread: a client's output queue after a packet (live555 patch 0002).
+	// RTSP thread: the output queue of a client receiving the stream, after a packet or a drain (live555 patch 0002).
 	void backlog(int socket, unsigned bytes)
 	{
-		if (bytes) backlogs_[socket] = bytes;
-		else backlogs_.erase(socket);
-		unsigned largest = 0;
-		for (auto &[s, b] : backlogs_) largest = std::max(largest, b);
-		largest_backlog.store(largest);
+		backlogs_[socket] = bytes;
+		update_least();
+	}
+	// RTSP thread: the client's connection closed, or it was disconnected.
+	void closed(int socket)
+	{
+		backlogs_.erase(socket);
+		update_least();
 	}
 
 protected:
@@ -849,7 +856,14 @@ private:
 	ServerMediaSession *session_ = nullptr;
 	Subsession *subsession_ = nullptr;
 	bool audio_ = false;
-	std::map<int, unsigned> backlogs_;  // output queues of the clients that have one
+	std::map<int, unsigned> backlogs_;  // output queues of the clients receiving the stream
+
+	void update_least()
+	{
+		unsigned least = backlogs_.empty() ? 0 : UINT_MAX;
+		for (auto &[s, b] : backlogs_) least = std::min(least, b);
+		least_backlog.store(least);
+	}
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -906,6 +920,9 @@ private:
 		RTPInterfaceBacklogHook = [](int socket, unsigned bytes) {
 			if (active_server) active_server->backlog(socket, bytes);
 		};
+		RTPInterfaceClosedHook = [](int socket) {
+			if (active_server) active_server->closed(socket);
+		};
 		command_event_ = scheduler->createEventTrigger(run_commands);
 		frame_event_ = scheduler->createEventTrigger(frame_queued);
 		audio_event_ = scheduler->createEventTrigger(audio_queued);
@@ -921,10 +938,12 @@ private:
 		feed.detach();
 		audio_feed.detach();
 		RTPInterfaceBacklogHook = nullptr;
+		RTPInterfaceClosedHook = nullptr;
 		active_server = nullptr;
-		largest_backlog.store(0);
+		least_backlog.store(0);
 		Medium::close(server_);
 		server_ = nullptr;
+		RTPInterfaceForgetAll();
 		{
 			std::lock_guard lock(mutex_);
 			scheduler_ = nullptr;
@@ -973,11 +992,13 @@ std::string last_error;  // why the server does not run, or listens on one addre
 int stops = 0;
 std::function<void()> next_start;
 
-void apply(const Settings &s);
+void apply(const Settings &s, std::string error = {});
+void stop_with(const std::string &error);
 
-void launch(const Settings &s)
+// Starts a server for s; error is the reason shown when it does not run.
+void launch(const Settings &s, std::string error = {})
 {
-	last_error.clear();
+	last_error = std::move(error);
 	if (!s.enabled) return;
 	auto r = std::make_shared<Runner>();
 	if (auto error = r->start(s)) {
@@ -992,7 +1013,8 @@ void launch(const Settings &s)
 		loop::post([] {
 			if (!runner) return;
 			std::string error;
-			if (auto s = checked_settings(error)) apply(*s);
+			if (auto s = checked_settings(error)) return apply(*s);
+			stop_with(error);
 		});
 	};
 }
@@ -1005,10 +1027,10 @@ void start_next()
 	fn();
 }
 
-void apply(const Settings &s)
+void apply(const Settings &s, std::string error)
 {
 	feed.restart_clients = nullptr;
-	next_start = [s] { launch(s); };
+	next_start = [s, error = std::move(error)] { launch(s, error); };
 	if (auto old = std::move(runner)) {
 		stops++;
 		loop::blocking([old] {
@@ -1020,6 +1042,16 @@ void apply(const Settings &s)
 		});
 	}
 	start_next();
+}
+
+// No valid password could be made and saved: the running server stops (on the pool thread, as for any change), and
+// the page shows why.
+void stop_with(const std::string &error)
+{
+	log::error("rtsp: {}", error);
+	Settings off = load_settings();
+	off.enabled = false;
+	apply(off, error);
 }
 
 std::string settings_json(const Settings &s)
@@ -1042,8 +1074,7 @@ void start()
 {
 	std::string error;
 	if (auto s = checked_settings(error)) return apply(*s);
-	last_error = error;
-	log::error("rtsp: {}", error);
+	stop_with(error);
 }
 
 void stop()
@@ -1073,7 +1104,7 @@ void add_routes(http::Router &router)
 			s.port = *body.port;
 		}
 		if (body.enabled) s.enabled = *body.enabled;
-		if ((body.newPassword && *body.newPassword) || (s.enabled && s.password.empty())) {
+		if ((body.newPassword && *body.newPassword) || (s.enabled && !valid_password(s.password))) {
 			s.password = new_password();
 			if (s.password.empty()) return api::err(res, -2, "no random password");
 		}

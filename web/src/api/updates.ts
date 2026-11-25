@@ -2,7 +2,7 @@ import { http } from '@/lib/http';
 
 export type PackageUpdate = { name: string; installed: string; available: string };
 
-// The last look at the NanoKVM OS repository (server/osupdate/notice.go).
+// The last look at the NanoKVM OS repository (server-cpp/src/osupdate/notice.cpp).
 export type UpdateNotice = {
   enabled: boolean;
   state: 'never' | 'checking' | 'ok' | 'failed' | 'unavailable';

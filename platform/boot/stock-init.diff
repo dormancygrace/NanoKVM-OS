@@ -129,7 +129,7 @@
  	fi
  fi
  
-+# The saved clock (service/vm/cpufreq.go): only 850 MHz is below the boot's.
++# The saved clock (server-cpp/src/system/cpufreq.cpp): only 850 MHz is below the boot's.
 +if [ -w "$cpufreq/scaling_setspeed" ] && read -r mhz < /realroot/etc/kvm/cpufreq 2>/dev/null &&
 +	[ "$mhz" = 850 ]; then
 +	echo 850000 > "$cpufreq/scaling_setspeed"

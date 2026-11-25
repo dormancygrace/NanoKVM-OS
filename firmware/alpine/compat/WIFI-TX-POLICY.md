@@ -23,7 +23,7 @@ status command reports the managed profile and, on a live system, the loaded
 module parameter. That parameter is not a measurement of current thread policy:
 changing it through sysfs does not reschedule an existing TX thread.
 
-The normal profile affects TX only. It does not change RX, the server's Go
+The normal profile affects TX only. It does not change RX, the server's
 execution capacity, bitrate, codec, or SRTP settings. Removing the file also
 does not revert threads that have already started; it selects the configuration
 for a future module load.

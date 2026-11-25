@@ -1,0 +1,549 @@
+Protect an outbound video frame's RTP packets in one request, and send them in one call.
+
+A process-wide SrtpProtector (rtc::SetSrtpProtectorFactory) takes over the outbound RTP of a connection once the DTLS
+handshake gave its keys, and a Track hands the packets a media handler made of one frame to the transport together:
+a crypto engine then protects a frame in one request instead of one per packet (NanoKVM's CryptoDMA chains AES-CTR and
+SHA-1 per packet in one ioctl). Retransmissions go through the protector too, which keeps the rollover counters.
+RTCP stays with libsrtp. Without a factory nothing changes.
+
+The protected packets of a frame then go to libjuice together, which sends them with one sendmmsg system call on a direct UDP
+pair (juice_send_batch; through a TURN relay one by one): a Wi-Fi driver gets them as a burst it can aggregate.
+
+--- /dev/null
++++ b/include/rtc/srtpprotector.hpp
+@@ -0,0 +1,37 @@
++/**
++ * An outbound SRTP protector for RTP, installed for the whole process: a crypto engine protects the packets of a
++ * video frame in one request instead of one request per packet. RTCP stays with libsrtp.
++ */
++
++#ifndef RTC_SRTP_PROTECTOR_H
++#define RTC_SRTP_PROTECTOR_H
++
++#include "common.hpp"
++
++#include <functional>
++#include <memory>
++#include <string>
++
++namespace rtc {
++
++// Bytes a protector may write after a packet (the authentication tag, and scratch for its hash).
++inline constexpr size_t SrtpProtectorRoom = 128;
++
++class RTC_CPP_EXPORT SrtpProtector {
++public:
++	virtual ~SrtpProtector() = default;
++	// Protects count RTP packets in place (each has SrtpProtectorRoom bytes after sizes[i]) and sets their new
++	// sizes; false on failure (none of them is sent).
++	virtual bool protect(std::byte **packets, size_t *sizes, size_t count) = 0;
++};
++
++// Called once the DTLS handshake has given the outbound keys: the SRTP profile's name (as OpenSSL names it) and the
++// master key and salt. nullptr leaves the connection's RTP to libsrtp.
++using SrtpProtectorFactory = std::function<std::unique_ptr<SrtpProtector>(
++    const std::string &profile, const unsigned char *key, size_t keyLen, const unsigned char *salt, size_t saltLen)>;
++
++RTC_CPP_EXPORT void SetSrtpProtectorFactory(SrtpProtectorFactory factory);
++
++} // namespace rtc
++
++#endif
+--- a/include/rtc/rtc.hpp
++++ b/include/rtc/rtc.hpp
+@@ -16,6 +16,7 @@
+ #include "datachannel.hpp"
+ #include "peerconnection.hpp"
+ #include "track.hpp"
++#include "srtpprotector.hpp"
+ #include "iceudpmuxlistener.hpp"
+ 
+ #if RTC_ENABLE_WEBSOCKET
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -122,6 +122,7 @@
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/rtc.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/rtp.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/track.hpp
++	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/srtpprotector.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/websocket.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/websocketserver.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/rtppacketizationconfig.hpp
+--- a/src/impl/dtlssrtptransport.hpp
++++ b/src/impl/dtlssrtptransport.hpp
+@@ -20,6 +20,8 @@
+ #include "srtp.h"
+ #endif
+ 
++#include "rtc/srtpprotector.hpp"
++
+ #include <atomic>
+ 
+ namespace rtc::impl {
+@@ -37,6 +39,8 @@
+ 	~DtlsSrtpTransport();
+ 
+ 	bool sendMedia(message_ptr message);
++	// The packets of one frame together: with a protector (rtc::SetSrtpProtectorFactory), protected in one call.
++	bool sendMediaBatch(message_vector &messages);
+ 
+ private:
+ 	void recvMedia(message_ptr message);
+@@ -59,6 +63,7 @@
+ 	std::vector<unsigned char> mClientSessionKey;
+ 	std::vector<unsigned char> mServerSessionKey;
+ 	std::mutex sendMutex;
++	std::unique_ptr<rtc::SrtpProtector> mProtector;
+ };
+ 
+ } // namespace rtc::impl
+--- a/src/impl/dtlssrtptransport.cpp
++++ b/src/impl/dtlssrtptransport.cpp
+@@ -84,6 +84,64 @@
+ 	srtp_dealloc(mSrtpOut);
+ }
+ 
++namespace {
++std::mutex protectorFactoryMutex;
++rtc::SrtpProtectorFactory protectorFactory;
++} // namespace
++
++} // namespace rtc::impl
++
++namespace rtc {
++void SetSrtpProtectorFactory(SrtpProtectorFactory factory) {
++	std::lock_guard lock(impl::protectorFactoryMutex);
++	impl::protectorFactory = std::move(factory);
++}
++} // namespace rtc
++
++namespace rtc::impl {
++
++bool DtlsSrtpTransport::sendMediaBatch(message_vector &messages) {
++	if (!mProtector) {
++		bool ret = false;
++		for (auto &m : messages)
++			ret = sendMedia(std::move(m));
++		return ret;
++	}
++	std::vector<message_ptr> rtp;
++	bool ret = false;
++	{
++		std::lock_guard lock(sendMutex);
++		if (!mInitDone) {
++			PLOG_ERROR << "SRTP media sent before keys are derived";
++			return false;
++		}
++		std::vector<std::byte *> data;
++		std::vector<size_t> sizes;
++		for (auto &m : messages) {
++			if (!m || IsRtcp(*m))
++				continue;
++			size_t size = m->size();
++			auto copy = make_message(size + SrtpProtectorRoom, m);
++			copy->dscp = m->dscp ? m->dscp : 36;
++			data.push_back(copy->data());
++			sizes.push_back(size);
++			rtp.push_back(std::move(copy));
++		}
++		if (!rtp.empty()) {
++			if (!mProtector->protect(data.data(), sizes.data(), rtp.size()))
++				throw std::runtime_error("SRTP frame protect error");
++			for (size_t i = 0; i < rtp.size(); ++i)
++				rtp[i]->resize(sizes[i]);
++		}
++	}
++	if (!rtp.empty())
++		ret = Transport::outgoingBatch(rtp); // bypass DTLS DSCP marking
++	for (auto &m : messages)
++		if (m && IsRtcp(*m))
++			ret = sendMedia(std::move(m));
++	return ret;
++}
++
+ bool DtlsSrtpTransport::sendMedia(message_ptr message) {
+ 	std::lock_guard lock(sendMutex);
+ 	if (!message)
+@@ -112,6 +170,14 @@
+ 		}
+ 		PLOG_VERBOSE << "Protected SRTCP packet, size=" << size;
+ 
++	} else if (mProtector) {
++		// The protector owns the outbound RTP (its rollover counters): retransmissions go through it too.
++		message = make_message(size_t(size) + SrtpProtectorRoom, message);
++		std::byte *data = message->data();
++		size_t protectedSize = size_t(size);
++		if (!mProtector->protect(&data, &protectedSize, 1))
++			throw std::runtime_error("SRTP protect error");
++		size = int(protectedSize);
+ 	} else {
+ 		if (srtp_err_status_t err = srtp_protect(mSrtpOut, message->data(), &size)) {
+ 			if (err == srtp_err_status_replay_fail)
+@@ -365,6 +431,21 @@
+ 		throw std::runtime_error("SRTP add outbound stream failed, status=" +
+ 		                         to_string(static_cast<int>(err)));
+ 
++#if !USE_GNUTLS && !USE_MBEDTLS
++	{
++		rtc::SrtpProtectorFactory factory;
++		{
++			std::lock_guard lock(protectorFactoryMutex);
++			factory = protectorFactory;
++		}
++		if (factory) {
++			const unsigned char *outKey = mIsClient ? clientKey : serverKey;
++			const unsigned char *outSalt = mIsClient ? clientSalt : serverSalt;
++			mProtector = factory(profile->name, outKey, keySize, outSalt, saltSize);
++		}
++	}
++#endif
++
+ 	mInitDone = true;
+ }
+ 
+--- a/src/impl/track.hpp
++++ b/src/impl/track.hpp
+@@ -60,6 +60,7 @@
+ #endif
+ 
+ 	bool transportSend(message_ptr message);
++	bool transportSendBatch(message_vector &messages);
+ 
+ 	synchronized_callback<binary, FrameInfo> frameCallback;
+ 
+--- a/src/impl/track.cpp
++++ b/src/impl/track.cpp
+@@ -192,6 +192,10 @@
+ 			}
+ 		});
+ 
++		// A frame's packets go to the transport together (one protection request for all of them).
++		if (messages.size() > 1)
++			return transportSendBatch(messages);
++
+ 		bool ret = false;
+ 		for (auto &m : messages)
+ 			ret = transportSend(std::move(m));
+@@ -221,6 +225,25 @@
+ 	}
+ 
+ 	return transport->sendMedia(message);
++#else
++	throw std::runtime_error("Track is disabled (not compiled with media support)");
++#endif
++}
++
++bool Track::transportSendBatch([[maybe_unused]] message_vector &messages) {
++#if RTC_ENABLE_MEDIA
++	shared_ptr<DtlsSrtpTransport> transport;
++	{
++		std::shared_lock lock(mMutex);
++		transport = mDtlsSrtpTransport.lock();
++		if (!transport)
++			throw std::runtime_error("Track is not open");
++		uint8_t dscp = mMediaDescription.type() == "audio" ? 46 : 36;
++		for (auto &m : messages)
++			if (m)
++				m->dscp = dscp;
++	}
++	return transport->sendMediaBatch(messages);
+ #else
+ 	throw std::runtime_error("Track is disabled (not compiled with media support)");
+ #endif
+--- a/deps/libjuice/include/juice/juice.h
++++ b/deps/libjuice/include/juice/juice.h
+@@ -129,6 +129,10 @@
+ JUICE_EXPORT int juice_set_remote_gathering_done(juice_agent_t *agent);
+ JUICE_EXPORT int juice_send(juice_agent_t *agent, const char *data, size_t size);
+ JUICE_EXPORT int juice_send_diffserv(juice_agent_t *agent, const char *data, size_t size, int ds);
++// Sends count datagrams at once where the transport allows it (one sendmmsg on a direct UDP pair), in order;
++// returns how many were sent, or a negative error when none was.
++JUICE_EXPORT int juice_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count,
++                                  int ds);
+ JUICE_EXPORT juice_state_t juice_get_state(juice_agent_t *agent);
+ JUICE_EXPORT int juice_get_selected_candidates(juice_agent_t *agent, char *local, size_t local_size,
+                                                char *remote, size_t remote_size);
+--- a/deps/libjuice/src/juice.c
++++ b/deps/libjuice/src/juice.c
+@@ -86,6 +86,20 @@
+ 
+ JUICE_EXPORT int juice_send(juice_agent_t *agent, const char *data, size_t size) {
+ 	return juice_send_diffserv(agent, data, size, 0);
++}
++
++JUICE_EXPORT int juice_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count,
++                                  int ds) {
++	if (!agent || count < 0 || (count && (!data || !sizes)))
++		return JUICE_ERR_INVALID;
++	if (count == 0)
++		return 0;
++	int ret = agent_send_batch(agent, data, sizes, count, ds);
++	if (ret > 0)
++		return ret;
++	if (ret == -SEAGAIN || ret == -SEWOULDBLOCK)
++		return JUICE_ERR_AGAIN;
++	return JUICE_ERR_FAILED;
+ }
+ 
+ JUICE_EXPORT int juice_send_diffserv(juice_agent_t *agent, const char *data, size_t size, int ds) {
+--- a/deps/libjuice/src/agent.h
++++ b/deps/libjuice/src/agent.h
+@@ -168,6 +168,7 @@
+ int agent_add_turn_server(juice_agent_t *agent, const juice_turn_server_t *turn_server);
+ int agent_set_remote_gathering_done(juice_agent_t *agent);
+ int agent_send(juice_agent_t *agent, const char *data, size_t size, int ds);
++int agent_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count, int ds);
+ int agent_direct_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+                       int ds);
+ int agent_relay_send(juice_agent_t *agent, agent_stun_entry_t *entry, const addr_record_t *dst,
+--- a/deps/libjuice/src/agent.c
++++ b/deps/libjuice/src/agent.c
+@@ -690,6 +690,27 @@
+ 	}
+ 
+ 	return agent_direct_send(agent, &selected_entry->record, data, size, ds);
++}
++
++int agent_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count,
++                     int ds) {
++	agent_stun_entry_t *selected_entry = atomic_load(&agent->selected_entry);
++	if (!selected_entry) {
++		JLOG_ERROR("Send while ICE is not connected");
++		return -1;
++	}
++	if (selected_entry->relay_entry) {
++		// Through the relay: one channel message each.
++		int sent = 0;
++		for (int i = 0; i < count; ++i) {
++			int ret = agent_send(agent, data[i], sizes[i], ds);
++			if (ret < 0)
++				return sent ? sent : ret;
++			++sent;
++		}
++		return sent;
++	}
++	return conn_send_batch(agent, &selected_entry->record, data, sizes, count, ds);
+ }
+ 
+ int agent_direct_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+--- a/deps/libjuice/src/conn.h
++++ b/deps/libjuice/src/conn.h
+@@ -61,6 +61,8 @@
+ int conn_interrupt(juice_agent_t *agent);
+ int conn_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+               int ds);
++int conn_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
++                    const size_t *sizes, int count, int ds);
+ void conn_tcp_connect(juice_agent_t *agent, const addr_record_t *dst);
+ int conn_get_addrs(juice_agent_t *agent, addr_record_t *records, size_t size);
+ 
+--- a/deps/libjuice/src/conn.c
++++ b/deps/libjuice/src/conn.c
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include "conn.h"
++#include "conn_poll.h"
+ #include "agent.h"
+ #include "conn_mux.h"
+ #include "conn_poll.h"
+@@ -250,6 +251,22 @@
+ 	return get_agent_mode_entry(agent)->send_func(agent, dst, data, size, ds);
+ }
+ 
++int conn_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
++                    const size_t *sizes, int count, int ds) {
++	if (!agent->conn_impl)
++		return -1;
++	if (agent->config.concurrency_mode == JUICE_CONCURRENCY_MODE_POLL)
++		return conn_poll_send_batch(agent, dst, data, sizes, count, ds);
++	int sent = 0;
++	for (int i = 0; i < count; ++i) {
++		int ret = conn_send(agent, dst, data[i], sizes[i], ds);
++		if (ret < 0)
++			return sent ? sent : ret;
++		++sent;
++	}
++	return sent;
++}
++
+ void conn_tcp_connect(juice_agent_t *agent, const addr_record_t *dst) {
+ 	if (!agent->conn_impl)
+ 		return;
+--- a/deps/libjuice/src/conn_poll.h
++++ b/deps/libjuice/src/conn_poll.h
+@@ -25,6 +25,8 @@
+ void conn_poll_lock(juice_agent_t *agent);
+ void conn_poll_unlock(juice_agent_t *agent);
+ int conn_poll_interrupt(juice_agent_t *agent);
++int conn_poll_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
++                         const size_t *sizes, int count, int ds);
+ int conn_poll_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+                         int ds);
+ void conn_poll_tcp_connect(juice_agent_t *agent, const addr_record_t *dst);
+--- a/deps/libjuice/src/conn_poll.c
++++ b/deps/libjuice/src/conn_poll.c
+@@ -5,6 +5,13 @@
+  * License, v. 2.0. If a copy of the MPL was not distributed with this
+  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+  */
++
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE // struct mmsghdr
++#endif
++
++#include <sys/syscall.h>
++#include <unistd.h>
+ 
+ #include "conn_poll.h"
+ #include "agent.h"
+@@ -656,6 +663,68 @@
+ 	return ret;
+ }
+ 
++int conn_poll_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
++                         const size_t *sizes, int count, int ds) {
++	conn_impl_t *conn_impl = agent->conn_impl;
++	if (dst->socktype == SOCK_STREAM) {
++		int sent = 0;
++		for (int i = 0; i < count; ++i) {
++			int ret = conn_poll_send(agent, dst, data[i], sizes[i], ds);
++			if (ret < 0)
++				return sent ? sent : ret;
++			++sent;
++		}
++		return sent;
++	}
++
++	mutex_lock(&conn_impl->send_mutex);
++	if (conn_impl->send_ds >= 0 && conn_impl->send_ds != ds) {
++		if (udp_set_diffserv(conn_impl->udp_sock, ds) == 0)
++			conn_impl->send_ds = ds;
++		else
++			conn_impl->send_ds = -1; // disable for next time
++	}
++	int sent = 0, ret = 0;
++	while (sent < count) {
++		struct mmsghdr msgs[64];
++		struct iovec iov[64];
++		int n = count - sent > 64 ? 64 : count - sent;
++		memset(msgs, 0, sizeof(msgs[0]) * (size_t)n);
++		for (int i = 0; i < n; ++i) {
++			iov[i].iov_base = (void *)data[sent + i];
++			iov[i].iov_len = sizes[sent + i];
++			msgs[i].msg_hdr.msg_name = (void *)&dst->addr;
++			msgs[i].msg_hdr.msg_namelen = dst->len;
++			msgs[i].msg_hdr.msg_iov = &iov[i];
++			msgs[i].msg_hdr.msg_iovlen = 1;
++		}
++		// The system call itself: musl's sendmmsg loops over sendmsg on 64-bit targets. The headers are zeroed,
++		// padding included, so musl's msghdr is the kernel's.
++		int r = (int)syscall(SYS_sendmmsg, conn_impl->udp_sock, msgs, (unsigned int)n, 0);
++		if (r < 0) {
++			if (sockerrno == SEINTR)
++				continue;
++			ret = -sockerrno;
++			break;
++		}
++		sent += r;
++		if (r < n) {
++			ret = -SEAGAIN; // the socket buffer is full
++			break;
++		}
++	}
++	mutex_unlock(&conn_impl->send_mutex);
++
++	if (ret < 0 && sent == 0) {
++		if (ret == -SEAGAIN || ret == -SEWOULDBLOCK)
++			JLOG_INFO("Send failed, buffer is full");
++		else
++			JLOG_WARN("Send failed, errno=%d", -ret);
++		return ret;
++	}
++	return sent;
++}
++
+ void conn_poll_tcp_connect(juice_agent_t *agent, const addr_record_t *dst) {
+ 	conn_impl_t *conn_impl = agent->conn_impl;
+ 
+--- a/src/impl/transport.hpp
++++ b/src/impl/transport.hpp
+@@ -40,12 +40,15 @@
+ 	virtual void start();
+ 	virtual void stop();
+ 	virtual bool send(message_ptr message);
++	// Several messages at once (the packets of a frame); by default one send each.
++	virtual bool sendBatch(message_vector &messages);
+ 
+ protected:
+ 	void recv(message_ptr message);
+ 	void changeState(State state);
+ 	virtual void incoming(message_ptr message);
+ 	virtual bool outgoing(message_ptr message);
++	bool outgoingBatch(message_vector &messages);
+ 
+ private:
+ 	const init_token mInitToken = Init::Instance().token();
+--- a/src/impl/transport.cpp
++++ b/src/impl/transport.cpp
+@@ -97,6 +97,20 @@
+ 
+ void Transport::incoming(message_ptr message) { recv(message); }
+ 
++bool Transport::sendBatch(message_vector &messages) {
++	bool ret = false;
++	for (auto &m : messages)
++		ret = send(m);
++	return ret;
++}
++
++bool Transport::outgoingBatch(message_vector &messages) {
++	if (mLower)
++		return mLower->sendBatch(messages);
++	else
++		return false;
++}
++
+ bool Transport::outgoing(message_ptr message) {
+ 	if (mLower)
+ 		return mLower->send(message);
+--- a/src/impl/icetransport.hpp
++++ b/src/impl/icetransport.hpp
+@@ -57,6 +57,9 @@
+ 	optional<string> getRemoteAddress() const;
+ 
+ 	bool send(message_ptr message) override; // false if dropped
++#if !USE_NICE
++	bool sendBatch(message_vector &messages) override;
++#endif
+ 
+ 	bool getSelectedCandidatePair(Candidate *local, Candidate *remote);
+ 
+--- a/src/impl/icetransport.cpp
++++ b/src/impl/icetransport.cpp
+@@ -298,6 +298,25 @@
+ 	int ds = int(message->dscp << 2);
+ 	return juice_send_diffserv(mAgent.get(), reinterpret_cast<const char *>(message->data()),
+ 	                           message->size(), ds) >= 0;
++}
++
++bool IceTransport::sendBatch(message_vector &messages) {
++	auto s = state();
++	if (messages.empty() || (s != State::Connected && s != State::Completed))
++		return false;
++	std::vector<const char *> data;
++	std::vector<size_t> sizes;
++	data.reserve(messages.size());
++	sizes.reserve(messages.size());
++	for (auto &m : messages)
++		if (m) {
++			data.push_back(reinterpret_cast<const char *>(m->data()));
++			sizes.push_back(m->size());
++		}
++	if (data.empty())
++		return false;
++	int ds = int(messages.front()->dscp << 2);
++	return juice_send_batch(mAgent.get(), data.data(), sizes.data(), int(data.size()), ds) >= 0;
+ }
+ 
+ void IceTransport::changeGatheringState(GatheringState state) {

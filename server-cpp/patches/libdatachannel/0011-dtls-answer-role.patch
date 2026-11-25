@@ -1,0 +1,71 @@
+When answering an actpass offer, let the application keep the DTLS server role.
+Explicit peer roles and the upstream default remain supported.
+
+--- a/include/rtc/configuration.hpp
++++ b/include/rtc/configuration.hpp
+@@ -78,6 +78,7 @@
+ 	bool disableAutoGathering = false;
+ 	bool forceMediaTransport = false;
+ 	bool disableFingerprintVerification = false;
++	bool preferDtlsServer = false; // answer an actpass offer with setup:passive
+ 
+ 	// Port range
+ 	uint16_t portRangeBegin = 1024;
+--- a/src/impl/icetransport.hpp
++++ b/src/impl/icetransport.hpp
+@@ -76,6 +76,7 @@
+ 	void addIceServer(IceServer server);
+ 
+ 	Description::Role mRole;
++	bool mPreferDtlsServer;
+ 	string mMid;
+ 	std::chrono::milliseconds mTrickleTimeout;
+ 	std::atomic<GatheringState> mGatheringState;
+--- a/src/impl/icetransport.cpp
++++ b/src/impl/icetransport.cpp
+@@ -51,6 +51,7 @@
+                            state_callback stateChangeCallback,
+                            gathering_state_callback gatheringStateChangeCallback)
+     : Transport(nullptr, std::move(stateChangeCallback)), mRole(Description::Role::ActPass),
++      mPreferDtlsServer(config.preferDtlsServer),
+       mMid("0"), mGatheringState(GatheringState::New),
+       mCandidateCallback(std::move(candidateCallback)),
+       mGatheringStateChangeCallback(std::move(gatheringStateChangeCallback)),
+@@ -213,9 +214,11 @@
+ 	// will not begin until the answerer is received, which adds additional latency.
+ 	// setup:active allows the answer and the DTLS handshake to occur in parallel. Thus,
+ 	// setup:active is RECOMMENDED.
+-	if (mRole == Description::Role::ActPass)
+-		mRole = description.role() == Description::Role::Active ? Description::Role::Passive
+-		                                                        : Description::Role::Active;
++	if (mRole == Description::Role::ActPass) {
++		const bool passive = description.role() == Description::Role::Active ||
++		                     (description.role() == Description::Role::ActPass && mPreferDtlsServer);
++		mRole = passive ? Description::Role::Passive : Description::Role::Active;
++	}
+ 
+ 	if (mRole == description.role())
+ 		throw std::invalid_argument("Incompatible roles with remote description");
+@@ -457,6 +460,7 @@
+                            state_callback stateChangeCallback,
+                            gathering_state_callback gatheringStateChangeCallback)
+     : Transport(nullptr, std::move(stateChangeCallback)), mRole(Description::Role::ActPass),
++      mPreferDtlsServer(config.preferDtlsServer),
+       mMid("0"), mGatheringState(GatheringState::New),
+       mCandidateCallback(std::move(candidateCallback)),
+       mGatheringStateChangeCallback(std::move(gatheringStateChangeCallback)),
+@@ -750,9 +754,11 @@
+ 	// will not begin until the answerer is received, which adds additional latency.
+ 	// setup:active allows the answer and the DTLS handshake to occur in parallel. Thus,
+ 	// setup:active is RECOMMENDED.
+-	if (mRole == Description::Role::ActPass)
+-		mRole = description.role() == Description::Role::Active ? Description::Role::Passive
+-		                                                        : Description::Role::Active;
++	if (mRole == Description::Role::ActPass) {
++		const bool passive = description.role() == Description::Role::Active ||
++		                     (description.role() == Description::Role::ActPass && mPreferDtlsServer);
++		mRole = passive ? Description::Role::Passive : Description::Role::Active;
++	}
+ 
+ 	if (mRole == description.role())
+ 		throw std::invalid_argument("Incompatible roles with remote description");

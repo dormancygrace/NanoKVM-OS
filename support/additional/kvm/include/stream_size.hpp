@@ -44,7 +44,7 @@ inline StreamSize stream_size(uint16_t iw, uint16_t ih, uint16_t mw, uint16_t mh
 }
 // The H.264 encoder (CODA980) writes corrupted blocks at 3840x2160; H.264 runs
 // up to 2560x1440, and 1080x1920 in portrait. The server uses the same limits
-// (server/common/h264_policy.go; a test compares them).
+// (server-cpp/src/video/screen.cpp).
 inline constexpr unsigned h264_max_long_side = 2560;
 inline constexpr unsigned h264_max_height = 1920;
 inline bool h264_output_allowed(StreamSize size) {

@@ -5,7 +5,7 @@
 //
 // So while any key or mouse button is down this sends a keepalive every
 // HOLD_KEEPALIVE_MS, and the server releases what is held when the keepalives
-// stop (server/service/ws/hold_lease.go, 300 ms). Nothing is sent while
+// stop (server-cpp/src/input/ws.cpp, 300 ms). Nothing is sent while
 // nothing is held.
 //
 // The message type numbers are the socket's (lib/websocket.ts). They are

@@ -1,0 +1,5 @@
+/* The server exports no symbols: libkvm keeps the system C++ runtime instead of binding to the template
+   instances compiled into the server. */
+{
+  local: *;
+};

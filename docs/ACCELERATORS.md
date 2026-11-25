@@ -10,7 +10,7 @@ The SG2002 has engines beside the CPU:
 | [AXI monitors](#ddr-bandwidth) | DDR traffic per port | on demand (`/proc/ddr_bandwidth`) |
 | [TRNG](#random-numbers) | random numbers | U-Boot, to seed Linux |
 | [Small core](#small-core) | Opus audio encoding | USB speaker audio |
-| [CryptoDMA](#cryptodma) | AES, SHA-1, SHA-256 | kernel crypto API, WebRTC SRTP and DTLS, OpenSSL, Go |
+| [CryptoDMA](#cryptodma) | AES, SHA-1, SHA-256 | kernel crypto API, WebRTC SRTP and DTLS, OpenSSL |
 
 Performance figures on this page are for a 1920 × 1080 input at 90 Hz.
 
@@ -172,7 +172,7 @@ A request qualifies when every range starts on a 16-byte boundary and is a whole
 
 - **Through the driver's buffers,** the output is written only after the engine has finished, so a failed request leaves the caller's data unchanged. An engine that stops answering is given up until the next reboot (the module stays loaded; `HWCRYPTO_INFO` reports `poisoned`), and later requests go to the kernel's software implementation where one exists; the others, and every ioctl, fail with `EIO`.
 - **On the caller's memory,** an engine that does not finish a chain within 20 ms (a 64 KiB chain takes 0.7 ms) may still be writing to memory the caller has already reused, and the engine has no abort. The driver then stops the system with `panic`; the device restarts after 10 s (`kernel.panic`). A timeout or error status in the chain path used by the large `HWCRYPTO_GCM` on a kernel copy also panics.
-- **Partly written buffers.** When the engine has been given up by another request, an in-place request on the caller's memory returns `EIO` with part of its buffer written. `HWCRYPTO_GCM` then fails as a whole; callers must fail the operation, not redo it in software. OpenSSL and Go do; `hwcrypto.h` states the rule.
+- **Partly written buffers.** When the engine has been given up by another request, an in-place request on the caller's memory returns `EIO` with part of its buffer written. `HWCRYPTO_GCM` then fails as a whole; callers must fail the operation, not redo it in software. OpenSSL and the server do; `hwcrypto.h` states the rule.
 
 ### The device: `/dev/nanokvm-hwcrypto`
 

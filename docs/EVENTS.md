@@ -1,6 +1,6 @@
 # Event log
 
-Settings > System > Event log shows what happened to the host and who did what to it: the record a server's BMC keeps as its event log. The server keeps it as a journal on the card (`server/journal`).
+Settings > System > Event log shows what happened to the host and who did what to it: the record a server's BMC keeps as its event log. The server keeps it as a journal on the card (`server-cpp/src/system/journal.cpp`).
 
 ## What is recorded
 

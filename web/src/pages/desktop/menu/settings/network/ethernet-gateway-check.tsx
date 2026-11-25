@@ -6,7 +6,7 @@ import * as api from '@/api/network.ts';
 import { showRequestError } from '@/lib/show-request-error.ts';
 import { SettingRow, SettingsSection, StatusBadge } from '@/components/ui/settings.tsx';
 
-// The server's rule for the watched host (service/network/gateway_check.go).
+// The server's rule for the watched host (server-cpp/src/network/gateway.cpp).
 const hostPattern = /^[A-Za-z0-9][A-Za-z0-9.:-]{0,252}$/;
 
 // The Ethernet gateway check, saved on change: while the Ethernet gateway

@@ -36,7 +36,6 @@ runs:
           ${{ inputs.out }}/component-support
           ${{ inputs.out }}/uboot/src/Licenses
           ${{ inputs.out }}/opensbi/src/COPYING.BSD
-          ${{ inputs.out }}/tools/compress
           ${{ inputs.out }}/component-state.json
 
     - name: Save verified component outputs
@@ -49,5 +48,4 @@ runs:
           ${{ inputs.out }}/component-support
           ${{ inputs.out }}/uboot/src/Licenses
           ${{ inputs.out }}/opensbi/src/COPYING.BSD
-          ${{ inputs.out }}/tools/compress
           ${{ inputs.out }}/component-state.json

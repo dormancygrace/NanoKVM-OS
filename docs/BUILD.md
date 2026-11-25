@@ -14,20 +14,13 @@ creates a local test image, and `make help` lists the component targets.
 
 ## Working on one component
 
-The web UI and the server can be developed without the full build. The web UI needs Node.js 26 LTS and pnpm 11 or newer (CI uses pnpm 12); the root `.nvmrc` selects Node 26, so with nvm run `nvm install` and `nvm use` from the repository root:
+The web UI can be developed without the full build. The web UI needs Node.js 26 LTS and pnpm 11 or newer (CI uses pnpm 12); the root `.nvmrc` selects Node 26, so with nvm run `nvm install` and `nvm use` from the repository root:
 
 ```sh
 cd web && pnpm install --frozen-lockfile && pnpm dev
 ```
 
-```sh
-cd server && go test -tags teststub,nomsgpack ./...
-```
-
-Host server tests require a C compiler and the zlib development headers (on
-Ubuntu: `zlib1g-dev`).
-
-A release-equivalent server needs the NanoKVM Go runtime (`firmware/cpu/sysmon-runtime`, which also adds the C906 ChaCha20 of `firmware/cpu/go-crypto-c906`) and the native libraries of the same build; `platform/build.sh native tools server` builds the native libraries, compression libraries and server. See [UPDATES.md](UPDATES.md) for the native APK update flow.
+The server (`server-cpp/`, C++23, CMake) links the native libraries, OpenSSL and zlib-ng of the same build: `platform/build.sh native tools server` builds them and then the server with the libraries pinned in `platform/sources.lock` (`server-cpp/build.sh`). See [UPDATES.md](UPDATES.md) for the native APK update flow.
 
 ## Dependency maintenance
 
@@ -37,11 +30,10 @@ See [DEPENDENCY-UPDATES.md](DEPENDENCY-UPDATES.md) for automatic dependency PRs,
 
 `platform/cpu-profile.json` defines the CPU policy for our own C/C++ components.
 `scripts/nanokvm_cpu_profile.py` supplies the flags to the native library, board
-service, USB audio, CGO and platform builders. Source-owned userspace uses
+service, USB audio, server and platform builders. Source-owned userspace uses
 `-O2`; kernel and modules use `-O3` without LTO. Both use C906 scheduling
 and `-mno-fence-tso`. Official Alpine packages and prebuilt
-SOPHGO algorithm objects are not recompiled by this policy; Go retains its own
-compiler and `GORISCV64` baseline.
+SOPHGO algorithm objects are not recompiled by this policy.
 
 Userspace enables the C906 T-Head extensions and XTheadVector. This permits
 supported instructions; it does not promise automatic vectorization or a frame

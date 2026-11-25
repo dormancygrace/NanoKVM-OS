@@ -3075,8 +3075,13 @@ int mmf_add_venc_channel_v2(int ch, mmf_venc_cfg_t *cfg) {
 	if (s32Ret != CVI_SUCCESS) {
 		return _venc_init_failed(ch, "CVI_VENC_GetRcParam", s32Ret);
 	}
-	stRcParam.s32FirstFrameStartQp = 35;
-	stRcParam.s32InitialDelay = 1000;
+	// The start of a stream: the rate control begins at this QP with this much
+	// initial delay. With 35 and 1000 ms, 1440p60 at 20 Mbit/s opened with
+	// frames of 372, 318, 232, 172 and 169 KB (2.3 MB in the first 0.5 s,
+	// beyond a Wi-Fi link); with 40 and 100 ms, 177, 111, 89, 76 and 55 KB
+	// (1.6 MB), the steady 30-40 KB frames from the sixth on.
+	stRcParam.s32FirstFrameStartQp = 40;
+	stRcParam.s32InitialDelay = 100;
 	if (venc_tuning.row_qp_delta >= 0) stRcParam.u32RowQpDelta = venc_tuning.row_qp_delta;
 	if (venc_tuning.thrd_lv >= 0) stRcParam.u32ThrdLv = venc_tuning.thrd_lv;
 	_set_h26x_cbr_limits(&stRcParam, cfg);

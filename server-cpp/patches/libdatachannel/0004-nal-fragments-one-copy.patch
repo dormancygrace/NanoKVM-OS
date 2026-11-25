@@ -1,0 +1,215 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: H.264 and H.265 fragments with one copy
+
+The packetizers built each fragment through five copies (the NAL unit, its payload, the fragment data, the
+fragment object, the result list), each a fresh allocation. The fragments are now cut from the frame
+directly, byte for byte the same (checked against GenerateFragments on random frames).
+---
+diff --git a/src/h264rtppacketizer.cpp b/src/h264rtppacketizer.cpp
+index 07bc131..4c76ad5 100644
+--- a/src/h264rtppacketizer.cpp
++++ b/src/h264rtppacketizer.cpp
+@@ -11,6 +11,7 @@
+ #include "h264rtppacketizer.hpp"
+ 
+ #include "impl/internals.hpp"
++#include "nalfragments.hpp"
+ 
+ #include <algorithm>
+ #include <cassert>
+@@ -33,7 +34,8 @@ H264RtpPacketizer::H264RtpPacketizer(Separator separator,
+     : RtpPacketizer(rtpConfig), mSeparator(separator), mMaxFragmentSize(maxFragmentSize) {}
+ 
+ std::vector<binary> H264RtpPacketizer::fragment(binary data) {
+-	return NalUnit::GenerateFragments(splitFrame(data), mMaxFragmentSize);
++	// One copy per fragment, the same bytes as GenerateFragments(splitFrame(data)).
++	return nal_fragments::h264(data, mSeparator, mMaxFragmentSize);
+ }
+ 
+ std::vector<NalUnit> H264RtpPacketizer::splitFrame(const binary &frame) {
+diff --git a/src/h265rtppacketizer.cpp b/src/h265rtppacketizer.cpp
+index 4061551..58e15b1 100644
+--- a/src/h265rtppacketizer.cpp
++++ b/src/h265rtppacketizer.cpp
+@@ -11,6 +11,7 @@
+ #include "h265rtppacketizer.hpp"
+ 
+ #include "impl/internals.hpp"
++#include "nalfragments.hpp"
+ 
+ #include <cassert>
+ 
+@@ -33,7 +34,8 @@ H265RtpPacketizer::H265RtpPacketizer(NalUnit::Separator separator,
+     : RtpPacketizer(std::move(rtpConfig)), mSeparator(separator), mMaxFragmentSize(maxFragmentSize) {}
+ 
+ std::vector<binary> H265RtpPacketizer::fragment(binary data) {
+-	return H265NalUnit::GenerateFragments(splitFrame(data), mMaxFragmentSize);
++	// One copy per fragment, the same bytes as GenerateFragments(splitFrame(data)).
++	return nal_fragments::h265(data, mSeparator, mMaxFragmentSize);
+ }
+ 
+ std::vector<H265NalUnit> H265RtpPacketizer::splitFrame(const binary &frame) {
+diff --git a/src/nalfragments.hpp b/src/nalfragments.hpp
+new file mode 100644
+index 0000000..494f905
+--- /dev/null
++++ b/src/nalfragments.hpp
+@@ -0,0 +1,158 @@
++/**
++ * Fragmenting an H.264 or H.265 access unit with one copy per fragment: the NAL units are found by position, and
++ * each fragment is built from the frame directly, byte for byte what the NalUnit classes produced through their
++ * intermediate copies (the NAL unit, its payload, the fragment data, the fragment object and the result list).
++ */
++
++#ifndef RTC_NAL_FRAGMENTS_H
++#define RTC_NAL_FRAGMENTS_H
++
++#if RTC_ENABLE_MEDIA
++
++#include "nalunit.hpp"
++
++#include <cmath>
++#include <cstring>
++#include <utility>
++#include <vector>
++
++#ifdef _WIN32
++#include <winsock2.h>
++#else
++#include <arpa/inet.h>
++#endif
++
++namespace rtc::nal_fragments {
++
++// [begin, end) of each NAL unit of the frame, as the packetizers' splitFrame found them.
++inline std::vector<std::pair<size_t, size_t>> bounds(const std::byte *frame, size_t n,
++                                                     NalUnit::Separator separator) {
++	std::vector<std::pair<size_t, size_t>> nalus;
++	if (separator == NalUnit::Separator::Length) {
++		size_t index = 0;
++		while (index < n) {
++			if (index + 4 >= n)
++				break; // incomplete length
++			uint32_t length;
++			std::memcpy(&length, frame + index, sizeof(uint32_t));
++			length = ntohl(length);
++			size_t start = index + 4, end = start + length;
++			if (end > n)
++				break; // incomplete unit
++			nalus.emplace_back(start, end);
++			index = end;
++		}
++		return nalus;
++	}
++	// The start codes: a 0x01 after a run of zeros that began after the previous code (the state machine of
++	// NalUnit::StartSequenceMatchSucc, found with memchr). Three or more zeros make a long code (4 bytes, any
++	// further zeros stay with the unit before), exactly two a short one; LongStartSequence needs three,
++	// ShortStartSequence takes two even from a longer run.
++	const bool detectShort = separator != NalUnit::Separator::LongStartSequence;
++	const bool detectLong = separator != NalUnit::Separator::ShortStartSequence;
++	const auto *data = reinterpret_cast<const unsigned char *>(frame);
++	// The next code at or after from: the index of its 0x01 and its length, or n.
++	auto next = [&](size_t from, size_t &length) {
++		size_t i = from;
++		while (i < n) {
++			auto *one = static_cast<const unsigned char *>(std::memchr(data + i, 1, n - i));
++			if (!one)
++				return n;
++			size_t at = size_t(one - data), zeros = 0;
++			while (zeros < 3 && at >= from + zeros + 1 && data[at - zeros - 1] == 0)
++				++zeros;
++			if (zeros == 3 && detectLong) {
++				length = 4;
++				return at;
++			}
++			if (zeros >= 2 && detectShort) {
++				length = 3;
++				return at;
++			}
++			i = at + 1;
++		}
++		return n;
++	};
++	size_t length = 0, at = next(0, length);
++	size_t start = at < n ? at + 1 : n;
++	while (start < n) {
++		at = next(start, length);
++		if (at == n)
++			break;
++		nalus.emplace_back(start, at - length + 1);
++		start = at + 1;
++	}
++	nalus.emplace_back(start, n);
++	return nalus;
++}
++
++inline std::vector<std::pair<size_t, size_t>> bounds(const binary &frame, NalUnit::Separator separator) {
++	return bounds(frame.data(), frame.size(), separator);
++}
++
++// The fragments of the frame. headerSize is the NAL header (1 for H.264, 2 for H.265), unitSize the FU headers
++// (2 and 3); writeHeader(out, nal, start, end) writes the unitSize bytes of a fragment of the NAL unit at nal.
++template <typename WriteHeader>
++std::vector<binary> fragments(const std::byte *frame, size_t n, NalUnit::Separator separator,
++                              size_t maxFragmentSize, size_t headerSize, size_t unitSize, WriteHeader writeHeader) {
++	std::vector<binary> result;
++	for (auto [b, e] : bounds(frame, n, separator)) {
++		size_t size = e - b;
++		if (size <= maxFragmentSize) {
++			result.emplace_back(frame + b, frame + e);
++			continue;
++		}
++		// The sizes as NalUnit::generateFragments computed them: balanced fragments, the last one shorter.
++		auto count = std::ceil(double(size) / maxFragmentSize);
++		size_t step = uint16_t(int(std::ceil(size / count))) - unitSize;
++		const std::byte *nal = frame + b;
++		size_t payload = size - headerSize, offset = 0;
++		while (offset < payload) {
++			bool first = offset == 0, last = !(offset + step < payload);
++			if (last && offset + step > payload)
++				step = uint16_t(payload - offset);
++			binary &out = result.emplace_back();
++			out.reserve(unitSize + step);
++			out.resize(unitSize);
++			writeHeader(out.data(), nal, first, last && !first);
++			out.insert(out.end(), nal + headerSize + offset, nal + headerSize + offset + step);
++			offset += step;
++		}
++	}
++	return result;
++}
++
++inline std::vector<binary> h264(const std::byte *frame, size_t n, NalUnit::Separator separator,
++                                size_t maxFragmentSize) {
++	return fragments(frame, n, separator, maxFragmentSize, 1, 2,
++	                 [](std::byte *out, const std::byte *nal, bool start, bool end) {
++		                 auto h = uint8_t(nal[0]);
++		                 out[0] = std::byte((h & 0xE0) | 28); // FU-A indicator: F and NRI of the unit
++		                 out[1] = std::byte((start << 7) | (end << 6) | (h & 0x1F));
++	                 });
++}
++
++inline std::vector<binary> h265(const std::byte *frame, size_t n, NalUnit::Separator separator,
++                                size_t maxFragmentSize) {
++	return fragments(frame, n, separator, maxFragmentSize, 2, 3,
++	                 [](std::byte *out, const std::byte *nal, bool start, bool end) {
++		                 auto h0 = uint8_t(nal[0]);
++		                 out[0] = std::byte((h0 & 0x81) | (49 << 1)); // FU indicator: type 49, F and layer of the unit
++		                 out[1] = nal[1];
++		                 out[2] = std::byte((start << 7) | (end << 6) | ((h0 >> 1) & 0x3F));
++	                 });
++}
++
++inline std::vector<binary> h264(const binary &frame, NalUnit::Separator separator, size_t maxFragmentSize) {
++	return h264(frame.data(), frame.size(), separator, maxFragmentSize);
++}
++
++inline std::vector<binary> h265(const binary &frame, NalUnit::Separator separator, size_t maxFragmentSize) {
++	return h265(frame.data(), frame.size(), separator, maxFragmentSize);
++}
++
++} // namespace rtc::nal_fragments
++
++#endif /* RTC_ENABLE_MEDIA */
++
++#endif /* RTC_NAL_FRAGMENTS_H */

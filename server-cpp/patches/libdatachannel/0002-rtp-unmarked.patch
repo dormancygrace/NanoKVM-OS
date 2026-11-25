@@ -1,0 +1,64 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: RTP leaves unmarked
+
+Media packets carry DSCP 0, as the Go server's pion sent them. libdatachannel marked video AF42 and audio EF;
+on Wi-Fi WMM that puts video in the video access category. At 20 Mbit/s the Wi-Fi driver's transmit thread
+then used about twice the CPU and the link fell behind long enough to overflow the socket buffer (lost packets
+and failed STUN replies); unmarked, the same stream ran without stalls.
+---
+--- a/src/impl/track.cpp
++++ b/src/impl/track.cpp
+@@ -216,12 +216,9 @@
+ 		if (!transport)
+ 			throw std::runtime_error("Track is not open");
+ 
+-		// Set recommended medium-priority DSCP value
+-		// See https://www.rfc-editor.org/rfc/rfc8837.html#section-5
+-		if (mMediaDescription.type() == "audio")
+-			message->dscp = 46; // EF: Expedited Forwarding
+-		else
+-			message->dscp = 36; // AF42: Assured Forwarding class 4, medium drop probability
++		// Unmarked (DSCP 0): on Wi-Fi a marked packet goes to the WMM video or voice access category, whose short
++		// transmit opportunities aggregate little.
++		message->dscp = 0;
+ 	}
+ 
+ 	return transport->sendMedia(message);
+@@ -238,10 +235,9 @@
+ 		transport = mDtlsSrtpTransport.lock();
+ 		if (!transport)
+ 			throw std::runtime_error("Track is not open");
+-		uint8_t dscp = mMediaDescription.type() == "audio" ? 46 : 36;
+ 		for (auto &m : messages)
+ 			if (m)
+-				m->dscp = dscp;
++				m->dscp = 0;
+ 	}
+ 	return transport->sendMediaBatch(messages);
+ #else
+--- a/src/impl/dtlssrtptransport.cpp
++++ b/src/impl/dtlssrtptransport.cpp
+@@ -122,7 +122,7 @@
+ 				continue;
+ 			size_t size = m->size();
+ 			auto copy = make_message(size + SrtpProtectorRoom, m);
+-			copy->dscp = m->dscp ? m->dscp : 36;
++			copy->dscp = m->dscp;
+ 			data.push_back(copy->data());
+ 			sizes.push_back(size);
+ 			rtp.push_back(std::move(copy));
+@@ -191,13 +191,7 @@
+ 
+ 	message->resize(size);
+ 
+-	if (message->dscp == 0) { // Track might override the value
+-		// Set recommended medium-priority DSCP value
+-		// See https://www.rfc-editor.org/rfc/rfc8837.html#section-5
+-		message->dscp = 36; // AF42: Assured Forwarding class 4, medium drop probability
+-	}
+-
+-	return Transport::outgoing(message); // bypass DTLS DSCP marking
++	return Transport::outgoing(message); // bypass DTLS DSCP marking; RTP leaves unmarked
+ }
+ 
+ void DtlsSrtpTransport::recvMedia(message_ptr message) {

@@ -1,7 +1,7 @@
 import { http } from '@/lib/http.ts';
 
 // A shell on the NanoKVM. It keeps running without a page for a while, so a
-// page can attach to it again (server/service/vm/terminal_session.go).
+// page can attach to it again (server-cpp/src/system/terminal.cpp).
 export type TerminalSession = {
   id: string;
   username: string;

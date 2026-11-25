@@ -2,7 +2,7 @@
 // voltages, fan speeds and the like) with LibreHardwareMonitorLib and sends
 // a report every few seconds to the NanoKVM plugged into it, over the
 // NanoKVM's USB serial port or its USB network. The NanoKVM's dashboard
-// shows the last report. The report format is in server/hostsensors.
+// shows the last report. The report format is in server-cpp/src/usb/host_sensors_core.cpp.
 //
 // Most processor and board sensors need administrator rights and the PawnIO
 // driver (https://pawnio.eu), which this program neither carries nor
@@ -38,7 +38,7 @@ namespace NanoKvmSensors
         private static string AgentVersion { get { return Own.ToString(3); } }
         private const string Title = "NanoKVM computer sensors";
         private const string TaskName = "NanoKVM Sensors";
-        // The report format's bounds (server/hostsensors).
+        // The report format's bounds (server-cpp/src/usb/host_sensors_core.cpp).
         private const int MaxSensors = 1024;
         private const int MaxText = 96;
 

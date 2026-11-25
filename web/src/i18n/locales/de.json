@@ -970,15 +970,7 @@
       "unavailable": "Erfordert einen NanoKVM-OS-Build mit dieser Funktion.",
       "loadError": "Speicherstatus konnte nicht gelesen werden",
       "changeError": "Swap-Einstellungen konnten nicht geändert werden",
-      "limitTitle": "Speicherlimit des Servers",
-      "limitDescription": "Nahe dieser Grenze gibt der NanoKVM-Server Speicher stärker frei, statt ihn apk und dem übrigen System zu nehmen. Eine eigene Grenze beträgt mindestens {{minimum}} MiB und gilt sofort.",
-      "limitValue": "Limit",
-      "limitApply": "Übernehmen",
-      "limitNone": "Aktuell: kein Limit.",
-      "limitError": "Das Speicherlimit konnte nicht geändert werden",
-      "zramUsage": "Belegt {{used}}, {{stored}} im RAM ({{algorithm}})",
-      "advanced": "Erweitert",
-      "limitDefault": "Standard: ein Viertel des RAM ({{default}} MiB)."
+      "zramUsage": "Belegt {{used}}, {{stored}} im RAM ({{algorithm}})"
     },
     "services": {
       "title": "Dienste"

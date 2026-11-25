@@ -18,7 +18,7 @@ export type ShellText = {
   declined: string;
 };
 
-// Close codes of server/service/vm/terminal_session.go.
+// Close codes of server-cpp/src/system/terminal.cpp.
 const sessionRevoked = 4401;
 const shellNotFound = 4404;
 const shellTakenOver = 4409;

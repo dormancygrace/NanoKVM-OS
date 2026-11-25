@@ -1,6 +1,6 @@
 /*
  * The monitor identity the EDID profiles carry instead of NanoKVM's own
- * (server/common/monitor_identity.go): what a computer shows for the monitor
+ * (server-cpp/src/video/monitor.cpp): what a computer shows for the monitor
  * and keys its per-monitor settings to. The modes stay NanoKVM's.
  */
 

@@ -20,7 +20,7 @@ require (
 	github.com/pion/rtp v1.10.6
 	github.com/pion/srtp/v3 v3.1.3
 	github.com/pion/transport/v5 v5.1.5
-	github.com/pion/webrtc/v4 v4.2.27
+	github.com/pion/webrtc/v4 v4.2.29
 	github.com/rs/cors/wrapper/gin v0.0.0-20261119124737-ae205904e3ce
 	github.com/sirupsen/logrus v1.10.2
 	golang.org/x/crypto v0.59.0

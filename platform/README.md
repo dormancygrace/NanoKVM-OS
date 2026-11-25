@@ -33,6 +33,16 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 
 ## Release and installation versions
 
+Use the Release workflow on `v4` for Go-based 4.x releases and on `main` for
+5.x. Both branches support patch and minor releases. The first release on
+the 5.x line is 5.0.0 (or 5.0.0-beta.1 on the beta channel). For a tag build,
+set the matching version in `firmware/alpine/release.env` and tag a commit on
+the corresponding branch. Keep the release workflow and version selector in
+sync when backporting release tooling to `v4`.
+
+Stable and beta are shared across majors. Once stable offers 5.x, publishing
+a later 4.x maintenance release does not move the stable OTA channel back to 4.x.
+
 `firmware/alpine/release.env` supplies `NANOKVM_VERSION`, shared by the OS and
 new SD images, and `NANOKVM_APK_VERSION`, its APK-comparable representation.
 For example, release `v3.7.0-beta.2` produces `NanoKVM-OS-v3.7.0-beta.2.img.zip`

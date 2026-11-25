@@ -24,7 +24,7 @@ void after(std::chrono::milliseconds delay, std::function<void()> fn);
 // Runs fn on the worker thread (one, in order). Safe from any thread.
 void work(std::function<void()> fn);
 
-// Runs fn on one of four threads for blocking work (external commands, slow files), in no particular order
+// Runs fn on a pool thread (four, more while all are busy) for blocking work (external commands, slow files), in no particular order
 // between them. Safe from any thread.
 void blocking(std::function<void()> fn);
 

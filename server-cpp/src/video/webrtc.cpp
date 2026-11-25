@@ -211,17 +211,14 @@ private:
 				queued_bytes_ -= frame.size;
 			}
 			try {
-				// false: the socket stayed full past libdatachannel's send wait and took only some of the frame's
-				// packets, or none. They were dropped here, before the queue and the interface, whose counters
-				// do not show them: this is the sender's own count. The viewer asks for them again (NACK).
+				// Incomplete frames belong to this writer. The ICE batch counter is shared by all viewers.
 				if (!track_->sendFrame(reinterpret_cast<const rtc::byte *>(frame.data()), frame.size,
 				                       rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(media_time(frame.timestamp)) / 1e6))))
 					++incomplete_;
 				if (auto now = Clock::now(); incomplete_ && now - last_incomplete_log_ >= 10s) {
-					auto unsent = rtc::UnsentMediaDatagrams();
-					log::warn("webrtc video: {} frames not sent whole since the last report ({} packets not sent, all viewers)",
-					          incomplete_, unsent - unsent_reported_);
-					unsent_reported_ = unsent;
+					log::warn("webrtc video: {} incomplete frames for this viewer since its last report "
+					          "({} unsent batch datagrams across all viewers since process start)",
+					          incomplete_, rtc::UnsentMediaDatagrams());
 					incomplete_ = 0;
 					last_incomplete_log_ = now;
 				}
@@ -255,7 +252,6 @@ private:
 	long failures_ = 0;
 	Clock::time_point last_incomplete_log_{};
 	long incomplete_ = 0;
-	std::uint64_t unsent_reported_ = rtc::UnsentMediaDatagrams();
 };
 
 struct Peer;

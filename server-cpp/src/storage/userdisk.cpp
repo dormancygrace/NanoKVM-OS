@@ -760,9 +760,9 @@ std::shared_ptr<UploadSink> begin_upload(http::Request &req, http::Response &res
 // The download of a file: its bytes go out through a stream, at most 1 MiB ahead of the client, the mount held
 // until the last one is queued. No progress for 30 s ends it.
 void stream_file(std::uint64_t id, std::vector<std::pair<std::string, std::string>> headers, int root, int fd,
-                 std::int64_t size, const std::string &name, std::shared_ptr<std::atomic<bool>> revoked)
+                 std::int64_t size, const std::string &name, std::shared_ptr<http::Stream> stream,
+                 std::shared_ptr<std::atomic<bool>> revoked)
 {
-	auto stream = std::make_shared<http::Stream>();
 	http::Response out;
 	out.headers = std::move(headers);
 	out.set_header("Content-Disposition", go::format_media_type("attachment", "filename", go::base(name)));
@@ -799,7 +799,6 @@ void stream_file(std::uint64_t id, std::vector<std::pair<std::string, std::strin
 			// Over as well when the client left before the response was attached (the stream then never closes),
 			// and when the session that asked for the file ended.
 			auto [closed, written] = ask([stream, id, revoked] {
-				if (revoked->load() && !stream->closed()) stream->abort();
 				return std::pair<bool, std::uint64_t>(stream->closed() || revoked->load() || !http::request_open(id), stream->written());
 			});
 			if (closed) {
@@ -927,17 +926,29 @@ void add_user_disk_routes(http::Router &router)
 		if (auto e = user_disk_path(req.query_value("path"), name)) return answer_file_error(res, e);
 		if (!try_lock_disk()) return answer_file_error(res, Error::of(err_busy, "busy"));
 		res.pending = true;
-		// The transfer ends with its session: sign-out, a revoked or changed account, the token's expiry.
+		// The response follows its session for as long as it is open, also after the file's last byte is queued
+		// for a slow client: sign-out, a revoked or changed account or the token's expiry aborts the stream here
+		// on the loop and stops the reader. The registration ends when the stream closes.
+		auto stream = std::make_shared<http::Stream>();
 		auto revoked = std::make_shared<std::atomic<bool>>(false);
-		auto session = auth::join_session(req, [revoked] { revoked->store(true); });
-		std::thread([id = req.id, headers = res.headers, name, revoked, session] {
+		auto session = auth::join_session(req, [stream, revoked] {
+			revoked->store(true);
+			stream->abort();
+		});
+		stream->on_close = [session] { auth::leave_session(session); };
+		std::thread([id = req.id, headers = res.headers, name, stream, revoked, session] {
+			// A stream that was never attached never closes: an error answered without it, or a client that
+			// left first. This runs on the loop after the response of this thread, whichever it was.
 			struct Leave {
+				std::shared_ptr<http::Stream> stream;
 				std::uint64_t session;
 				~Leave()
 				{
-					loop::post([s = session] { auth::leave_session(s); });
+					loop::post([st = stream, s = session] {
+						if (!st->wsi_) auth::leave_session(s);
+					});
 				}
-			} leave{session};
+			} leave{stream, session};
 			auto fail = [&](Error e, int root) {
 				if (root >= 0) e = joined(e, unmount_user_disk(root));
 				unlock_disk();
@@ -961,7 +972,7 @@ void add_user_disk_routes(http::Router &router)
 				::close(fd);
 				return fail(path_error(), root);
 			}
-			stream_file(id, headers, root, fd, st.st_size, name, revoked);
+			stream_file(id, headers, root, fd, st.st_size, name, stream, revoked);
 		}).detach();
 	}, admin));
 	auto upload = [](http::Request &req, http::Response &res) -> std::shared_ptr<http::BodySink> { return begin_upload(req, res); };

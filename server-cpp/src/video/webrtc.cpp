@@ -113,12 +113,29 @@ public:
 	}
 	~Writer()
 	{
+		close();
+		thread_.join();
+	}
+	// Nothing more is sent after the frame in flight, if any. Does not wait. Loop thread.
+	void close()
+	{
 		{
 			std::lock_guard lock(mutex_);
 			closed_ = true;
+			queue_.clear();
+			queued_bytes_ = 0;
 		}
 		cv_.notify_one();
-		thread_.join();
+	}
+	// The viewer paused: what is queued goes, and the next thing sent is a key frame, as for a new viewer. The
+	// writer itself stays with its track, so its thread and the track's media time are the same ones afterwards.
+	void suspend()
+	{
+		std::lock_guard lock(mutex_);
+		queue_.clear();
+		queued_bytes_ = 0;
+		repairing_ = true;
+		keyframe_wait_ = {};
 	}
 	// Loop thread. Returns whether a key frame should be requested now.
 	bool offer(const Frame &frame)
@@ -266,11 +283,13 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 		live.erase(this);
 	}
 
-	// The writer's destructor joins its thread, which may be inside a send that waits for the socket (up to
-	// 500 ms): it ends on a pool thread, not on the loop.
+	// The track is retired. The writer is told to stop here, at once; its destructor joins its thread, which may
+	// be inside a send that waits for the socket (up to 500 ms), so that part runs on a pool thread.
 	void drop_writer()
 	{
-		if (writer) loop::blocking([w = std::shared_ptr<Writer>(std::move(writer))] {});
+		if (!writer) return;
+		writer->close();
+		loop::blocking([w = std::shared_ptr<Writer>(std::move(writer))] {});
 	}
 
 	void send(const std::string &event, const std::string &data)
@@ -438,13 +457,15 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 				close_all();
 				return;
 			}
-			writer = std::make_unique<Writer>(video);
+			// One writer for the track's life: a second one on the same track would share its packetizer
+			// with a send still in flight, and would start the media time again.
+			if (!writer) writer = std::make_unique<Writer>(video);
 			viewer = true;
 		} else {
 			manager.remove(this);
 			viewer = false;
 			// Joined again later like a new viewer, with a key frame.
-			drop_writer();
+			if (writer) writer->suspend();
 		}
 	}
 

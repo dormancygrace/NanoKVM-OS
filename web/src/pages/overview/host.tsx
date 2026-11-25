@@ -124,7 +124,7 @@ export const HostActions = ({ admin, locked }: { admin: boolean; locked: boolean
     <div className="grid w-full grid-cols-2 gap-2">
       {atx && <Power label className={tile} placement="bottomLeft" />}
       <Image label className={tile} />
-      {admin && <DownloadImage label className={tile} placement="bottomLeft" />}
+      {admin && <DownloadImage label className={tile} placement="bottom" />}
       {admin && <Terminal label className={tile} placement="bottomLeft" />}
       {admin && (
         <Link

@@ -395,7 +395,7 @@ export const DownloadImage = ({
   }
 
   const content = (
-    <div key={popoverKey} className="w-[360px] max-w-full min-w-0">
+    <div key={popoverKey} className="w-[min(360px,calc(100vw-3rem))] min-w-0">
       <div className="flex items-center justify-between px-1">
         <span className="text-base font-bold text-neutral-300">{t('download.title')}</span>
       </div>
@@ -424,7 +424,7 @@ export const DownloadImage = ({
         </Button>
       )}
       {diskEnabled === true && (
-        <fieldset disabled={checkingFile} className="min-w-0 space-y-2">
+        <fieldset disabled={checkingFile} className="m-0 min-w-0 space-y-2 border-0 p-0">
           <div>
             <div className="mb-1 text-neutral-500">{t('download.input')}</div>
             <div className="flex items-center gap-1">

@@ -10,6 +10,7 @@ import { changeCapture } from '@/lib/capture-control.ts';
 import { subscribeLEDStatus } from '@/lib/led-status.ts';
 import { atxEnabledAtom } from '@/jotai/atx.ts';
 import { captureBusyAtom, captureReadyAtom, isHdmiEnabledAtom } from '@/jotai/screen.ts';
+import { useVirtualDisk } from '@/hooks/useVirtualDisk.ts';
 import { Panel } from '@/components/ui/settings.tsx';
 import { DownloadImage } from '@/pages/desktop/menu/download.tsx';
 import { Image } from '@/pages/desktop/menu/image';
@@ -119,13 +120,18 @@ const tile =
 export const HostActions = ({ admin, locked }: { admin: boolean; locked: boolean }) => {
   const { t } = useTranslation();
   const atx = useAtomValue(atxEnabledAtom) === true;
+  const disk = useVirtualDisk() === true;
   const way = wayOf(locked);
+  // A popover opens along the outer edge of its tile (the grid has two columns), so on a phone it keeps the page's
+  // margin instead of running to the screen edge. The disk tile shows only with the virtual disk.
+  const side = (index: number) => (index % 2 === 0 ? 'bottomLeft' : 'bottomRight');
+  const download = (atx ? 1 : 0) + (disk ? 1 : 0);
   return (
     <div className="grid w-full grid-cols-2 gap-2">
       {atx && <Power label className={tile} placement="bottomLeft" />}
       <Image label className={tile} />
-      {admin && <DownloadImage label className={tile} placement="bottom" />}
-      {admin && <Terminal label className={tile} placement="bottomLeft" />}
+      {admin && <DownloadImage label className={tile} placement={side(download)} />}
+      {admin && <Terminal label className={tile} placement={side(download + 1)} />}
       {admin && (
         <Link
           to={settingsPath('system-events')}

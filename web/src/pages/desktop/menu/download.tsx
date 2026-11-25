@@ -395,7 +395,7 @@ export const DownloadImage = ({
   }
 
   const content = (
-    <div key={popoverKey} className="w-[min(360px,calc(100vw-3rem))] min-w-0">
+    <div key={popoverKey} className="w-[min(360px,calc(100vw-4.5rem))] min-w-0">
       <div className="flex items-center justify-between px-1">
         <span className="text-base font-bold text-neutral-300">{t('download.title')}</span>
       </div>

@@ -26,6 +26,7 @@
 #include <atomic>
 #include <cerrno>
 #include <cctype>
+#include <cstdint>
 #include <map>
 #include <set>
 #include <climits>
@@ -621,8 +622,8 @@ void audio_queued(void *)
 // ---------------------------------------------------------------------------------------------------------------
 // live555 objects (RTSP thread)
 
-// A client set up the video track over its TCP connection on this channel (defined with the server below).
-void video_set_up(int socket, unsigned char channel);
+// A client started the video track over its TCP connection on this channel (defined with the server below).
+void video_started(int socket, unsigned char channel);
 
 class Subsession : public OnDemandServerMediaSubsession {
 public:
@@ -641,21 +642,14 @@ protected:
 		if (codec_ == Codec::h264) return H264VideoStreamDiscreteFramer::createNew(envir(), source);
 		return H265VideoStreamDiscreteFramer::createNew(envir(), source);
 	}
-	// The video channel of a client over TCP: only clients with one count for the lag of the stream.
-	void getStreamParameters(unsigned id, sockaddr_storage const &client, Port const &rtp, Port const &rtcp, int tcp_socket,
-	                         unsigned char rtp_channel, unsigned char rtcp_channel, TLSState *tls,
-	                         sockaddr_storage &destination, u_int8_t &ttl, Boolean &multicast, Port &server_rtp,
-	                         Port &server_rtcp, void *&token) override
-	{
-		OnDemandServerMediaSubsession::getStreamParameters(id, client, rtp, rtcp, tcp_socket, rtp_channel, rtcp_channel,
-		                                                   tls, destination, ttl, multicast, server_rtp, server_rtcp,
-		                                                   token);
-		if (tcp_socket >= 0) video_set_up(tcp_socket, rtp_channel);
-	}
 	// A client joining a stream that already runs starts at an IDR too.
 	void startStream(unsigned id, void *token, TaskFunc *rr, void *rr_data, unsigned short &seq, unsigned &ts,
 	                 ServerRequestAlternativeByteHandler *alt, void *alt_data) override
 	{
+		// SETUP also runs for tracks the client never plays. Count the video once live555 attaches its RTP channel.
+		auto *key = reinterpret_cast<char const *>(static_cast<std::uintptr_t>(id));
+		auto *dest = static_cast<Destinations const *>(fDestinationsHashTable->Lookup(key));
+		if (token && dest && dest->isTCP) video_started(dest->tcpSocketNum, dest->rtpChannelId);
 		OnDemandServerMediaSubsession::startStream(id, token, rr, rr_data, seq, ts, alt, alt_data);
 		loop::post([] { request_keyframe(); });
 	}
@@ -825,8 +819,8 @@ public:
 		backlogs_[socket] = bytes;
 		update_least();
 	}
-	// RTSP thread: a client set up the video track on this channel.
-	void video_set_up(int socket, unsigned char channel) { video_channels_[socket].insert(channel); }
+	// RTSP thread: a client started the video track on this channel.
+	void video_started(int socket, unsigned char channel) { video_channels_[socket].insert(channel); }
 	// RTSP thread: a track stopped streaming over the socket (TEARDOWN, or the end of the connection).
 	void stream_removed(int socket, unsigned char channel)
 	{
@@ -902,9 +896,9 @@ private:
 // The server of the RTSP thread, for live555's backlog hook (a plain function). RTSP thread.
 Server *active_server = nullptr;
 
-void video_set_up(int socket, unsigned char channel)
+void video_started(int socket, unsigned char channel)
 {
-	if (active_server) active_server->video_set_up(socket, channel);
+	if (active_server) active_server->video_started(socket, channel);
 }
 
 class Runner {

@@ -39,7 +39,7 @@ using gostr::trim_space;
 const std::vector<std::string> core_packages{
 	"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release", "nanokvm-base", "nanokvm-keys", "nanokvm-kernel",
 	"nanokvm-kmod", "nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-openssl3",
-	"nanokvm-exfatprogs", "nanokvm-exfatprogs1", "nanokvm-i2c-tools", "nanokvm-tpu", "nanokvm-firmware-sg2002",
+	"nanokvm-exfatprogs", "nanokvm-exfatprogs1", "nanokvm-i2c-tools", "nanokvm-tpu",
 	"nanokvm-bootloader-sg2002"};
 
 // ---- Lock and files ----
@@ -1056,7 +1056,7 @@ std::vector<std::string> stable_package_targets(const std::string &output, Error
 				targets.insert(targets.end(), {"!nanokvm-openssl", "openssl"});
 				continue;
 			}
-			if (name == "nanokvm-openssl3" || name == "nanokvm-exfatprogs1" || name == "nanokvm-tpu" || name == "nanokvm-firmware" ||
+			if (name == "nanokvm-openssl3" || name == "nanokvm-exfatprogs1" || name == "nanokvm-tpu" ||
 			    name == "nanokvm-bootloader") {
 				targets.push_back("!" + name);
 				continue;

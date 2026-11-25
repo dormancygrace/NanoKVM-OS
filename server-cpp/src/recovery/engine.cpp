@@ -34,7 +34,7 @@ constexpr const char *status_path = "var/lib/nanokvm-recovery/status.json";
 const std::vector<std::string> core_packages{
 	"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release", "nanokvm-base", "nanokvm-keys", "nanokvm-kernel",
 	"nanokvm-kmod", "nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-openssl3",
-	"nanokvm-exfatprogs", "nanokvm-exfatprogs1", "nanokvm-i2c-tools", "nanokvm-tpu", "nanokvm-firmware-sg2002",
+	"nanokvm-exfatprogs", "nanokvm-exfatprogs1", "nanokvm-i2c-tools", "nanokvm-tpu",
 	"nanokvm-bootloader-sg2002"};
 
 std::string strings_json(const std::optional<std::vector<std::string>> &list)

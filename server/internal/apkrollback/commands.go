@@ -13,9 +13,7 @@ var RecoveryService []byte
 var CorePackages = []string{"nanokvm", "nanokvm-web", "nanokvm-app", "nanokvm-release",
 	"nanokvm-base", "nanokvm-keys", "nanokvm-kernel", "nanokvm-kmod",
 	"nanokvm-firmware", "nanokvm-bootloader", "nanokvm-zlib", "nanokvm-openssl", "nanokvm-openssl3",
-	"nanokvm-exfatprogs", "nanokvm-exfatprogs1", "nanokvm-i2c-tools", "nanokvm-tpu",
-	// The bootloader compatibility package is still shipped.
-	"nanokvm-bootloader-sg2002"}
+	"nanokvm-exfatprogs", "nanokvm-exfatprogs1", "nanokvm-i2c-tools", "nanokvm-tpu"}
 
 func Query(repo string) []string {
 	// Do not use --no-network: APK 3 can have a differently named cached index
@@ -39,11 +37,6 @@ func LegacyTargets(name string) []string {
 	case "nanokvm-tpu":
 		// Before 3.7.0 the programs came with the models in an add-on.
 		return []string{"!nanokvm-tpu"}
-	case "nanokvm-bootloader":
-		// Named NAME-sg2002 before 3.7.0. Those are core packages too, so a
-		// release without either name is still refused; the old package
-		// takes the files back.
-		return []string{"!" + name}
 	}
 	return nil
 }

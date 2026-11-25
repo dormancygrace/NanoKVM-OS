@@ -40,7 +40,6 @@ PACKAGES = {
     'nanokvm-tpu': 'tpu',
     'nanokvm-release': 'release',
     # The names of nanokvm-kernel and the others before 3.7.0.
-    'nanokvm-bootloader-sg2002': None,
 }
 KERNEL = ('nanokvm-kernel', 'nanokvm-kmod')
 ALWAYS = {'nanokvm-release'}

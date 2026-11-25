@@ -211,8 +211,17 @@ private:
 				queued_bytes_ -= frame.size;
 			}
 			try {
-				track_->sendFrame(reinterpret_cast<const rtc::byte *>(frame.data()), frame.size,
-				                  rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(media_time(frame.timestamp)) / 1e6)));
+				// Incomplete frames belong to this writer. The ICE batch counter is shared by all viewers.
+				if (!track_->sendFrame(reinterpret_cast<const rtc::byte *>(frame.data()), frame.size,
+				                       rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(media_time(frame.timestamp)) / 1e6))))
+					++incomplete_;
+				if (auto now = Clock::now(); incomplete_ && now - last_incomplete_log_ >= 10s) {
+					log::warn("webrtc video: {} incomplete frames for this viewer since its last report "
+					          "({} unsent batch datagrams across all viewers since process start)",
+					          incomplete_, rtc::UnsentMediaDatagrams());
+					incomplete_ = 0;
+					last_incomplete_log_ = now;
+				}
 			} catch (const std::exception &e) {
 				// At most one line per 10 s, with the count of the failures since the last one: a failing peer must
 				// not flood the log, and later failures must not vanish either.
@@ -241,6 +250,8 @@ private:
 	Clock::time_point last_frame_at_{};
 	Clock::time_point last_failure_log_{};
 	long failures_ = 0;
+	Clock::time_point last_incomplete_log_{};
+	long incomplete_ = 0;
 };
 
 struct Peer;

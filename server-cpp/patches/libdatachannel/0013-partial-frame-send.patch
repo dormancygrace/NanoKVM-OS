@@ -1,0 +1,154 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: A frame sent in part is reported and counted
+
+juice_send_batch returns how many datagrams the socket took. After its bounded wait for a full socket buffer that
+can be fewer than it was given, and IceTransport::sendBatch took any count as success, so a frame missing its last
+packets looked sent: nothing reached the sender's own counters, and the missing datagrams never reach the queue or
+the interface counters either. The batch is now a success only when every datagram was taken; the others are
+counted (UnsentMediaDatagrams) where the number is known. DtlsSrtpTransport keeps that result when an RTCP packet
+follows the frame, and Track::sendFrame returns it. What the socket took is not sent again.
+---
+--- a/include/rtc/global.hpp
++++ b/include/rtc/global.hpp
+@@ -55,6 +55,10 @@
+ // list); empty for the library's own list. The order is offered as a client and enforced as a server.
+ RTC_CPP_EXPORT void SetDtlsCipherList(string list);
+ 
++// The datagrams of media frames that the socket did not take within the send wait, since the process started: a
++// frame's batch accepted in part, or not at all. They were not sent, and the sender does not send them again.
++RTC_CPP_EXPORT uint64_t UnsentMediaDatagrams();
++
+ // Optional global preload and cleanup
+ RTC_CPP_EXPORT void Preload();
+ RTC_CPP_EXPORT std::shared_future<void> Cleanup();
+--- a/include/rtc/track.hpp
++++ b/include/rtc/track.hpp
+@@ -41,8 +41,10 @@
+ 	bool isClosed(void) const override;
+ 	size_t maxMessageSize() const override;
+ 
+-	void sendFrame(binary data, FrameInfo info);
+-	void sendFrame(const byte *data, size_t size, FrameInfo info);
++	// false when the frame did not go out whole: the socket stayed full past the send wait and took only some of
++	// its packets, or none (UnsentMediaDatagrams counts them). What it took is not sent again.
++	bool sendFrame(binary data, FrameInfo info);
++	bool sendFrame(const byte *data, size_t size, FrameInfo info);
+ 	void onFrame(std::function<void(binary data, FrameInfo info)> callback);
+ 
+ 	bool requestKeyframe();
+--- a/src/track.cpp
++++ b/src/track.cpp
+@@ -40,15 +40,15 @@
+ 
+ size_t Track::maxMessageSize() const { return impl()->maxMessageSize(); }
+ 
+-void Track::sendFrame(binary data, FrameInfo info) {
+-	impl()->outgoing(make_message(std::move(data), std::make_shared<FrameInfo>(std::move(info))));
++bool Track::sendFrame(binary data, FrameInfo info) {
++	return impl()->outgoing(make_message(std::move(data), std::make_shared<FrameInfo>(std::move(info))));
+ }
+ 
+-void Track::sendFrame(const byte *data, size_t size, FrameInfo info) {
++bool Track::sendFrame(const byte *data, size_t size, FrameInfo info) {
+ 	// Lent, not copied: the media handler chain runs within this call (see impl::Track::outgoing).
+ 	info.borrowedData = data;
+ 	info.borrowedSize = size;
+-	impl()->outgoing(make_message(binary{}, std::make_shared<FrameInfo>(std::move(info))));
++	return impl()->outgoing(make_message(binary{}, std::make_shared<FrameInfo>(std::move(info))));
+ }
+ 
+ void Track::onFrame(std::function<void(binary data, FrameInfo frame)> callback) {
+--- a/src/impl/icetransport.cpp
++++ b/src/impl/icetransport.cpp
+@@ -13,6 +13,7 @@
+ #include "utils.hpp"
+ 
+ #include <algorithm>
++#include <atomic>
+ #include <future>
+ #include <iostream>
+ #include <random>
+@@ -33,6 +34,18 @@
+ using namespace std::chrono_literals;
+ using std::chrono::system_clock;
+ 
++namespace {
++
++std::atomic<uint64_t> unsentMediaDatagrams{0};
++
++} // namespace
++
++namespace rtc {
++
++uint64_t UnsentMediaDatagrams() { return unsentMediaDatagrams.load(); }
++
++} // namespace rtc
++
+ namespace rtc::impl {
+ 
+ #if !USE_NICE // libjuice
+@@ -319,7 +332,17 @@
+ 	if (data.empty())
+ 		return false;
+ 	int ds = int(messages.front()->dscp << 2);
+-	return juice_send_batch(mAgent.get(), data.data(), sizes.data(), int(data.size()), ds) >= 0;
++	// juice_send_batch returns how many datagrams the socket took, which can be fewer than were given: after its
++	// bounded wait for a full socket buffer the rest is dropped. Only here is that number known, so the datagrams
++	// not sent are counted here, and a batch sent in part is not a success. The accepted ones are on their way and
++	// are not given again.
++	int sent = juice_send_batch(mAgent.get(), data.data(), sizes.data(), int(data.size()), ds);
++	size_t accepted = sent > 0 ? size_t(sent) : 0;
++	if (accepted < data.size()) {
++		unsentMediaDatagrams += data.size() - accepted;
++		return false;
++	}
++	return true;
+ }
+ 
+ void IceTransport::changeGatheringState(GatheringState state) {
+--- a/src/impl/dtlssrtptransport.cpp
++++ b/src/impl/dtlssrtptransport.cpp
+@@ -104,15 +104,18 @@
+ 
+ bool DtlsSrtpTransport::sendMediaBatch(message_vector &messages) {
+ 	if (!mProtector) {
+-		bool ret = false;
++		// Whole only if every packet went out.
++		bool ok = !messages.empty();
+ 		for (auto &m : messages)
+-			ret = sendMedia(std::move(m));
+-		return ret;
++			ok = sendMedia(std::move(m)) && ok;
++		return ok;
+ 	}
+ 	// The protected copies are reused: each lives only until the batch below is sent, synchronously. A copy that
+ 	// something else still holds is replaced, not reused.
+ 	std::lock_guard batchLock(mBatchMutex);
+-	bool ret = false;
++	// false when nothing was sent, and when the batch or an RTCP packet after it was not sent whole: an RTCP packet
++	// that goes out must not hide a frame that did not.
++	bool any = false, ok = true;
+ 	size_t n = 0;
+ 	{
+ 		std::lock_guard lock(sendMutex);
+@@ -153,13 +156,16 @@
+ 	}
+ 	if (n) {
+ 		mBatch.assign(mBatchPool.begin(), mBatchPool.begin() + n);
+-		ret = Transport::outgoingBatch(mBatch); // bypass DTLS DSCP marking
++		any = true;
++		ok = Transport::outgoingBatch(mBatch); // bypass DTLS DSCP marking
+ 		mBatch.clear(); // the pool holds the copies alone again
+ 	}
+ 	for (auto &m : messages)
+-		if (m && IsRtcp(*m))
+-			ret = sendMedia(std::move(m));
+-	return ret;
++		if (m && IsRtcp(*m)) {
++			any = true;
++			ok = sendMedia(std::move(m)) && ok;
++		}
++	return any && ok;
+ }
+ 
+ bool DtlsSrtpTransport::sendMedia(message_ptr message) {

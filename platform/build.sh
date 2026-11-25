@@ -651,8 +651,9 @@ tpu() {
     mkdir -p "$src" "$build" "$inst" "$img/tpu"
     for p in cviruntime cvikernel cvibuilder flatbuffers; do unpack_git tpu-runtime "$p" "$src/$p"; done
     apply_patches "$src" "$repo/tpu/patches"
+    # The tpu profile: -O3 (the CPU part of a recognition: about 12 % less CPU than -O2, docs/COMPONENT-BUILD-PROFILES.md).
     local cpu_flags
-    read -r -a cpu_flags <<< "$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)"
+    read -r -a cpu_flags <<< "$(python3 "$repo/scripts/nanokvm_cpu_profile.py" tpu)"
     cat > "$build/toolchain.cmake" <<EOF
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR riscv64)
@@ -666,7 +667,7 @@ set(CMAKE_CXX_FLAGS "\${CMAKE_CXX_FLAGS} ${cpu_flags[*]} -ffile-prefix-map=$t=tp
 EOF
     # The runtime's CMake files ask for CMake 2.8-3.1; CMake 4 warns below 3.10.
     local cmake=("$host/cmake" -DCMAKE_POLICY_VERSION_MINIMUM=3.10)
-    local target=("${cmake[@]}" -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE=-O2 -DCMAKE_CXX_FLAGS_RELEASE=-O2
+    local target=("${cmake[@]}" -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS_RELEASE= -DCMAKE_CXX_FLAGS_RELEASE=
                   -DCMAKE_TOOLCHAIN_FILE="$build/toolchain.cmake" -DCMAKE_INSTALL_PREFIX="$inst")
     # The model schema: a host flatc, then the generated headers.
     "${cmake[@]}" -S "$src/flatbuffers" -B "$build/flatc" -DCMAKE_INSTALL_PREFIX="$build/flatc-install" \
@@ -689,7 +690,7 @@ EOF
     # runtime finds its CPU functions in a table (model.cpp), so linking only
     # what is referenced keeps them.
     for helper in nanokvm-ocr nanokvm-screen; do
-        "${cross}g++" -std=gnu++17 -O2 -Wall -Wextra -pthread "${cpu_flags[@]}" -I"$inst/include" \
+        "${cross}g++" -std=gnu++17 -Wall -Wextra -pthread "${cpu_flags[@]}" -I"$inst/include" \
             -ffile-prefix-map="$repo"=. -ffile-prefix-map="$t"=tpu "$repo/tpu/helpers/$helper.cpp" \
             "$inst/lib/libcviruntime-static.a" "$inst/lib/libcvikernel-static.a" \
             -static-libstdc++ -static-libgcc -o "$t/$helper"

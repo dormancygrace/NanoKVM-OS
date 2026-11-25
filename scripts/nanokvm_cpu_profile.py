@@ -18,11 +18,11 @@ PROFILE = json.loads(PROFILE_FILE.read_text())
 
 
 def flags(kind='userspace'):
-    if kind not in ('userspace', 'kernel', 'bootloader', 'audio', 'openssl', 'smallcore'):
+    if kind not in ('userspace', 'kernel', 'bootloader', 'audio', 'openssl', 'smallcore', 'tpu'):
         raise ValueError('Unknown CPU build profile: ' + kind)
     if kind == 'kernel' and PROFILE.get('kernel_lto', 'none') != 'none':
         raise ValueError('Production GCC kernel requires kernel_lto=none')
-    isa_kind = 'userspace' if kind in ('audio', 'openssl', 'smallcore') else kind
+    isa_kind = 'userspace' if kind in ('audio', 'openssl', 'smallcore', 'tpu') else kind
     isa = PROFILE[isa_kind + '_isa']
     if kind in ('openssl', 'smallcore'):
         # openssl: no unconditional RVV instructions in general-purpose crypto
@@ -101,7 +101,7 @@ def record(output, compiler, kind='userspace', effective_flags=None):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('kind', choices=('userspace', 'kernel', 'bootloader', 'audio', 'openssl', 'smallcore'))
+    p.add_argument('kind', choices=('userspace', 'kernel', 'bootloader', 'audio', 'openssl', 'smallcore', 'tpu'))
     p.add_argument('--record', type=Path)
     p.add_argument('--compiler')
     args = p.parse_args()

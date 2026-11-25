@@ -66,7 +66,8 @@ struct Request {
 struct Stream {
 	void write(std::string data);
 	void end();
-	// Drops the connection now (a stalled client).
+	// Drops the connection now (a stalled client). On a stream whose response has not started it is remembered:
+	// the response is then not sent and the connection is dropped instead.
 	void abort();
 	bool closed() const { return closed_; }
 	// Bytes written so far (progress of a slow client).
@@ -78,7 +79,7 @@ struct Stream {
 	std::deque<std::string> queue_;
 	std::size_t front_sent_ = 0;  // bytes of queue_.front() already written
 	std::uint64_t written_ = 0;
-	bool ended_ = false, closed_ = false, headers_sent_ = false;
+	bool ended_ = false, closed_ = false, headers_sent_ = false, aborted_ = false;
 };
 
 struct Response {

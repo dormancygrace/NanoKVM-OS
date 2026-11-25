@@ -393,6 +393,15 @@ int respond(lws *wsi, Session &s)
 	Response &r = s.response;
 	if (!r.file.empty()) return respond_file(wsi, s);
 	if (r.stream) {
+		// Aborted before it was attached (its session ended while the response was prepared): nothing of it is
+		// sent. The stream is closed for its producer and the connection goes.
+		if (r.stream->aborted_) {
+			auto stream = r.stream;
+			stream->closed_ = true;
+			stream->queue_.clear();
+			if (stream->on_close) stream->on_close();
+			return -1;
+		}
 		unsigned char buf[LWS_PRE + 4096], *start = buf + LWS_PRE, *p = start, *end = buf + sizeof buf;
 		const char *type = r.content_type.empty() ? nullptr : r.content_type.c_str();
 		if (lws_add_http_common_headers(wsi, static_cast<unsigned>(r.status), type, LWS_ILLEGAL_HTTP_CONTENT_LEN, &p, end))
@@ -768,7 +777,11 @@ void Stream::write(std::string data)
 
 void Stream::abort()
 {
-	if (closed_ || !wsi_) return;
+	if (closed_) return;
+	if (!wsi_) {
+		aborted_ = true;
+		return;
+	}
 	lws_set_timeout(wsi_, PENDING_TIMEOUT_KILLED_BY_PARENT, LWS_TO_KILL_ASYNC);
 }
 

@@ -172,7 +172,9 @@
     "nothingFound": "Ничего не найдено",
     "host": {
       "title": "Компьютер",
-      "noImage": "Образ не подключён"
+      "powerStatus": "Питание",
+      "poweredOn": "Включён",
+      "poweredOff": "Выключен"
     },
     "screen": {
       "title": "Удалённая консоль",

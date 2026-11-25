@@ -172,7 +172,9 @@
     "nothingFound": "Nothing found",
     "host": {
       "title": "Host",
-      "noImage": "Nothing mounted"
+      "powerStatus": "Power status",
+      "poweredOn": "Powered on",
+      "poweredOff": "Powered off"
     },
     "screen": {
       "title": "Remote console",

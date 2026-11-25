@@ -32,6 +32,7 @@ const char *const settings_text = R"(
  etc/kvm/monitor_portrait_resolution etc/kvm/monitor_edid_sha256 etc/kvm/monitor_identity
  etc/kvm/shortcuts.json etc/kvm/server.yaml etc/kvm/ssh_stop etc/kvm/mdns_disabled
  etc/kvm/hevc_vi_direct etc/kvm/watermark.json etc/kvm/hdmi_disable etc/kvm/hdmi_idle_timeout etc/kvm/atx etc/kvm/screen-text-off
+ etc/kvm/rtsp.json
  etc/kvm/mcp.json etc/kvm/ai-control.mode etc/kvm/autostart.list etc/kvm/host-sensors
  etc/kvm/wifi.ssid etc/kvm/wifi.pass etc/kvm/wifi.disabled etc/kvm/wifi.band_preference etc/kvm/wifi.country
  etc/kvm/wifi.ap.enabled etc/kvm/wifi.ap.ssid etc/kvm/wifi.ap.pass etc/kvm/wifi.ap.band etc/kvm/wifi.ap.channel
@@ -69,6 +70,8 @@ struct SettingsGroup {
 const std::vector<SettingsGroup> &groups()
 {
 	static const std::vector<SettingsGroup> list{
+		// The RTSP stream (on/off, port, password); a backup from before it leaves the device's as it is.
+		{"rtsp", {"etc/kvm/rtsp.json"}, {"etc/kvm/rtsp.json"}},
 		// The node identity and the networks joined with it. Without identity.secret ZeroTier had not started:
 		// network files then are only preseeded join requests, and restoring them would delete the identity and
 		// networks made since.
@@ -481,7 +484,7 @@ bool portable(const std::string &p)
 		"etc/kvm/bmc/config.json", "etc/kvm/cron/crontabs/root", "etc/kvm/cache/wol", "etc/netbird/config.json",
 		"var/lib/tailscale/tailscaled.state", "etc/kvm/acme/settings.json", "etc/kvm/server.yaml", "etc/kvm/server.crt",
 		"etc/kvm/server.key", "etc/hostname", "etc/hosts", "etc/kvm/ssh_stop", "etc/kvm/usb-before-rustdesk.json",
-		"etc/kvm/mcp.json", "etc/kvm/autostart.list", "etc/kvm/picoclaw-runtime.json",
+		"etc/kvm/mcp.json", "etc/kvm/autostart.list", "etc/kvm/picoclaw-runtime.json", "etc/kvm/rtsp.json",
 		// Notification channels hold tokens and passwords; the addresses are this device's login history.
 		"etc/kvm/notify/config.json", "etc/kvm/notify/addresses.json"};
 	if (local.count(p)) return false;

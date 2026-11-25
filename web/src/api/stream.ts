@@ -27,3 +27,23 @@ export function selectEncoderCodec(codec: 'h264' | 'h265') {
 }
 
 type EncoderState = { active: boolean; selected: boolean; codec: 'h264' | 'h265' | '' };
+
+// The RTSP stream (Video > RTSP): off by default; the password is generated.
+export type RtspSettings = {
+  enabled: boolean;
+  port: number;
+  path: string;
+  username: string;
+  password: string;
+  running: boolean;
+  error: string;
+  streaming: boolean;
+};
+
+export function getRtsp() {
+  return http.request<RtspSettings>({ method: 'get', url: '/api/stream/rtsp' });
+}
+
+export function setRtsp(change: { enabled?: boolean; port?: number; newPassword?: boolean }) {
+  return http.post<RtspSettings>('/api/stream/rtsp', change);
+}

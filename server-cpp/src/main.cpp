@@ -53,6 +53,7 @@
 #include "video/hdmi.hpp"
 #include "video/monitor.hpp"
 #include "video/routes.hpp"
+#include "video/rtsp.hpp"
 #include "video/vision.hpp"
 #include "video/preview.hpp"
 #include "video/screen_text.hpp"
@@ -307,6 +308,7 @@ int main(int argc, char **argv)
 		});
 		// StartScreenWatch: crashes on the host's screen, once the capture runs.
 		video::screen_watch::start();
+		video::rtsp::start();
 		if (!system::failsafe::video_disabled()) system::failsafe::video_phase("ready");
 		// The monitor profile is kept in the HDMI receiver across restarts and reinstalls: it must not exceed the
 		// video memory of this boot, and it must be the saved one after an installation or a write by anything but
@@ -325,6 +327,7 @@ int main(int argc, char **argv)
 		if (!std::ofstream("/run/nanokvm/listening")) log::error("cannot mark the server listening");
 	}, [] {
 		// Still on the loop: peers close before the capture they read is released.
+		video::rtsp::stop();
 		video::webrtc::stop();
 		video::audio::stop();
 	});

@@ -1,0 +1,227 @@
+RTPInterface, RTSPServer: RTP, RTCP and RTSP replies over TCP through one bounded output queue per socket, in order, drained by a timer; never blocking the event loop.
+
+diff -ru a/liveMedia/RTPInterface.cpp b/liveMedia/RTPInterface.cpp
+--- a/liveMedia/RTPInterface.cpp
++++ b/liveMedia/RTPInterface.cpp
+@@ -23,6 +23,133 @@
+ #include "RTPInterface.hh"
+ #include <GroupsockHelper.hh>
+ #include <stdio.h>
++#include <string.h>
++#include <errno.h>
++#include <sys/socket.h>
++#include <sys/uio.h>
++#include <map>
++#include <string>
++#include <vector>
++
++unsigned RTPInterfaceMaxBacklogBytes = 2 << 20;
++void (*RTPInterfaceBacklogHook)(int socketNum, unsigned backlogBytes) = NULL;
++void (*RTPInterfaceClosedHook)(int socketNum) = NULL;
++void (*RTPInterfaceStreamRemovedHook)(int socketNum, unsigned char channelId) = NULL;
++
++namespace {
++struct TcpOutput {
++  std::string queue;
++  bool media = false; // carries RTP: its backlog is reported
++};
++std::map<int, TcpOutput>& tcpOutputs() {
++  static std::map<int, TcpOutput> outputs;
++  return outputs;
++}
++TaskScheduler* drainScheduler = NULL;
++TaskToken drainTask = NULL;
++int64_t const drainIntervalUs = 5000;
++
++void stopDrain() {
++  if (drainTask != NULL && drainScheduler != NULL) drainScheduler->unscheduleDelayedTask(drainTask);
++  drainTask = NULL;
++}
++
++void disconnect(int socketNum) {
++  shutdown(socketNum, SHUT_RDWR);
++  RTPInterfaceForgetSocket(socketNum);
++}
++
++// Sends what the socket takes of its queue. False on a failed socket.
++bool flush(int socketNum, TcpOutput& out) {
++  if (out.queue.empty()) return true;
++  ssize_t n = send(socketNum, out.queue.data(), out.queue.size(), MSG_NOSIGNAL);
++  if (n > 0) out.queue.erase(0, (size_t)n);
++  return n >= 0 || errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
++}
++
++void drain(void*);
++
++void scheduleDrain(TaskScheduler& scheduler) {
++  if (drainTask != NULL) return;
++  drainScheduler = &scheduler;
++  drainTask = scheduler.scheduleDelayedTask(drainIntervalUs, drain, NULL);
++}
++
++void drain(void*) {
++  drainTask = NULL;
++  std::vector<int> failed;
++  std::vector<std::pair<int, unsigned> > reports;
++  bool waiting = false;
++  for (std::map<int, TcpOutput>::iterator i = tcpOutputs().begin(); i != tcpOutputs().end(); ++i) {
++    if (i->second.queue.empty()) continue;
++    if (!flush(i->first, i->second)) { failed.push_back(i->first); continue; }
++    if (i->second.media) reports.push_back(std::make_pair(i->first, (unsigned)i->second.queue.size()));
++    if (!i->second.queue.empty()) waiting = true;
++  }
++  for (size_t i = 0; i < failed.size(); ++i) disconnect(failed[i]);
++  if (RTPInterfaceBacklogHook != NULL)
++    for (size_t i = 0; i < reports.size(); ++i) (*RTPInterfaceBacklogHook)(reports[i].first, reports[i].second);
++  if (waiting && drainScheduler != NULL) scheduleDrain(*drainScheduler);
++}
++
++// Writes the buffers behind the socket's queue; what the socket does not take is queued. False (and the client
++// disconnected) when the socket failed or the queue would pass the limit.
++bool writeOrdered(TaskScheduler& scheduler, int socketNum, struct iovec* iov, int count, bool media) {
++  TcpOutput& out = tcpOutputs()[socketNum];
++  if (media) out.media = true;
++  bool ok = flush(socketNum, out);
++  size_t total = 0, sent = 0;
++  for (int i = 0; i < count; ++i) total += iov[i].iov_len;
++  if (ok && out.queue.empty()) {
++    struct msghdr msg;
++    memset(&msg, 0, sizeof msg);
++    msg.msg_iov = iov; msg.msg_iovlen = count;
++    ssize_t n = sendmsg(socketNum, &msg, MSG_NOSIGNAL);
++    if (n > 0) sent = (size_t)n;
++    else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) ok = false;
++  }
++  if (ok && sent < total) {
++    if (out.queue.size() + (total - sent) > RTPInterfaceMaxBacklogBytes) {
++      ok = false;
++    } else {
++      for (int i = 0; i < count; ++i) {
++        size_t len = iov[i].iov_len;
++        if (sent >= len) { sent -= len; continue; }
++        out.queue.append((char const*)iov[i].iov_base + sent, len - sent);
++        sent = 0;
++      }
++      scheduleDrain(scheduler);
++    }
++  }
++  if (!ok) {
++    // The client is gone, or too far behind: disconnect it. RTP and the RTSP connection share the socket, so the
++    // client sees the end at once and the connection closes.
++    disconnect(socketNum);
++    return false;
++  }
++  if (out.media && RTPInterfaceBacklogHook != NULL) (*RTPInterfaceBacklogHook)(socketNum, (unsigned)out.queue.size());
++  return true;
++}
++} // namespace
++
++bool RTPInterfaceWrite(TaskScheduler& scheduler, int socketNum, char const* data, unsigned size) {
++  struct iovec iov;
++  iov.iov_base = (void*)data; iov.iov_len = size;
++  return writeOrdered(scheduler, socketNum, &iov, 1, false);
++}
++
++void RTPInterfaceForgetSocket(int socketNum) {
++  if (socketNum < 0) return;
++  bool known = tcpOutputs().erase(socketNum) > 0;
++  if (tcpOutputs().empty()) stopDrain();
++  if (known && RTPInterfaceClosedHook != NULL) (*RTPInterfaceClosedHook)(socketNum);
++}
++
++void RTPInterfaceForgetAll() {
++  stopDrain();
++  tcpOutputs().clear();
++  drainScheduler = NULL;
++}
+ 
+ ////////// Helper Functions - Definition //////////
+ 
+@@ -208,6 +335,7 @@
+ 
+ 	// And 'deregister' this socket,channelId pair:
+ 	deregisterSocket(envir(), sockNum, streamChannelIdToRemove);
++	if (RTPInterfaceStreamRemovedHook != NULL) (*RTPInterfaceStreamRemovedHook)(sockNum, streamChannelIdToRemove);
+ 
+ 	if (streamChannelId != 0xFF) return; // we're done
+ 	break; // start again from the beginning of the list, in case the list has changed
+@@ -346,6 +474,20 @@
+   fprintf(stderr, "sendRTPorRTCPPacketOverTCP: %d bytes over channel %d (socket %d)\n",
+ 	  packetSize, streamChannelId, socketNum); fflush(stderr);
+ #endif
++  if (tlsState == NULL || !tlsState->isNeeded) {
++    u_int8_t header[4];
++    header[0] = '$';
++    header[1] = streamChannelId;
++    header[2] = (u_int8_t) ((packetSize&0xFF00)>>8);
++    header[3] = (u_int8_t) (packetSize&0xFF);
++    struct iovec iov[2];
++    iov[0].iov_base = header; iov[0].iov_len = 4;
++    iov[1].iov_base = packet; iov[1].iov_len = packetSize;
++    if (writeOrdered(envir().taskScheduler(), socketNum, iov, 2, true)) return True;
++    removeStreamSocket(socketNum, 0xFF);
++    return False;
++  }
++
+   // Send a RTP/RTCP packet over TCP, using the encoding defined in RFC 2326, section 10.12:
+   //     $<streamChannelId><packetSize><packet>
+   // (If the initial "send()" of '$<streamChannelId><packetSize>' succeeds, then we force
+diff -ru a/liveMedia/RTSPServer.cpp b/liveMedia/RTSPServer.cpp
+--- a/liveMedia/RTSPServer.cpp
++++ b/liveMedia/RTSPServer.cpp
+@@ -19,6 +19,7 @@
+ // Implementation
+ 
+ #include "RTSPServer.hh"
++#include "RTPInterface.hh"
+ #include "RTSPCommon.hh"
+ #include "RTSPRegisterSender.hh"
+ #include "Base64.hh"
+@@ -689,6 +690,8 @@
+ void RTSPServer::RTSPClientConnection::closeSocketsRTSP() {
+   // First, tell our server to stop any streaming that it might be doing over our output socket:
+   fOurRTSPServer.stopTCPStreamingOnSocket(fClientOutputSocket);
++  // What is still queued for the connection goes with it.
++  RTPInterfaceForgetSocket(fClientOutputSocket);
+ 
+   // Turn off background handling on our input socket (and output socket, if different); then close it (or them):
+   if (fClientOutputSocket != fClientInputSocket) {
+@@ -1012,7 +1015,7 @@
+     if (fOutputTLS->isNeeded) {
+         fOutputTLS->write((char const*)fResponseBuffer, numBytesToWrite);
+     } else {
+-        send(fClientOutputSocket, (char const*)fResponseBuffer, numBytesToWrite, MSG_NOSIGNAL);
++        RTPInterfaceWrite(envir().taskScheduler(), fClientOutputSocket, (char const*)fResponseBuffer, numBytesToWrite);
+    }
+     
+     if (playAfterSetup) {
+diff -ru a/liveMedia/include/RTPInterface.hh b/liveMedia/include/RTPInterface.hh
+--- a/liveMedia/include/RTPInterface.hh
++++ b/liveMedia/include/RTPInterface.hh
+@@ -23,6 +23,26 @@
+ #ifndef _RTP_INTERFACE_HH
+ #define _RTP_INTERFACE_HH
+ 
++class TaskScheduler;
++
++// Everything a TCP socket carries (RTP and RTCP over TCP, and the RTSP replies on the same connection) goes through
++// one output queue per socket, in order: what the socket does not take at once waits there, goes out before anything
++// later, and is drained by a timer when nothing new comes. A slow client never blocks the event loop and the other
++// clients. A client whose queue would grow past RTPInterfaceMaxBacklogBytes is disconnected (its socket shut down).
++extern unsigned RTPInterfaceMaxBacklogBytes;
++// For a socket that carries RTP: called after each packet and each drain with the bytes still queued (0: all out).
++extern void (*RTPInterfaceBacklogHook)(int socketNum, unsigned backlogBytes);
++// Called when the queue of a socket is dropped: the connection closed, or the client was disconnected.
++extern void (*RTPInterfaceClosedHook)(int socketNum);
++// Called when a track stops streaming over a socket (its TEARDOWN, or the connection's end), for each channel.
++extern void (*RTPInterfaceStreamRemovedHook)(int socketNum, unsigned char channelId);
++// Writes bytes to a TCP socket behind what is queued for it. False when the client was disconnected.
++bool RTPInterfaceWrite(TaskScheduler& scheduler, int socketNum, char const* data, unsigned size);
++// Drops the queue of a socket (the connection closes; a new connection may reuse the number).
++void RTPInterfaceForgetSocket(int socketNum);
++// Drops every queue and the drain timer (the scheduler goes away).
++void RTPInterfaceForgetAll();
++
+ #ifndef _MEDIA_HH
+ #include "Media.hh"
+ #endif

@@ -18,6 +18,7 @@ import {
   BellIcon,
   BluetoothIcon,
   BotIcon,
+  CastIcon,
   ChevronRightIcon,
   ClockIcon,
   DownloadIcon,
@@ -127,6 +128,9 @@ const VideoSettings = lazyPage(() =>
 const WatermarkPage = lazyPage(() =>
   import('./video/watermark.tsx').then((module) => ({ default: module.WatermarkPage }))
 );
+const RtspPage = lazyPage(() =>
+  import('./services/rtsp.tsx').then((module) => ({ default: module.RtspPage }))
+);
 const VPNList = lazyPage(() =>
   import('./vpn/list').then((module) => ({ default: module.VPNList }))
 );
@@ -193,6 +197,7 @@ const menuIcons: Record<string, ReactNode> = {
   bell: <BellIcon size={16} />,
   bluetooth: <BluetoothIcon size={16} />,
   bot: <BotIcon size={16} />,
+  cast: <CastIcon size={16} />,
   clock: <ClockIcon size={16} />,
   dashboard: <LayoutDashboardIcon size={16} />,
   download: <DownloadIcon size={16} />,
@@ -411,6 +416,7 @@ export const Settings = ({
         services: null,
         'services-bmc': <BmcSettingsPage />,
         'services-rustdesk': <RustDeskControls />,
+        'services-rtsp': <RtspPage />,
         'services-host-sensors': <HostSensorsPage />,
         'services-notifications': <Notifications />,
         'services-schedule': <ScheduledTasks />,

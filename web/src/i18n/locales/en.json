@@ -2884,6 +2884,24 @@
       "serialConsole": "The computer has its login console on this port (the serial console helper sets one up), so the sensors cannot use it. Choose USB network."
     },
     "netServices": {
+      "rtsp": {
+        "description": "The video for OBS, VLC and other programs that open a stream by its address. It is the picture of the remote console, at its codec and resolution.",
+        "enable": "RTSP stream",
+        "enableHint": "Anyone who has the address with the password can watch. RTSP is not encrypted: use it in a trusted network or through a VPN.",
+        "port": "Port",
+        "portHint": "TCP. The usual RTSP port is 554; the default here is 8554.",
+        "save": "Save",
+        "link": "Address",
+        "linkHint": "In OBS: Sources, Media Source, clear \"Local File\" and paste the address as the input. Every program connects over TCP.",
+        "show": "Show password",
+        "hide": "Hide password",
+        "copy": "Copy address",
+        "copied": "Copied",
+        "newPassword": "New password",
+        "newPasswordConfirm": "Programs that use the current address are disconnected.",
+        "streaming": "Streaming",
+        "waiting": "No viewers"
+      },
       "notInstalled": "{{name}} is not installed",
       "enabled": "Enabled",
       "running": "Running",

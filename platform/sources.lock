@@ -37,6 +37,8 @@ libjpeg-turbo https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3
 libspng    https://github.com/randy408/libspng/archive/refs/tags/v0.7.4.tar.gz 47ec02be6c0a6323044600a9221b049f63e1953faf816903e7383d4dc4234487
 # libcurl's headers; the library is the image's nanokvm-openssl build of the same version.
 curl       https://curl.se/download/curl-8.23.0.tar.xz        8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5
+# RTSP server: live555 (live.com keeps only the latest archive; VideoLAN's contrib mirror keeps each release).
+live555    https://download.videolan.org/pub/contrib/live555/live.2026.06.24.tar.gz b22182db20fe554be886f74c453f6b900e471de9585a401b0b60228aebc27ef7
 openssl    https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz 603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a
 cvi-mpi    https://github.com/sophgo/cvi_mpi.git             693a72a1d52f2e08ea767e0a72905e81f10572a5  .=839006d556c5d57bed19aa2974a57470a5f7a900
 sensors    https://github.com/sophgo/SensorSupportList.git   e2824e1d07f516c41238e123fefbab71a34843bc  .=d64a3a80534b362db4811565e866652d709974c0

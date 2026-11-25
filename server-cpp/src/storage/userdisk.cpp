@@ -43,6 +43,8 @@ constexpr int user_disk_sizes[] = {64, 128, 256, 512, 1024, 2048, 4096};
 constexpr std::int64_t max_user_disk_file = (1ll << 32) - 1;
 constexpr int user_disk_page_size = 200;
 constexpr std::size_t max_opening_body = 1 << 20;
+// Mounting waits for the blocking pool and the local disk. Client progress is timed only after open.
+constexpr auto user_disk_open_timeout = std::chrono::minutes(5);
 constexpr auto user_disk_stall = std::chrono::seconds(30);
 
 const char *err_host = "eject the user disk on the computer, then turn it off in USB settings";
@@ -522,9 +524,14 @@ public:
 	// Keep a bounded prefix while the blocking pool mounts the disk and opens the file.
 	void start(lws *wsi)
 	{
-		// Only the request's own wsi. libwebsockets pauses HTTP/1 here and ignores HTTP/2 streams;
-		// the bounded prefix handles bytes already read and streams whose reception cannot pause.
-		if (wsi && lws_rx_flow_control(wsi, 0) == 0) paused_wsi_ = wsi;
+		// A peer may already have sent the initial HTTP/2 window or bytes beside the HTTP/1 headers.
+		// No more stream credit is granted until the file is ready.
+		if (wsi && lws_http_server_pause_body(wsi, 1)) {
+			done_ = true;
+			unlock_disk();
+			return respond(Error::of("failed to pause upload"));
+		}
+		paused_wsi_ = wsi;
 		last_data_ = SteadyClock::now();
 		auto self = shared_from_this();
 		loop::blocking([self] {
@@ -599,7 +606,6 @@ private:
 			loop::blocking([self] { self->release(); });
 			return;
 		}
-		resume_input();
 		if (err) return fail(err);
 		writer_ = std::move(opening_writer_);
 		last_data_ = SteadyClock::now();
@@ -607,14 +613,15 @@ private:
 		if (!pending_.empty()) writer_->write(pending_);
 		pending_.clear();
 		pending_.shrink_to_fit();
+		if (!resume_input()) return fail(Error::of("failed to resume upload"));
 		if (ended_) finish();
 	}
 
-	void resume_input()
+	bool resume_input()
 	{
-		if (paused_wsi_ && http::request_open(id_))
-			lws_rx_flow_control(paused_wsi_, LWS_RXFLOW_REASON_APPLIES_ENABLE | LWS_RXFLOW_REASON_USER_BOOL | LWS_RXFLOW_REASON_FLAG_PROCESS_NOW);
+		auto *wsi = paused_wsi_;
 		paused_wsi_ = nullptr;
+		return !wsi || !http::request_open(id_) || lws_http_server_pause_body(wsi, 0) == 0;
 	}
 
 	void finish()
@@ -649,9 +656,9 @@ private:
 	void fail(Error err)
 	{
 		done_ = true;
+		resume_input();
 		if (!opened_) {
 			std::string{}.swap(pending_);
-			resume_input();
 			// The opener owns the mount and file until opened() runs. It alone releases them.
 			respond(err);
 			return;
@@ -698,7 +705,12 @@ private:
 		loop::after(std::chrono::seconds(5), [weak] {
 			auto self = weak.lock();
 			if (!self || self->done_) return;
-			if (SteadyClock::now() - self->last_data_ > user_disk_stall) {
+			auto elapsed = SteadyClock::now() - self->last_data_;
+			if (!self->opened_ && elapsed > user_disk_open_timeout) {
+				log::warn("user disk upload timed out opening destination");
+				return self->fail(Error::of(err_busy, "busy"));
+			}
+			if (self->opened_ && elapsed > user_disk_stall) {
 				log::warn("user disk upload stalled");
 				return self->fail(Error::of("i/o timeout"));
 			}

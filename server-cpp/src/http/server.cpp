@@ -988,6 +988,13 @@ void complete(std::uint64_t id, Response response)
 		auto it = open_requests.find(id);
 		if (it == open_requests.end()) return;
 		auto [wsi, session] = it->second;
+		// A streaming upload may fail before its request body ends. Let the final response
+		// write immediately, even if the peer is still waiting to send the rest.
+		if (session->body_expected && session->sink) {
+			session->body_expected = false;
+			session->sink->aborted();
+			session->sink.reset();
+		}
 		session->response = std::move(response);
 		session->response.pending = false;
 		if (active_router) active_router->finished(session->request, session->response);

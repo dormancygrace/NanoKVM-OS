@@ -4,7 +4,7 @@
 # SOURCES holds: libwebsockets/, glaze/, rapidyaml.hpp, libdatachannel/ (with deps/libjuice, deps/libsrtp,
 # deps/usrsctp, deps/plog filled in), libjpeg-turbo/, libspng/, live555/, curl/. The environment gives the rest:
 #   CROSS     the toolchain prefix (.../riscv64-buildroot-linux-musl-)
-#   CFLAGS    the userspace CPU profile (scripts/nanokvm_cpu_profile.py userspace)
+#   CFLAGS    the server CPU profile (scripts/nanokvm_cpu_profile.py server: -O3)
 #   OPENSSL   the nanokvm-openssl build (include/, libssl.so, libcrypto.so)
 #   ZLIB      the zlib-ng build of the tools step (zlib.h, libz.so)
 #   NATIVE    the native capture libraries (libkvm.so, libkvm_mmf.so)
@@ -28,6 +28,9 @@ set(CMAKE_C_COMPILER ${CROSS}gcc)
 set(CMAKE_CXX_COMPILER ${CROSS}g++)
 set(CMAKE_SYSROOT $("${CROSS}gcc" -print-sysroot))
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+# The optimization level is the profile's, in CFLAGS: Release only adds NDEBUG (by default it appends -O3 after it).
+set(CMAKE_C_FLAGS_RELEASE "-DNDEBUG" CACHE STRING "")
+set(CMAKE_CXX_FLAGS_RELEASE "-DNDEBUG" CACHE STRING "")
 EOF
 # The patches of each library, in name order (libdatachannel's also patch its libjuice).
 patches() {

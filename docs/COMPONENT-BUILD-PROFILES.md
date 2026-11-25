@@ -7,8 +7,9 @@ optimization level.
 | --- | --- | --- |
 | Linux and matching modules, including UAC | GCC 16.2, -O3, thead-c906, lp64 | Compiler vectorization off; LTO off |
 | Media libraries, MMF/capture, JSON/miniz and kvm_system | GCC 16.2, -O2, thead-c906, lp64d | Compiler vectorization off |
-| NanoKVM-Server and its helpers (server-cpp) | GCC 16.2, -O2, thead-c906, lp64d | Compiler vectorization off |
+| NanoKVM-Server and its helpers (server-cpp), with libdatachannel, libwebsockets, curl, libjpeg-turbo, libspng and live555 | GCC 16.2, -O3 server profile, thead-c906, lp64d | Compiler vectorization off |
 | Source-owned network tools and private musl | GCC -O2 source profile | Compiler vectorization off |
+| BusyBox of the initramfs | GCC -Oz (BusyBox's own Makefile.flags comes after the profile) | Compiler vectorization off |
 | tinyalsa and usb-audio-capture | GCC -O2 audio profile | Compiler vectorization off |
 | Program of the small core (nanokvm_c906l: Opus encoder) | GCC -O2 smallcore profile (userspace ISA without xtheadvector), float Opus, static PIE | Compiler vectorization off |
 | zlib-ng (nanokvm-zlib, libz.so.1) | GCC -O2, thead-c906, lp64d, -mno-strict-align, without xtheadvector | Compiler vectorization off; RVV and Zbc code off |
@@ -22,7 +23,7 @@ still includes xtheadvector: existing vendor/intrinsic/assembly implementations
 remain usable. Kernel ISA stays separate from userspace FP/vector ISA.
 
 platform/cpu-profile.json supplies the defaults. The common flags/metadata
-helper accepts userspace, kernel, audio, bootloader, openssl, smallcore and tpu. Kbuild is pinned to
+helper accepts userspace, kernel, audio, bootloader, openssl, smallcore, tpu and server. Kbuild is pinned to
 the GCC compiler and CONFIG_LTO_NONE; the command auditor rejects accidental
 -flto options. Kernel PI/EFI/LZ4 and external JPEG/Realtek Makefiles inherit
 the requested optimizer rather than appending -O2. CVI SYS/GDC and json-c
@@ -61,6 +62,7 @@ emit legacy RVV 0.7.1.
   which has no vector unit.
 - RustDesk: the speed comes mostly from the T-Head target features, not
   from LTO.
+- Server: -O3. All measurements of the server were made at this level.
 - TPU runtime and its programs: -O3. A recognition of a full 1920 x 1080 screen
   of text took about 12 % less CPU than at -O2 (user 0.65 s instead of 0.82 s),
   with the same text; the TPU's own time (about 31 s) is the same.

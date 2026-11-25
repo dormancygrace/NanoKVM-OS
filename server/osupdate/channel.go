@@ -170,7 +170,7 @@ func stablePackageTargets(output string) ([]string, error) {
 			switch name {
 			case "nanokvm-app":
 				provider = "nanokvm-release"
-			case "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002":
+			case "nanokvm-kernel-sg2002", "nanokvm-kmod-sg2002", "nanokvm-firmware-sg2002":
 				provider = strings.TrimSuffix(name, "-sg2002")
 			}
 			if found[provider] != "" {

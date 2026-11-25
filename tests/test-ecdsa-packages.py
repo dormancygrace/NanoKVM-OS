@@ -97,7 +97,7 @@ with tempfile.TemporaryDirectory() as directory:
     run('sh', fixture / 'scripts/build-alpine-packages.sh', 'stock', env=env)
     repo = work / 'repo/stock/recipes/riscv64'
     packages = sorted(repo.glob('*.apk'))
-    assert len(packages) == 18
+    assert len(packages) == 17
     for path in packages + [repo / 'APKINDEX.tar.gz']:
         run('apk', '--keys-dir', ec, 'verify', path)
         run('apk', '--keys-dir', rsa, 'verify', path, ok=False)

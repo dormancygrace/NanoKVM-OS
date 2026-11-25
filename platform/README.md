@@ -310,7 +310,7 @@ APK owns the old MPI library paths and removes files no longer shipped when upgr
 
 ### Application package split
 
-The build produces eighteen core APKs. `nanokvm` owns the server, board service,
+The build produces seventeen core APKs. `nanokvm` owns the server, board service,
 native libraries and application scripts; `nanokvm-web` owns
 `/kvmapp/server/web`. The separate `nanokvm-app` compatibility APK is no longer
 built. `nanokvm-release` provides its old name at the release's APK version
@@ -320,9 +320,9 @@ valid while APK removes the old monolith or metapackage. The split packages decl
 The OpenRC service is still named `nanokvm-app`.
 
 Before 3.7.0 the kernel, modules, board firmware and bootloader packages had
-a `-sg2002` suffix. The kernel and modules now provide their old names
-directly, so existing APK world entries still resolve. Firmware and bootloader
-retain file-free compatibility packages. When switching to an older stable
+a `-sg2002` suffix. The kernel, modules and firmware now provide their old names
+directly, so existing APK world entries still resolve. The bootloader
+retains a file-free compatibility package. When switching to an older stable
 release, the updater uses the concrete package names in that release's index.
 
 ### Tools in place of Alpine community packages

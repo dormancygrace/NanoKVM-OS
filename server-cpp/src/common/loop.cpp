@@ -174,6 +174,7 @@ bool quiet(Worker *w, const std::size_t &threads)
 } // namespace
 
 bool stopping() { return detaching.load(); }
+const std::atomic<bool> *stop_flag() { return &detaching; }
 
 void detach()
 {

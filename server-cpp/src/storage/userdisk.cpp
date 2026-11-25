@@ -158,8 +158,12 @@ Error create_user_disk(int size_mib)
 	}
 	if (::close(fd) != 0) return Error::path("close", tmp, errno);
 	// BusyBox mkfs.vfat makes FAT32 whatever the size and accepts -F and -s without minding them.
+	// A server that stops meanwhile kills the formatter and reaps it: the temporary image goes (remove, above) and
+	// the previous disk stays, within the time the service is given to stop. Left running, the formatter would
+	// outlive the server and leave its file.
 	auto r = process::run({"mkfs.vfat", "-F", "32", "-s", user_disk_size_flag(size_mib), "-n", user_disk_label, tmp},
-	                      {.timeout = std::chrono::hours(1)});
+	                      {.timeout = std::chrono::hours(1), .cancel = loop::stop_flag()});
+	if (r.cancelled) return Error::of("the server is stopping");
 	if (!r.ok()) {
 		std::string why = r.started ? go::exit_text(r.exit_code, r.signal) : "exec: \"mkfs.vfat\": executable file not found in $PATH";
 		return Error::of("mkfs.vfat: " + why + ": " + go::trim_space(r.output));

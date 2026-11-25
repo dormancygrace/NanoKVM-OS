@@ -4,6 +4,7 @@
 // hashing, files, commands) goes to the worker thread, and the result comes back with post(). Delays use the
 // loop's timers, never a sleep.
 
+#include <atomic>
 #include <chrono>
 #include <functional>
 
@@ -31,6 +32,8 @@ void blocking(std::function<void()> fn);
 // Whether the server is stopping: the loop no longer serves connections and waits for the jobs still running. A
 // long job checks this to end early and release what it holds. Safe from any thread.
 bool stopping();
+// The same as a flag, for process::Options::cancel: a program run under it is killed when the server stops.
+const std::atomic<bool> *stop_flag();
 
 // Runs fn on the device thread (one, in order): native device calls that can take long (HDMI capture on/off takes
 // about 0.3 s), apart from the worker so a password hash does not hold them up. Safe from any thread.

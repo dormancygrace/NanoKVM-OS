@@ -164,7 +164,7 @@ export REPODEST SRCDEST PKGVER
 # nanokvm-release: V_nanokvm_web for nanokvm-web, and so on.
 packages="nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
 	 nanokvm nanokvm-web nanokvm-zlib nanokvm-openssl3 nanokvm-openssl nanokvm-exfatprogs1 nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
-	 nanokvm-kernel-sg2002 nanokvm-kmod-sg2002 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002"
+	 nanokvm-firmware-sg2002 nanokvm-bootloader-sg2002"
 for pkg in $packages; do
 	key=$(echo "$pkg" | tr - _)
 	version=$(pkg_version "$pkg")
@@ -275,8 +275,9 @@ mkdir -p "$verify_keys"
 cp "$PACKAGER_PUBKEY" "$verify_keys/"
 apk --keys-dir "$verify_keys" verify "$index"
 apk_count=$(find "$REPODEST" -type f -name '*.apk' | wc -l)
-[ "$apk_count" -ge 20 ] || {
-	echo "build-alpine-packages: expected at least twenty APKs, found $apk_count" >&2
+set -- $packages
+[ "$apk_count" -ge "$#" ] || {
+	echo "build-alpine-packages: expected at least $# APKs, found $apk_count" >&2
 	exit 1
 }
 find "$REPODEST" -type f -name '*.apk' -print | while IFS= read -r apk; do

@@ -12,6 +12,29 @@ REQUIRED = TECHNICAL - {'build-manifest.json', 'addons.json'}
 STOCK_INSTALLER = re.compile(r'nanokvm_\d+\.\d+\.\d+\.tar\.gz')
 
 
+def newer_public_os(releases, tag, include_beta=False):
+    """Return the newer public channel head, if it supersedes tag."""
+    def key(value):
+        match = re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)(?:-beta\.([1-9]\d*))?', value)
+        if match:
+            return (*map(int, match.groups()[:3]), match[4] is None, int(match[4] or 0))
+        return None
+
+    target = key(tag)
+    if target is None:
+        raise ValueError(f'Invalid OS tag: {tag}')
+    head = target
+    newest = None
+    for release in releases:
+        if release['draft'] or (release['prerelease'] and not include_beta):
+            continue
+        candidate = key(release['tag_name'])
+        if candidate and candidate > head and (include_beta or candidate[3]):
+            head = candidate
+            newest = release['tag_name']
+    return newest
+
+
 def image_versions(name):
     """Return (image label, OS version) for current and historical SD assets."""
     version = r'v[0-9][A-Za-z0-9.-]*'

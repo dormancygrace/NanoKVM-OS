@@ -439,11 +439,15 @@ def same_commit(actual, expected):
 
 def trusted_run(run, kind=None):
     workflow = run['path'].removeprefix('.github/workflows/')
+    branch = run['head_branch']
+    if branch == 'v4':
+        allowed_ref = workflow == 'release.yml' and run['event'] == 'workflow_dispatch'
+    else:
+        allowed_ref = branch == 'main' or (workflow == 'release.yml' and
+                      re.fullmatch(r'(release/\d+\.\d+|v\d+\.\d+\.\d+(?:-beta\.\d+)?)', branch))
     return (workflow in WORKFLOWS and (kind is None or WORKFLOWS[workflow] == kind)
             and run['event'] in ('workflow_dispatch', 'push')
-            and run['head_repository']['full_name'] == a.REPOSITORY
-            and (run['head_branch'] == 'main' or (workflow == 'release.yml' and
-                 re.fullmatch(r'(release/\d+\.\d+|v\d+\.\d+\.\d+(?:-beta\.\d+)?)', run['head_branch']))))
+            and run['head_repository']['full_name'] == a.REPOSITORY and bool(allowed_ref))
 
 
 def already_staged(tag, commit, packages_only=False):

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """The version of the next release, for the Release workflow's button.
 
-  patch  one more than the newest vX.Y.Z of the line: of all releases when
-         releasing main, of vX.Y.* when releasing a release/X.Y branch
-  minor  vX.(Y+1).0 after the newest release; only from main
+  main selects 5.x and v4 selects 4.x. Patch and minor advance within
+  the selected major. The first release of a major is X.0.0.
+  A release/X.Y branch can only patch that specific minor line.
 
 Drafts reserve versions. Stable ignores beta releases. --channel beta uses
 the next stable base with -beta.N tags and _betaN APK versions; final stable
@@ -19,6 +19,8 @@ import argparse
 import json
 import re
 import sys
+
+from release_assets import newer_public_os
 
 RELEASE = re.compile(r'v(\d+)\.(\d+)\.(\d+)')
 BETA = re.compile(r'v(\d+)\.(\d+)\.(\d+)-beta\.([1-9][0-9]*)')
@@ -47,8 +49,14 @@ def next_release(releases, kind, ref, channel='stable'):
         return result
     releases = stable
     versions = [tuple(map(int, m.groups())) for r in releases if (m := RELEASE.fullmatch(r['tag_name']))]
-    if ref == 'main':
-        line = versions
+    if ref in ('main', 'v4'):
+        major = 5 if ref == 'main' else 4
+        line = [v for v in versions if v[0] == major]
+        if line:
+            _, minor, patch = max(line)
+            version = (major, minor, patch + 1) if kind == 'patch' else (major, minor + 1, 0)
+        else:
+            version = (major, 0, 0)
     elif m := BRANCH.fullmatch(ref):
         if kind != 'patch':
             raise ValueError('a release branch takes patch releases only')
@@ -58,12 +66,12 @@ def next_release(releases, kind, ref, channel='stable'):
         if newer:
             raise ValueError(f'v{".".join(map(str, max(newer)))} is released already; devices follow the '
                              'newest line, so they would never receive a patch of an older one')
+        if not line:
+            raise ValueError(f'no vX.Y.Z release to follow on {ref}')
+        major, minor, patch = max(line)
+        version = (major, minor, patch + 1)
     else:
-        raise ValueError(f'release from main or a release/X.Y branch, not {ref}')
-    if not line:
-        raise ValueError(f'no vX.Y.Z release to follow on {ref}')
-    major, minor, patch = max(line)
-    version = (major, minor, patch + 1) if kind == 'patch' else (major, minor + 1, 0)
+        raise ValueError(f'release from main, v4 or a release/X.Y branch, not {ref}')
     if version in versions:
         raise ValueError(f'v{".".join(map(str, version))} exists already')
     published = [tuple(map(int, m.groups())) for r in releases if not r['draft']
@@ -108,12 +116,18 @@ def main():
     parser.add_argument('--kind', choices=('patch', 'minor'), required=True)
     parser.add_argument('--ref', required=True)
     parser.add_argument('--pages', action='store_true', help='include package-only updates and reserved tags')
+    parser.add_argument('--packages-only', action='store_true', help='require a deliverable OTA update')
     args = parser.parse_args()
     try:
         releases = json.load(sys.stdin)
         if args.pages:
             releases = with_pages(releases)
         values = next_release(releases, args.kind, args.ref, args.channel)
+        if args.packages_only:
+            head = newer_public_os(releases, values['version'], include_beta=args.channel == 'beta')
+            if head:
+                raise ValueError(f"{values['version']} cannot advance the {args.channel} feed past {head}; "
+                                 "disable packages_only and publish a regular maintenance release")
     except ValueError as error:
         sys.exit(f'next-release: {error}')
     for key, value in values.items():

@@ -1,7 +1,7 @@
 name: Release
 
 # Releases NanoKVM OS. Run it by hand ("Run workflow"): a patch release
-# (v3.4.1) or a minor one (v3.5.0) from main, or a patch release from a
+# (v3.4.1) or a minor one (v3.5.0) from v4 (4.x) or main (5.x), or a patch release from a
 # release/X.Y branch. The version follows the newest release
 # (scripts/next-release.py). A pushed vX.Y.Z tag also releases, with the
 # versions of firmware/alpine/release.env.
@@ -117,14 +117,15 @@ jobs:
               exit 1
             }
           fi
-          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" =~ ^refs/heads/release/[0-9]+\.[0-9]+$ ]] || {
-            echo 'Select main or release/X.Y in Use workflow from' >&2
+          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" == refs/heads/v4 || "$GITHUB_REF" =~ ^refs/heads/release/[0-9]+\.[0-9]+$ ]] || {
+            echo 'Select main, v4 or release/X.Y in Use workflow from' >&2
             exit 1
           }
 
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
 
       - name: Version
         id: version
@@ -134,6 +135,8 @@ jobs:
           KIND: ${{ inputs.kind }}
           CHANNEL: ${{ inputs.channel }}
           REF: ${{ github.ref_name }}
+          PACKAGES_ONLY: ${{ inputs.packages_only }}
+          BASE_REF: ${{ github.base_ref }}
           IMAGE: ${{ inputs.image }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
@@ -146,8 +149,10 @@ jobs:
           case $EVENT in
             workflow_dispatch)
               gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' > "$RUNNER_TEMP/release-list"
+              args=()
+              [ "$PACKAGES_ONLY" != true ] || args+=(--packages-only)
               jq -s . "$RUNNER_TEMP/release-list" |
-                python3 scripts/next-release.py --pages --channel "${CHANNEL:-stable}" --kind "$KIND" --ref "$REF" > "$RUNNER_TEMP/next"
+                python3 scripts/next-release.py --pages --channel "${CHANNEL:-stable}" --kind "$KIND" --ref "$REF" "${args[@]}" > "$RUNNER_TEMP/next"
               cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
               echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
               [ "$KIND" = minor ] && echo draft=true >> "$GITHUB_OUTPUT" || echo draft=false >> "$GITHUB_OUTPUT"
@@ -160,6 +165,15 @@ jobs:
                 printf 'skip=true\npublish=false\n' >> "$GITHUB_OUTPUT"
                 exit 0
               fi
+              case "$GITHUB_REF_NAME" in
+                v4.*) branch=v4 ;;
+                v5.*) branch=main ;;
+                *) echo "Expected a 4.x or 5.x OS tag" >&2; exit 1 ;;
+              esac
+              git merge-base --is-ancestor HEAD "refs/remotes/origin/$branch" || {
+                echo "Tag $GITHUB_REF_NAME must point to a commit on $branch" >&2
+                exit 1
+              }
               if [ "$GITHUB_REF_NAME" != "$NANOKVM_VERSION" ]; then
                 echo "Tag $GITHUB_REF_NAME, but firmware/alpine/release.env says $NANOKVM_VERSION" >&2
                 exit 1
@@ -169,9 +183,11 @@ jobs:
             *)
               # release.env is an image baseline and can lag published packages.
               # Exercise reuse with a prospective release, as dispatch does.
+              # Stacked feature PRs exercise the default development line.
+              case "$BASE_REF" in v4|release/[0-9]*.[0-9]*) ;; *) BASE_REF=main ;; esac
               gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' > "$RUNNER_TEMP/release-list"
               jq -s . "$RUNNER_TEMP/release-list" |
-                python3 scripts/next-release.py --pages --channel "$channel" --kind patch --ref main > "$RUNNER_TEMP/next"
+                python3 scripts/next-release.py --pages --channel "$channel" --kind patch --ref "$BASE_REF" > "$RUNNER_TEMP/next"
               cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
               printf 'image=true\ndraft=true\npublish=false\n' >> "$GITHUB_OUTPUT" ;;
           esac

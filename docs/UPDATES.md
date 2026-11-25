@@ -162,7 +162,7 @@ the downloads of packages released on their own live on GitHub Pages. Their
 version tags reserve package revisions without creating GitHub Releases. The
 source link such a package installs names the Git tree it was built from; for RustDesk that is its
 `nanokvm-rustdesk-VERSION-rN` tag (`addons/rustdesk`), whose third-party
-crates and Go modules are pinned by `Cargo.lock` and `go.sum`. No source
+crates are pinned by `Cargo.lock`. No source
 archive is published.
 
 Pages retains the current stable OS release and two previous stable releases,

@@ -61,7 +61,7 @@ const instanceMessage = 5;
 // queued chunks until the queue falls to decoderLowWatermark. Keep
 // decoderHighWatermark + flowControlWindow below maxPendingDecodes (the
 // unacknowledged frames still arrive while an ACK is held), and flowControlWindow
-// equal to maxFlowWindow of the server (service/stream/direct/client.go).
+// equal to max_flow_window of the server (server-cpp/src/video/direct.cpp).
 const flowControlWindow = 8;
 const decoderHighWatermark = 6;
 const decoderLowWatermark = 3;

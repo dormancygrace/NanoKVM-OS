@@ -1,0 +1,18 @@
+Do not offer WebSockets over HTTP/2 (RFC 8441 extended CONNECT).
+
+Browsers then open WebSockets on their own HTTP/1.1 connection, as with the Go server: video does not share
+a TCP connection (and its head-of-line blocking) with API calls, and large messages need no splitting into
+HTTP/2 frames, which lws leaves to the application. The h2 settings an application may set do not reach
+this one.
+
+--- a/lib/sansio/h2/ops-h2.c
++++ b/lib/sansio/h2/ops-h2.c
+@@ -93,7 +93,7 @@
+ 	 * max_http_header_data.
+ 	 */
+ 	/* H2SET_RESERVED7 */				   0,
+-	/* H2SET_ENABLE_CONNECT_PROTOCOL */		   1,
++	/* H2SET_ENABLE_CONNECT_PROTOCOL */		   0,
+ }};
+ 
+ /*

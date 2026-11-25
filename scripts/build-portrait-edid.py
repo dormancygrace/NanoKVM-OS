@@ -17,7 +17,7 @@ MAX_MODE = (1440, 2560, 208400, 160, 48, 32, 45, 3, 10, 0x1a)
 LEGACY = {(720, 1280): (120, HD_MODE), (1080, 1920): (75, MODE),
           (1440, 2560): (50, MAX_MODE)}
 # Refresh rates of each portrait profile, fastest first, as landscape: the
-# monitor follows the stream frame rate (server/common/monitor_rate.go).
+# monitor follows the stream frame rate (server-cpp/src/video/monitor.cpp).
 RATES = {1280: (120, 60, 30), 1920: (90, 75, 60, 30), 2560: (60, 50, 30)}
 WIDTHS = {1280: 720, 1920: 1080, 2560: 1440}
 

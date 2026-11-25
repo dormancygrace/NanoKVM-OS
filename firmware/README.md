@@ -9,7 +9,7 @@ in [docs/BUILD.md](../docs/BUILD.md) and [platform/README.md](../platform/README
 | [alpine/](alpine/README.md) | Alpine base: OpenRC services, `/etc` files, compatibility scripts, package lists and signing keys |
 | [boards/](boards/README.md) | SG2002 device trees for alpha, beta and PCIe, and the first-boot board detection |
 | [buildroot/](buildroot/README.md) | Buildroot external tree: cross toolchain, host tools and initramfs utilities only |
-| `cpu/` | C906 assembly for Go's TLS ChaCha20-Poly1305 and `bytes.Index`, and opt-in Go sysmon policies |
+| `cpu/` | Generators of the C906 crypto assembly in the kernel patches, OpenSSL and the RustDesk add-on |
 | `crypto/` | OpenSSL patches for the C906 and the SG2002 crypto engine, with their generators and tests |
 | `mpi/` | Media library compatibility code and the vendor ISP object list |
 | `probes/` | EDID profile generators (`edid120/`) used by the platform build |

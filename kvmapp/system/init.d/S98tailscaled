@@ -46,25 +46,6 @@ fi
 
 case "$1" in
         start)
-                if [ -f /etc/kvm/GOMEMLIMIT ]; then
-                     # Keep legacy small values consistent with the server's
-                     # 50 MiB minimum. Invalid/overflowing settings must not
-                     # prevent the Go daemon from starting.
-                     value=$(awk '
-                         { value = value $0 "\n" }
-                         END {
-                             gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-                             if (value ~ /^[+]?[0-9]+$/ && value + 0 <= 8796093022207)
-                                 printf "%.0f", value + 0 < 50 ? 50 : value + 0
-                             else print 512
-                         }' /etc/kvm/GOMEMLIMIT) || value=512
-                     export GOMEMLIMIT="${value}MiB"
-                else
-                     export GOMEMLIMIT=512MiB
-                fi
-
-                echo "GOMEMLIMIT set to ${GOMEMLIMIT}"
-
                 # Ensure directories exist
                 mkdir -p /var/lib/tailscale /var/run/tailscale
 

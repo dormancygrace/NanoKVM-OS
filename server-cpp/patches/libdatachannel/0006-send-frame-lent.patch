@@ -1,0 +1,135 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: sendFrame with a pointer lends the frame instead of copying it
+
+Track::sendFrame(const byte *, size_t, FrameInfo) copied the frame into a message before the media handler
+chain, which runs within the call, fragmented it. The frame is now lent (FrameInfo::borrowedData): the
+H.264 and H.265 packetizers cut their fragments from the caller's bytes, other packetizers copy as before,
+and a track without a handler takes the bytes into the message.
+---
+--- a/include/rtc/frameinfo.hpp
++++ b/include/rtc/frameinfo.hpp
+@@ -25,6 +25,11 @@
+ 	uint8_t payloadType = 0;
+ 
+ 	optional<std::chrono::duration<double>> timestampSeconds;
++
++	// The frame's bytes when Track::sendFrame(const byte *, size_t, FrameInfo) lends them for the duration of the
++	// call; the message itself is then empty.
++	const byte *borrowedData = nullptr;
++	size_t borrowedSize = 0;
+ };
+ 
+ } // namespace rtc
+--- a/src/track.cpp
++++ b/src/track.cpp
+@@ -45,7 +45,10 @@
+ }
+ 
+ void Track::sendFrame(const byte *data, size_t size, FrameInfo info) {
+-	sendFrame(binary(data, data + size), std::move(info));
++	// Lent, not copied: the media handler chain runs within this call (see impl::Track::outgoing).
++	info.borrowedData = data;
++	info.borrowedSize = size;
++	impl()->outgoing(make_message(binary{}, std::make_shared<FrameInfo>(std::move(info))));
+ }
+ 
+ void Track::onFrame(std::function<void(binary data, FrameInfo frame)> callback) {
+--- a/src/impl/track.cpp
++++ b/src/impl/track.cpp
+@@ -173,6 +173,14 @@
+ 
+ 	auto handler = getMediaHandler();
+ 
++	// A lent frame (Track::sendFrame with a pointer) that no handler will packetize: take its bytes now.
++	if (!handler && message->frameInfo && message->frameInfo->borrowedData) {
++		auto &info = *message->frameInfo;
++		message->assign(info.borrowedData, info.borrowedData + info.borrowedSize);
++		info.borrowedData = nullptr;
++		info.borrowedSize = 0;
++	}
++
+ 	// If there is no handler, the track expects RTP or RTCP packets
+ 	if (!handler && IsRtcp(*message))
+ 		message->type = Message::Control; // to allow sending RTCP packets irrelevant of direction
+--- a/include/rtc/rtppacketizer.hpp
++++ b/include/rtc/rtppacketizer.hpp
+@@ -44,6 +44,9 @@
+ 	/// Default implementation returns data as a single payload
+ 	/// @param message Input data
+ 	virtual std::vector<binary> fragment(binary data);
++
++	/// Fragments a frame lent by the caller (Track::sendFrame with a pointer); by default a copy for fragment()
++	virtual std::vector<binary> fragment(const byte *data, size_t size);
+ 
+ 	/// Creates an RTP packet for a payload
+ 	/// @note This function increases the sequence number.
+--- a/src/rtppacketizer.cpp
++++ b/src/rtppacketizer.cpp
+@@ -22,6 +22,10 @@
+ std::vector<binary> RtpPacketizer::fragment(binary data) {
+ 	// Default implementation
+ 	return {std::move(data)};
++}
++
++std::vector<binary> RtpPacketizer::fragment(const byte *data, size_t size) {
++	return fragment(binary(data, data + size));
+ }
+ 
+ message_ptr RtpPacketizer::packetize(const binary &payload, bool mark) {
+@@ -188,7 +192,9 @@
+ 				rtpConfig->timestamp = frameInfo->timestamp;
+ 		}
+ 
+-		auto payloads = fragment(std::move(*message));
++		const auto &info = message->frameInfo;
++		auto payloads = info && info->borrowedData ? fragment(info->borrowedData, info->borrowedSize)
++		                                           : fragment(std::move(*message));
+ 		for (size_t i = 0; i < payloads.size(); i++) {
+ 			if (rtpConfig->dependencyDescriptorContext.has_value()) {
+ 				auto &ctx = *rtpConfig->dependencyDescriptorContext;
+--- a/include/rtc/h264rtppacketizer.hpp
++++ b/include/rtc/h264rtppacketizer.hpp
+@@ -41,6 +41,7 @@
+ 
+ private:
+ 	std::vector<binary> fragment(binary data) override;
++	std::vector<binary> fragment(const byte *data, size_t size) override;
+ 	std::vector<NalUnit> splitFrame(const binary &frame);
+ 
+ 	const Separator mSeparator;
+--- a/include/rtc/h265rtppacketizer.hpp
++++ b/include/rtc/h265rtppacketizer.hpp
+@@ -39,6 +39,7 @@
+ 
+ private:
+ 	std::vector<binary> fragment(binary data) override;
++	std::vector<binary> fragment(const byte *data, size_t size) override;
+ 	std::vector<H265NalUnit> splitFrame(const binary &frame);
+ 
+ 	const NalUnit::Separator mSeparator;
+--- a/src/h264rtppacketizer.cpp
++++ b/src/h264rtppacketizer.cpp
+@@ -36,6 +36,10 @@
+ std::vector<binary> H264RtpPacketizer::fragment(binary data) {
+ 	// One copy per fragment, the same bytes as GenerateFragments(splitFrame(data)).
+ 	return nal_fragments::h264(data, mSeparator, mMaxFragmentSize);
++}
++
++std::vector<binary> H264RtpPacketizer::fragment(const byte *data, size_t size) {
++	return nal_fragments::h264(data, size, mSeparator, mMaxFragmentSize);
+ }
+ 
+ std::vector<NalUnit> H264RtpPacketizer::splitFrame(const binary &frame) {
+--- a/src/h265rtppacketizer.cpp
++++ b/src/h265rtppacketizer.cpp
+@@ -36,6 +36,10 @@
+ std::vector<binary> H265RtpPacketizer::fragment(binary data) {
+ 	// One copy per fragment, the same bytes as GenerateFragments(splitFrame(data)).
+ 	return nal_fragments::h265(data, mSeparator, mMaxFragmentSize);
++}
++
++std::vector<binary> H265RtpPacketizer::fragment(const byte *data, size_t size) {
++	return nal_fragments::h265(data, size, mSeparator, mMaxFragmentSize);
+ }
+ 
+ std::vector<H265NalUnit> H265RtpPacketizer::splitFrame(const binary &frame) {

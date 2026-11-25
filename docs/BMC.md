@@ -113,4 +113,4 @@ ipmitool -I lanplus -H <device> -U admin -P '<password>' chassis power status
 
 ## Source and development
 
-The IPMI protocol and its tests are in `server/internal/ipmi`, its listener in `server/service/bmc/ipmi.go`. Shared configuration and power operations live in `server/pkg/bmc`; Redfish stays in `server/internal/bmc/redfish`. Both protocols use the same shared BMC implementation.
+The IPMI protocol and its listener are in `server-cpp/src/bmc/ipmi.cpp`, Redfish in `server-cpp/src/bmc/redfish.cpp`, and the shared configuration and power operations in `server-cpp/src/bmc/config.cpp` and `service.cpp`. Both protocols use the same shared BMC implementation.

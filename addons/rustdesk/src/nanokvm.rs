@@ -237,8 +237,8 @@ fn codec_name(codec: Codec) -> &'static str {
 }
 
 // OKHC v1, the input and control channel to the app bridge. Its layout is
-// described at server/service/rustdesk/control.go; a test here and one there
-// hold the same bytes.
+// described in server-cpp/src/rustdesk/bridge_wire.hpp; the test below holds
+// the bytes of one exchange.
 const CONTROL_MAGIC: &[u8; 4] = b"OKHC";
 const CONTROL_VERSION: u8 = 1;
 const CONTROL_HELLO_LENGTH: usize = 24;
@@ -555,7 +555,7 @@ mod tests {
         std::fs::remove_dir(dir).unwrap();
     }
 
-    // The bytes of TestControlChannel in server/service/rustdesk/control_test.go.
+    // One control channel exchange (server-cpp/src/rustdesk/bridge_wire.hpp).
     #[test]
     fn control_channel_bytes_match_the_bridge() {
         let session = [

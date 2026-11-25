@@ -41,7 +41,7 @@ base  file  /etc/init.d/nanokvm-usb-internet            0755  firmware/alpine/op
 base  file  /usr/sbin/nkos-standby                      0755  @server/nkos-standby
 base  file  /usr/sbin/nkos-usb-internet                  0755  @server/nkos-usb-internet
 # IPMI over LAN (docs/BMC.md): in no runlevel until the BMC settings switch
-# it on (server/service/bmc).
+# it on (server-cpp/src/bmc).
 base  file  /etc/apk/commit_hooks.d/50-nanokvm-apply      0755  firmware/alpine/compat/50-nanokvm-apply
 base  file  /etc/apk/protected_paths.d/nanokvm.list       0644  %protected-paths
 # The add-on repository, apart from the OS line in /etc/apk/repositories that
@@ -79,10 +79,10 @@ base  file  /etc/init.d/nanokvm-usb                       0755  firmware/alpine/
 base  file  /etc/init.d/nanokvm-watchdog                  0755  firmware/alpine/openrc/nanokvm-watchdog
 base  dir   /usr/libexec/nanokvm                          0700
 # Applies the per-interface IPv6 setting to Ethernet or Wi-Fi added after boot.
-base  file  /usr/lib/udev/rules.d/90-nanokvm-ipv6.rules    0644  server/service/network/scripts/90-nanokvm-ipv6.rules
+base  file  /usr/lib/udev/rules.d/90-nanokvm-ipv6.rules    0644  server-cpp/data/network-scripts/90-nanokvm-ipv6.rules
 # The DHCPv6 client of an interface whose IPv6 address comes from DHCPv6.
-base  file  /usr/libexec/nanokvm/dhcpv6                    0755  server/service/network/scripts/nanokvm-dhcpv6
-base  file  /usr/libexec/nanokvm/dhcpv6-event              0755  server/service/network/scripts/nanokvm-dhcpv6-event
+base  file  /usr/libexec/nanokvm/dhcpv6                    0755  server-cpp/data/network-scripts/nanokvm-dhcpv6
+base  file  /usr/libexec/nanokvm/dhcpv6-event              0755  server-cpp/data/network-scripts/nanokvm-dhcpv6-event
 base  file  /usr/libexec/nanokvm/console-policy            0755  firmware/alpine/compat/nanokvm-console-policy
 base  file  /usr/libexec/nanokvm/dev-archive               0755  firmware/alpine/compat/nanokvm-dev-archive
 base  file  /usr/libexec/nanokvm/activate-kernel          0755  firmware/alpine/compat/nanokvm-activate-kernel
@@ -94,7 +94,7 @@ base  file  /usr/libexec/nanokvm/wpa-passphrase-compat    0755  firmware/alpine/
 # The Buildroot-era init scripts live once below legacy/; /etc/init.d links to them.
 base  dir   /usr/libexec/nanokvm/legacy                   0700
 base  file  /usr/libexec/nanokvm/legacy/S02config         0755  firmware/alpine/compat/S02config
-base  file  /usr/libexec/nanokvm/legacy/S02ipv6           0755  server/service/network/scripts/S02ipv6
+base  file  /usr/libexec/nanokvm/legacy/S02ipv6           0755  server-cpp/data/network-scripts/S02ipv6
 base  file  /usr/libexec/nanokvm/legacy/S03usbdev         0755  kvmapp/system/init.d/S03usbdev
 base  file  /usr/libexec/nanokvm/legacy/S10uuid           0755  firmware/alpine/compat/S10uuid
 base  file  /usr/libexec/nanokvm/legacy/S13nanokvm-watchdog 0755 kvmapp/system/init.d/S13nanokvm-watchdog
@@ -146,7 +146,6 @@ base  file  /usr/sbin/nkos-board-select                   0755  firmware/alpine/
 base  file  /usr/sbin/nkos-update                         0755  @server/nkos-update
 base  link  /usr/sbin/watchdog                            -     /sbin/watchdog
 base  file  /usr/share/licenses/nanokvm-base/busybox-LICENSE 0644 @tools/busybox-LICENSE
-base  file  /usr/share/licenses/nanokvm-base/CRYPTOGAMS-LICENSE 0644 firmware/cpu/go-crypto-c906/CRYPTOGAMS-LICENSE
 
 # nanokvm: server, native libraries and the board service (app payload)
 app   file  /usr/share/nanokvm/usb-flags-layout            0644  kvmapp/system/usb-flags-layout
@@ -168,9 +167,6 @@ app   file  /kvmapp/server/NanoKVM-Server                 0755  @server/NanoKVM-
 app   file  /usr/sbin/nkos-totp-reset                     0755  firmware/alpine/compat/nkos-totp-reset
 app   tree  /kvmapp/server/dl_lib                         0644  @native
 app   tree  /usr/share/licenses/nanokvm/native           0644  @native-licenses
-# Linked statically into NanoKVM-Server (server/internal/decompress).
-app   file  /usr/share/licenses/nanokvm/zlib-ng-LICENSE.md 0644 @tools/zlib-ng/LICENSE.md
-app   file  /usr/share/licenses/nanokvm/CRYPTOGAMS-LICENSE 0644 firmware/cpu/go-crypto-c906/CRYPTOGAMS-LICENSE
 web   tree  /kvmapp/server/web                            0644  @web
 web   file  /kvmapp/web-build-manifest.json                0644  %web-build-manifest.json
 app   file  /kvmapp/system/bin/usb-audio-capture          0755  @tools/usb-audio-capture

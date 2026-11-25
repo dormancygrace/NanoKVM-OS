@@ -2,7 +2,7 @@
 """Build the 16:10, 21:9 and 8:9 HDMI monitor profiles, without hardware access.
 
 One file per size and refresh rate, NanoKVM-monitor-<w>x<h>-<hz>.bin
-(server/common/monitor_profiles.go): a single preferred detailed timing in
+(server-cpp/src/video/edid_profiles.cpp): a single preferred detailed timing in
 CVT reduced blanking (v1), the 800x600 legacy fallback, the source's
 established and standard timings smaller than the profile in both
 directions, the source's HDMI identity and audio blocks. platform/build.sh adds the RGB range declaration
@@ -21,8 +21,8 @@ spec.loader.exec_module(builder)
 builder.MODES = builder.MODES[:1]
 
 # (width, height): (vertical sync width of CVT for its aspect ratio, refresh
-# rates fastest first). The rates match widerMonitorRates in
-# server/common/monitor_profiles.go: 2560x1600 above 50 Hz and 3440x1440 above
+# rates fastest first). The rates match wider_rates in
+# server-cpp/src/video/edid_profiles.cpp: 2560x1600 above 50 Hz and 3440x1440 above
 # 40 Hz exceed what the capture and the encoder sustain.
 PROFILES = {
     (1920, 1200): (6, (60, 50, 30)),
@@ -38,8 +38,8 @@ PROFILES = {
 # the 16:9 profiles also respect.
 MAX_CLOCK_MHZ = 270
 # The pixel clock of 1080p60 (MHz): the LT6911C and LT6911D take the sizes
-# near 1920x1080 at the rates within it (slowWiderMonitorRates in
-# server/common/monitor_profiles.go).
+# near 1920x1080 at the rates within it (slow_wider_rates in
+# server-cpp/src/video/edid_profiles.cpp).
 SLOW_RECEIVER_CLOCK_MHZ = 148.5
 WIDTH_MM = 600
 

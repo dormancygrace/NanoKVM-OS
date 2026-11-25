@@ -62,7 +62,7 @@ keep a board powered when one cable is removed.
    `/boot/net-trial.json` record and tracks background apply/rollback work
    through its last successful sync, including retries with an absent record.
    An unsuccessful preparation leaves normal services running.
-2. Stage the static Go helper, BusyBox and its ELF library closure in the
+2. Stage the static helper (`nkos-standby`), BusyBox and its ELF library closure in the
    existing `/run` tmpfs. Station Wi-Fi also stages wpa_supplicant, its linked
    libraries and a restricted self-contained configuration. The staged musl
    interpreter supplies its reserved libc/libm/libpthread and related aliases,

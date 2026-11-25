@@ -8,7 +8,7 @@ struct CaptureRateTier {
 };
 // Rate policy follows the pixel geometry, independently of orientation: the
 // first tier that contains the normalized size applies; 0x0 covers the rest.
-// server/common/video_status.go holds the same table (a Go test compares them).
+// server-cpp/src/video/screen.cpp holds the same table.
 // With the video overclock the encoder sustains about 250 Mpix/s: QHD at 60
 // and UHD at 30 fps; 1080p gets 100 of the about 109 fps it reaches, which
 // leaves room for the per-frame overhead. 1088 is the legacy aligned FHD

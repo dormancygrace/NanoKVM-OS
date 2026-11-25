@@ -1,0 +1,160 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: No allocation per RTP packet
+
+Each packet cost four allocations: its buffer and its shared Message (packetize), and in the NACK history a
+make_shared list node and an unordered_map node, freed when the packet left the history. The packetizer now
+reuses its packets: a ring from the oldest, which is taken again, buffer and all, once nothing else holds it
+(the history let it go and it was sent). The NACK history is a fixed ring indexed by sequence number: the
+packetizer numbers consecutively, so it holds the latest maxSize packets as before.
+---
+--- a/include/rtc/rtppacketizer.hpp
++++ b/include/rtc/rtppacketizer.hpp
+@@ -64,6 +64,11 @@
+ private:
+ 	// The fragments of the last lent frame: their buffers are reused for the next one.
+ 	std::vector<binary> mFragments;
++	// The packets this packetizer made, a ring from the oldest (mPacketsNext): the oldest is reused, buffer and
++	// all, once nothing else holds it (the NACK history let it go and it was sent); else a new packet joins.
++	std::vector<message_ptr> mPackets;
++	size_t mPacketsNext = 0;
++	message_ptr newPacket();
+ 	static const auto RtpHeaderSize = 12;
+ 	static const auto RtpExtHeaderCvoSize = 8;
+ };
+--- a/src/rtppacketizer.cpp
++++ b/src/rtppacketizer.cpp
+@@ -33,6 +33,31 @@
+ 	return out.size();
+ }
+ 
++message_ptr RtpPacketizer::newPacket() {
++	// Enough for the NACK history (512 packets) and a frame in flight; beyond, new packets are not kept.
++	constexpr size_t maxPackets = 2048;
++	if (!mPackets.empty()) {
++		auto &oldest = mPackets[mPacketsNext];
++		if (oldest.use_count() == 1) {
++			mPacketsNext = (mPacketsNext + 1) % mPackets.size();
++			oldest->clear();
++			oldest->type = Message::Binary;
++			oldest->stream = 0;
++			oldest->dscp = 0;
++			oldest->reliability.reset();
++			oldest->frameInfo.reset();
++			return oldest;
++		}
++	}
++	auto packet = std::make_shared<Message>(binary{}, Message::Binary);
++	if (mPackets.size() < maxPackets) {
++		// The newest, just before the oldest in ring order.
++		mPackets.insert(mPackets.begin() + mPacketsNext, packet);
++		mPacketsNext = (mPacketsNext + 1) % mPackets.size();
++	}
++	return packet;
++}
++
+ message_ptr RtpPacketizer::packetize(const binary &payload, bool mark) {
+ 	size_t rtpExtHeaderSize = 0;
+ 	bool twoByteHeader = false;
+@@ -91,12 +116,12 @@
+ 	// according to RFC 3550, sec. 5.3.1.
+ 	rtpExtHeaderSize = (rtpExtHeaderSize + 3) & ~3;
+ 
+-	// The header zeroed, the payload appended: not the whole packet zeroed and then overwritten.
+-	binary data;
+-	data.reserve(RtpHeaderSize + rtpExtHeaderSize + payload.size());
+-	data.resize(RtpHeaderSize + rtpExtHeaderSize);
+-	data.insert(data.end(), payload.begin(), payload.end());
+-	auto message = make_message(std::move(data));
++	// The header zeroed, the payload appended: not the whole packet zeroed and then overwritten. A reused packet
++	// keeps its buffer.
++	auto message = newPacket();
++	message->reserve(RtpHeaderSize + rtpExtHeaderSize + payload.size());
++	message->resize(RtpHeaderSize + rtpExtHeaderSize);
++	message->insert(message->end(), payload.begin(), payload.end());
+ 	auto *rtp = (RtpHeader *)message->data();
+ 	rtp->setPayloadType(rtpConfig->payloadType);
+ 	rtp->setSeqNumber(rtpConfig->sequenceNumber++); // increase sequence number
+--- a/include/rtc/rtcpnackresponder.hpp
++++ b/include/rtc/rtcpnackresponder.hpp
+@@ -41,19 +41,14 @@
+ 		};
+ 
+ 	private:
+-		/// Oldest packet in storage
+-		shared_ptr<Element> oldest = nullptr;
+-		/// Newest packet in storage
+-		shared_ptr<Element> newest = nullptr;
+-		/// Inner storage
+-		std::unordered_map<uint16_t, shared_ptr<Element>> storage{};
++		// The last maxSize packets by sequence number modulo maxSize: a fixed ring, no allocation per
++		// packet. The packetizer numbers consecutively, so the ring holds the latest maxSize of them
++		// (all of them across the 16-bit wrap when maxSize divides 65536, as the default 512 does).
++		std::vector<std::pair<uint16_t, message_ptr>> ring;
+ 		std::mutex mutex;
+ 
+ 		/// Maximum storage size
+ 		const size_t maxSize;
+-
+-		/// Returns current size
+-		size_t size();
+ 
+ 	public:
+ 		Storage(size_t _maxSize);
+--- a/src/rtcpnackresponder.cpp
++++ b/src/rtcpnackresponder.cpp
+@@ -60,22 +60,14 @@
+ 			mStorage->store(message);
+ }
+ 
+-RtcpNackResponder::Storage::Element::Element(message_ptr packet, uint16_t sequenceNumber,
+-                                             shared_ptr<Element> next)
+-    : packet(packet), sequenceNumber(sequenceNumber), next(next) {}
+-
+-size_t RtcpNackResponder::Storage::size() { return storage.size(); }
+-
+-RtcpNackResponder::Storage::Storage(size_t _maxSize) : maxSize(_maxSize) {
++RtcpNackResponder::Storage::Storage(size_t _maxSize) : ring(_maxSize), maxSize(_maxSize) {
+ 	assert(maxSize > 0);
+-	storage.reserve(maxSize);
+ }
+ 
+ message_ptr RtcpNackResponder::Storage::get(uint16_t sequenceNumber) {
+ 	std::lock_guard lock(mutex);
+-	auto position = storage.find(sequenceNumber);
+-	return position != storage.end() ? storage.at(sequenceNumber)->packet
+-	                                 : nullptr;
++	const auto &slot = ring[sequenceNumber % maxSize];
++	return slot.second && slot.first == sequenceNumber ? slot.second : nullptr;
+ }
+ 
+ void RtcpNackResponder::Storage::store(message_ptr packet) {
+@@ -86,26 +78,9 @@
+ 	auto sequenceNumber = rtp->seqNumber();
+ 
+ 	std::lock_guard lock(mutex);
+-	assert((storage.empty() && !oldest && !newest) || (!storage.empty() && oldest && newest));
+-
+-	if (size() == 0) {
+-		newest = std::make_shared<Element>(packet, sequenceNumber);
+-		oldest = newest;
+-	} else {
+-		auto current = std::make_shared<Element>(packet, sequenceNumber);
+-		newest->next = current;
+-		newest = current;
+-	}
+-
+-	storage.emplace(sequenceNumber, newest);
+-
+-	if (size() > maxSize) {
+-		assert(oldest);
+-		if (oldest) {
+-			storage.erase(oldest->sequenceNumber);
+-			oldest = oldest->next;
+-		}
+-	}
++	auto &slot = ring[sequenceNumber % maxSize];
++	slot.first = sequenceNumber;
++	slot.second = std::move(packet);
+ }
+ 
+ } // namespace rtc

@@ -20,7 +20,7 @@
 #   system     kvm_system board service
 #   tools      devmem, nanokvm_update_edid, EDID profiles, board probe, USB audio,
 #              exfatprogs, lolcat, OpenSSL and zlib-ng (also for the server)
-#   server     NanoKVM-Server and update/USB internet helpers
+#   server     NanoKVM-Server (server-cpp) and its helpers
 #   web        web UI
 #   firmware   Wi-Fi, regulatory and video codec firmware
 #   hashes     write OUTPUT/images/SHA256SUMS, the hash of every output
@@ -711,25 +711,33 @@ system() {
     cp "$s/out/kvm_system" "$img/system/"
 }
 
-# NanoKVM-Server with the NanoKVM Go runtime and C906 ChaCha20
-# (firmware/cpu/sysmon-runtime, firmware/cpu/go-crypto-c906),
-# and the static update helpers. Go modules are checked against go.sum.
+# NanoKVM-Server (server-cpp) and its helpers, from the inputs pinned in
+# sources.lock: libwebsockets, glaze, rapidyaml, libdatachannel with its
+# libjuice, libsrtp, usrsctp and plog, libjpeg-turbo, libspng and curl's
+# headers; OpenSSL and zlib-ng of the tools step, libkvm of the native step.
 server() {
-    local s=$out/server
+    local s=$out/server src=$out/server/src name file dep
     rm -rf "$s" "${img:?}/server"
-    mkdir -p "$s" "$img/server" "$dl/go-mod"
-    tar -xzf "$dl/go1.27.4.linux-amd64.tar.gz" -C "$s"
-    "$host/python3" "$repo/firmware/cpu/sysmon-runtime/prepare.py" --base "$s/go" --output "$s/goroot" > /dev/null
-    # The server's hot functions are linked first, together
-    # (firmware/cpu/go-hot-order): the linker gets the option for that.
-    GOCACHE=$s/gocache "$host/python3" "$repo/firmware/cpu/go-hot-order/prepare-linker.py" --goroot "$s/goroot" > /dev/null
-    GOMODCACHE=$dl/go-mod GOPATH=$s/gopath GOCACHE=$s/gocache GOFLAGS=-mod=readonly GOTOOLCHAIN=local \
-        "$host/python3" "$repo/scripts/build-server-existing-libs.py" --libraries "$img/native" \
-        --compression "$out/tools/compress" --buildroot-output "$bo" --go "$s/goroot/bin/go" --output "$s/out" \
-        --hot-order "$repo/firmware/cpu/go-hot-order/server-webrtc.txt"
-    cp "$s/out/NanoKVM-Server.stripped" "$img/server/NanoKVM-Server"
-    cp "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" "$s/out/nkos-standby" \
-        "$img/server/"
+    mkdir -p "$src" "$img/server"
+    for name in libwebsockets glaze rapidyaml libjpeg-turbo libspng curl; do
+        file=$(lock "$name" | awk '{ print $2 }')
+        file=$dl/${file##*/}
+        case $name in
+            rapidyaml) cp "$file" "$src/rapidyaml.hpp" ;;
+            *) tar -xf "$file" -C "$src" && mv "$src/$name"-* "$src/$name" ;;
+        esac
+    done
+    unpack_git libdatachannel . "$src/libdatachannel"
+    for dep in libjuice libsrtp usrsctp plog; do
+        rm -rf "${src:?}/libdatachannel/deps/$dep"
+        unpack_git "$dep" . "$src/libdatachannel/deps/$dep"
+    done
+    PATH="$host:$PATH" CROSS="$cross" CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)" \
+        OPENSSL="$out/component-support/tools/openssl" ZLIB="$out/component-support/tools/zlib-ng" \
+        NATIVE="$img/native" CMAKE="$host/cmake" JOBS="$jobs" \
+        bash "$repo/server-cpp/build.sh" "$src" "$s/out"
+    cp "$s/out/NanoKVM-Server" "$s/out/nkos-update" "$s/out/nkos-apply-updates" "$s/out/nkos-usb-internet" \
+        "$s/out/nkos-standby" "$img/server/"
 }
 
 # Web UI. npm packages are checked against pnpm-lock.yaml.
@@ -881,12 +889,17 @@ tools() {
     [ -z "$missing" ] || { echo "zlib-ng does not export these zlib 1.3.2 symbols:" $missing >&2; exit 1; }
     cp "$t/zlib-ng/LICENSE.md" "$img/tools/zlib-ng/"
 
-    # Headers and static library that the server step links its gzip reader
-    # against (server/internal/decompress).
-    local dev=$t/compress
-    mkdir -p "$dev/include" "$dev/lib"
-    cp "$t/zlib-ng/build/zlib.h" "$t/zlib-ng/build/zconf.h" "$t/zlib-ng/build/zlib_name_mangling.h" "$dev/include/"
-    cp "$t/zlib-ng/build/libz.a" "$dev/lib/"
+    # What the server step compiles and links against: OpenSSL's headers, its shared libraries for the server and
+    # its static ones for nkos-standby, and zlib-ng. The working tree above is not kept by the component cache;
+    # this export is a declared output, so a reused tools component still lets the server be rebuilt.
+    local sdk=$out/component-support/tools ossl
+    ossl=$t/openssl/openssl-$(lock openssl | awk '{ print $2 }' | sed -E 's/.*openssl-([0-9.]+)\.tar\.gz/\1/')
+    rm -rf "$sdk"
+    mkdir -p "$sdk/openssl/include" "$sdk/zlib-ng"
+    cp -rL "$ossl/include/openssl" "$sdk/openssl/include/"
+    cp -L "$ossl/libssl.so" "$ossl/libcrypto.so" "$ossl/libssl.a" "$ossl/libcrypto.a" "$sdk/openssl/"
+    cp -L "$t/zlib-ng/build/zlib.h" "$t/zlib-ng/build/zconf.h" "$t/zlib-ng/build/zlib_name_mangling.h" \
+        "$t/zlib-ng/build/libz.so" "$sdk/zlib-ng/"
 }
 
 # Firmware files: AIC8800 Wi-Fi firmware from the Radxa package that the
@@ -1275,8 +1288,8 @@ rootfs() {
     # load the new libz.so.1 (kmod's depmod, for one). The network services of
     # Settings > Services and the OpenVPN client are selected next to
     # nanokvm-release, which does not depend on them: a device updated from a
-    # release without them gets them from the server (basePackages in
-    # server/service/extensions/apkpkg/base.go, the same list).
+    # release without them gets them from the server (base_packages in
+    # server-cpp/src/osupdate/apkpkg.cpp, the same list).
     BIND=$rel/apk:/mnt/nanokvm-apk in_chroot "$r" /sbin/apk --no-cache --preserve-env add nanokvm-release \
         lldpd lldpd-openrc net-snmp net-snmp-openrc nut nut-openrc openvpn
     # They are installed: the server does not install them again, so one the
@@ -1314,7 +1327,7 @@ rootfs() {
                 usr/lib/nanokvm-tpu/models/screen.cvimodel; do
         [ -f "$r/$path" ] || { echo "rootfs: missing $path" >&2; exit 1; }
     done
-    # RustDesk is off until it is switched on (server/service/rustdesk).
+    # RustDesk is off until it is switched on (server-cpp/src/rustdesk).
     [ ! -e "$r/etc/runlevels/default/nanokvm-rustdesk" ] || {
         echo "rootfs: nanokvm-rustdesk starts at boot" >&2; exit 1; }
     [ -d "$r/lib/modules/$(cat "$r/usr/lib/nanokvm/boot/kernel.release")" ] || {
@@ -1354,7 +1367,7 @@ rootfs() {
     printf '1\n' > "$r/etc/kvm/mdns_disabled"
     chmod 0600 "$r/etc/kvm/mdns_disabled"
     # With mDNS off its service stays out of the boot; the server adds it back
-    # when mDNS is turned on (service/vm/mdns.go).
+    # when mDNS is turned on (server-cpp/src/system/device_settings.cpp).
     rm -f "$r/etc/runlevels/default/nanokvm-mdns"
     tar --numeric-owner -czf "$rel/alpine-rootfs.tar.gz" --exclude='./boot/*' --exclude='./data/*' \
         --exclude='./dev/*' --exclude='./proc/*' --exclude='./sys/*' --exclude='./run/*' --exclude='./tmp/*' \

@@ -1,0 +1,197 @@
+Hold receive credit on one HTTP/2 request while its application opens the
+destination. HTTP/1 uses socket flow control. Exclude this local wait
+from peer body timeouts on both protocols.
+
+--- a/include/libwebsockets/lws-http.h
++++ b/include/libwebsockets/lws-http.h
+@@ -1451,6 +1451,19 @@
+ #define lws_http_client_http_resp_is_error(code) (!(code < 400))
+ 
+ /**
++ * lws_http_server_pause_body() - hold / resume reception of a server request body
++ *
++ * Call on the service thread with a request wsi, from its HTTP callback. HTTP/1
++ * pauses socket reads. HTTP/2 lets the stream's outstanding window run down
++ * while keeping other streams moving. Body already in flight may still arrive.
++ * Pass 0 after the receiver is ready, before starting the HTTP response.
++ * The application's wait is excluded from the peer's body deadline.
++ * Returns 0 on success.
++ */
++LWS_VISIBLE LWS_EXTERN int
++lws_http_server_pause_body(struct lws *wsi, int pause);
++
++/**
+  * lws_h2_update_peer_txcredit() - manually update stream peer tx credit
+  *
+  * \param wsi: the h2 child stream whose peer credit to change
+--- a/lib/sansio/h2/http2.c
++++ b/lib/sansio/h2/http2.c
+@@ -325,6 +325,34 @@
+ 		return 1;
+ 
+ 	return lws_h2_update_conn_txcredit(nwsi, bump);
++}
++
++int
++lws_h2_resume_body_window(struct lws *wsi)
++{
++	struct lws *nwsi = lws_get_network_wsi(wsi);
++	int add = LWS_H2_STREAM_RX_CREDIT - wsi->txc.peer_tx_cr_est;
++	int conn = LWS_H2_STREAM_RX_CREDIT - nwsi->txc.peer_tx_cr_est;
++
++	/*
++	 * While paused, each DATA frame gave the connection back exactly what
++	 * it took, so the connection window stayed where it was while the
++	 * stream's ran down.  The stream is refilled here without the matching
++	 * connection grant the usual path makes, so the connection is topped up
++	 * on its own: otherwise every pause leaves it lower against the stream,
++	 * until it is empty with the stream still above the threshold that
++	 * would grant both, and no more DATA can arrive.
++	 */
++	if (conn > 0 && lws_h2_update_conn_txcredit(nwsi, conn))
++		return 1;
++	if (add <= 0 || wsi->h2.END_STREAM)
++		return 0;
++	if (lws_h2_pps_window_update(wsi, (unsigned int)wsi->mux.my_sid,
++				     (unsigned int)add))
++		return 1;
++	wsi->txc.peer_tx_cr_est += add;
++
++	return 0;
+ }
+ 
+ int
+@@ -3447,6 +3475,21 @@
+ 						      H2_ERR_PROTOCOL_ERROR,
+ 						      "execssive padding"))
+ 						return 1;
++#if defined(LWS_WITH_SERVER)
++				if (h2n->type == LWS_H2_FRAME_TYPE_DATA && h2n->swsi &&
++				    lwsi_role_server(h2n->swsi)) {
++					unsigned int overhead = 1u + h2n->padding;
++
++					/* Padding consumes both windows, but is not delivered to
++					 * the body reader. A paused stream owes this credit too. */
++					if (lws_h2_pps_window_update(wsi, 0, overhead))
++						return 1;
++					if (h2n->swsi->http.rx_body_paused)
++						h2n->swsi->txc.peer_tx_cr_est -= (int)overhead;
++					else if (lws_h2_pps_window_update(h2n->swsi, h2n->sid, overhead))
++						return 1;
++				}
++#endif
+ 				break; /* we consumed this */
+ 			}
+ 
+@@ -3921,6 +3964,13 @@
+ 
+ do_windows:
+ 
++#if defined(LWS_WITH_SERVER)
++				if (h2n->swsi->http.rx_body_paused) {
++					if (lws_h2_update_conn_txcredit(wsi, n))
++						return 1;
++					break;
++				}
++#endif
+ #if defined(LWS_WITH_CLIENT)
+ 				if (!(h2n->swsi->flags & LCCSCF_H2_MANUAL_RXFLOW))
+ #endif
+--- a/lib/sansio/h2/private-lib-roles-h2.h
++++ b/lib/sansio/h2/private-lib-roles-h2.h
+@@ -122,6 +122,9 @@
+ 
+ void
+ lws_h2_state(struct lws *wsi, enum lws_h2_states s);
++
++int
++lws_h2_resume_body_window(struct lws *wsi);
+ 
+ #define LWS_H2_STREAM_ID_MASTER 0
+ #define LWS_H2_SETTINGS_LEN 6
+--- a/lib/sansio/http/private-lib-roles-http.h
++++ b/lib/sansio/http/private-lib-roles-http.h
+@@ -520,6 +520,7 @@
+ 	 * Snapshotted there, for the same reason as method_post. */
+ 	unsigned int content_length_explicitly_zero:1;
+ 	unsigned int content_length_given:1;
++	unsigned int rx_body_paused:1; /* application is opening its destination */
+ 	unsigned int rx_body_done:1;
+ 	/**< server: the request's body phase is over, it was dispatched with no
+ 	 * body, or its LWS_CALLBACK_HTTP_BODY_COMPLETION was delivered.  Body
+--- a/lib/sansio/http/server/server.c
++++ b/lib/sansio/http/server/server.c
+@@ -2300,6 +2300,51 @@
+ 	wsi->http.conn_type = conn_type;
+ }
+ 
++int
++lws_http_server_pause_body(struct lws *wsi, int pause)
++{
++	if (!wsi || !lwsi_role_server(wsi))
++		return 1;
++	if (wsi->http.rx_body_paused == !!pause)
++		return 0;
++	if (wsi->mux_substream) {
++#if defined(LWS_ROLE_H2)
++		if (!lwsi_role_h2(lws_get_network_wsi(wsi)))
++			return 1;
++		if (pause) {
++			if (wsi->mux_stream_immortal)
++				return 1;
++			/* Keeps the shared connection alive; closing the stream also
++			 * releases this reference if the client resets it first. */
++			lws_mux_mark_immortal(wsi);
++		} else {
++			lws_http_close_immortal(wsi);
++			if (lws_h2_resume_body_window(wsi))
++				return 1;
++		}
++#else
++		return 1;
++#endif
++	} else {
++		if (lws_rx_flow_control(wsi, pause ? 0 :
++					LWS_RXFLOW_REASON_APPLIES_ENABLE |
++					LWS_RXFLOW_REASON_USER_BOOL |
++					LWS_RXFLOW_REASON_FLAG_PROCESS_NOW))
++			return 1;
++		if (pause)
++			lws_set_timeout(wsi, NO_PENDING_TIMEOUT, 0);
++	}
++
++	wsi->http.rx_body_paused = !!pause;
++	if (!pause && !wsi->http.rx_body_done) {
++		wsi->http.rx_body_start = lws_wsi_now(wsi);
++		wsi->http.rx_body_count = 0;
++		lws_http_body_timeout_arm(wsi);
++	}
++
++	return 0;
++}
++
+ /*
+  * A request body's timeout.  Each piece renews the wait for the next, up to
+  * timeout_secs, but the body as a whole must also keep up with the vhost's
+@@ -2317,6 +2362,9 @@
+ 							LWS_US_PER_SEC,
+ 		   now, spent, allowed;
+ 	uint64_t secs;
++
++	if (wsi->http.rx_body_paused)
++		return;
+ 
+ 	if (vh->http_body_min_rate == LWS_HTTP_BODY_MIN_RATE_NONE ||
+ 	    wsi->mux_stream_immortal) {
+@@ -3506,8 +3554,9 @@
+ 			/* an interim response is not the head of the answer */
+ 			wsi->http.tx_head_ended = 0;
+ 			wsi->http.tx_head_crlf = 0;
+-			lws_set_timeout(wsi, PENDING_TIMEOUT_HTTP_CONTENT,
+-					(int)wsi->a.context->timeout_secs);
++			if (!wsi->http.rx_body_paused)
++				lws_set_timeout(wsi, PENDING_TIMEOUT_HTTP_CONTENT,
++						(int)wsi->a.context->timeout_secs);
+ 		}
+ 	}
+ 	wsi->http.rx_content_remain = wsi->http.rx_content_length;

@@ -150,19 +150,6 @@
       }
     },
     {
-      "name": "Go runtime",
-      "path": "firmware/cpu/sysmon-runtime/go-source-pin.json",
-      "pattern": "\"go_version\":\\s*\"go([0-9.]+)\"",
-      "kind": "index",
-      "url": "https://go.dev/dl/?mode=json",
-      "upstream_pattern": "\"version\"\\s*:\\s*\"go([0-9]+\\.[0-9]+(?:\\.[0-9]+)?)\"",
-      "lock_entry": "go",
-      "pull_request": {
-        "id": "go-runtime",
-        "mode": "review"
-      }
-    },
-    {
       "name": "Alpine stable branch",
       "path": "scripts/build-alpine-packages.sh",
       "pattern": "ALPINE_VERSION=\"([0-9.]+)\"",
@@ -186,6 +173,106 @@
         "id": "opus",
         "mode": "archive-pin"
       }
+    },
+    {
+      "name": "libwebsockets",
+      "path": "platform/sources.lock",
+      "pattern": "libwebsockets/archive/refs/tags/v([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "warmcat/libwebsockets",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "libwebsockets"
+    },
+    {
+      "name": "glaze",
+      "path": "platform/sources.lock",
+      "pattern": "glaze/archive/refs/tags/v([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "stephenberry/glaze",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "glaze"
+    },
+    {
+      "name": "rapidyaml",
+      "path": "platform/sources.lock",
+      "pattern": "rapidyaml\\.v([0-9.]+)\\.singlehdr",
+      "kind": "github-tags",
+      "repo": "biojppm/rapidyaml",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "rapidyaml"
+    },
+    {
+      "name": "libdatachannel",
+      "path": "platform/sources.lock",
+      "pattern": "^libdatachannel\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-release-commit",
+      "repo": "paullouisageneau/libdatachannel",
+      "lock_entry": "libdatachannel"
+    },
+    {
+      "name": "libjuice",
+      "path": "platform/sources.lock",
+      "pattern": "^libjuice\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-release-commit",
+      "repo": "paullouisageneau/libjuice",
+      "lock_entry": "libjuice"
+    },
+    {
+      "name": "libsrtp",
+      "path": "platform/sources.lock",
+      "pattern": "^libsrtp\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "cisco/libsrtp",
+      "branch": null,
+      "lock_entry": "libsrtp",
+      "cadence": "quarterly"
+    },
+    {
+      "name": "usrsctp (libdatachannel fork)",
+      "path": "platform/sources.lock",
+      "pattern": "^usrsctp\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "paullouisageneau/usrsctp",
+      "branch": null,
+      "lock_entry": "usrsctp",
+      "cadence": "quarterly"
+    },
+    {
+      "name": "plog",
+      "path": "platform/sources.lock",
+      "pattern": "^plog\\s+\\S+\\s+([0-9a-f]{40})",
+      "kind": "github-commit",
+      "repo": "SergiusTheBest/plog",
+      "branch": null,
+      "lock_entry": "plog",
+      "cadence": "quarterly"
+    },
+    {
+      "name": "libjpeg-turbo",
+      "path": "platform/sources.lock",
+      "pattern": "libjpeg-turbo-([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "libjpeg-turbo/libjpeg-turbo",
+      "upstream_pattern": "^([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "libjpeg-turbo"
+    },
+    {
+      "name": "libspng",
+      "path": "platform/sources.lock",
+      "pattern": "libspng/archive/refs/tags/v([0-9.]+)\\.tar",
+      "kind": "github-tags",
+      "repo": "randy408/libspng",
+      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "lock_entry": "libspng"
+    },
+    {
+      "name": "curl",
+      "path": "platform/sources.lock",
+      "pattern": "curl-([0-9.]+)\\.tar\\.xz",
+      "kind": "index",
+      "url": "https://curl.se/download/",
+      "upstream_pattern": "curl-([0-9]+\\.[0-9]+\\.[0-9]+)\\.tar\\.xz",
+      "lock_entry": "curl"
     },
     {
       "name": "ZeroTier One",
@@ -238,54 +325,6 @@
         "mode": "git-pin"
       },
       "cadence": "quarterly"
-    },
-    {
-      "name": "Patched Pion dtls/v3",
-      "path": "server/go.mod",
-      "pattern": "github.com/pion/dtls/v3\\s+v([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "pion/dtls",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
-      "pull_request": {
-        "id": "patched-pion-dtls-v3",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "Patched Pion ice/v4",
-      "path": "server/go.mod",
-      "pattern": "github.com/pion/ice/v4\\s+v([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "pion/ice",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
-      "pull_request": {
-        "id": "patched-pion-ice-v4",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "Patched Pion sctp",
-      "path": "server/go.mod",
-      "pattern": "github.com/pion/sctp\\s+v([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "pion/sctp",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
-      "pull_request": {
-        "id": "patched-pion-sctp-v1",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "Patched Pion srtp/v3",
-      "path": "server/go.mod",
-      "pattern": "github.com/pion/srtp/v3\\s+v([0-9.]+)",
-      "kind": "github-tags",
-      "repo": "pion/srtp",
-      "upstream_pattern": "^v([0-9]+\\.[0-9]+\\.[0-9]+)$",
-      "pull_request": {
-        "id": "patched-pion-srtp-v3",
-        "mode": "review"
-      }
     },
     {
       "name": "OpenSBI",
@@ -394,28 +433,6 @@
       "repo": "rustdesk/rustdesk",
       "pull_request": {
         "id": "rustdesk-protocol-reference",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "Go CORS nested module",
-      "path": "server/go.mod",
-      "pattern": "github.com/rs/cors/wrapper/gin\\s+(v[^\\s]+)",
-      "kind": "go-proxy",
-      "module": "github.com/rs/cors/wrapper/gin",
-      "pull_request": {
-        "id": "go-cors-nested-module",
-        "mode": "review"
-      }
-    },
-    {
-      "name": "AES Bridge Go (test compatibility)",
-      "path": "server/go.mod",
-      "pattern": "github.com/mervick/aes-bridge-go\\s+(v[^\\s]+)",
-      "kind": "go-proxy",
-      "module": "github.com/mervick/aes-bridge-go",
-      "pull_request": {
-        "id": "aes-bridge-go-test-compatibility",
         "mode": "review"
       }
     },

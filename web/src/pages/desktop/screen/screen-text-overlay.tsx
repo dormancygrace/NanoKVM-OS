@@ -42,7 +42,7 @@ type Phase = 'select' | 'reading' | 'result';
 const wholeScreen: ScreenTextRegion = { left: 0, top: 0, width: 1, height: 1 };
 const minimumSelectionSize = 8;
 
-// Server answers that have their own message (server/service/vm/screen_text.go).
+// Server answers that have their own message (server-cpp/src/video/screen_text.cpp).
 const errorKeys: Record<number, string> = {
   [-2]: 'screenText.busy',
   [-3]: 'screenText.noSignal',

@@ -891,7 +891,9 @@ void add_user_disk_routes(http::Router &router)
 		if (!params || !ok || !size || *size == 0 || *size < INT32_MIN || *size > INT32_MAX)
 			return api::err(res, -1, "invalid arguments");
 		res.pending = true;
-		std::thread([id = req.id, headers = res.headers, size = static_cast<int>(*size)] {
+		// On the pool, which the stopping server waits for: a format interrupted by the exit would leave its
+		// temporary image behind and no disk.
+		loop::blocking([id = req.id, headers = res.headers, size = static_cast<int>(*size)] {
 			http::Response out;
 			out.headers = headers;
 			[&] {
@@ -909,7 +911,7 @@ void add_user_disk_routes(http::Router &router)
 				api::send(out, 0, "success", user_disk_state_json());
 			}();
 			http::complete(id, std::move(out));
-		}).detach();
+		});
 	}, admin));
 	router.add("POST", "/api/storage/user-disk/delete", auth::guarded([](http::Request &req, http::Response &res) {
 		http::defer(req, res, [](http::Response &out) {

@@ -85,7 +85,7 @@ jobs:
       - name: Host toolchain
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends g++ cmake ninja-build libssl-dev libcrypt-dev curl ca-certificates openssl openssh-client
+          apt-get install -y --no-install-recommends g++ cmake ninja-build patch libssl-dev libcrypt-dev curl ca-certificates openssl openssh-client
       - run: bash server-cpp/tests/run.sh "$RUNNER_TEMP/server-tests"
 
   web:

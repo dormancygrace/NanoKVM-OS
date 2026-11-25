@@ -3,7 +3,7 @@
 # runs them. glaze, rapidyaml and libwebsockets are the versions pinned in platform/sources.lock, downloaded once into
 # BUILD_DIR and checked against their sha256; libwebsockets is configured as server-cpp/build-libwebsockets.sh does,
 # for the host. Each test links only the units it reaches (--gc-sections), no device library.
-# Needs g++ with C++23, cmake, ninja, OpenSSL 3.2 or later (headers), libcrypt, curl, openssl and ssh-keygen.
+# Needs g++ with C++23, cmake, ninja, OpenSSL 3.2 or later (headers), libcrypt, curl, patch, openssl and ssh-keygen.
 set -euo pipefail
 tests=$(cd "$(dirname "$0")" && pwd)
 src=$tests/../src

@@ -41,7 +41,9 @@ the corresponding branch. Keep the release workflow and version selector in
 sync when backporting release tooling to `v4`.
 
 Stable and beta are shared across majors. Once stable offers 5.x, publishing
-a later 4.x maintenance release does not move the stable OTA channel back to 4.x.
+publish subsequent 4.x fixes as regular GitHub releases. A Pages-only update
+below the public channel head is rejected before the build. Older maintenance
+releases also keep the newer public stable OS release marked Latest on GitHub.
 
 `firmware/alpine/release.env` supplies `NANOKVM_VERSION`, shared by the OS and
 new SD images, and `NANOKVM_APK_VERSION`, its APK-comparable representation.

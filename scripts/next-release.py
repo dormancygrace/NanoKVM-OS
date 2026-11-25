@@ -20,6 +20,8 @@ import json
 import re
 import sys
 
+from release_assets import newer_public_os
+
 RELEASE = re.compile(r'v(\d+)\.(\d+)\.(\d+)')
 BETA = re.compile(r'v(\d+)\.(\d+)\.(\d+)-beta\.([1-9][0-9]*)')
 BRANCH = re.compile(r'release/(\d+)\.(\d+)')
@@ -114,12 +116,18 @@ def main():
     parser.add_argument('--kind', choices=('patch', 'minor'), required=True)
     parser.add_argument('--ref', required=True)
     parser.add_argument('--pages', action='store_true', help='include package-only updates and reserved tags')
+    parser.add_argument('--packages-only', action='store_true', help='require a deliverable OTA update')
     args = parser.parse_args()
     try:
         releases = json.load(sys.stdin)
         if args.pages:
             releases = with_pages(releases)
         values = next_release(releases, args.kind, args.ref, args.channel)
+        if args.packages_only:
+            head = newer_public_os(releases, values['version'], include_beta=args.channel == 'beta')
+            if head:
+                raise ValueError(f"{values['version']} cannot advance the {args.channel} feed past {head}; "
+                                 "disable packages_only and publish a regular maintenance release")
     except ValueError as error:
         sys.exit(f'next-release: {error}')
     for key, value in values.items():

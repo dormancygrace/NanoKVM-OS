@@ -135,6 +135,7 @@ jobs:
           KIND: ${{ inputs.kind }}
           CHANNEL: ${{ inputs.channel }}
           REF: ${{ github.ref_name }}
+          PACKAGES_ONLY: ${{ inputs.packages_only }}
           BASE_REF: ${{ github.base_ref }}
           IMAGE: ${{ inputs.image }}
           DRY_RUN: ${{ inputs.dry_run }}
@@ -148,8 +149,10 @@ jobs:
           case $EVENT in
             workflow_dispatch)
               gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[]' > "$RUNNER_TEMP/release-list"
+              args=()
+              [ "$PACKAGES_ONLY" != true ] || args+=(--packages-only)
               jq -s . "$RUNNER_TEMP/release-list" |
-                python3 scripts/next-release.py --pages --channel "${CHANNEL:-stable}" --kind "$KIND" --ref "$REF" > "$RUNNER_TEMP/next"
+                python3 scripts/next-release.py --pages --channel "${CHANNEL:-stable}" --kind "$KIND" --ref "$REF" "${args[@]}" > "$RUNNER_TEMP/next"
               cat "$RUNNER_TEMP/next" >> "$GITHUB_OUTPUT"
               echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
               [ "$KIND" = minor ] && echo draft=true >> "$GITHUB_OUTPUT" || echo draft=false >> "$GITHUB_OUTPUT"

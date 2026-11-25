@@ -7,20 +7,20 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-from release_assets import digest, image_versions
+from release_assets import digest, image_versions, newer_public_os
 
 
 def gh(*args):
     return subprocess.check_output(['gh', *args], text=True)
 
 
-def release(repository, tag):
+def releases(repository):
     # The by-tag REST endpoint is for published releases. List releases with
     # the publisher's write access so interrupted uploads/private drafts are
     # found too; authentication or API failures must never mean "missing".
     pages = json.loads(gh('api', '--paginate', '--slurp',
                           f'repos/{repository}/releases?per_page=100'))
-    return next((r for page in pages for r in page if r['tag_name'] == tag), None)
+    return [r for page in pages for r in page]
 
 
 def validate(directory):
@@ -80,7 +80,8 @@ def main():
     args = parser.parse_args()
     env = os.environ
     version, repository = env['NANOKVM_VERSION'], env['GITHUB_REPOSITORY']
-    current = release(repository, version)
+    public_list = releases(repository)
+    current = next((r for r in public_list if r['tag_name'] == version), None)
     if current and current.get('target_commitish') != env['SHA']:
         raise ValueError('Existing OS release targets a different commit; use a new version')
     if args.prepare:
@@ -94,17 +95,20 @@ def main():
         flags = ['--generate-notes']
         if '-beta.' in version:
             flags += ['--prerelease', '--latest=false']
+        elif newer_public_os(public_list, version):
+            flags.append('--latest=false')
         if env.get('PREVIOUS'):
             flags += ['--notes-start-tag', env['PREVIOUS']]
         stage(version, current, directory, env['SHA'], f'NanoKVM OS {version}', flags)
-        current = release(repository, version)
+        current = next((r for r in releases(repository) if r['tag_name'] == version), None)
     if current is None:
         raise ValueError('Prepare the OS draft before staging its package candidate')
     # After candidate upload, only the original complete pair may be reused.
     # Never fill gaps with downloads from a freshly signed assembly.
     verify_public_downloads(version, current)
     if not args.prepare and current['draft'] and env['DRAFT'] != 'true':
-        gh('release', 'edit', version, '--draft=false')
+        flags = ['--latest=false'] if current['prerelease'] or newer_public_os(releases(repository), version) else []
+        gh('release', 'edit', version, '--draft=false', *flags)
 
 
 if __name__ == '__main__':

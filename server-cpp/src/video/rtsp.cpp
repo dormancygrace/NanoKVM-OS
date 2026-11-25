@@ -25,6 +25,8 @@
 
 #include <atomic>
 #include <cerrno>
+#include <cctype>
+#include <map>
 #include <chrono>
 #include <cstring>
 #include <format>
@@ -54,6 +56,12 @@ constexpr std::size_t max_queued_frames = 60;
 // Frames still queued past this (about 200 ms at 60 fps) mean the clients take the stream late rather than losing
 // it: they count as lagging for the adaptive bit rate, before the queue overflows.
 constexpr std::size_t backlog_lag_frames = 12;
+// A client with more than this waiting in its output queue (live555 patch 0002; about 25 ms of a 20 Mbit/s stream)
+// takes the stream late: lag for the adaptive bit rate. Its queue holds at most 2 MiB; past that it is disconnected.
+constexpr unsigned backlog_lag_bytes = 64 << 10;
+
+// The largest output queue of an RTSP client, set on the RTSP thread and read on the loop thread.
+std::atomic<unsigned> largest_backlog{0};
 // The parameter sets for the SDP come from the first key frame; without a picture DESCRIBE answers without them.
 constexpr unsigned sdp_wait_ms = 3000;
 constexpr unsigned max_connections = 32;
@@ -109,6 +117,31 @@ bool save_settings(const Settings &s)
 }
 
 // 16 letters and digits: about 95 bits.
+bool valid_password(const std::string &p)
+{
+	if (p.size() < 8 || p.size() > 64) return false;
+	for (char c : p)
+		if (!std::isalnum(static_cast<unsigned char>(c))) return false;
+	return true;
+}
+
+std::string new_password();
+
+// The settings to run with: an enabled stream with no valid password gets a new one, saved before the listener
+// opens. nullopt with error set when that fails: the stream stays off.
+std::optional<Settings> checked_settings(std::string &error)
+{
+	Settings s = load_settings();
+	if (!s.enabled || valid_password(s.password)) return s;
+	s.password = new_password();
+	if (s.password.empty() || !save_settings(s)) {
+		error = "no valid password could be made and saved";
+		return std::nullopt;
+	}
+	log::info("rtsp: the stored password was not valid; a new one was saved");
+	return s;
+}
+
 std::string new_password()
 {
 	static constexpr char alphabet[] = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
@@ -208,7 +241,7 @@ public:
 				want_key_ = false;
 				lagging_ = false;
 				queue_.push_back({frame, SteadyClock::now()});
-				if (queue_.size() > backlog_lag_frames) report_lag(this);
+				if (queue_.size() > backlog_lag_frames || largest_backlog.load() > backlog_lag_bytes) report_lag(this);
 				scheduler_->triggerEvent(event_, this);
 			}
 		}
@@ -753,6 +786,8 @@ protected:
 			return nullptr;
 		}
 		close_on_exec(socket);
+		RTPInterfaceForgetSocket(socket);
+		backlogs_.erase(socket);
 		int bytes = 256 << 10;
 		if (setsockopt(socket, SOL_SOCKET, SO_SNDBUFFORCE, &bytes, sizeof bytes) != 0)
 			log::error("rtsp: cannot enlarge the send buffer: {}", std::strerror(errno));
@@ -762,6 +797,18 @@ protected:
 		return RTSPServer::createNewClientConnection(socket, addr);
 	}
 
+public:
+	// RTSP thread: a client's output queue after a packet (live555 patch 0002).
+	void backlog(int socket, unsigned bytes)
+	{
+		if (bytes) backlogs_[socket] = bytes;
+		else backlogs_.erase(socket);
+		unsigned largest = 0;
+		for (auto &[s, b] : backlogs_) largest = std::max(largest, b);
+		largest_backlog.store(largest);
+	}
+
+protected:
 	// A client that has failed too often is refused like a web login, even with the right password.
 	Boolean specialClientUserAccessCheck(int, sockaddr_storage const &addr, char const *, char const *) override
 	{
@@ -802,10 +849,14 @@ private:
 	ServerMediaSession *session_ = nullptr;
 	Subsession *subsession_ = nullptr;
 	bool audio_ = false;
+	std::map<int, unsigned> backlogs_;  // output queues of the clients that have one
 };
 
 // ---------------------------------------------------------------------------------------------------------------
 // The RTSP thread
+
+// The server of the RTSP thread, for live555's backlog hook (a plain function). RTSP thread.
+Server *active_server = nullptr;
 
 class Runner {
 public:
@@ -851,6 +902,10 @@ private:
 		// RTP over TCP only: over UDP every lost packet breaks the picture until the next key frame, which RTSP
 		// clients cannot ask for.
 		server_->disableStreamingRTPOverUDP();
+		active_server = server_;
+		RTPInterfaceBacklogHook = [](int socket, unsigned bytes) {
+			if (active_server) active_server->backlog(socket, bytes);
+		};
 		command_event_ = scheduler->createEventTrigger(run_commands);
 		frame_event_ = scheduler->createEventTrigger(frame_queued);
 		audio_event_ = scheduler->createEventTrigger(audio_queued);
@@ -865,6 +920,9 @@ private:
 
 		feed.detach();
 		audio_feed.detach();
+		RTPInterfaceBacklogHook = nullptr;
+		active_server = nullptr;
+		largest_backlog.store(0);
 		Medium::close(server_);
 		server_ = nullptr;
 		{
@@ -932,7 +990,9 @@ void launch(const Settings &s)
 	// The clients' session descriptions name the old codec: they reconnect and get the new one.
 	feed.restart_clients = [] {
 		loop::post([] {
-			if (runner) apply(load_settings());
+			if (!runner) return;
+			std::string error;
+			if (auto s = checked_settings(error)) apply(*s);
 		});
 	};
 }
@@ -978,7 +1038,13 @@ struct SettingsBody {
 
 } // namespace
 
-void start() { apply(load_settings()); }
+void start()
+{
+	std::string error;
+	if (auto s = checked_settings(error)) return apply(*s);
+	last_error = error;
+	log::error("rtsp: {}", error);
+}
 
 void stop()
 {

@@ -1,0 +1,103 @@
+RTPInterface: RTP over TCP through a bounded output queue per socket, never blocking the event loop.
+
+diff -ru a/liveMedia/RTPInterface.cpp b/liveMedia/RTPInterface.cpp
+--- a/liveMedia/RTPInterface.cpp
++++ b/liveMedia/RTPInterface.cpp
+@@ -23,6 +23,24 @@
+ #include "RTPInterface.hh"
+ #include <GroupsockHelper.hh>
+ #include <stdio.h>
++#include <string.h>
++#include <errno.h>
++#include <sys/socket.h>
++#include <sys/uio.h>
++#include <map>
++#include <string>
++
++unsigned RTPInterfaceMaxBacklogBytes = 2 << 20;
++void (*RTPInterfaceBacklogHook)(int socketNum, unsigned backlogBytes) = NULL;
++
++static std::map<int, std::string>& tcpBacklogs() {
++  static std::map<int, std::string> backlogs;
++  return backlogs;
++}
++
++void RTPInterfaceForgetSocket(int socketNum) {
++  tcpBacklogs().erase(socketNum);
++}
+ 
+ ////////// Helper Functions - Definition //////////
+ 
+@@ -346,6 +364,53 @@
+   fprintf(stderr, "sendRTPorRTCPPacketOverTCP: %d bytes over channel %d (socket %d)\n",
+ 	  packetSize, streamChannelId, socketNum); fflush(stderr);
+ #endif
++  if (tlsState == NULL || !tlsState->isNeeded) {
++    u_int8_t header[4];
++    header[0] = '$';
++    header[1] = streamChannelId;
++    header[2] = (u_int8_t) ((packetSize&0xFF00)>>8);
++    header[3] = (u_int8_t) (packetSize&0xFF);
++    std::string& backlog = tcpBacklogs()[socketNum];
++    Boolean failed = False;
++    if (!backlog.empty()) {
++      ssize_t n = send(socketNum, backlog.data(), backlog.size(), MSG_NOSIGNAL);
++      if (n > 0) backlog.erase(0, (size_t)n);
++      else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) failed = True;
++    }
++    unsigned sent = 0;
++    if (!failed && backlog.empty()) {
++      struct iovec iov[2];
++      iov[0].iov_base = header; iov[0].iov_len = 4;
++      iov[1].iov_base = packet; iov[1].iov_len = packetSize;
++      struct msghdr msg;
++      memset(&msg, 0, sizeof msg);
++      msg.msg_iov = iov; msg.msg_iovlen = 2;
++      ssize_t n = sendmsg(socketNum, &msg, MSG_NOSIGNAL);
++      if (n > 0) sent = (unsigned)n;
++      else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) failed = True;
++    }
++    if (!failed && sent < 4 + packetSize) {
++      if (backlog.size() + (4 + packetSize - sent) > RTPInterfaceMaxBacklogBytes) {
++        failed = True;
++      } else {
++        if (sent < 4) backlog.append((char const*)header + sent, 4 - sent);
++        unsigned packetSent = sent > 4 ? sent - 4 : 0;
++        backlog.append((char const*)packet + packetSent, packetSize - packetSent);
++      }
++    }
++    if (failed) {
++      // The client is gone, or too far behind: disconnect it. The RTSP connection shares the socket, so the client
++      // sees the end at once.
++      shutdown(socketNum, SHUT_RDWR);
++      tcpBacklogs().erase(socketNum);
++      removeStreamSocket(socketNum, 0xFF);
++      if (RTPInterfaceBacklogHook != NULL) (*RTPInterfaceBacklogHook)(socketNum, 0);
++      return False;
++    }
++    if (RTPInterfaceBacklogHook != NULL) (*RTPInterfaceBacklogHook)(socketNum, (unsigned)backlog.size());
++    return True;
++  }
++
+   // Send a RTP/RTCP packet over TCP, using the encoding defined in RFC 2326, section 10.12:
+   //     $<streamChannelId><packetSize><packet>
+   // (If the initial "send()" of '$<streamChannelId><packetSize>' succeeds, then we force
+diff -ru a/liveMedia/include/RTPInterface.hh b/liveMedia/include/RTPInterface.hh
+--- a/liveMedia/include/RTPInterface.hh
++++ b/liveMedia/include/RTPInterface.hh
+@@ -23,6 +23,15 @@
+ #ifndef _RTP_INTERFACE_HH
+ #define _RTP_INTERFACE_HH
+ 
++// RTP and RTCP over TCP go through an output queue per socket: what the socket does not take at once waits there and
++// goes out before the next packet, so a slow client never blocks the event loop and the other clients. A client whose
++// queue would grow past RTPInterfaceMaxBacklogBytes is disconnected (its socket shut down).
++extern unsigned RTPInterfaceMaxBacklogBytes;
++// Called after each packet with the bytes still queued for that socket (0 when it is all out).
++extern void (*RTPInterfaceBacklogHook)(int socketNum, unsigned backlogBytes);
++// Drops the queue of a socket number (a new connection may reuse the number of a closed one).
++void RTPInterfaceForgetSocket(int socketNum);
++
+ #ifndef _MEDIA_HH
+ #include "Media.hh"
+ #endif

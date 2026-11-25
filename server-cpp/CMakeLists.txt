@@ -54,9 +54,7 @@ foreach(d ${LIVE555_DIRS})
 endforeach()
 add_library(live555 STATIC ${LIVE555_SOURCES})
 target_include_directories(live555 PUBLIC ${LIVE555_INCLUDES})
-# A blocking RTP send over TCP gives the client up after this; live555's 500 ms is shorter than a Wi-Fi pause.
-target_compile_definitions(live555 PRIVATE SOCKLEN_T=socklen_t NO_OPENSSL=1 _LARGEFILE_SOURCE=1 _FILE_OFFSET_BITS=64 BSD=1
-  RTPINTERFACE_BLOCKING_WRITE_TIMEOUT_MS=4000)
+target_compile_definitions(live555 PRIVATE SOCKLEN_T=socklen_t NO_OPENSSL=1 _LARGEFILE_SOURCE=1 _FILE_OFFSET_BITS=64 BSD=1)
 target_compile_definitions(live555 PUBLIC NO_OPENSSL=1)
 set_target_properties(live555 PROPERTIES CXX_STANDARD 20 POSITION_INDEPENDENT_CODE ON)
 target_compile_options(live555 PRIVATE -w)

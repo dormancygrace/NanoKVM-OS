@@ -58,9 +58,8 @@ export const RtspPage = () => {
 
   if (!settings) return error ? <Alert type="error" showIcon message={error} /> : null;
 
-  const host = window.location.hostname.includes(':')
-    ? `[${window.location.hostname}]`
-    : window.location.hostname;
+  // An IPv6 literal comes with its brackets.
+  const host = window.location.hostname;
   const link = (password: string) =>
     `rtsp://${settings.username}:${password}@${host}:${settings.port}${settings.path}`;
   const copy = () => {

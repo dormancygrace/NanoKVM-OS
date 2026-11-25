@@ -287,9 +287,25 @@ struct Read : std::enable_shared_from_this<Read> {
 	Clock::time_point started, deadline, capture_start;
 	int attempt = 0;
 	int last_result = 0;
+	// Set once the read is to stop: its web request's connection closed, or request.cancel was set. The loop
+	// thread sets it (watch), since only that thread may ask about a request; the helper's thread only reads it.
+	std::shared_ptr<std::atomic<bool>> stop = std::make_shared<std::atomic<bool>>(false);
+	bool finished = false;
+
+	// Loop thread, until the read finishes.
+	void watch()
+	{
+		if (finished) return;
+		if ((request.request_id && !http::request_open(request.request_id)) || (request.cancel && request.cancel->load())) {
+			stop->store(true);
+			return;
+		}
+		loop::after(100ms, [self = shared_from_this()] { self->watch(); });
+	}
 
 	void finish(Reply reply)
 	{
+		finished = true;
 		lease.reset();
 		busy = false;
 		auto d = std::move(done);
@@ -298,7 +314,7 @@ struct Read : std::enable_shared_from_this<Read> {
 
 	bool cancelled() const
 	{
-		return (request.request_id && !http::request_open(request.request_id)) || (request.cancel && request.cancel->load());
+		return stop->load() || (request.cancel && request.cancel->load());
 	}
 
 	void begin()
@@ -407,7 +423,7 @@ struct Read : std::enable_shared_from_this<Read> {
 			return std::max(std::chrono::milliseconds(1),
 			                std::chrono::duration_cast<std::chrono::milliseconds>(deadline - Clock::now()));
 		};
-		if (auto error = load_tpu_driver(remaining(), request.cancel.get()); !error.empty()) {
+		if (auto error = load_tpu_driver(remaining(), stop.get()); !error.empty()) {
 			if (cancelled()) return failure(-9, "the read was cancelled");
 			log::error("screen text: {}", error);
 			return failure(-4, "text recognition failed");
@@ -417,7 +433,8 @@ struct Read : std::enable_shared_from_this<Read> {
 		process::Options o;
 		o.timeout = remaining();
 		o.input = std::move(input);
-		o.cancel = request.cancel.get();
+		// A closed connection ends the helper too, as the request context did in the Go server.
+		o.cancel = stop.get();
 		auto r = process::run(argv, o);
 		if (!r.ok()) {
 			if (cancelled()) return failure(-9, "the read was cancelled");
@@ -498,6 +515,7 @@ void read(Request request, std::function<void(Reply)> done)
 	r->started = Clock::now();
 	r->deadline = r->started + read_limit;
 	r->lease = std::make_unique<hdmi::Lease>();
+	r->watch();
 	r->begin();
 }
 

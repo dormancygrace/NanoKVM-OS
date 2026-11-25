@@ -1,5 +1,11 @@
 # Dependency maintenance
 
+Go module version updates target `v4`. Dependabot reads the five Go manifests
+on that branch. The scheduled upstream workflow also checks out `v4` for the
+Go runtime, patched Pion sources and Go proxy exceptions. These produce draft
+review PRs against `v4`; other upstream proposals continue to target `main`.
+GitHub Dependabot security-update PRs target the default branch.
+
 NanoKVM OS uses two complementary update checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary. Separate jobs propose eligible Linux updates and the configured native/platform dependencies as draft PRs. Neither job creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
 
 ## Dependabot

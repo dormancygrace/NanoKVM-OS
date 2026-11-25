@@ -6,6 +6,7 @@ url="https://github.com/sipeed/NanoKVM"
 arch="riscv64"
 license="custom:NanoKVM-vendor"
 # Named nanokvm-firmware-sg2002 before 3.7.0.
+provides="nanokvm-firmware-sg2002=$pkgver-r$pkgrel"
 replaces="nanokvm-firmware-sg2002"
 source="$pkgname-$pkgver.tar.gz"
 options="!check !strip"

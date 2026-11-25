@@ -4,7 +4,10 @@ Go module version updates target `v4`. Dependabot reads the five Go manifests
 on that branch. The scheduled upstream workflow also checks out `v4` for the
 Go runtime, patched Pion sources and Go proxy exceptions. These produce draft
 review PRs against `v4`; other upstream proposals continue to target `main`.
-GitHub Dependabot security-update PRs target the default branch.
+Major Go version updates get separate PRs. The Go groups and ignore rules apply
+to version updates on `v4`. GitHub targets the default branch for Dependabot
+security-update PRs. Maintainers review security fixes for `v4` and the two
+modules tracked through the Go proxy. Go changes run the server and patched-module CI suites.
 
 NanoKVM OS uses two complementary update checks: Dependabot creates dependency PRs, and **Upstream dependency watch** checks current pins, available versions and errors in its Actions log and job summary. Separate jobs propose eligible Linux updates and the configured native/platform dependencies as draft PRs. Neither job creates or updates issues. Standard GitHub-hosted runners suffice for this public repository. Neither service deploys to devices or automatically merges changes.
 
@@ -18,7 +21,7 @@ NanoKVM OS uses two complementary update checks: Dependabot creates dependency P
 - `addons/rustdesk/Cargo.toml` and `Cargo.lock`.
 - Both Pion Dockerfiles.
 
-Minor/patch updates are grouped; major npm/Go/Cargo upgrades remain separate candidates. The npm and Cargo configurations each define a security-update group. The explicit **three-day cooldown** delays normal update PRs, not the check's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
+Minor/patch updates are grouped; major npm/Cargo upgrades remain separate candidates. Security updates have separate groups and are enabled in repository settings. The explicit **three-day cooldown** delays normal update PRs, not the check's visibility of new releases. Daily checks avoid adding a full week after that waiting period. Open-PR limits limit queued PRs, not inventory coverage.
 
 Intentional exceptions have separate monitoring:
 
@@ -29,9 +32,7 @@ Intentional exceptions have separate monitoring:
 | `github.com/rs/cors/wrapper/gin` | The watcher checks the Go module proxy's actual nested-module release; the parent module's tags do not contain this package. |
 | `github.com/mervick/aes-bridge-go` | The watcher checks the Go proxy for the actual module. Upstream tagged `v2.0.0` without the required `/v2` module path, so the valid latest pseudo-version is pinned instead. This dependency is used only by compatibility/auth tests; normal server builds do not import it. |
 
-The Go proxy watcher reports the last two modules for manual review on `v4`. Maintainers review security fixes for that branch. The Go `ignore` rules apply to version updates on `v4`. GitHub uses its default-branch policy for security-update PRs.
-
-The Go, frontend, script and additional-Go-module CI suites remain mandatory. RustDesk has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
+The frontend and script CI suites remain mandatory. RustDesk has a host `cargo test --locked` job so Cargo dependency PRs are actually exercised. Device-only RustDesk tests are marked ignored and do not run in CI.
 
 ## Independent upstream checks
 

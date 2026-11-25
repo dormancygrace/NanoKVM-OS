@@ -260,7 +260,18 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 	bool connected = false, paused = false, viewer = false, done = false;
 
 	Peer() { live.insert(this); }
-	~Peer() { live.erase(this); }
+	~Peer()
+	{
+		drop_writer();
+		live.erase(this);
+	}
+
+	// The writer's destructor joins its thread, which may be inside a send that waits for the socket (up to
+	// 500 ms): it ends on a pool thread, not on the loop.
+	void drop_writer()
+	{
+		if (writer) loop::blocking([w = std::shared_ptr<Writer>(std::move(writer))] {});
+	}
 
 	void send(const std::string &event, const std::string &data)
 	{
@@ -433,7 +444,7 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 			manager.remove(this);
 			viewer = false;
 			// Joined again later like a new viewer, with a key frame.
-			writer.reset();
+			drop_writer();
 		}
 	}
 
@@ -557,7 +568,7 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 			manager.remove(this);
 			viewer = false;
 		}
-		writer.reset();
+		drop_writer();
 		if (pc) {
 			auto c = std::move(pc);
 			auto close = [c] {
@@ -584,7 +595,7 @@ struct Peer : http::WsHandler, std::enable_shared_from_this<Peer> {
 	void ended()
 	{
 		viewer = false;
-		writer.reset();
+		drop_writer();
 		send("video-error", "encoder-reconfigured");
 		close_all();
 	}

@@ -1899,18 +1899,9 @@ std::optional<std::string> check_rsa_private(Pkcs1 &k, PrivateKey &out)
 	Bn one = bn_int(1);
 	auto modulus = [&](const BIGNUM *m) { return BN_cmp(m, one.get()) > 0; };
 	if (!k.additional.empty()) {
-		// Multi-prime keys: precomputeLegacy.
-		if (!modulus(n.get())) return "modulus must be > 1";
-		if (BN_cmp(d.get(), n.get()) >= 0) return "input overflows the modulus";
-		if (auto e = check_rsa_public(n.get(), k.e)) return e;
-		std::vector<std::string_view> primes{k.p, k.q};
-		primes.insert(primes.end(), k.additional.begin(), k.additional.end());
-		for (auto pr : primes)
-			if (BN_cmp(bn(big_magnitude(pr)).get(), one.get()) <= 0) return "crypto/rsa: prime factor is <= 1";
-		Bn inv(BN_mod_inverse(nullptr, q.get(), p.get(), ctx.get()));
-		if (!inv) return "crypto/rsa: prime factors are not relatively prime";
-		out.primes = static_cast<int>(primes.size());
-		return std::nullopt;
+		// A key with more than two primes cannot be handed to the listener (serving_key_pem): it is refused here,
+		// before anything is stored, rather than stored and then not served.
+		return "multi-prime RSA keys are not supported";
 	}
 	bool precomputed = k.has_dp && k.has_dq && k.has_qinv;
 	Bn dp, dq, qinv;

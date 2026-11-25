@@ -1059,9 +1059,12 @@ struct Elf {
 template <typename T> T rd(const std::string &d, std::size_t off)
 {
 	T v{};
-	if (off + sizeof(T) <= d.size()) std::memcpy(&v, d.data() + off, sizeof(T));
+	if (off <= d.size() && sizeof(T) <= d.size() - off) std::memcpy(&v, d.data() + off, sizeof(T));
 	return v;
 }
+
+// Whether size bytes at off lie within the file, without the sum that a crafted offset would wrap.
+bool within(const std::string &d, std::uint64_t off, std::uint64_t size) { return off <= d.size() && size <= d.size() - off; }
 
 Error open_elf(const std::string &path, Elf &elf)
 {
@@ -1079,13 +1082,14 @@ Error open_elf(const std::string &path, Elf &elf)
 	auto phentsize = rd<std::uint16_t>(d, 54), phnum = rd<std::uint16_t>(d, 56);
 	auto shentsize = rd<std::uint16_t>(d, 58), shnum = rd<std::uint16_t>(d, 60);
 	for (unsigned i = 0; i < phnum; i++) {
-		std::size_t at = phoff + static_cast<std::size_t>(i) * phentsize;
-		if (at + 56 > d.size()) return "unexpected EOF";
+		std::uint64_t step = static_cast<std::uint64_t>(i) * phentsize;
+		if (!within(d, phoff, step) || !within(d, phoff + step, 56)) return "unexpected EOF";
+		std::size_t at = phoff + step;
 		auto type = rd<std::uint32_t>(d, at);
 		auto off = rd<std::uint64_t>(d, at + 8), filesz = rd<std::uint64_t>(d, at + 32);
 		std::string contents;
 		if (type == 3) {  // PT_INTERP
-			if (off + filesz > d.size()) return "unexpected EOF";
+			if (!within(d, off, filesz)) return "unexpected EOF";
 			contents = d.substr(off, filesz);
 		}
 		elf.progs.emplace_back(type, contents);
@@ -1097,8 +1101,9 @@ Error open_elf(const std::string &path, Elf &elf)
 	};
 	std::vector<Sec> secs;
 	for (unsigned i = 0; i < shnum; i++) {
-		std::size_t at = shoff + static_cast<std::size_t>(i) * shentsize;
-		if (at + 64 > d.size()) return "unexpected EOF";
+		std::uint64_t step = static_cast<std::uint64_t>(i) * shentsize;
+		if (!within(d, shoff, step) || !within(d, shoff + step, 64)) return "unexpected EOF";
+		std::size_t at = shoff + step;
 		secs.push_back({rd<std::uint32_t>(d, at + 4), rd<std::uint32_t>(d, at + 40), rd<std::uint64_t>(d, at + 24),
 		                rd<std::uint64_t>(d, at + 32)});
 	}
@@ -1110,7 +1115,7 @@ Error open_elf(const std::string &path, Elf &elf)
 			break;
 		}
 	if (!dyn) return "";
-	if (dyn->off + dyn->size > d.size()) {
+	if (!within(d, dyn->off, dyn->size)) {
 		elf.needed_error = "unexpected EOF";
 		return "";
 	}
@@ -1123,7 +1128,7 @@ Error open_elf(const std::string &path, Elf &elf)
 		return "";
 	}
 	const Sec &str = secs[dyn->link];
-	if (str.off + str.size > d.size()) {
+	if (!within(d, str.off, str.size)) {
 		elf.needed_error = "unexpected EOF";
 		return "";
 	}

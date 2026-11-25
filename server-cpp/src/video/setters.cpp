@@ -17,6 +17,7 @@
 #include "video/screen.hpp"
 #include "video/vision.hpp"
 
+#include <climits>
 #include <glaze/glaze.hpp>
 
 #include <deque>
@@ -356,6 +357,8 @@ void add_setter_routes(http::Router &router)
 			confirm = params->boolean("confirmPowerCycle", ok);
 		}
 		if (!params || !ok || !type || type->empty()) return api::err(res, -1, "invalid arguments");
+		// No setting takes a value outside int: one that only fits after narrowing is not a valid one.
+		if (value && (*value < INT_MIN || *value > INT_MAX)) return api::err(res, -1, "invalid arguments");
 		Setting s{*type, static_cast<int>(value.value_or(0)), confirm.value_or(false)};
 		res.pending = true;
 		run_serialized([s, id = req.id](std::function<void()> finished) {

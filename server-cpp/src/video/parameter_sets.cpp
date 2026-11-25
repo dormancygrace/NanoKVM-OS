@@ -139,6 +139,8 @@ struct BitWriter {
 	}
 	void copy_bits(const Bytes &src, long from, long to)
 	{
+		// Never past the source: a reader that ran off its end reports that itself (failed).
+		to = std::min(to, static_cast<long>(src.size()) * 8);
 		for (long i = from; i < to; i++) put(src[static_cast<std::size_t>(i / 8)] >> (7 - i % 8) & 1, 1);
 	}
 };
@@ -245,13 +247,14 @@ std::optional<Bytes> with_colour(const Bytes &rbsp, BitReader &r, const std::fun
 		if (r.bits(1) == 1 && r.bits(8) == 255) r.skip(32);  // aspect ratio, EXTENDED_SAR
 		if (r.bits(1) == 1) r.skip(1);                      // overscan
 		at = r.pos;
+		if (r.failed) return std::nullopt;
 		if (r.bits(1) == 0) {  // video_signal_type_present_flag
 			w.copy_bits(rbsp, 0, at);
 			write_video_signal_type(w);
 		} else {
 			r.skip(3 + 1);  // video_format, video_full_range_flag
 			at = r.pos;
-			if (r.bits(1) == 1) return std::nullopt;  // colour_description_present_flag
+			if (r.failed || r.bits(1) == 1) return std::nullopt;  // colour_description_present_flag
 			w.copy_bits(rbsp, 0, at);
 			write_colour_description(w);
 		}

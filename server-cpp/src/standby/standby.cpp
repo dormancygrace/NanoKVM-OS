@@ -621,14 +621,16 @@ void answer_shutdown(const ShutdownCall &call, http::Response &out)
 		std::lock_guard page_lock(page_mu);
 		page = std::make_shared<Page>(Page{p->config, state, "shutdown is still running"});
 	}
-	Prepared *id = p.get();
+	// A serial, not the address: an abandoned preparation's address can be the next one's.
+	static std::uint64_t serial = 0;
+	std::uint64_t id = ++serial;
 	std::string token_out = p->config.token, mac = p->config.mac;
 	prepared = std::move(p);
 	pending_state = state;
 	loop::after(std::chrono::minutes(1), [id] {
 		loop::blocking([id] {
 			std::lock_guard expiry_lock(route_mu);
-			if (prepared.get() == id && !committed) abandon("shutdown preparation expired; ordinary services remain running");
+			if (prepared && serial == id && !committed) abandon("shutdown preparation expired; ordinary services remain running");
 		});
 	});
 	ok = true;

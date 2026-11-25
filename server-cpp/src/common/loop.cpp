@@ -161,8 +161,37 @@ void attach(lws_context *context)
 	lws_cancel_service(ctx);
 }
 
+namespace {
+
+// Nothing is running or queued on w's threads.
+bool quiet(Worker *w, const std::size_t &threads)
+{
+	std::lock_guard lock(w->mutex);
+	return w->jobs.empty() && static_cast<std::size_t>(w->idle) == threads;
+}
+
+} // namespace
+
 void detach()
 {
+	// Every thread stays available until all of them are idle and nothing is posted: a job still running may need
+	// another one to finish (a screen read waits on a pool thread for the recognition it queues on the pool), a
+	// posted function or a timer. Only then are they told to stop; a thread told to stop while a job still ran
+	// elsewhere would leave that job's follow-up without a worker.
+	const std::size_t one = 1;
+	for (;;) {
+		drain();
+		run_due_timers();
+		bool posted_empty;
+		{
+			std::lock_guard lock(posted_mutex);
+			posted_empty = posted.empty();
+		}
+		if (posted_empty && (pool.empty() || quiet(pool[0], pool_threads)) && (!worker || quiet(worker, one)) &&
+		    (!device_worker || quiet(device_worker, one)))
+			break;
+		std::this_thread::sleep_for(std::chrono::milliseconds(2));
+	}
 	if (!pool.empty()) {
 		{
 			std::lock_guard lock(pool[0]->mutex);
@@ -236,7 +265,12 @@ void blocking(std::function<void()> fn)
 {
 	if (pool.empty()) return fn();
 	{
-		std::lock_guard lock(pool[0]->mutex);
+		std::unique_lock lock(pool[0]->mutex);
+		// The pool is stopping (the loop is detaching and its threads may be gone): on the caller, as after it.
+		if (pool[0]->stop) {
+			lock.unlock();
+			return fn();
+		}
 		pool[0]->jobs.push_back(std::move(fn));
 		if (pool[0]->jobs.size() > static_cast<std::size_t>(pool[0]->idle) && pool_threads < pool_max && !pool[0]->stop) {
 			// Growth is optional: without room for the record or without a thread the job waits for the

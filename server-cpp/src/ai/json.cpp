@@ -1,5 +1,7 @@
 #include "ai/json.hpp"
 
+#include "common/json_depth.hpp"
+
 #include <algorithm>
 #include <charconv>
 #include <cmath>
@@ -246,7 +248,7 @@ struct Parser {
 			fail_eof();
 			return false;
 		}
-		if (depth > 10000) {
+		if (depth >= max_json_depth) {
 			error = ParseError{ParseError::Kind::syntax, i, "exceeded max depth"};
 			return false;
 		}

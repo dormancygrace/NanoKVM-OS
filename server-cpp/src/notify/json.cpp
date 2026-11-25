@@ -1,6 +1,7 @@
 #include "notify/json.hpp"
 
 #include "common/gojson.hpp"
+#include "common/json_depth.hpp"
 #include "notify/gostd.hpp"
 
 #include <algorithm>
@@ -131,7 +132,7 @@ struct Parser {
 	{
 		ws();
 		if (i >= s.size()) return false;
-		if (++depth > 10000) return false;
+		if (++depth > max_json_depth) return false;
 		bool ok = true;
 		switch (s[i]) {
 		case '{': {

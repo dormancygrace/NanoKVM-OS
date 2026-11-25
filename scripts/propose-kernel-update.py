@@ -146,11 +146,11 @@ GitHub may show Approve workflows to run for this GITHUB_TOKEN-created PR. Appro
 """
 
 
-def pull_requests():
-    """Every PR of the repository against main: open, merged and closed."""
+def pull_requests(base_branch="main"):
+    """Every PR of the repository against the target branch: open, merged and closed."""
     pulls, page = [], 1
     while True:
-        batch = api('pulls?state=all&base=main&per_page=100&page=' + str(page))
+        batch = api(f'pulls?state=all&base={base_branch}&per_page=100&page={page}')
         pulls += batch
         if len(batch) < 100:
             return pulls
@@ -170,17 +170,17 @@ def proposed(branch, pulls):
             and p['head']['ref'].partition('/')[2] == name]
 
 
-def publish(plan, root=ROOT):
+def publish(plan, root=ROOT, base_branch="main"):
     branch = plan.get('branch', BRANCH_PREFIX + 'upstream-linux-' + plan['latest'])
     # Keep closed PRs closed and never overwrite a maintainer's work on a PR.
-    existing = proposed(branch, pull_requests())
+    existing = proposed(branch, pull_requests(base_branch))
     if existing:
         print('Already proposed: ' + existing[0]['html_url'])
         return existing[0]['html_url']
-    base = api('git/ref/heads/main')['object']['sha']
+    base = api('git/ref/heads/' + base_branch)['object']['sha']
     head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
     if base != head:
-        raise ValueError('Checkout is not current main; rerun on main before publishing')
+        raise ValueError(f'Checkout is not current {base_branch}; rerun before publishing')
     # Exact match prevents touching another branch. A surviving branch is reused
     # after a previous run created it but failed before opening the PR.
     refs = api('git/matching-refs/heads/' + branch)
@@ -210,7 +210,7 @@ def publish(plan, root=ROOT):
         api('git/refs', 'POST', {'ref': 'refs/heads/' + branch, 'sha': commit['sha']})
     pr = api('pulls', 'POST', {
         'title': plan.get('title', 'build: update Linux to ' + plan['latest']), 'head': branch,
-        'base': 'main', 'body': plan['body'] if 'body' in plan else pull_body(plan), 'draft': True,
+        'base': base_branch, 'body': plan['body'] if 'body' in plan else pull_body(plan), 'draft': True,
     })
     print('Created draft PR: ' + pr['html_url'])
     return pr['html_url']

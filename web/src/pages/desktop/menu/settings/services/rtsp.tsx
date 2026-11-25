@@ -81,24 +81,26 @@ export const RtspPage = () => {
             onChange={(enabled) => save({ enabled })}
           />
         </SettingRow>
-        <SettingRow label={t('port')} description={t('portHint')} htmlFor="rtsp-port">
-          <div className="flex items-center gap-2">
-            <InputNumber
-              id="rtsp-port"
-              min={1}
-              max={65535}
-              precision={0}
-              value={port}
-              onChange={(value) => setPort(value)}
-              onPressEnter={() => portChanged && port && save({ port })}
-            />
-            {portChanged && (
-              <Button size="small" loading={saving} onClick={() => port && save({ port })}>
-                {t('save')}
-              </Button>
-            )}
-          </div>
-        </SettingRow>
+        {settings.enabled && (
+          <SettingRow label={t('port')} description={t('portHint')} htmlFor="rtsp-port">
+            <div className="flex items-center gap-2">
+              <InputNumber
+                id="rtsp-port"
+                min={1}
+                max={65535}
+                precision={0}
+                value={port}
+                onChange={(value) => setPort(value)}
+                onPressEnter={() => portChanged && port && save({ port })}
+              />
+              {portChanged && (
+                <Button size="small" loading={saving} onClick={() => port && save({ port })}>
+                  {t('save')}
+                </Button>
+              )}
+            </div>
+          </SettingRow>
+        )}
       </SettingsSection>
 
       {error && <Alert type="error" showIcon message={error} />}

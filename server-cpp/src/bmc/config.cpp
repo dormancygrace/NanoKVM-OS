@@ -137,10 +137,11 @@ std::string save(const std::string &path, const Config &c)
 	std::string error;
 	if (::fchmod(fd, 0600) != 0) error = network::path_error("chmod", name, errno).text;
 	for (std::size_t done = 0; error.empty() && done < data.size();) {
-		ssize_t n = ::write(fd, data.data() + done, data.size() - done);
-		if (n < 0) {
-			if (errno == EINTR) continue;
-			error = network::path_error("write", name, errno).text;
+		// This credential file must be seekable. A positional write cannot send its contents to a socket.
+		ssize_t n = ::pwrite(fd, data.data() + done, data.size() - done, static_cast<off_t>(done));
+		if (n <= 0) {
+			if (n < 0 && errno == EINTR) continue;
+			error = network::path_error("write", name, n < 0 ? errno : EIO).text;
 			break;
 		}
 		done += static_cast<std::size_t>(n);

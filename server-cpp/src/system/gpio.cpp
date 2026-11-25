@@ -149,10 +149,8 @@ int next_led_subscriber = 1;
 
 void notify_led_subscribers()
 {
-	loop::post([] {
-		auto copy = led_subscribers;
-		for (auto &[id, fn] : copy) fn();
-	});
+	auto copy = led_subscribers;
+	for (auto &[id, fn] : copy) fn();
 }
 
 void publish(std::optional<LedStatus> s)
@@ -165,7 +163,7 @@ void publish(std::optional<LedStatus> s)
 		state = s;
 		if (!s) hdd_activity_at = {};
 	}
-	if (changed) notify_led_subscribers();
+	if (changed) loop::post(notify_led_subscribers);
 }
 
 void note_hdd(Clock::time_point at)
@@ -325,14 +323,21 @@ void start_led_monitor(const std::string &power, const std::string &hdd)
 
 void stop_led_monitor()
 {
-	if (!monitor.joinable()) return;
-	stopping = true;
-	std::uint64_t one = 1;
-	(void)!::write(stop_fd, &one, sizeof one);
-	monitor.join();
-	::close(stop_fd);
-	stop_fd = -1;
-	publish(std::nullopt);
+	if (monitor.joinable()) {
+		stopping = true;
+		std::uint64_t one = 1;
+		(void)!::write(stop_fd, &one, sizeof one);
+		monitor.join();
+		::close(stop_fd);
+		stop_fd = -1;
+	}
+	{
+		std::lock_guard lock(state_mutex);
+		state.reset();
+		hdd_activity_at = {};
+	}
+	// Deliver the stop on the loop before a new monitor can start, even if no reading ever succeeded.
+	notify_led_subscribers();
 }
 
 std::optional<LedStatus> stream_leds()

@@ -1,6 +1,7 @@
 #include "osupdate/godecode.hpp"
 
 #include "common/base64.hpp"
+#include "common/json_depth.hpp"
 
 #include <charconv>
 
@@ -109,7 +110,7 @@ public:
 
 	bool value(Value &out, int depth)
 	{
-		if (depth >= 10000) return fail("exceeded max depth");
+		if (depth >= max_json_depth) return fail("exceeded max depth");
 		skip();
 		if (pos >= s_.size()) return end();
 		char c = s_[pos];

@@ -6,7 +6,7 @@
 #include "common/process.hpp"
 #include "usb/usbinternet.hpp"
 
-#include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <csignal>
@@ -65,6 +65,27 @@ pid_t spawn(const std::vector<std::string> &argv, int out_fd, bool watcher_env)
 	return pid;
 }
 
+// WNOWAIT reserves the child's PID until it has been removed from the shutdown signal list.
+pid_t wait_child(pid_t pid, int &status, bool block)
+{
+	siginfo_t info{};
+	int rc;
+	do {
+		rc = ::waitid(P_PID, static_cast<id_t>(pid), &info, WEXITED | WNOWAIT | (block ? 0 : WNOHANG));
+	} while (rc < 0 && errno == EINTR);
+	if (rc == 0 && info.si_pid == 0) return 0;
+	{
+		std::lock_guard lock(mutex);
+		std::erase(children, pid);
+	}
+	if (rc < 0) return -1;
+	pid_t reaped;
+	do {
+		reaped = ::waitpid(pid, &status, 0);
+	} while (reaped < 0 && errno == EINTR);
+	return reaped;
+}
+
 // A monitor: each line of its output is an event (nft's lines about the helper's own table excepted).
 void monitor(std::vector<std::string> argv)
 {
@@ -98,11 +119,16 @@ void monitor(std::vector<std::string> argv)
 	}
 	::close(fds[0]);
 	int status;
-	::waitpid(pid, &status, 0);
+	wait_child(pid, status, true);
 }
 
 int watch()
 {
+	// Our waiters own reaping. An inherited SIG_IGN would let the kernel recycle a PID first.
+	struct sigaction reap{};
+	reap.sa_handler = SIG_DFL;
+	::sigemptyset(&reap.sa_mask);
+	if (::sigaction(SIGCHLD, &reap, nullptr) != 0) fail(std::strerror(errno));
 	// SIGTERM and SIGINT end the watcher: blocked here, taken by a thread of their own.
 	sigset_t set;
 	sigemptyset(&set);
@@ -134,7 +160,8 @@ int watch()
 			auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
 			int status = 0;
 			bool killed = false;
-			while (::waitpid(pid, &status, WNOHANG) == 0) {
+			pid_t reaped;
+			while ((reaped = wait_child(pid, status, false)) == 0) {
 				if (!killed && std::chrono::steady_clock::now() >= deadline) {
 					::kill(pid, SIGKILL);
 					killed = true;
@@ -142,8 +169,7 @@ int watch()
 				std::this_thread::sleep_for(std::chrono::milliseconds(50));
 			}
 			std::lock_guard lock(mutex);
-			std::erase(children, pid);
-			bool ok = WIFEXITED(status) && WEXITSTATUS(status) == 0;
+			bool ok = reaped == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0;
 			if (!ok && !stopping) std::fprintf(stderr, "USB network reconciliation failed\n");
 		}
 		std::unique_lock lock(mutex);

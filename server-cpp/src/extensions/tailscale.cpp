@@ -62,7 +62,7 @@ std::string command(int timeout, const std::vector<std::string> &argv, bool *exi
 	c.wait_delay = std::chrono::seconds(2);
 	c.capture = Command::Capture::none;
 	auto r = run(c);
-	if (exited) *exited = r.exited;
+	if (exited) *exited = r.exited && !r.deadline;
 	if (r.deadline) {
 		std::string args;
 		for (std::size_t i = 1; i < argv.size(); i++) args += (i > 1 ? " " : "") + argv[i];

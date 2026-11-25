@@ -1,17 +1,15 @@
 #include "recovery/yaml_v3.hpp"
 
-#include "ryml_all.hpp"
+#include "common/yaml_parser.hpp"
 
 #include <algorithm>
 #include <charconv>
 #include <cmath>
-#include <csetjmp>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
 #include <limits>
 #include <memory>
-#include <mutex>
 #include <vector>
 
 namespace nkos::recovery::yamlv3 {
@@ -29,19 +27,6 @@ struct Raw {
 	std::vector<Raw> items;                    // seq
 	std::vector<std::pair<Raw, Raw>> entries;  // map
 };
-
-std::mutex parse_mutex;
-std::string *parse_error;
-std::jmp_buf parse_jump;
-
-[[noreturn]] void fail(ryml::csubstr msg)
-{
-	parse_error->assign(msg.str, msg.len);
-	std::longjmp(parse_jump, 1);
-}
-[[noreturn]] void on_error_basic(ryml::csubstr msg, ryml::ErrorDataBasic const &, void *) { fail(msg); }
-[[noreturn]] void on_error_parse(ryml::csubstr msg, ryml::ErrorDataParse const &, void *) { fail(msg); }
-[[noreturn]] void on_error_visit(ryml::csubstr msg, ryml::ErrorDataVisit const &, void *) { fail(msg); }
 
 std::string str(ryml::csubstr s) { return s.str ? std::string(s.str, s.len) : std::string(); }
 
@@ -69,7 +54,7 @@ Raw build(const ryml::Tree &tree, const ryml::Parser &parser, ryml::id_type id)
 			key.text = str(tree.key(child));
 			key.string = tree.is_key_quoted(child) || (tree.has_key_tag(child) && tagged_string(tree.key_tag(child)));
 			// libyaml refuses a block mapping entry that starts with ":" (no key); rapidyaml reads an empty key.
-			if (key.text.empty() && !key.string && !tree.has_key_tag(child)) fail(ryml::csubstr("did not find expected key"));
+			if (key.text.empty() && !key.string && !tree.has_key_tag(child)) throw yaml::ParseError("did not find expected key");
 			r.entries.emplace_back(std::move(key), build(tree, parser, child));
 		}
 	} else if (tree.is_seq(id)) {
@@ -96,16 +81,10 @@ bool has_anchors(const ryml::Tree &tree, ryml::id_type id)
 // given, is set for a document with an anchor or an alias anywhere.
 std::optional<Raw> parse(std::string_view text, std::string &error, bool &empty, bool *anchors = nullptr)
 {
-	std::lock_guard lock(parse_mutex);
-	ryml::Callbacks saved = ryml::get_callbacks();
-	ryml::Callbacks callbacks = saved;
-	callbacks.set_error_basic(on_error_basic).set_error_parse(on_error_parse).set_error_visit(on_error_visit);
-	parse_error = &error;
-	ryml::set_callbacks(callbacks);
 	std::optional<Raw> result;
 	empty = false;
-	if (setjmp(parse_jump) == 0) {
-		ryml::EventHandlerTree handler;
+	try {
+		ryml::EventHandlerTree handler(yaml::parser_callbacks());
 		ryml::Parser parser(&handler, ryml::ParserOptions().locations(true));
 		ryml::Tree tree = ryml::parse_in_arena(&parser, ryml::csubstr(text.data(), text.size()));
 		if (anchors) *anchors = has_anchors(tree, tree.root_id());
@@ -118,8 +97,9 @@ std::optional<Raw> parse(std::string_view text, std::string &error, bool &empty,
 		if (!empty && !tree.is_map(root) && !tree.is_seq(root) && (!tree.has_val(root) || tree.val(root).str == nullptr))
 			empty = true;
 		if (!empty) result = build(tree, parser, root);
+	} catch (const yaml::ParseError &e) {
+		error = e.what();
 	}
-	ryml::set_callbacks(saved);
 	if (!result && !empty && error.empty()) error = "yaml: invalid document";
 	return result;
 }

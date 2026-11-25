@@ -151,14 +151,14 @@ Result send_email(const Channel &ch, const Rendered &r, OAuth &oauth)
 	bool oauth2 = ch.get("auth") == "oauth2";
 	std::string user, token;
 	if (oauth2) {
-		if (security == "none") return permanent("a sign-in needs STARTTLS or TLS");
+		if (security != "starttls" && security != "tls") return permanent("a sign-in needs STARTTLS or TLS");
 		user = ch.get("username");
 		if (user.empty()) user = ch.get("oauthAccount");
 		if (user.empty()) return permanent("the user name is missing");
 		if (Result err = oauth.access_token(ch, token)) return err;
 	} else {
 		user = ch.get("username");
-		if (!user.empty() && security == "none") return permanent("a login needs STARTTLS or TLS");
+		if (!user.empty() && security != "starttls" && security != "tls") return permanent("a login needs STARTTLS or TLS");
 	}
 	// "From" may carry a display name: the envelope takes the address alone.
 	auto sender = gostd::mail::parse_address(ch.get("from"));
@@ -325,10 +325,9 @@ Result send_syslog(const Channel &ch, const Rendered &r)
 	Result result;
 	if (protocol == "tls") {
 		SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
-		SSL *ssl = ctx ? SSL_new(ctx) : nullptr;
+		SSL *ssl = ctx && SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) == 1 ? SSL_new(ctx) : nullptr;
 		bool ok = ssl != nullptr;
 		if (ok) {
-			SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION);
 			if (!ch.flag("skipVerify")) {
 				SSL_CTX_load_verify_locations(ctx, ca_bundle, nullptr);
 				SSL_set_verify(ssl, SSL_VERIFY_PEER, nullptr);

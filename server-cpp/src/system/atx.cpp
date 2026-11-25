@@ -23,7 +23,6 @@
 #include <cstring>
 #include <format>
 #include <fstream>
-#include <map>
 #include <memory>
 #include <sys/stat.h>
 
@@ -122,27 +121,25 @@ namespace {
 struct LedEvents : std::enable_shared_from_this<LedEvents> {
 	std::shared_ptr<http::Stream> stream;
 	int subscription = 0;
-	std::uint64_t generation = 0;
 
 	void send()
 	{
 		auto s = gpio::stream_leds();
 		stream->write(s ? std::format("data: {{\"pwr\":{},\"hdd\":{}}}\n\n", s->power, s->hdd) : "data: null\n\n");
 	}
-	void start()
+	void start(const http::Request &request)
 	{
-		auto weak = weak_from_this();
-		subscription = gpio::subscribe_leds([weak] {
-			if (auto self = weak.lock()) {
-				if (!gpio::led_monitor_running()) {
-					self->stream->write("data: null\n\n");
-					self->stream->end();
-					return self->stop();
-				}
-				self->send();
+		subscription = gpio::subscribe_leds([self = shared_from_this()] {
+			if (!gpio::led_monitor_running()) {
+				self->stream->write("data: null\n\n");
+				self->stream->end();
+				return self->stop();
 			}
+			self->send();
 		});
-		stream->on_close = [weak] {
+		auto session = auth::join_session(request, [stream = stream] { stream->abort(); });
+		stream->on_close = [weak = weak_from_this(), session] {
+			auth::leave_session(session);
 			if (auto self = weak.lock()) self->stop();
 		};
 		send();
@@ -150,29 +147,25 @@ struct LedEvents : std::enable_shared_from_this<LedEvents> {
 	}
 	void keepalive()
 	{
-		loop::after(std::chrono::seconds(15), [weak = weak_from_this(), g = generation] {
+		loop::after(std::chrono::seconds(15), [weak = weak_from_this()] {
 			auto self = weak.lock();
-			if (!self || self->generation != g || self->stream->closed()) return;
+			if (!self || !self->subscription || self->stream->closed()) return;
 			self->stream->write(": keepalive\n\n");
 			self->keepalive();
 		});
 	}
 	void stop()
 	{
-		generation++;
 		if (subscription) gpio::unsubscribe_leds(subscription);
 		subscription = 0;
-		stream->on_close = nullptr;
 	}
 };
-
-std::map<LedEvents *, std::shared_ptr<LedEvents>> led_streams;
 
 } // namespace
 
 void add_routes(http::Router &router)
 {
-	router.add("GET", "/api/vm/gpio/events", auth::guarded([](http::Request &, http::Response &res) {
+	router.add("GET", "/api/vm/gpio/events", auth::guarded([](http::Request &req, http::Response &res) {
 		if (!enabled()) {
 			res.status = 204;
 			res.done = true;
@@ -185,14 +178,7 @@ void add_routes(http::Router &router)
 		res.set_header("X-Accel-Buffering", "no");
 		res.stream = events->stream;
 		res.done = true;
-		led_streams[events.get()] = events;
-		events->start();
-		// The stream owns itself until it closes.
-		auto close = events->stream->on_close;
-		events->stream->on_close = [raw = events.get(), close] {
-			if (close) close();
-			led_streams.erase(raw);
-		};
+		events->start(req);
 	}, {{}, false, true}));
 	router.add("GET", "/api/vm/atx", auth::guarded([](http::Request &, http::Response &res) {
 		// gin.H: keys in order.
@@ -212,20 +198,20 @@ void add_routes(http::Router &router)
 		bool ok = true;
 		auto params = api::Params::bind(req);
 		std::optional<std::string> type;
-		std::optional<long long> duration_ms;
+		long long duration_ms = 0;
 		if (params) {
 			type = params->string("type", ok);
-			duration_ms = params->integer("duration", ok);
+			duration_ms = params->integer("duration", ok).value_or(0);
 		}
-		if (!params || !ok || !type || type->empty() || duration_ms.value_or(0) < 0)
+		if (!params || !ok || !type || type->empty() || duration_ms < 0)
 			return api::err(res, -1, "invalid arguments: Key: 'SetGpioReq.Type' Error:Field validation for 'Type' failed on the 'required' tag");
 		std::string device;
 		if (*type == "power") device = enabled() ? hardware().gpio_power : "";
 		else if (*type == "reset") device = enabled() ? hardware().gpio_reset : "";
 		else return api::err(res, -2, "invalid power event: " + *type);
 		if (device.empty()) return api::err(res, -2, "ATX power control is off (System > Device)");
-		if (*duration_ms > 60000) return api::err(res, -1, "ATX duration must not exceed 60000 ms");
-		auto duration = std::chrono::milliseconds(*duration_ms > 0 ? *duration_ms : 800);
+		if (duration_ms > 60000) return api::err(res, -1, "ATX duration must not exceed 60000 ms");
+		auto duration = std::chrono::milliseconds(duration_ms > 0 ? duration_ms : 800);
 		std::string actor = req.auth ? req.auth->username + " (web)" : "";
 		bool reset = device == hardware().gpio_reset;
 		http::defer(req, res, [device, duration, actor, reset](http::Response &out) {

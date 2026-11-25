@@ -1,4 +1,5 @@
 // Go's standard library semantics the network family depends on (see util.hpp).
+#include "common/json_depth.hpp"
 
 #include "network/util.hpp"
 
@@ -1457,7 +1458,7 @@ struct JsonReader {
 
 	bool value(JValue &v)
 	{
-		if (++depth > 10000) return false;
+		if (++depth > max_json_depth) return false;
 		space();
 		if (i >= s.size()) return false;
 		char c = s[i];

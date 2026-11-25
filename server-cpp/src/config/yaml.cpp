@@ -1,12 +1,11 @@
 #include "config/yaml.hpp"
 
 #define RYML_SINGLE_HDR_DEFINE_NOW
-#include "ryml_all.hpp"
+#include "common/yaml_parser.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <charconv>
-#include <csetjmp>
 
 namespace nkos::yaml {
 
@@ -78,18 +77,6 @@ void expand_dotted(Value &v)
 	}
 }
 
-std::string *parse_error;
-std::jmp_buf parse_jump;
-
-[[noreturn]] void fail(ryml::csubstr msg)
-{
-	parse_error->assign(msg.str, msg.len);
-	std::longjmp(parse_jump, 1);
-}
-[[noreturn]] void on_error_basic(ryml::csubstr msg, ryml::ErrorDataBasic const &, void *) { fail(msg); }
-[[noreturn]] void on_error_parse(ryml::csubstr msg, ryml::ErrorDataParse const &, void *) { fail(msg); }
-[[noreturn]] void on_error_visit(ryml::csubstr msg, ryml::ErrorDataVisit const &, void *) { fail(msg); }
-
 // strconv.ParseInt(s, 0, 64): optional sign, 0x/0o/0b prefixes, a leading 0 is octal, underscores after a prefix.
 std::optional<std::int64_t> parse_int(std::string_view s)
 {
@@ -158,14 +145,11 @@ const Value *Value::path(std::string_view dotted) const
 
 std::optional<Value> parse(std::string_view text, std::string &error)
 {
-	ryml::Callbacks saved = ryml::get_callbacks();
-	ryml::Callbacks callbacks = saved;
-	callbacks.set_error_basic(on_error_basic).set_error_parse(on_error_parse).set_error_visit(on_error_visit);
-	parse_error = &error;
-	ryml::set_callbacks(callbacks);
 	std::optional<Value> result;
-	if (setjmp(parse_jump) == 0) {
-		ryml::Tree tree = ryml::parse_in_arena(ryml::csubstr(text.data(), text.size()));
+	try {
+		ryml::EventHandlerTree handler(parser_callbacks());
+		ryml::Parser parser(&handler);
+		ryml::Tree tree = ryml::parse_in_arena(&parser, ryml::csubstr(text.data(), text.size()));
 		tree.resolve();  // aliases and << merges
 		ryml::ConstNodeRef root = tree.crootref();
 		if (root.is_stream() && root.num_children() > 0) root = root.first_child();
@@ -180,8 +164,9 @@ std::optional<Value> parse(std::string_view text, std::string &error)
 		} else {
 			error = "the top level is not a mapping";
 		}
+	} catch (const ParseError &e) {
+		error = e.what();
 	}
-	ryml::set_callbacks(saved);
 	return result;
 }
 

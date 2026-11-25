@@ -163,8 +163,7 @@ export REPODEST SRCDEST PKGVER
 # The versions of the other packages, for the dependencies of
 # nanokvm-release: V_nanokvm_web for nanokvm-web, and so on.
 packages="nanokvm-keys nanokvm-base nanokvm-kernel nanokvm-kmod nanokvm-firmware nanokvm-bootloader \
-	 nanokvm nanokvm-web nanokvm-zlib nanokvm-openssl3 nanokvm-openssl nanokvm-exfatprogs1 nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release \
-	 nanokvm-bootloader-sg2002"
+	 nanokvm nanokvm-web nanokvm-zlib nanokvm-openssl3 nanokvm-openssl nanokvm-exfatprogs1 nanokvm-exfatprogs nanokvm-i2c-tools nanokvm-tpu nanokvm-release"
 for pkg in $packages; do
 	key=$(echo "$pkg" | tr - _)
 	version=$(pkg_version "$pkg")

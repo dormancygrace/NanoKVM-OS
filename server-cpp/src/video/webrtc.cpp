@@ -211,8 +211,20 @@ private:
 				queued_bytes_ -= frame.size;
 			}
 			try {
-				track_->sendFrame(reinterpret_cast<const rtc::byte *>(frame.data()), frame.size,
-				                  rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(media_time(frame.timestamp)) / 1e6)));
+				// false: the socket stayed full past libdatachannel's send wait and took only some of the frame's
+				// packets, or none. They were dropped here, before the queue and the interface, whose counters
+				// do not show them: this is the sender's own count. The viewer asks for them again (NACK).
+				if (!track_->sendFrame(reinterpret_cast<const rtc::byte *>(frame.data()), frame.size,
+				                       rtc::FrameInfo(std::chrono::duration<double>(static_cast<double>(media_time(frame.timestamp)) / 1e6))))
+					++incomplete_;
+				if (auto now = Clock::now(); incomplete_ && now - last_incomplete_log_ >= 10s) {
+					auto unsent = rtc::UnsentMediaDatagrams();
+					log::warn("webrtc video: {} frames not sent whole since the last report ({} packets not sent, all viewers)",
+					          incomplete_, unsent - unsent_reported_);
+					unsent_reported_ = unsent;
+					incomplete_ = 0;
+					last_incomplete_log_ = now;
+				}
 			} catch (const std::exception &e) {
 				// At most one line per 10 s, with the count of the failures since the last one: a failing peer must
 				// not flood the log, and later failures must not vanish either.
@@ -241,6 +253,9 @@ private:
 	Clock::time_point last_frame_at_{};
 	Clock::time_point last_failure_log_{};
 	long failures_ = 0;
+	Clock::time_point last_incomplete_log_{};
+	long incomplete_ = 0;
+	std::uint64_t unsent_reported_ = rtc::UnsentMediaDatagrams();
 };
 
 struct Peer;

@@ -26,7 +26,7 @@ from peer body timeouts on both protocols.
   * \param wsi: the h2 child stream whose peer credit to change
 --- a/lib/sansio/h2/http2.c
 +++ b/lib/sansio/h2/http2.c
-@@ -325,6 +325,22 @@
+@@ -325,6 +325,34 @@
  		return 1;
  
  	return lws_h2_update_conn_txcredit(nwsi, bump);
@@ -35,11 +35,23 @@ from peer body timeouts on both protocols.
 +int
 +lws_h2_resume_body_window(struct lws *wsi)
 +{
++	struct lws *nwsi = lws_get_network_wsi(wsi);
 +	int add = LWS_H2_STREAM_RX_CREDIT - wsi->txc.peer_tx_cr_est;
++	int conn = LWS_H2_STREAM_RX_CREDIT - nwsi->txc.peer_tx_cr_est;
 +
++	/*
++	 * While paused, each DATA frame gave the connection back exactly what
++	 * it took, so the connection window stayed where it was while the
++	 * stream's ran down.  The stream is refilled here without the matching
++	 * connection grant the usual path makes, so the connection is topped up
++	 * on its own: otherwise every pause leaves it lower against the stream,
++	 * until it is empty with the stream still above the threshold that
++	 * would grant both, and no more DATA can arrive.
++	 */
++	if (conn > 0 && lws_h2_update_conn_txcredit(nwsi, conn))
++		return 1;
 +	if (add <= 0 || wsi->h2.END_STREAM)
 +		return 0;
-+	/* Connection credit was returned as DATA arrived. */
 +	if (lws_h2_pps_window_update(wsi, (unsigned int)wsi->mux.my_sid,
 +				     (unsigned int)add))
 +		return 1;
@@ -49,7 +61,7 @@ from peer body timeouts on both protocols.
  }
  
  int
-@@ -3447,6 +3463,21 @@
+@@ -3447,6 +3475,21 @@
  						      H2_ERR_PROTOCOL_ERROR,
  						      "execssive padding"))
  						return 1;
@@ -71,7 +83,7 @@ from peer body timeouts on both protocols.
  				break; /* we consumed this */
  			}
  
-@@ -3921,6 +3952,13 @@
+@@ -3921,6 +3964,13 @@
  
  do_windows:
  

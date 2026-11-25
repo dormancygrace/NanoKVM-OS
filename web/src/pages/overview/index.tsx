@@ -224,7 +224,6 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
             {view === 'overview' ? webTitle || 'NanoKVM OS' : title}
           </span>
           <HostState />
-          <ThemeToggle />
         </header>
       )}
       <div key="page" className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -290,7 +289,7 @@ const Layout = ({ frame, tab }: { frame: SettingsFrame; tab?: string }) => {
         </nav>
       )}
       {/* Out of the way of the controls: the lower corner. A narrow window has
-          it in the title line, whose right end is free. */}
+          none: the theme is in Settings > Appearance. */}
       {wide && (
         <div className="fixed right-4 bottom-4 z-10">
           <ThemeToggle />

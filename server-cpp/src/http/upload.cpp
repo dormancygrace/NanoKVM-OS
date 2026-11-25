@@ -212,7 +212,6 @@ FileWriter::~FileWriter()
 		aborting_ = true;
 	}
 	cv_.notify_all();
-	room_.notify_all();
 	if (thread_.joinable()) thread_.join();
 	if (fd_ >= 0) ::close(fd_);
 }
@@ -224,8 +223,8 @@ void FileWriter::write(std::string_view data)
 	queue_.emplace_back(data);
 	queued_ += data.size();
 	cv_.notify_one();
-	// The card is slower than the network: wait for it (see the header).
-	if (queued_ > queue_high) room_.wait(lock, [this] { return queued_ < queue_low || aborting_ || !error_.empty(); });
+	// The card is slower than the network: the request waits, not the loop (see the header).
+	if (queued_ > queue_high && request_ && !holding_ && pause_request_body(request_, true)) holding_ = true;
 }
 
 void FileWriter::finish(std::function<void(const std::string &)> done)
@@ -246,7 +245,6 @@ void FileWriter::abort()
 		done_ = nullptr;
 	}
 	cv_.notify_one();
-	room_.notify_all();
 }
 
 void FileWriter::run()
@@ -280,7 +278,9 @@ void FileWriter::run()
 			queue_.clear();
 			queued_ = 0;
 		}
-		if (queued_ < queue_low) room_.notify_all();
+		// The request may be gone by the time this runs on the loop; resuming one that is gone does nothing.
+		if (queued_ < queue_low && holding_.exchange(false))
+			loop::post([id = request_] { pause_request_body(id, false); });
 	}
 	std::string result;
 	{

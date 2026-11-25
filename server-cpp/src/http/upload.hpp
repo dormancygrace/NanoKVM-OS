@@ -10,6 +10,7 @@
 
 #include "http/router.hpp"
 
+#include <atomic>
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -52,13 +53,20 @@ private:
 };
 
 // Writes to a file from a thread of its own. write() from the loop thread; done gets the result on the loop thread
-// after finish() (empty error: written and synced), or nothing after abort().
+// after finish() (empty error: written and synced), or nothing after abort(). write() never waits for the disk:
+// with more than 16 MiB queued the writer holds the body of the request that feeds it (feeds(), see
+// http::pause_request_body) and lets it go on once less than 8 MiB is queued, so a slow card slows that upload
+// and nothing else on the loop.
 class FileWriter {
 public:
 	// Opens path with flags (O_WRONLY and O_CLOEXEC are added) and mode; nullptr with error set when it fails.
 	static std::shared_ptr<FileWriter> open(const std::string &path, int flags, unsigned mode, std::string &error);
 	~FileWriter();
 	void write(std::string_view data);
+	// The request whose body is written here. Loop thread, before the first write.
+	void feeds(std::uint64_t request_id) { request_ = request_id; }
+	// Whether the request is held for the disk now (a stall timer must not count that time). Loop thread.
+	bool holding() const { return holding_; }
 	void finish(std::function<void(const std::string &error)> done);
 	void abort();
 	std::uint64_t written() const { return written_; }
@@ -70,7 +78,9 @@ private:
 	int fd_ = -1;
 	std::thread thread_;
 	std::mutex mutex_;
-	std::condition_variable cv_, room_;
+	std::condition_variable cv_;
+	std::uint64_t request_ = 0;
+	std::atomic<bool> holding_{false};
 	std::deque<std::string> queue_;
 	std::size_t queued_ = 0;
 	bool finishing_ = false, aborting_ = false;

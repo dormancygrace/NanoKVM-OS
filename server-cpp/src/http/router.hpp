@@ -117,6 +117,13 @@ void complete(std::uint64_t id, Response response);
 // Whether a pending request's connection is still open (a long handler stops when the client went away).
 bool request_open(std::uint64_t id);
 
+// Holds or resumes the reception of a request's body while its consumer cannot take more (a file being opened, a
+// slow disk): HTTP/1 stops reading the socket, an HTTP/2 stream gets no more credit while its connection's other
+// streams go on. What the peer was already allowed to send still arrives (at most 256 KiB on HTTP/2). The time
+// held does not count against the body's timeouts. A request that is gone or whose body is over is left alone
+// (false for one that is gone); the server resumes by itself before it answers. Loop thread.
+bool pause_request_body(std::uint64_t id, bool pause);
+
 // Answers the request from fn, run on the blocking pool (loop::blocking): for handlers that run commands or read
 // slow files. fn gets a fresh Response with the headers already set on res.
 void defer(Request &request, Response &res, std::function<void(Response &)> fn);

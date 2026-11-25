@@ -63,6 +63,11 @@ bool connection_full(const std::string &source)
 	       (it != source_counts.end() && it->second >= max_connections_per_source);
 }
 
+// lws refuses a body longer than its vhost's limit before the request reaches the router, and its default is
+// 100 MiB: an image upload must pass. The limits that apply are the routes' own, enforced in this file for bodies
+// kept in memory and by the upload sinks for streamed ones.
+constexpr std::uint64_t max_request_body = std::uint64_t{1} << 40;
+
 struct VhostData {
 	Role role;
 	const Router *router;
@@ -76,6 +81,7 @@ struct Session {
 	size_t sent = 0;
 	bool head = false;
 	bool body_expected = false;
+	bool body_paused = false;  // pause_request_body holds the body
 	std::size_t body_limit = Router::default_body_limit;
 	std::shared_ptr<BodySink> sink;  // a streamed body (upload route)
 	bool sink_ended = false;
@@ -979,6 +985,17 @@ bool current_certificate_pem(std::string &cert, std::string &key)
 
 bool request_open(std::uint64_t id) { return open_requests.count(id) != 0; }
 
+bool pause_request_body(std::uint64_t id, bool pause)
+{
+	auto it = open_requests.find(id);
+	if (it == open_requests.end()) return false;
+	auto [wsi, session] = it->second;
+	if (session->body_paused == pause || (pause && !session->body_expected)) return true;
+	if (lws_http_server_pause_body(wsi, pause ? 1 : 0)) return false;
+	session->body_paused = pause;
+	return true;
+}
+
 // The router of the serving vhost, for hooks of responses answered later.
 const Router *active_router = nullptr;
 
@@ -994,6 +1011,11 @@ void complete(std::uint64_t id, Response response)
 			session->body_expected = false;
 			session->sink->aborted();
 			session->sink.reset();
+		}
+		// lws wants the body released before the response starts.
+		if (session->body_paused) {
+			session->body_paused = false;
+			lws_http_server_pause_body(wsi, 0);
 		}
 		session->response = std::move(response);
 		session->response.pending = false;
@@ -1046,6 +1068,7 @@ int run(const config::Config &config, const Router &router, std::function<void()
 		v.tls1_3_plus_cipher_list = "TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384";
 		v.ssl_options_set = SSL_OP_CIPHER_SERVER_PREFERENCE;
 		v.timeout_secs = 15;  // ReadHeaderTimeout
+		v.max_http_body_size = max_request_body;
 		serving_vhost = lws_create_vhost(context, &v);
 		if (!serving_vhost) {
 			log::error("cannot listen on HTTPS port {}", config.port.https);
@@ -1061,6 +1084,7 @@ int run(const config::Config &config, const Router &router, std::function<void()
 	h.protocols = protocols;
 	h.user = https ? &redirect : &serve;
 	h.timeout_secs = 15;
+	h.max_http_body_size = max_request_body;
 	lws_vhost *http_vhost = lws_create_vhost(context, &h);
 	if (!https) serving_vhost = http_vhost;
 	if (!http_vhost) {

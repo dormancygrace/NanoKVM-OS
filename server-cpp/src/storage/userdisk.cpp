@@ -22,7 +22,6 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <future>
-#include <libwebsockets.h>
 #include <linux/loop.h>
 #include <linux/openat2.h>
 #include <random>
@@ -522,16 +521,16 @@ public:
 	}
 
 	// Keep a bounded prefix while the blocking pool mounts the disk and opens the file.
-	void start(lws *wsi)
+	void start()
 	{
 		// A peer may already have sent the initial HTTP/2 window or bytes beside the HTTP/1 headers.
 		// No more stream credit is granted until the file is ready.
-		if (wsi && lws_http_server_pause_body(wsi, 1)) {
+		if (!http::pause_request_body(id_, true)) {
 			done_ = true;
 			unlock_disk();
 			return respond(Error::of("failed to pause upload"));
 		}
-		paused_wsi_ = wsi;
+		paused_ = true;
 		last_data_ = SteadyClock::now();
 		auto self = shared_from_this();
 		loop::blocking([self] {
@@ -608,6 +607,7 @@ private:
 		}
 		if (err) return fail(err);
 		writer_ = std::move(opening_writer_);
+		writer_->feeds(id_);
 		last_data_ = SteadyClock::now();
 		if (received_ > limit_) return fail(Error::of(err_space, "space"));
 		if (!pending_.empty()) writer_->write(pending_);
@@ -619,9 +619,9 @@ private:
 
 	bool resume_input()
 	{
-		auto *wsi = paused_wsi_;
-		paused_wsi_ = nullptr;
-		return !wsi || !http::request_open(id_) || lws_http_server_pause_body(wsi, 0) == 0;
+		bool paused = paused_;
+		paused_ = false;
+		return !paused || !http::request_open(id_) || http::pause_request_body(id_, false);
 	}
 
 	void finish()
@@ -705,6 +705,8 @@ private:
 		loop::after(std::chrono::seconds(5), [weak] {
 			auto self = weak.lock();
 			if (!self || self->done_) return;
+			// Held for the disk, the client is not the one that stalls.
+			if (self->writer_ && self->writer_->holding()) self->last_data_ = SteadyClock::now();
 			auto elapsed = SteadyClock::now() - self->last_data_;
 			if (!self->opened_ && elapsed > user_disk_open_timeout) {
 				log::warn("user disk upload timed out opening destination");
@@ -719,7 +721,7 @@ private:
 	}
 
 	std::uint64_t id_;
-	lws *paused_wsi_ = nullptr;
+	bool paused_ = false;  // held while the destination opens
 	std::vector<std::pair<std::string, std::string>> headers_;
 	std::string name_, temp_, pending_;
 	std::int64_t size_, limit_ = INT64_MAX, received_ = 0;
@@ -749,7 +751,7 @@ std::shared_ptr<UploadSink> begin_upload(http::Request &req, http::Response &res
 		return nullptr;
 	}
 	auto sink = std::make_shared<UploadSink>(req.id, res.headers, name, content_length(req));
-	sink->start(req.wsi);
+	sink->start();
 	return sink;
 }
 

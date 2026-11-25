@@ -939,6 +939,7 @@ private:
 			fail("cannot create temporary file");
 			return false;
 		}
+		writer_->feeds(id_);
 		in_file_ = true;
 		if (expected_) hasher_ = std::make_unique<Sha256>();
 		meter_ = std::make_unique<TransferMeter>(0);

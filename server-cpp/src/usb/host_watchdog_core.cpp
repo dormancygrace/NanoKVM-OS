@@ -1,5 +1,6 @@
 #include "usb/host_watchdog_core.hpp"
 
+#include "common/power_action.hpp"
 #include "config/config.hpp"
 #include "usb/gojson_read.hpp"
 #include "usb/gotext.hpp"
@@ -20,9 +21,6 @@ const char *err_no_reset = "this board has no reset line";
 const char *err_still_on = "the host did not switch off";
 const char *err_action_busy = "another BMC power action is in progress";
 
-// One physical host: overlapping actions are refused, not queued (bmc's actionMu, shared with Redfish and IPMI
-// once those are ported: they must use this Power too).
-std::mutex action_mutex;
 
 } // namespace
 
@@ -110,7 +108,7 @@ std::pair<std::string, std::string> arp_verdict(int sent, bool answered, const s
 
 std::string Power::reset_host()
 {
-	std::unique_lock lock(action_mutex, std::try_to_lock);
+	std::unique_lock lock(power_action_mutex(), std::try_to_lock);
 	if (!lock.owns_lock()) return err_action_busy;
 	ATXState st;
 	if (auto e = state(st); !e.empty()) return e;
@@ -120,7 +118,7 @@ std::string Power::reset_host()
 
 std::string Power::cycle_host()
 {
-	std::unique_lock lock(action_mutex, std::try_to_lock);
+	std::unique_lock lock(power_action_mutex(), std::try_to_lock);
 	if (!lock.owns_lock()) return err_action_busy;
 	ATXState st;
 	if (auto e = state(st); !e.empty()) return e;

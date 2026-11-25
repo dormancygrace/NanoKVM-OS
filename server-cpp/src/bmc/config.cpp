@@ -1,6 +1,7 @@
 #include "bmc/config.hpp"
 
 #include "common/gojson.hpp"
+#include "common/power_action.hpp"
 #include "network/util.hpp"
 #include "system/atx.hpp"
 #include "system/gpio.hpp"
@@ -44,7 +45,6 @@ std::u32string runes(const std::string &s)
 	return out;
 }
 
-std::mutex action_mutex;
 
 } // namespace
 
@@ -336,7 +336,7 @@ Error Power::act(const std::string &action)
 	else if (action == "PowerCycle") run = &Power::cycle;
 	if (!run) return Error::of(Error::unknown_action);
 	// One physical host: overlapping operations are refused rather than queued.
-	std::unique_lock lock(action_mutex, std::try_to_lock);
+	std::unique_lock lock(power_action_mutex(), std::try_to_lock);
 	if (!lock.owns_lock()) return Error::of(Error::busy);
 	return (this->*run)();
 }

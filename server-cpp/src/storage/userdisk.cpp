@@ -10,6 +10,7 @@
 #include "api/request.hpp"
 #include "api/response.hpp"
 #include "auth/session.hpp"
+
 #include "common/gojson.hpp"
 #include "common/log.hpp"
 #include "common/loop.hpp"
@@ -17,6 +18,7 @@
 #include "http/upload.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <cstring>
 #include <dirent.h>
@@ -758,7 +760,7 @@ std::shared_ptr<UploadSink> begin_upload(http::Request &req, http::Response &res
 // The download of a file: its bytes go out through a stream, at most 1 MiB ahead of the client, the mount held
 // until the last one is queued. No progress for 30 s ends it.
 void stream_file(std::uint64_t id, std::vector<std::pair<std::string, std::string>> headers, int root, int fd,
-                 std::int64_t size, const std::string &name)
+                 std::int64_t size, const std::string &name, std::shared_ptr<std::atomic<bool>> revoked)
 {
 	auto stream = std::make_shared<http::Stream>();
 	http::Response out;
@@ -794,7 +796,12 @@ void stream_file(std::uint64_t id, std::vector<std::pair<std::string, std::strin
 		queued += static_cast<std::uint64_t>(n);
 		loop::post([stream, chunk = std::move(chunk)]() mutable { stream->write(std::move(chunk)); });
 		for (;;) {
-			auto [closed, written] = ask([stream] { return std::pair<bool, std::uint64_t>(stream->closed(), stream->written()); });
+			// Over as well when the client left before the response was attached (the stream then never closes),
+			// and when the session that asked for the file ended.
+			auto [closed, written] = ask([stream, id, revoked] {
+				if (revoked->load() && !stream->closed()) stream->abort();
+				return std::pair<bool, std::uint64_t>(stream->closed() || revoked->load() || !http::request_open(id), stream->written());
+			});
 			if (closed) {
 				gone = true;
 				break;
@@ -920,7 +927,17 @@ void add_user_disk_routes(http::Router &router)
 		if (auto e = user_disk_path(req.query_value("path"), name)) return answer_file_error(res, e);
 		if (!try_lock_disk()) return answer_file_error(res, Error::of(err_busy, "busy"));
 		res.pending = true;
-		std::thread([id = req.id, headers = res.headers, name] {
+		// The transfer ends with its session: sign-out, a revoked or changed account, the token's expiry.
+		auto revoked = std::make_shared<std::atomic<bool>>(false);
+		auto session = auth::join_session(req, [revoked] { revoked->store(true); });
+		std::thread([id = req.id, headers = res.headers, name, revoked, session] {
+			struct Leave {
+				std::uint64_t session;
+				~Leave()
+				{
+					loop::post([s = session] { auth::leave_session(s); });
+				}
+			} leave{session};
 			auto fail = [&](Error e, int root) {
 				if (root >= 0) e = joined(e, unmount_user_disk(root));
 				unlock_disk();
@@ -944,7 +961,7 @@ void add_user_disk_routes(http::Router &router)
 				::close(fd);
 				return fail(path_error(), root);
 			}
-			stream_file(id, headers, root, fd, st.st_size, name);
+			stream_file(id, headers, root, fd, st.st_size, name, revoked);
 		}).detach();
 	}, admin));
 	auto upload = [](http::Request &req, http::Response &res) -> std::shared_ptr<http::BodySink> { return begin_upload(req, res); };

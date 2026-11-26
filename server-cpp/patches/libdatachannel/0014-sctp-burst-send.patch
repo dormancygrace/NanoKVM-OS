@@ -10,21 +10,27 @@ so the DATA that several SACKs let out leaves together. usrsctp's own timer thre
 or a heartbeat still leaves at once.
 
 Nothing is sent before the scope ends, and every scope is opened before its lock is taken: the send, and its wait
-for a full socket, run after the SCTP and DTLS locks are released. An open scope collects every record, however
-many: there is no count past which a record is sent at once, under those locks and ahead of the ones collected
-before it. The layer below tells how many records the socket took (sendBatchPrefix). The SCTP stack was already told
-that all of them were sent, so the ones not taken are kept and given again, without the ones taken. The first
-shortfall sets one time, a second later, for the whole burst: every later call is made only before it and may wait
-for the socket only for what is left of it (juice_send_batch_within), so the burst cannot run past it. A transport
-that cannot send any more ends its records at once. What is given up is counted once in UnsentMediaDatagrams and
-logged.
+for a full socket, run after the SCTP and DTLS locks are released. An open scope takes every record, however many:
+there is no count past which a record is sent at once, under those locks and ahead of the ones taken before it.
+
+A record goes to the end of its transport's queue when it is made, so the queue has the records of all threads in
+the order they were made. When a scope ends, what the queue holds may leave, and one thread at a time sends it from
+the front: the records leave in that order whichever threads made them, and a thread that finds another one sending
+leaves its records to it.
+
+The layer below tells how many records the socket took (sendBatchPrefix). The SCTP stack was already told that all
+of them were sent, so the ones not taken are kept and given again, without the ones taken. The first shortfall sets
+one time, a second later: every later call is made only before it and may wait for the socket only for what is left
+of it (juice_send_batch_within), so the batch cannot run past it. Records queued behind a batch that waits get no
+second of their own: after that time they are offered once without a wait. A transport that cannot send any more
+ends its batch at once. What is given up is counted once in UnsentMediaDatagrams and logged.
 
 Through a TURN relay a batch goes out one channel message at a time. The same bound holds there: every socket wait
 of those sends, the channel's own requests included, ends by the caller's time, and no datagram is begun after it.
 
 DtlsTransport reads at most 32 queued datagrams in one receive run and leaves the rest to the next run, so a queue
-that is filled as fast as it is drained cannot hold back what the input let out. The run's lock, which nothing else
-takes, is held until its burst is sent: the records of two runs leave in the order they were made.
+that is filled as fast as it is drained cannot hold back what the input let out: each run's records leave when it
+returns, after its lock.
 ---
 --- a/deps/libjuice/include/juice/juice.h
 +++ b/deps/libjuice/include/juice/juice.h
@@ -254,27 +260,23 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
  	bool result = Transport::outgoing(std::move(message));
  	mOutgoingResult = result;
  	return result;
-@@ -968,7 +973,12 @@
+@@ -968,6 +973,8 @@
  }
  
  void DtlsTransport::doRecv() {
-+	// mRecvMutex only puts the runs of this function one after another: nothing else takes it. The burst is
-+	// opened under it, so the records of one run are on their way before the next run makes any; the SSL lock is
-+	// not held while they are sent.
- 	std::lock_guard lock(mRecvMutex);
-+	// The SACKs drained here at once let out DATA that leaves as one burst.
++	// The SACKs drained here at once let out DATA that leaves as one burst, after the lock.
 +	BurstScope burst;
+ 	std::lock_guard lock(mRecvMutex);
  	--mPendingRecvCount;
  
- 	if (state() != State::Connecting && state() != State::Connected)
-@@ -978,8 +988,17 @@
+@@ -978,8 +985,17 @@
  		const size_t bufferSize = 4096;
  		byte buffer[bufferSize];
  
 -		// Process pending messages
 +		// Process pending messages, recvSlice of them in one run: the queue may be filled as fast as it is
 +		// drained, and what the input lets out (the first SACK already) must not wait for it to go empty. The
-+		// rest is for the next run, after this run's burst has left.
++		// rest is for the next run; this run's burst leaves when it returns.
 +		const int recvSlice = 32;
 +		int handled = 0;
  		while (mIncomingQueue.running()) {
@@ -389,7 +391,7 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
  	try {
 --- a/src/impl/transport.cpp
 +++ b/src/impl/transport.cpp
-@@ -7,6 +7,11 @@
+@@ -7,6 +7,12 @@
   */
  
  #include "transport.hpp"
@@ -397,26 +399,21 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
 +
 +#include <algorithm>
 +#include <chrono>
++#include <iterator>
 +#include <vector>
  
  namespace rtc::impl {
  
-@@ -104,6 +109,111 @@
+@@ -104,6 +110,161 @@
  	return ret;
  }
  
 +namespace {
 +
-+// What one thread has collected: runs of records, each of one transport, in the order they were collected. The
-+// run objects are reused, so their vectors keep their capacity from burst to burst.
++// The transports that took records on this thread since its outermost scope was opened.
 +struct Burst {
-+	struct Run {
-+		Transport *owner = nullptr;
-+		message_vector messages;
-+	};
 +	int depth = 0;
-+	std::vector<Run> runs;
-+	size_t used = 0;
++	std::vector<Transport *> owners;
 +};
 +
 +thread_local Burst tBurst;
@@ -424,7 +421,7 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
 +// A burst goes to the layer below this many records at a time: the largest batch the UDP send takes in one call is
 +// bounded anyway (UDP_SEGMENT).
 +constexpr size_t maxBurst = 32;
-+// From the first time the socket did not take everything, a burst has this long. It is an absolute time: every
++// From the first time the socket did not take everything, a batch has this long. It is an absolute time: every
 +// later call is made only before it, and is told how long it may still wait for the socket.
 +constexpr auto burstRetry = std::chrono::seconds(1);
 +
@@ -441,61 +438,117 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
 +	if (tBurst.depth == 0 || !message)
 +		return false;
 +	// Always taken while a scope is open, however many there are already, and never sent from here: the caller
-+	// may hold the SCTP and DTLS locks, where a send could wait for the socket, and a record sent now would
-+	// overtake the ones collected before it. They are bounded by what the SCTP stack lets out in one scope.
-+	if (tBurst.used == 0 || tBurst.runs[tBurst.used - 1].owner != this) {
-+		if (tBurst.used == tBurst.runs.size())
-+			tBurst.runs.emplace_back();
-+		tBurst.runs[tBurst.used++].owner = this;
-+	}
-+	tBurst.runs[tBurst.used - 1].messages.push_back(std::move(message));
++	// may hold the SCTP and SSL locks, where a send could wait for the socket. The record goes to the end of
++	// this transport's queue at once, so the queue has the records of all threads in the order they were made.
++	bool known = false;
++	for (Transport *owner : tBurst.owners)
++		known = known || owner == this;
++	if (!known)
++		tBurst.owners.push_back(this);
++	std::lock_guard lock(mBurstMutex);
++	mBurstQueue.push_back(std::move(message));
 +	return true;
 +}
 +
 +void Transport::flushBurst() noexcept {
-+	// The layer below tells how many records, in order, the socket took. A run taken in part keeps the others:
-+	// collectBurst() already told the SCTP stack they were sent, so dropping them here would turn a full socket
-+	// buffer into packet loss. They are given again, without the ones already taken, until the burst's time is
-+	// over. A transport that cannot send any more ends its run at once.
++	// No lock of the caller is held here. The list is emptied first: a transport is named in it once.
++	for (size_t i = 0; i < tBurst.owners.size(); ++i)
++		tBurst.owners[i]->sendBurst();
++	tBurst.owners.clear();
++}
++
++void Transport::sendBurst() noexcept {
++	// A scope has ended: what the queue holds now may leave, the records other threads put before this thread's
++	// included (they are older). What comes later waits for the end of a scope again, so that a thread still
++	// making records has them sent together, not one by one as they appear.
++	// One thread at a time sends, from the front of the queue, so the records leave in the queue's order
++	// whichever threads made them. A thread that finds another one sending leaves its records to it: that one
++	// looks again before it stops. The batch keeps its capacity from burst to burst.
++	thread_local message_vector batch;
++	{
++		std::lock_guard lock(mBurstMutex);
++		mBurstReady = mBurstQueue.size();
++		if (mBurstSending || !takeBurst(batch))
++			return;
++		mBurstSending = true;
++	}
++	// The time the socket has to take what it refused. It is one for everything this thread sends here: records
++	// queued while a batch waited are not given a second of their own behind it.
 +	std::chrono::steady_clock::time_point giveUp{};
-+	bool expired = false;
-+	size_t used = std::exchange(tBurst.used, 0);
-+	for (size_t r = 0; r < used; ++r) {
-+		Transport *owner = std::exchange(tBurst.runs[r].owner, nullptr);
-+		message_vector &messages = tBurst.runs[r].messages;
-+		size_t sent = 0;
-+		bool closed = false;
++	for (;;) {
++		sendBurstBatch(batch, giveUp);
++		batch.clear();
++		std::lock_guard lock(mBurstMutex);
++		if (!takeBurst(batch)) {
++			mBurstSending = false;
++			return;
++		}
++	}
++}
++
++bool Transport::takeBurst(message_vector &batch) noexcept {
++	// With mBurstMutex held: the records that may leave, off the front of the queue.
++	if (mBurstReady == 0)
++		return false;
++	if (mBurstReady == mBurstQueue.size()) {
++		batch.swap(mBurstQueue);
++	} else {
 +		try {
-+			while (owner && sent < messages.size() && !expired) {
-+				int wait = -1; // the layer's own wait, while nothing has fallen short yet
-+				if (giveUp != std::chrono::steady_clock::time_point{}) {
-+					auto left = std::chrono::duration_cast<std::chrono::milliseconds>(giveUp - std::chrono::steady_clock::now());
-+					if (left.count() <= 0) {
-+						expired = true;
-+						break;
-+					}
-+					wait = int(left.count());
-+				}
-+				size_t count = std::min(maxBurst, messages.size() - sent);
-+				int took = owner->outgoingBatchPrefix(messages, sent, count, wait);
-+				if (took < 0) {
-+					closed = true;
++			batch.assign(std::make_move_iterator(mBurstQueue.begin()),
++			             std::make_move_iterator(mBurstQueue.begin() + mBurstReady));
++		} catch (const std::exception &) {
++			return false; // no memory for the batch: they stay queued for the next scope
++		}
++		mBurstQueue.erase(mBurstQueue.begin(), mBurstQueue.begin() + mBurstReady);
++	}
++	mBurstReady = 0;
++	return true;
++}
++
++void Transport::sendBurstBatch(message_vector &messages, std::chrono::steady_clock::time_point &giveUp) noexcept {
++	// The layer below tells how many records, in order, the socket took. A batch taken in part keeps the others:
++	// collectBurst() already told the SCTP stack they were sent, so dropping them here would turn a full socket
++	// buffer into packet loss. They are given again, without the ones already taken, until giveUp, which the
++	// first shortfall sets. A batch that begins after that time is offered once more without a wait, and
++	// goes on for as long as the socket takes all it is given. A transport that cannot send any more ends its
++	// batch at once.
++	const std::chrono::steady_clock::time_point unset{};
++	size_t sent = 0;
++	bool closed = false, tried = false;
++	try {
++		while (sent < messages.size()) {
++			int wait = -1; // the layer's own wait, while nothing has fallen short yet
++			bool late = false;
++			if (giveUp != unset) {
++				auto left = std::chrono::duration_cast<std::chrono::milliseconds>(giveUp - std::chrono::steady_clock::now());
++				late = left.count() <= 0;
++				if (late && tried)
 +					break;
-+				}
-+				sent += size_t(took);
-+				if (size_t(took) < count && giveUp == std::chrono::steady_clock::time_point{})
-+					giveUp = std::chrono::steady_clock::now() + burstRetry;
++				wait = late ? 0 : int(left.count());
 +			}
-+		} catch (const std::exception &e) {
-+			PLOG_WARNING << "Burst send: " << e.what();
++			size_t count = std::min(maxBurst, messages.size() - sent);
++			int took = outgoingBatchPrefix(messages, sent, count, wait);
++			if (took < 0) {
++				closed = true;
++				break;
++			}
++			sent += size_t(took);
++			if (size_t(took) == count)
++				continue; // also past the time: the socket takes them
++			tried = true;
++			if (giveUp == unset)
++				giveUp = std::chrono::steady_clock::now() + burstRetry;
 +		}
-+		if (sent < messages.size()) {
-+			// Given up, once: these are lost to the peer like packets lost on the way, and counted as not sent.
-+			AddUnsentMediaDatagrams(messages.size() - sent);
-+			PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
-+			             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
-+		}
-+		messages.clear();
++		if (sent == messages.size())
++			giveUp = unset; // the socket has room again
++	} catch (const std::exception &e) {
++		PLOG_WARNING << "Burst send: " << e.what();
++	}
++	if (sent < messages.size()) {
++		// Given up, once: these are lost to the peer like packets lost on the way, and counted as not sent.
++		AddUnsentMediaDatagrams(messages.size() - sent);
++		PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
++		             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
 +	}
 +}
 +
@@ -515,7 +568,15 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
  		return mLower->sendBatch(messages);
 --- a/src/impl/transport.hpp
 +++ b/src/impl/transport.hpp
-@@ -42,6 +42,25 @@
+@@ -15,6 +15,7 @@
+ #include "message.hpp"
+ 
+ #include <atomic>
++#include <chrono>
+ #include <functional>
+ #include <memory>
+ #include <mutex>
+@@ -42,6 +43,27 @@
  	virtual bool send(message_ptr message);
  	// Several messages at once (the packets of a frame); by default one send each.
  	virtual bool sendBatch(message_vector &messages);
@@ -525,12 +586,14 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
 +	// (negative: its usual wait). By default one send each, up to the first refused.
 +	virtual int sendBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs);
 +
-+	// While a scope is open on a thread, the datagrams a transport collects with collectBurst() on that thread go to
++	// While a scope is open on a thread, the datagrams a transport takes with collectBurst() on that thread go to
 +	// its lower transport together when the outermost scope ends, maxBurst per send: the SCTP packets that one call
 +	// into usrsctp emits leave in a few system calls instead of one each. Nothing is sent before the scope ends, so
 +	// a scope opened before a lock is taken sends after it is released, and a wait for a full socket is never
-+	// under that lock (the SCTP and SSL locks). A lock taken before the scope is held until its records are sent. Every record is collected, however many, so they leave in the order they were made. Records
-+	// the socket did not take are kept and given again until a fixed time after the first shortfall.
++	// under that lock. Every record is taken, however many, into one queue of the transport, in the order the
++	// records were made, and one thread at a time sends from its front what was queued when a scope ended: they
++	// leave in that order, whichever threads made them. Records the socket did not take are kept and given again until a fixed time after the
++	// first shortfall.
 +	class BurstScope {
 +	public:
 +		BurstScope();
@@ -541,7 +604,7 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
  
  protected:
  	void recv(message_ptr message);
-@@ -49,6 +68,12 @@
+@@ -49,6 +71,20 @@
  	virtual void incoming(message_ptr message);
  	virtual bool outgoing(message_ptr message);
  	bool outgoingBatch(message_vector &messages);
@@ -551,6 +614,14 @@ takes, is held until its burst is sent: the records of two runs leave in the ord
 +
 +private:
 +	static void flushBurst() noexcept;
++	void sendBurst() noexcept;
++	bool takeBurst(message_vector &batch) noexcept;
++	void sendBurstBatch(message_vector &messages, std::chrono::steady_clock::time_point &giveUp) noexcept;
++
++	std::mutex mBurstMutex;
++	message_vector mBurstQueue;
++	size_t mBurstReady = 0; // how many records at the front of the queue may leave
++	bool mBurstSending = false;
  
  private:
  	const init_token mInitToken = Init::Instance().token();

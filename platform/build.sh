@@ -873,8 +873,8 @@ tools() {
     # RVV 1.0 nor Zbc. Without XTheadVector, which GCC would use for
     # inline copies, so that the many processes loading this library keep no
     # vector state. platform/zlib-ng/*.patch: the hash table slides four entries
-    # at a time, and CRC-32 takes the variant of Chorba that is fastest on the
-    # C906 at every length (platform/README.md).
+    # at a time. CRC-32 uses slicing-by-8 for short inputs and for the tail
+    # of the small Chorba variant (platform/README.md).
     # Without the runtime CPU dispatch: on the C906 every function is the
     # generic one, called directly.
     unpack_git zlib-ng . "$t/zlib-ng"

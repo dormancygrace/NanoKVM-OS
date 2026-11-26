@@ -1,7 +1,7 @@
 crc32: slicing-by-8 for short inputs and for the tails of Chorba
 
-Inputs shorter than 176 bytes went through a byte loop (under 47 bytes) or one braid block, a table load and a
-dependent step per byte; on an in-order core such as the C906 each step waits for its load. Slicing-by-8
+Short inputs previously used braid or the small Chorba variant with a braid tail, depending on length and
+alignment. The byte-wise part of braid waits for each table load on the in-order C906. Slicing-by-8
 (crc32_slice8_tbl.h, eight 1 KiB tables) takes eight bytes per step from one unaligned 64-bit load. Chorba's
 small variants finish with the same code. Chorba stays from 176 bytes on, where it is faster. The CRC is
 unchanged.
@@ -387,8 +387,8 @@ unchanged.
  #include "crc32_braid_tbl.h"
 +#include "crc32_slice8_tbl.h"
 +
-+/* Inputs shorter than this take slicing-by-8: on the C906 it is faster than the byte loop and the single braid block
-+ * that short inputs got (8 B 1.5x, 32 B 1.6x, 72 B 1.7x, 128 B 1.5x); Chorba is faster from 176 bytes on. */
++/* Inputs shorter than this take slicing-by-8. On the C906 it is faster than the previous short-input path
++ * (8 B 1.5x, 32 B 1.6x, 72 B 1.7x, 128 B 1.5x); Chorba is faster from 176 bytes on. */
 +#define CRC32_SLICE8_MAX 176
 +
 +/* CRC-32 by slicing-by-8: eight bytes per step through eight 1 KiB tables, as unaligned 64-bit loads (the target
@@ -422,7 +422,7 @@ unchanged.
  }
  
  #else // CHORBA_W == 8
-@@ -1003,11 +1028,13 @@
+@@ -1003,14 +1028,14 @@
      final[8] ^= Z_U32_TO_LE(next9);
      final[9] ^= Z_U32_TO_LE(next10);
  
@@ -435,5 +435,8 @@ unchanged.
 +    if (len < CRC32_SLICE8_MAX)
 +        return crc32_slice8(crc, buf, len);
      uintptr_t align_diff = ALIGN_DIFF(buf, 8);
-     if (len <= align_diff + CHORBA_SMALL_THRESHOLD)
-         return crc32_braid(crc, buf, len);
+-    if (len <= align_diff + CHORBA_SMALL_THRESHOLD)
+-        return crc32_braid(crc, buf, len);
+ 
+     if (align_diff) {
+         crc = crc32_braid(crc, buf, align_diff);

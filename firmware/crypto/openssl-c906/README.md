@@ -282,20 +282,16 @@ encapsulated by the other and decapsulated to the same secret.
 OpenSSL 3.5's ML-KEM (`crypto/ml_kem/ml_kem.c`) computes its number theoretic transforms and base-case products one
 16-bit coefficient at a time; they took about 40 % of a key generation. `0014-ml-kem-c906.patch` replaces
 `scalar_ntt`, `scalar_inverse_ntt`, `scalar_mult` and `scalar_mult_add` on `riscv64` with XTheadVector code in
-`crypto/ml_kem/ml_kem-c906.S` (`ML_KEM_C906`, set by `build.info`). The arithmetic is the scalar code's, so the
+`crypto/ml_kem/ml_kem_c906.c` (`ML_KEM_C906`, set by `build.info`). The arithmetic is the scalar code's, so the
 results are the same bits: products of reduced values in 32-bit lanes, the same Barrett step (`x * 5039 >> 24` as
 the high half of a multiply by `5039 << 8`), `reduce_once` as an unsigned minimum with `x - q`. Layers with blocks
 of 8 or more coefficients run along the block; in the last two layers, and in the products, the coefficients are
 loaded as segments, so each block's even and odd halves land in separate registers next to a vector of its roots.
 No branch or address depends on the data.
 
-The source is `ml-kem-c906.c` (RVV intrinsics, which GCC compiles to XTheadVector). OpenSSL's CPU profile has no
-vector extension and GCC cannot switch it on for one function, so `generate-ml-kem.py` compiles the file with the
-userspace profile and puts the assembly into the patch under `.option arch, +xtheadvector`; it checks that the
-output has only text, calls only its own functions, exports three hidden symbols and assembles with OpenSSL's
-profile. The output depends on the GCC version; the build runs the check:
-
-    generate-ml-kem.py --cross <riscv64 prefix> --check
+`ml_kem_c906.c` is RVV intrinsics, which GCC compiles to XTheadVector: the OpenSSL CPU profile includes
+`xtheadvector` for it, while compiler vectorization and vector string operations stay off, so no other compiled C
+function of OpenSSL contains vector instructions (checked on the built libraries).
 
 On the device (`openssl speed`, microseconds for keygen / encapsulation / decapsulation):
 

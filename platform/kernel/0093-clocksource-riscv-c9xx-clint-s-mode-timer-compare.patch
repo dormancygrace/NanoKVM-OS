@@ -99,7 +99,7 @@ register does not answer, the driver says so and keeps the SBI timer.
  		ce->rating = 450;
  	clockevents_config_and_register(ce, riscv_timebase, 100, ULONG_MAX);
  
-@@ -151,6 +185,65 @@
+@@ -151,6 +185,66 @@
  	return IRQ_HANDLED;
  }
  
@@ -126,7 +126,8 @@ register does not answer, the driver says so and keeps the SBI timer.
 +	struct device_node *np;
 +	void __iomem *base;
 +
-+	if (riscv_cached_mvendorid(0) != THEAD_VENDOR_ID)
++	/* time_init() runs before the boot hart's cpuinfo is cached: ask the SBI. */
++	if (sbi_get_mvendorid() != THEAD_VENDOR_ID)
 +		return;
 +	if (!(csr_read(THEAD_C9XX_CSR_SXSTATUS) & THEAD_C9XX_SXSTATUS_CLINTEE))
 +		return;
@@ -165,7 +166,7 @@ register does not answer, the driver says so and keeps the SBI timer.
  static int __init riscv_timer_init_common(void)
  {
  	int error;
-@@ -189,6 +282,8 @@
+@@ -189,6 +283,8 @@
  	if (riscv_isa_extension_available(NULL, SSTC)) {
  		pr_info("Timer interrupt in S-mode is available via sstc extension\n");
  		static_branch_enable(&riscv_sstc_available);

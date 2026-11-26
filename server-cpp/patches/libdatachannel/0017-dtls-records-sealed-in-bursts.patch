@@ -8,8 +8,9 @@ derives its write key and salt from the session (RFC 5246 key expansion) and pro
 application records must open with them, or OpenSSL keeps every record. Once the peer's first application record
 has arrived, so OpenSSL no longer resends its Finished, the transport builds the records itself, numbering on from
 the last one OpenSSL wrote; the takeover happens under the SSL lock, so no SSL_write is under way. A burst's records
-(BurstScope) are numbered, sealed by the sealer in one call and handed down under one lock, so their order on the
-wire is the order of their numbers; a record outside a burst goes the same way alone. Records the sealer does not
+(BurstScope) are numbered and sealed by the sealer in one call when their run is flushed (Transport::prepareRun),
+and stay under one lock while the run is sent and given again, so their order on the wire is the order of their
+numbers; a record outside a burst goes the same way alone. Records the sealer does not
 take are sealed with EVP. Renegotiation is off already (SSL_OP_NO_RENEGOTIATION). After the takeover OpenSSL's own
 records in that epoch (its close_notify) are not sent: their sequence numbers are taken. The nonces cannot meet
 OpenSSL's either: its explicit nonce starts at a random 64-bit value (gcm_tls_iv_set_fixed), these are epoch and
@@ -163,7 +164,7 @@ sequence number. Other suites, DTLS versions and TLS libraries are unchanged.
  			}
  		}
  
-@@ -1130,6 +1161,223 @@ int DtlsTransport::BioMethodFree(BIO *bio) {
+@@ -1130,6 +1161,229 @@ int DtlsTransport::BioMethodFree(BIO *bio) {
  	return 1;
  }
  
@@ -335,10 +336,13 @@ sequence number. Other suites, DTLS versions and TLS libraries are unchanged.
 +	record->stream = UnsealedRecord;
 +	lock.unlock();
 +
-+	if (collectBurst(record)) // sealed and sent with its burst
++	if (collectBurst(record)) // sealed and sent with its burst (prepareRun)
 +		return true;
-+	message_vector one{std::move(record)};
-+	return flushBurstMessages(one);
++	// Outside a burst (usrsctp's timer thread): numbered, sealed and sent alone, under the same lock.
++	lock.lock();
++	message_vector one{record};
++	sealRecords(one);
++	return outgoing(std::move(record));
 +}
 +
 +void DtlsTransport::sealRecords(message_vector &messages) {
@@ -378,16 +382,19 @@ sequence number. Other suites, DTLS versions and TLS libraries are unchanged.
 +	}
 +}
 +
-+bool DtlsTransport::flushBurstMessages(message_vector &messages) {
-+	std::lock_guard lock(mSealMutex);
++std::unique_lock<std::mutex> DtlsTransport::prepareRun(message_vector &messages) {
++	// The run is numbered and sealed once, and stays under mSealMutex while it is sent and given again: its records
++	// reach the wire in the order of their numbers, before any numbered after them. A sealing failure throws before
++	// anything is sent; the burst counts the run as not sent.
++	std::unique_lock lock(mSealMutex);
 +	sealRecords(messages);
-+	return outgoingBatch(messages);
++	return lock;
 +}
 +
  int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
  	if (inl <= 0)
  		return inl;
-@@ -1137,6 +1385,8 @@ int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
+@@ -1137,6 +1391,8 @@ int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
  	if (!transport)
  		return -1;
  	auto b = reinterpret_cast<const byte *>(in);
@@ -434,23 +441,24 @@ sequence number. Other suites, DTLS versions and TLS libraries are unchanged.
 +	bool sendSealed(const message_ptr &message);
 +	void sealRecords(message_vector &messages);         // under mSealMutex
 +	std::vector<DtlsSealRecord> mSealRecords;           // under mSealMutex, kept between bursts
-+	bool flushBurstMessages(message_vector &messages) override;
++	std::unique_lock<std::mutex> prepareRun(message_vector &messages) override;
 +
  	void handleTimeout();
  
  	static BIO_METHOD *BioMethods;
 --- a/src/impl/transport.cpp
 +++ b/src/impl/transport.cpp
-@@ -146,7 +146,7 @@ void Transport::flushBurst() noexcept {
- 	message_vector messages;
- 	messages.swap(tBurst.messages);
- 	try {
--		owner->outgoingBatch(messages);
-+		owner->flushBurstMessages(messages);
- 	} catch (const std::exception &e) {
- 		PLOG_WARNING << "Burst send: " << e.what();
- 	}
-@@ -176,6 +176,28 @@ message_ptr Transport::spareMessage(const byte *data, size_t size) {
+@@ -170,6 +170,9 @@ void Transport::flushBurst() noexcept {
+ 		size_t sent = 0;
+ 		bool closed = false;
+ 		try {
++			std::unique_lock<std::mutex> hold;
++			if (owner)
++				hold = owner->prepareRun(messages);
+ 			while (owner && sent < messages.size() && !expired) {
+ 				int wait = -1; // the layer's own wait, while nothing has fallen short yet
+ 				if (giveUp != std::chrono::steady_clock::time_point{}) {
+@@ -223,6 +226,26 @@ message_ptr Transport::spareMessage(const byte *data, size_t size) {
  	return message;
  }
  
@@ -458,10 +466,8 @@ sequence number. Other suites, DTLS versions and TLS libraries are unchanged.
 +	message_ptr message;
 +	{
 +		std::lock_guard lock(mSpareMutex);
-+		if (!mSpare.empty()) {
-+			message = std::move(mSpare.back());
-+			mSpare.pop_back();
-+		}
++		if (mSpareCount)
++			message = std::move(mSpare[--mSpareCount]);
 +	}
 +	if (!message)
 +		return make_message(size);
@@ -474,21 +480,22 @@ sequence number. Other suites, DTLS versions and TLS libraries are unchanged.
 +	return message;
 +}
 +
-+bool Transport::flushBurstMessages(message_vector &messages) { return outgoingBatch(messages); }
++std::unique_lock<std::mutex> Transport::prepareRun(message_vector &) { return {}; }
 +
- void Transport::keepSpare(message_vector &messages) {
- 	std::lock_guard lock(mSpareMutex);
- 	for (auto &m : messages)
+ void Transport::keepSpare(message_vector &messages) noexcept {
+ 	// Called from flushBurst(), which must not throw: moving a pointer into a slot allocates nothing. A message
+ 	// that finds no slot, or that something else still holds, is simply let go.
 --- a/src/impl/transport.hpp
 +++ b/src/impl/transport.hpp
-@@ -65,6 +65,10 @@ protected:
+@@ -75,6 +75,11 @@ protected:
  	// A binary message holding a copy of the data: one this transport's bursts sent and nobody holds any more, or a
  	// new one.
  	message_ptr spareMessage(const byte *data, size_t size);
 +	// The same with size bytes of unspecified content.
 +	message_ptr spareMessage(size_t size);
-+	// Sends the messages of a burst this transport collected; by default as they are.
-+	virtual bool flushBurstMessages(message_vector &messages);
++	// Called once for a run of this transport's records in a burst before they are given to the layer below; the
++	// lock it returns is held until the run has been sent, retries included. By default nothing.
++	virtual std::unique_lock<std::mutex> prepareRun(message_vector &messages);
  
  private:
  	static void flushBurst() noexcept;

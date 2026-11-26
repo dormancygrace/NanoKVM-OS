@@ -5,8 +5,9 @@ usrsctp hands each packet to the write callback on its own, and each became one 
 channel at full rate spent a fifth of its CPU in those system calls. While a BurstScope is open on a thread,
 DtlsTransport collects its records there, and the outermost scope sends them through sendBatch (juice_send_batch,
 UDP_SEGMENT), every 32 at the latest. SctpTransport opens a scope around each call into usrsctp that sends: a send,
-a flush, and the input of a received packet (a SACK lets the next DATA out). usrsctp's own timer thread opens none,
-so a retransmission or a heartbeat still leaves at once. The burst is sent after the send lock is released.
+a flush, and the input of a received packet (a SACK lets the next DATA out); DtlsTransport opens one over the
+records it drains in one wake, so the DATA that several SACKs let out leaves together. usrsctp's own timer thread
+opens none, so a retransmission or a heartbeat still leaves at once. A burst is sent after the locks are released.
 UnsentMediaDatagrams now also counts the datagrams of such bursts that the socket did not take.
 ---
 --- a/src/impl/dtlstransport.cpp
@@ -23,6 +24,15 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
  	bool result = Transport::outgoing(std::move(message));
  	mOutgoingResult = result;
  	return result;
+@@ -968,6 +973,8 @@ void DtlsTransport::postHandshake() {
+ }
+ 
+ void DtlsTransport::doRecv() {
++	// The SACKs drained here at once let out DATA that leaves as one burst, after the lock.
++	BurstScope burst;
+ 	std::lock_guard lock(mRecvMutex);
+ 	--mPendingRecvCount;
+ 
 --- a/src/impl/sctptransport.cpp
 +++ b/src/impl/sctptransport.cpp
 @@ -372,6 +372,7 @@ void SctpTransport::connect() {

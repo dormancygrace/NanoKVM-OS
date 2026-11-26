@@ -17,7 +17,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ant-design/cssinjs": "2.1.2",
+    "@ant-design/cssinjs": "2.2.0",
     "@ant-design/icons": "6.3.4",
     "@fontsource-variable/inter": "5.3.0",
     "@xterm/addon-attach": "0.12.0",
@@ -26,7 +26,7 @@
     "antd": "6.7.1",
     "axios": "1.21.1",
     "clsx": "2.1.1",
-    "i18next": "27.2.2",
+    "i18next": "27.2.4",
     "jotai": "3.0.2",
     "lucide-react": "1.77.0",
     "mediabunny": "1.66.2",

@@ -10,9 +10,10 @@ has arrived, so OpenSSL no longer resends its Finished, the transport builds the
 the last one OpenSSL wrote; the takeover happens under the SSL lock, so no SSL_write is under way. A burst's records
 (BurstScope) are numbered, sealed by the sealer in one call and handed down under one lock, so their order on the
 wire is the order of their numbers; a record outside a burst goes the same way alone. Records the sealer does not
-take are sealed with EVP. Renegotiation is off already (SSL_OP_NO_RENEGOTIATION); OpenSSL's close_notify after the
-takeover carries an old sequence number and is ignored by the peer. Other suites, DTLS versions and TLS libraries
-are unchanged.
+take are sealed with EVP. Renegotiation is off already (SSL_OP_NO_RENEGOTIATION). After the takeover OpenSSL's own
+records in that epoch (its close_notify) are not sent: their sequence numbers are taken. The nonces cannot meet
+OpenSSL's either: its explicit nonce starts at a random 64-bit value (gcm_tls_iv_set_fixed), these are epoch and
+sequence number. Other suites, DTLS versions and TLS libraries are unchanged.
 ---
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
@@ -118,7 +119,16 @@ are unchanged.
  } // namespace rtc
  
  namespace rtc::impl {
-@@ -923,7 +943,12 @@ bool DtlsTransport::send(message_ptr message) {
+@@ -874,6 +894,8 @@ DtlsTransport::~DtlsTransport() {
+ 	PLOG_DEBUG << "Destroying DTLS transport";
+ 	SSL_free(mSsl);
+ 	SSL_CTX_free(mCtx);
++	OPENSSL_cleanse(mSealKey, sizeof(mSealKey));
++	OPENSSL_cleanse(mSealSalt, sizeof(mSealSalt));
+ }
+ 
+ void DtlsTransport::start() {
+@@ -923,7 +945,12 @@ bool DtlsTransport::send(message_ptr message) {
  
  	int ret, err;
  	{
@@ -132,7 +142,7 @@ are unchanged.
  		mCurrentDscp = message->dscp;
  		ret = SSL_write(mSsl, message->data(), int(message->size()));
  		err = SSL_get_error(mSsl, ret);
-@@ -1018,6 +1043,7 @@ void DtlsTransport::doRecv() {
+@@ -1018,6 +1045,7 @@ void DtlsTransport::doRecv() {
  					{
  						std::lock_guard lock(mSslMutex);
  						SSL_set_mtu(mSsl, bufferSize + 1);
@@ -140,7 +150,7 @@ are unchanged.
  					}
  
  					PLOG_INFO << "DTLS handshake finished";
-@@ -1041,8 +1067,11 @@ void DtlsTransport::doRecv() {
+@@ -1041,8 +1069,11 @@ void DtlsTransport::doRecv() {
  					break;
  				}
  
@@ -153,7 +163,7 @@ are unchanged.
  			}
  		}
  
-@@ -1130,6 +1159,217 @@ int DtlsTransport::BioMethodFree(BIO *bio) {
+@@ -1130,6 +1161,223 @@ int DtlsTransport::BioMethodFree(BIO *bio) {
  	return 1;
  }
  
@@ -240,11 +250,16 @@ are unchanged.
 +	PLOG_DEBUG << "DTLS records: keys derived, waiting for proof";
 +}
 +
-+void DtlsTransport::watchOutgoing(const byte *data, size_t size) {
++bool DtlsTransport::watchOutgoing(const byte *data, size_t size) {
 +	// Called with mSslMutex held, for every datagram OpenSSL writes.
 +	std::lock_guard lock(mSealMutex);
++	if (mSealState == SealState::Active) {
++		// A record of OpenSSL's in the epoch the transport numbers now (its close_notify) would repeat a sequence
++		// number: it is not sent. Records of another epoch go out.
++		return size >= RecordHeader && uint16_t((uint8_t(data[3]) << 8) | uint8_t(data[4])) == mSealEpoch;
++	}
 +	if (mSealState != SealState::Proving && mSealState != SealState::Proven)
-+		return;
++		return false;
 +	auto p = reinterpret_cast<const uint8_t *>(data);
 +	for (size_t offset = 0; offset + RecordHeader <= size;) {
 +		const uint8_t *r = p + offset;
@@ -284,6 +299,7 @@ are unchanged.
 +		}
 +		offset += RecordHeader + length;
 +	}
++	return false;
 +}
 +
 +bool DtlsTransport::sealTakeover() {
@@ -327,8 +343,8 @@ are unchanged.
 +
 +void DtlsTransport::sealRecords(message_vector &messages) {
 +	// Called with mSealMutex held: numbers the unsealed records in their order and seals them together.
-+	std::vector<DtlsSealRecord> records;
-+	std::vector<uint8_t *> tags;
++	auto &records = mSealRecords;
++	records.clear();
 +	for (auto &m : messages) {
 +		if (!m || m->stream != UnsealedRecord)
 +			continue;
@@ -371,17 +387,27 @@ are unchanged.
  int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
  	if (inl <= 0)
  		return inl;
-@@ -1137,6 +1377,7 @@ int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
+@@ -1137,6 +1385,8 @@ int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
  	if (!transport)
  		return -1;
  	auto b = reinterpret_cast<const byte *>(in);
-+	transport->watchOutgoing(b, size_t(inl));
++	if (transport->watchOutgoing(b, size_t(inl)))
++		return inl;
  	transport->outgoing(transport->spareMessage(b, size_t(inl)));
  	return inl; // can't fail
  }
 --- a/src/impl/dtlstransport.hpp
 +++ b/src/impl/dtlstransport.hpp
-@@ -104,6 +104,30 @@ protected:
+@@ -15,6 +15,8 @@
+ #include "tls.hpp"
+ #include "transport.hpp"
+ 
++#include "rtc/dtlsrecordsealer.hpp"
++
+ #include <atomic>
+ #include <functional>
+ #include <memory>
+@@ -104,6 +106,31 @@ protected:
  	BIO *mInBio, *mOutBio;
  	std::mutex mSslMutex;
  
@@ -390,8 +416,8 @@ are unchanged.
 +	// transport takes over at its next send once the peer's first application record has arrived (OpenSSL can then
 +	// no longer have to resend its Finished), numbering on from the last record OpenSSL wrote. From then on every
 +	// application record goes through here, numbered, sealed and handed down under mSealMutex, so the order on the
-+	// wire is the order of the sequence numbers. OpenSSL's own later records (its close_notify) carry an old number
-+	// and are ignored by the peer.
++	// wire is the order of the sequence numbers. OpenSSL's own later records in that epoch (its close_notify) are
++	// not sent: their sequence numbers are taken.
 +	enum class SealState { Off, Proving, Proven, Active };
 +	std::mutex mSealMutex; // taken after mSslMutex when both are held
 +	SealState mSealState = SealState::Off;
@@ -403,10 +429,11 @@ are unchanged.
 +	std::atomic<bool> mPeerApplicationData = false;
 +
 +	void setupSealer();                                 // under mSslMutex, when the handshake has finished
-+	void watchOutgoing(const byte *data, size_t size);  // a datagram OpenSSL wrote, under mSslMutex
++	bool watchOutgoing(const byte *data, size_t size);  // a datagram OpenSSL wrote, under mSslMutex; true: drop it
 +	bool sealTakeover();                                // under mSslMutex: true once the records are sealed here
 +	bool sendSealed(const message_ptr &message);
 +	void sealRecords(message_vector &messages);         // under mSealMutex
++	std::vector<DtlsSealRecord> mSealRecords;           // under mSealMutex, kept between bursts
 +	bool flushBurstMessages(message_vector &messages) override;
 +
  	void handleTimeout();

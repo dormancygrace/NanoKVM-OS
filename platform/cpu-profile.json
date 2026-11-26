@@ -16,5 +16,6 @@
   "kernel_strict_align": false,
   "kernel_function_align": 64,
   "openssl_optimization": "-O3",
-  "tpu_optimization": "-O3"
+  "tpu_optimization": "-O3",
+  "server_optimization": "-O3"
 }

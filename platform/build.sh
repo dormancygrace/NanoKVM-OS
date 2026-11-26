@@ -734,7 +734,7 @@ server() {
         rm -rf "${src:?}/libdatachannel/deps/$dep"
         unpack_git "$dep" . "$src/libdatachannel/deps/$dep"
     done
-    PATH="$host:$PATH" CROSS="$cross" CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" userspace)" \
+    PATH="$host:$PATH" CROSS="$cross" CFLAGS="$(python3 "$repo/scripts/nanokvm_cpu_profile.py" server)" \
         OPENSSL="$out/component-support/tools/openssl" ZLIB="$out/component-support/tools/zlib-ng" \
         NATIVE="$img/native" CMAKE="$host/cmake" JOBS="$jobs" \
         bash "$repo/server-cpp/build.sh" "$src" "$s/out"

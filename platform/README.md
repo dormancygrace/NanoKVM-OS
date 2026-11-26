@@ -202,7 +202,7 @@ gh run download RUN-ID -n outputs-sha256 -D ci
 scripts/compare-outputs.py --check ci/SHA256SUMS build/platform/images/SHA256SUMS
 ```
 
-The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO and with `-mno-strict-align` (the C906 handles misaligned access in hardware), while source-owned userspace uses scalar `-O2`.
+The release uses GCC 16.2 / Binutils 2.47 and the component profiles in `cpu-profile.json`: kernel and modules use `-O3` without LTO and with `-mno-strict-align` (the C906 handles misaligned access in hardware), the server, OpenSSL and the TPU runtime use `-O3`, and scalar `-O2` is the userspace default. The initramfs BusyBox selects `-Oz`.
 
 Kernel, device trees and modules change with the reviewed C906 vector-context, video-clock and memory-profile updates. The AIC8800 driver includes the cfg80211 compatibility patch. U-Boot, the initramfs, FIT images, native media libraries, system service and native tools are built from the pinned inputs. The closed SOPHGO ISP/3A objects are not used: the HDMI receiver's YUV bypasses the ISP's image processing. Go uses its own compiler; the profile applies to its C/C++ interoperability code.
 
@@ -296,8 +296,9 @@ not test newly built boot images.
 
 ## Component optimization profiles
 
-Kernel and modules use GCC `-O3` without LTO; source-owned userspace
-uses scalar `-O2`. USB audio uses the small core for float Opus encoding with the
+Kernel and modules use GCC `-O3` without LTO; the server, OpenSSL and the TPU
+runtime use `-O3`. The userspace default is scalar `-O2`. The initramfs BusyBox selects `-Oz`.
+USB audio uses the small core for float Opus encoding with the
 `smallcore` profile; tinyalsa and the capture helper use the `audio` profile. Handwritten vendor RVV/assembly remains available.
 See [component profiles](../docs/COMPONENT-BUILD-PROFILES.md) for the profile
 of each component, the reasons for it and the RustDesk build.

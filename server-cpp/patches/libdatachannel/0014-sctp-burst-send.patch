@@ -1,18 +1,23 @@
 From: Gleb Pesin <dormancygrace@gmail.com>
-Subject: The SCTP packets of one usrsctp call leave in one batched send
+Subject: The SCTP packets of one usrsctp call leave in batched sends
 
 usrsctp hands each packet to the write callback on its own, and each became one DTLS record and one sendto: a data
 channel at full rate spent a fifth of its CPU in those system calls. While a BurstScope is open on a thread,
-DtlsTransport collects its records there, and the outermost scope sends them through sendBatch (juice_send_batch,
-UDP_SEGMENT), every 32 at the latest. SctpTransport opens a scope around each call into usrsctp that sends: a send,
-a flush, and the input of a received packet (a SACK lets the next DATA out); DtlsTransport opens one over the
-records it drains in one wake, so the DATA that several SACKs let out leaves together. usrsctp's own timer thread
-opens none, so a retransmission or a heartbeat still leaves at once. A burst is sent after the locks are released.
-UnsentMediaDatagrams now also counts the datagrams of such bursts that the socket did not take.
+DtlsTransport collects its records there, and the outermost scope sends them through juice_send_batch (UDP_SEGMENT),
+32 at a time. SctpTransport opens a scope around each call into usrsctp that sends: a send, a flush, and the input of
+a received packet (a SACK lets the next DATA out); DtlsTransport opens one over the records it drains in one wake,
+so the DATA that several SACKs let out leaves together. usrsctp's own timer thread opens none, so a retransmission
+or a heartbeat still leaves at once.
+
+Nothing is sent before the scope ends, and every scope is opened before its lock is taken: the send, and its wait
+for a full socket, run after the SCTP and DTLS locks are released. The layer below tells how many records the
+socket took (sendBatchPrefix). The SCTP stack was already told that all of them were sent, so the ones not taken are
+kept and given again, without the ones taken, until one second after the first shortfall; a transport that cannot
+send any more ends the burst at once. What is given up is counted in UnsentMediaDatagrams and logged.
 ---
 --- a/src/impl/dtlstransport.cpp
 +++ b/src/impl/dtlstransport.cpp
-@@ -953,6 +953,11 @@ void DtlsTransport::incoming(message_ptr message) {
+@@ -953,6 +953,11 @@
  bool DtlsTransport::outgoing(message_ptr message) {
  	message->dscp = mCurrentDscp;
  
@@ -24,7 +29,7 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
  	bool result = Transport::outgoing(std::move(message));
  	mOutgoingResult = result;
  	return result;
-@@ -968,6 +973,8 @@ void DtlsTransport::postHandshake() {
+@@ -968,6 +973,8 @@
  }
  
  void DtlsTransport::doRecv() {
@@ -33,9 +38,75 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
  	std::lock_guard lock(mRecvMutex);
  	--mPendingRecvCount;
  
+--- a/src/impl/icetransport.cpp
++++ b/src/impl/icetransport.cpp
+@@ -48,6 +48,12 @@
+ 
+ namespace rtc::impl {
+ 
++void AddUnsentMediaDatagrams(size_t count) { unsentMediaDatagrams += count; }
++
++} // namespace rtc::impl
++
++namespace rtc::impl {
++
+ #if !USE_NICE // libjuice
+ 
+ const int MAX_TURN_SERVERS_COUNT = 2;
+@@ -345,6 +351,30 @@
+ 	return true;
+ }
+ 
++int IceTransport::sendBatchPrefix(message_vector &messages, size_t from, size_t count) {
++	auto s = state();
++	if (s != State::Connected && s != State::Completed)
++		return -1;
++	if (count == 0)
++		return 0;
++	std::vector<const char *> data;
++	std::vector<size_t> sizes;
++	data.reserve(count);
++	sizes.reserve(count);
++	for (size_t i = 0; i < count; ++i) {
++		const auto &m = messages[from + i];
++		data.push_back(reinterpret_cast<const char *>(m->data()));
++		sizes.push_back(m->size());
++	}
++	int ds = int(messages[from]->dscp << 2);
++	// The datagrams the socket took, a prefix. JUICE_ERR_AGAIN: none, after the bounded wait for a full buffer.
++	// The caller keeps the others, so nothing is counted as unsent here.
++	int sent = juice_send_batch(mAgent.get(), data.data(), sizes.data(), int(count), ds);
++	if (sent >= 0)
++		return sent;
++	return sent == JUICE_ERR_AGAIN ? 0 : -1;
++}
++
+ void IceTransport::changeGatheringState(GatheringState state) {
+ 	if (mGatheringState.exchange(state) != state)
+ 		mGatheringStateChangeCallback(mGatheringState);
+--- a/src/impl/icetransport.hpp
++++ b/src/impl/icetransport.hpp
+@@ -59,6 +59,7 @@
+ 	bool send(message_ptr message) override; // false if dropped
+ #if !USE_NICE
+ 	bool sendBatch(message_vector &messages) override;
++	int sendBatchPrefix(message_vector &messages, size_t from, size_t count) override;
+ #endif
+ 
+ 	bool getSelectedCandidatePair(Candidate *local, Candidate *remote);
+@@ -126,6 +127,9 @@
+ #endif
+ };
+ 
++// Adds to UnsentMediaDatagrams: datagrams a sender gave up on because the socket did not take them.
++void AddUnsentMediaDatagrams(size_t count);
++
+ } // namespace rtc::impl
+ 
+ #endif
 --- a/src/impl/sctptransport.cpp
 +++ b/src/impl/sctptransport.cpp
-@@ -372,6 +372,7 @@ void SctpTransport::connect() {
+@@ -372,6 +372,7 @@
  }
  
  bool SctpTransport::send(message_ptr message) {
@@ -43,7 +114,7 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
  	std::lock_guard lock(mSendMutex);
  	if (state() != State::Connected)
  		return false;
-@@ -395,6 +396,7 @@ bool SctpTransport::send(message_ptr message) {
+@@ -395,6 +396,7 @@
  
  bool SctpTransport::flush() {
  	try {
@@ -51,7 +122,7 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
  		std::lock_guard lock(mSendMutex);
  		if (state() != State::Connected)
  			return false;
-@@ -464,6 +466,8 @@ void SctpTransport::incoming(message_ptr message) {
+@@ -464,6 +466,8 @@
  
  	PLOG_VERBOSE << "Incoming size=" << message->size();
  
@@ -60,7 +131,7 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
  	usrsctp_conninput(this, message->data(), message->size(), 0);
  }
  
-@@ -538,6 +542,7 @@ void SctpTransport::doRecv() {
+@@ -538,6 +542,7 @@
  }
  
  void SctpTransport::doFlush() {
@@ -70,7 +141,18 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
  	try {
 --- a/src/impl/transport.cpp
 +++ b/src/impl/transport.cpp
-@@ -104,6 +104,57 @@ bool Transport::sendBatch(message_vector &messages) {
+@@ -7,6 +7,10 @@
+  */
+ 
+ #include "transport.hpp"
++#include "icetransport.hpp"
++
++#include <algorithm>
++#include <chrono>
+ 
+ namespace rtc::impl {
+ 
+@@ -104,6 +108,101 @@
  	return ret;
  }
  
@@ -84,9 +166,15 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
 +
 +thread_local Burst tBurst;
 +
-+// A burst is cut here: the largest batch the UDP send takes in one call is bounded anyway (UDP_SEGMENT), and a
-+// longer wait would only delay the first packets.
++// A burst goes to the layer below this many records at a time: the largest batch the UDP send takes in one call is
++// bounded anyway (UDP_SEGMENT).
 +constexpr size_t maxBurst = 32;
++// One scope collects at most this many; beyond, a record is sent at once as without a scope. usrsctp emits what its
++// congestion window allows in one call, far fewer.
++constexpr size_t maxCollected = 512;
++// Records the socket did not take are given again until this long after the first shortfall of a burst. Each
++// attempt already waited in the layer below for the socket to drain.
++constexpr auto burstRetry = std::chrono::seconds(1);
 +
 +} // namespace
 +
@@ -100,12 +188,11 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
 +bool Transport::collectBurst(message_ptr &message) {
 +	if (tBurst.depth == 0 || !message)
 +		return false;
-+	if (tBurst.owner && tBurst.owner != this)
-+		flushBurst();
++	// Never sent from here: the caller may hold the SCTP and DTLS locks, and a send can wait for the socket.
++	if ((tBurst.owner && tBurst.owner != this) || tBurst.messages.size() >= maxCollected)
++		return false;
 +	tBurst.owner = this;
 +	tBurst.messages.push_back(std::move(message));
-+	if (tBurst.messages.size() >= maxBurst)
-+		flushBurst();
 +	return true;
 +}
 +
@@ -115,14 +202,53 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
 +		return;
 +	message_vector messages;
 +	messages.swap(tBurst.messages);
++	// The layer below tells how many records, in order, the socket took. A burst taken in part keeps the others:
++	// collectBurst() already told the SCTP stack they were sent, so dropping them here would turn a full socket
++	// buffer into packet loss. They are given again, without the ones already taken, until burstRetry has passed
++	// since the first shortfall. A transport that cannot send any more ends the burst at once.
++	size_t sent = 0;
++	bool closed = false;
 +	try {
-+		owner->outgoingBatch(messages);
++		std::chrono::steady_clock::time_point giveUp{};
++		while (sent < messages.size()) {
++			size_t count = std::min(maxBurst, messages.size() - sent);
++			int took = owner->outgoingBatchPrefix(messages, sent, count);
++			if (took < 0) {
++				closed = true;
++				break;
++			}
++			sent += size_t(took);
++			if (size_t(took) == count)
++				continue;
++			auto now = std::chrono::steady_clock::now();
++			if (giveUp == std::chrono::steady_clock::time_point{})
++				giveUp = now + burstRetry;
++			else if (now >= giveUp)
++				break;
++		}
 +	} catch (const std::exception &e) {
 +		PLOG_WARNING << "Burst send: " << e.what();
++	}
++	if (sent < messages.size()) {
++		// Given up: these are lost to the peer like packets lost on the way, and counted as not sent.
++		AddUnsentMediaDatagrams(messages.size() - sent);
++		PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
++		             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
 +	}
 +	messages.clear();
 +	if (tBurst.messages.empty())
 +		tBurst.messages.swap(messages); // keeps the capacity for the next burst
++}
++
++int Transport::sendBatchPrefix(message_vector &messages, size_t from, size_t count) {
++	size_t taken = 0;
++	while (taken < count && send(messages[from + taken]))
++		++taken;
++	return int(taken);
++}
++
++int Transport::outgoingBatchPrefix(message_vector &messages, size_t from, size_t count) {
++	return mLower ? mLower->sendBatchPrefix(messages, from, count) : -1;
 +}
 +
  bool Transport::outgoingBatch(message_vector &messages) {
@@ -130,13 +256,20 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
  		return mLower->sendBatch(messages);
 --- a/src/impl/transport.hpp
 +++ b/src/impl/transport.hpp
-@@ -43,12 +43,28 @@ public:
+@@ -42,6 +42,23 @@
+ 	virtual bool send(message_ptr message);
  	// Several messages at once (the packets of a frame); by default one send each.
  	virtual bool sendBatch(message_vector &messages);
- 
++	// The same for count messages from index from, telling how many of them, in order, were taken: fewer than
++	// count when the layer below stayed full past its own wait (the others were not sent and may be given again),
++	// -1 when it cannot send at all (closed, failed). By default one send each, up to the first refused.
++	virtual int sendBatchPrefix(message_vector &messages, size_t from, size_t count);
++
 +	// While a scope is open on a thread, the datagrams a transport collects with collectBurst() on that thread go to
-+	// its lower transport together, as one sendBatch(), when the outermost scope ends (or every maxBurst of them):
-+	// the SCTP packets that one call into usrsctp emits leave in one system call instead of one each.
++	// its lower transport together when the outermost scope ends, maxBurst per send: the SCTP packets that one call
++	// into usrsctp emits leave in a few system calls instead of one each. Nothing is sent before the scope ends, so
++	// a scope opened before a lock is taken sends after it is released, and a wait for a full socket is never
++	// under that lock. Records the socket did not take are kept and given again for a bounded time.
 +	class BurstScope {
 +	public:
 +		BurstScope();
@@ -144,13 +277,14 @@ UnsentMediaDatagrams now also counts the datagrams of such bursts that the socke
 +		BurstScope(const BurstScope &) = delete;
 +		BurstScope &operator=(const BurstScope &) = delete;
 +	};
-+
+ 
  protected:
  	void recv(message_ptr message);
- 	void changeState(State state);
+@@ -49,6 +66,12 @@
  	virtual void incoming(message_ptr message);
  	virtual bool outgoing(message_ptr message);
  	bool outgoingBatch(message_vector &messages);
++	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count);
 +	// Takes the message into this thread's burst when a BurstScope is open; false: send it now.
 +	bool collectBurst(message_ptr &message);
 +

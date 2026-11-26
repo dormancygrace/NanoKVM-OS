@@ -23,7 +23,7 @@ transport for the next ones.
  #if defined(INET) || defined(INET6)
  #if !defined(_WIN32)
  #include <netinet/udp.h>
-@@ -5039,11 +5044,13 @@ sctp_lowlevel_chunk_output(struct sctp_inpcb *inp,
+@@ -5039,11 +5044,13 @@
  		if (ecn_ok) {
  			tos_value |= sctp_get_ect(stcb);
  		}
@@ -40,7 +40,7 @@ transport for the next ones.
  		} else {
  			ret = ENOMEM;
  		}
-@@ -12084,11 +12091,13 @@ sctp_send_resp_msg(struct sockaddr *src, struct sockaddr *dst,
+@@ -12084,11 +12091,13 @@
  			sctp_packet_log(mout);
  		}
  #endif
@@ -59,7 +59,7 @@ transport for the next ones.
  		}
 --- a/deps/usrsctp/usrsctplib/user_mbuf.c
 +++ b/deps/usrsctp/usrsctplib/user_mbuf.c
-@@ -59,7 +59,68 @@ int max_protohdr = KIPC_MAX_PROTOHDR; /* Size of largest protocol layer header.
+@@ -59,7 +59,68 @@
   * Zones from which we allocate.
   */
  sctp_zone_t	zone_mbuf;
@@ -128,7 +128,7 @@ transport for the next ones.
  sctp_zone_t	zone_ext_refcnt;
  
  /* __Userspace__ clust_mb_args will be passed as callback data to mb_ctor_clust
-@@ -123,7 +184,7 @@ m_get(int how, short type)
+@@ -123,7 +184,7 @@
  #endif
  	/* Mbuf master zone, zone_mbuf, has already been
  	 * created in mbuf_initialize() */
@@ -137,7 +137,7 @@ transport for the next ones.
  #if defined(SCTP_SIMPLE_ALLOCATOR)
  	mb_ctor_mbuf(mret, &mbuf_mb_args, 0);
  #endif
-@@ -163,7 +224,7 @@ m_gethdr(int how, short type)
+@@ -163,7 +224,7 @@
  	mbuf_mb_args.flags = M_PKTHDR;
  	mbuf_mb_args.type = type;
  #endif
@@ -146,7 +146,7 @@ transport for the next ones.
  #if defined(SCTP_SIMPLE_ALLOCATOR)
  	mb_ctor_mbuf(mret, &mbuf_mb_args, 0);
  #endif
-@@ -198,7 +259,7 @@ m_free(struct mbuf *m)
+@@ -198,7 +259,7 @@
  #if defined(SCTP_SIMPLE_ALLOCATOR)
  		mb_dtor_mbuf(m, NULL);
  #endif
@@ -155,7 +155,7 @@ transport for the next ones.
  	}
  		/*umem_cache_free(zone_mbuf, m);*/
  	return (n);
-@@ -255,7 +316,7 @@ m_clget(struct mbuf *m, int how)
+@@ -255,7 +316,7 @@
  #if defined(SCTP_SIMPLE_ALLOCATOR)
  	clust_mb_args_l.parent_mbuf = m;
  #endif
@@ -164,7 +164,7 @@ transport for the next ones.
  #if defined(SCTP_SIMPLE_ALLOCATOR)
  	mb_ctor_clust(mclust_ret, &clust_mb_args_l, 0);
  #endif
-@@ -779,7 +840,7 @@ mb_free_ext(struct mbuf *m)
+@@ -779,7 +840,7 @@
  #if defined(SCTP_SIMPLE_ALLOCATOR)
  			mb_dtor_clust(m->m_ext.ext_buf, &clust_mb_args);
  #endif
@@ -173,7 +173,7 @@ transport for the next ones.
  			SCTP_ZONE_FREE(zone_ext_refcnt, (u_int*)m->m_ext.ref_cnt);
  			m->m_ext.ref_cnt = NULL;
  		}
-@@ -803,7 +864,7 @@ mb_free_ext(struct mbuf *m)
+@@ -803,7 +864,7 @@
  #if defined(SCTP_SIMPLE_ALLOCATOR)
  	mb_dtor_mbuf(m, NULL);
  #endif
@@ -184,7 +184,7 @@ transport for the next ones.
  }
 --- a/src/impl/dtlstransport.cpp
 +++ b/src/impl/dtlstransport.cpp
-@@ -1137,7 +1137,7 @@ int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
+@@ -1137,7 +1137,7 @@
  	if (!transport)
  		return -1;
  	auto b = reinterpret_cast<const byte *>(in);
@@ -195,7 +195,7 @@ transport for the next ones.
  
 --- a/src/impl/sctptransport.cpp
 +++ b/src/impl/sctptransport.cpp
-@@ -771,7 +771,18 @@ int SctpTransport::handleWrite(byte *data, size_t len, uint8_t /*tos*/,
+@@ -771,7 +771,18 @@
  		std::unique_lock lock(mWriteMutex);
  		PLOG_VERBOSE << "Handle write, len=" << len;
  
@@ -217,7 +217,7 @@ transport for the next ones.
  		mWritten = true;
 --- a/src/impl/sctptransport.hpp
 +++ b/src/impl/sctptransport.hpp
-@@ -112,6 +112,7 @@ private:
+@@ -112,6 +112,7 @@
  	amount_callback mBufferedAmountCallback;
  
  	std::mutex mWriteMutex;
@@ -227,9 +227,9 @@ transport for the next ones.
  	std::atomic<bool> mWrittenOnce = false; // same
 --- a/src/impl/transport.cpp
 +++ b/src/impl/transport.cpp
-@@ -150,11 +150,39 @@ void Transport::flushBurst() noexcept {
- 	} catch (const std::exception &e) {
- 		PLOG_WARNING << "Burst send: " << e.what();
+@@ -187,11 +187,41 @@
+ 		PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
+ 		             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
  	}
 +	owner->keepSpare(messages);
  	messages.clear();
@@ -241,10 +241,8 @@ transport for the next ones.
 +	message_ptr message;
 +	{
 +		std::lock_guard lock(mSpareMutex);
-+		if (!mSpare.empty()) {
-+			message = std::move(mSpare.back());
-+			mSpare.pop_back();
-+		}
++		if (mSpareCount)
++			message = std::move(mSpare[--mSpareCount]);
 +	}
 +	if (!message)
 +		return make_message(data, data + size);
@@ -257,20 +255,32 @@ transport for the next ones.
 +	return message;
 +}
 +
-+void Transport::keepSpare(message_vector &messages) {
-+	std::lock_guard lock(mSpareMutex);
++void Transport::keepSpare(message_vector &messages) noexcept {
++	// Called from flushBurst(), which must not throw: moving a pointer into a slot allocates nothing. A message
++	// that finds no slot, or that something else still holds, is simply let go.
++	std::unique_lock lock(mSpareMutex, std::try_to_lock);
++	if (!lock.owns_lock())
++		return;
 +	for (auto &m : messages)
-+		if (m && m.use_count() == 1 && mSpare.size() < maxBurst * 2)
-+			mSpare.push_back(std::move(m));
++		if (m && m.use_count() == 1 && mSpareCount < maxSpare)
++			mSpare[mSpareCount++] = std::move(m);
 +}
 +
- bool Transport::outgoingBatch(message_vector &messages) {
- 	if (mLower)
- 		return mLower->sendBatch(messages);
+ int Transport::sendBatchPrefix(message_vector &messages, size_t from, size_t count) {
+ 	size_t taken = 0;
+ 	while (taken < count && send(messages[from + taken]))
 --- a/src/impl/transport.hpp
 +++ b/src/impl/transport.hpp
-@@ -62,9 +62,16 @@ protected:
- 	bool outgoingBatch(message_vector &messages);
+@@ -14,6 +14,7 @@
+ #include "internals.hpp"
+ #include "message.hpp"
+ 
++#include <array>
+ #include <atomic>
+ #include <functional>
+ #include <memory>
+@@ -69,9 +70,19 @@
+ 	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count);
  	// Takes the message into this thread's burst when a BurstScope is open; false: send it now.
  	bool collectBurst(message_ptr &message);
 +	// A binary message holding a copy of the data: one this transport's bursts sent and nobody holds any more, or a
@@ -279,10 +289,13 @@ transport for the next ones.
  
  private:
  	static void flushBurst() noexcept;
-+	void keepSpare(message_vector &messages);
++	// Keeps the messages nobody else holds, in fixed slots: recycling allocates nothing and so cannot fail.
++	void keepSpare(message_vector &messages) noexcept;
 +
++	static constexpr size_t maxSpare = 64;
 +	std::mutex mSpareMutex;
-+	std::vector<message_ptr> mSpare;
++	std::array<message_ptr, maxSpare> mSpare;
++	size_t mSpareCount = 0;
  
  private:
  	const init_token mInitToken = Init::Instance().token();

@@ -11,7 +11,7 @@ optimization level.
 | Source-owned network tools and private musl | GCC -O2 source profile | Compiler vectorization off |
 | tinyalsa and usb-audio-capture | GCC -O2 audio profile | Compiler vectorization off |
 | Program of the small core (nanokvm_c906l: Opus encoder) | GCC -O2 smallcore profile (userspace ISA without xtheadvector), float Opus, static PIE | Compiler vectorization off |
-| zlib-ng (nanokvm-zlib, libz.so.1; static in NanoKVM-Server) | GCC -O2, thead-c906, lp64d, -mno-strict-align, without xtheadvector; platform/zlib-ng patches | Compiler vectorization off; RVV and Zbc code off; no runtime CPU dispatch |
+| zlib-ng (nanokvm-zlib, libz.so.1, loaded by NanoKVM-Server) | GCC -O2, thead-c906, lp64d, -mno-strict-align, without xtheadvector; platform/zlib-ng patches | Compiler vectorization off; RVV and Zbc code off; no runtime CPU dispatch |
 | OpenSSL 3.5.9 LTS (nanokvm-openssl3) | GCC -O3, thead-c906, lp64d, without xtheadvector | Compiler vectorization and LTO off; scalar inline memory operations; upstream crypto code |
 | TPU runtime (cviruntime, cvikernel; static in nanokvm-ocr and nanokvm-screen) | GCC -O2, thead-c906, lp64d, with xtheadvector | Upstream flags otherwise; the C++ library linked statically |
 | RustDesk | Rust opt-level=3, scalar XTHead | fat LTO; codegen-units=1 |

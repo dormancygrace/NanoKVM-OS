@@ -20,30 +20,7 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
      uint32_t passes;
      uint32_t memory_blocks;
      uint32_t segment_length;
-@@ -602,6 +607,7 @@
-     uint32_t r, s, l, ll;
-     void **t;
-     ARGON2_THREAD_DATA *t_data;
-+    int stopped = 1;
- 
-     t = OPENSSL_zalloc(sizeof(void *) * ctx->lanes);
-     t_data = OPENSSL_zalloc(ctx->lanes * sizeof(ARGON2_THREAD_DATA));
-@@ -658,10 +664,14 @@
-                 continue;
-             if (ossl_crypto_thread_join(t[ll], NULL) != 0)
-                 (void)ossl_crypto_thread_clean(t[ll]);
-+            else
-+                stopped = 0;
-             t[ll] = NULL;
-         }
-     }
- 
-+    if (!stopped)
-+        return -1;
-     OPENSSL_free(t_data);
-     OPENSSL_free(t);
-     return 0;
-@@ -764,6 +774,69 @@
+@@ -764,6 +769,69 @@
      EVP_MD_CTX_destroy(mdctx);
  }
  
@@ -113,7 +90,7 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
  static int initialize(KDF_ARGON2 *ctx)
  {
      uint8_t blockhash[ARGON2_PREHASH_SEED_LENGTH];
-@@ -774,7 +847,11 @@
+@@ -774,7 +842,11 @@
      if (ctx->memory_blocks * sizeof(BLOCK) / sizeof(BLOCK) != ctx->memory_blocks)
          return 0;
  
@@ -126,7 +103,7 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
          ctx->memory = OPENSSL_secure_zalloc(ctx->memory_blocks * sizeof(BLOCK));
      else
          ctx->memory = OPENSSL_zalloc(ctx->memory_blocks * sizeof(BLOCK));
-@@ -818,13 +895,6 @@
+@@ -818,13 +890,6 @@
          ARGON2_BLOCK_SIZE);
      OPENSSL_cleanse(blockhash.v, ARGON2_BLOCK_SIZE);
      OPENSSL_cleanse(blockhash_bytes, ARGON2_BLOCK_SIZE);
@@ -140,30 +117,17 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
  }
  
  static int blake2b_mac(EVP_MAC *mac, void *out, size_t outlen, const void *in,
-@@ -1059,6 +1129,7 @@
- {
-     KDF_ARGON2 *ctx;
-     uint32_t memory_blocks, segment_length;
-+    int ret;
- 
-     ctx = (KDF_ARGON2 *)vctx;
- 
-@@ -1150,17 +1221,16 @@
-     if (initialize(ctx) != 1)
+@@ -1151,16 +1216,12 @@
          return 0;
  
--    if (fill_memory_blocks(ctx) != 1) {
+     if (fill_memory_blocks(ctx) != 1) {
 -        if (ctx->type != ARGON2_D)
 -            OPENSSL_secure_clear_free(ctx->memory,
 -                ctx->memory_blocks * sizeof(BLOCK));
 -        else
 -            OPENSSL_clear_free(ctx->memory,
 -                ctx->memory_blocks * sizeof(BLOCK));
-+    ret = fill_memory_blocks(ctx);
-+    if (ret != 1) {
-+        /* -1: a worker could not be joined and may still use the memory. */
-+        if (ret == 0)
-+            argon2_release_memory(ctx);
++        argon2_release_memory(ctx);
          return 0;
      }
  

@@ -100,7 +100,7 @@ apply_reclaim() {
 }
 
 # Transparent huge pages for madvise(MADV_HUGEPAGE) only: the Argon2 memory of
-# password hashing (OpenSSL patch 0016) takes 2 MiB pages, a hash about 140 ms
+# password hashing (OpenSSL patch 0017) takes 2 MiB pages, a hash about 140 ms
 # less; other memory keeps 4 KiB pages. Below 512 MiB of RAM the kernel starts
 # with them off. Turning them on raises min_free_kbytes from the kernel's own
 # value (about 2 MB) to 12 MB to keep huge pages free, which takes 26 MB from

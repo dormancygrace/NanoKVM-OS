@@ -331,8 +331,7 @@ after a failure the threaded fill joins only the workers still outstanding, and 
 `0017-argon2-huge-pages.patch` maps the memory of a hash itself, aligned to 2 MiB and marked `MADV_HUGEPAGE`, with
 OpenSSL's own memory functions and without the secure heap (the server sets up neither; an application's memory
 functions keep seeing the allocation). One function cleanses and releases it the way it was allocated, after a hash
-and after a failed fill; when a worker could not be joined it may still use the memory and its arguments, so then
-nothing of either is freed. The kernel has transparent huge pages for madvise only, and `S38memory` turns them on at boot
+and after a failed fill (OpenSSL's join returns only after a worker has finished). The kernel has transparent huge pages for madvise only, and `S38memory` turns them on at boot
 (below 512 MiB the kernel starts with them off) and keeps `min_free_kbytes` at the kernel's own value, which turning
 them on would raise from about 2 MB to 12 MB (26 MB less MemAvailable). A hash then takes 9 huge pages for its
 19 MiB instead of about 4,900 small page faults, and needs no memset: 440 ms instead of 580 ms with 0015 alone

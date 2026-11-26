@@ -1,0 +1,301 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: No heap allocation for each SCTP packet or DTLS record
+
+At full rate a data channel allocated and freed, for every packet, three buffers of 1 to 2 KiB (usrsctp's linear
+copy for the write callback and its mbuf cluster, SctpTransport's message of the packet, DtlsTransport's message of
+the record) and two or three mbufs. musl's allocator maps groups of the larger sizes whole and unmaps them when they
+empty, so a fifth of the CPU went to mmap and munmap. usrsctp now copies a packet into one buffer per thread (the
+callback copies what it keeps before it returns) and keeps freed mbufs (up to 512) and clusters (up to 256).
+SctpTransport reuses its packet message when no layer kept it, and the records a burst sent come back to their
+transport for the next ones.
+---
+--- a/deps/usrsctp/usrsctplib/netinet/sctp_output.c
++++ b/deps/usrsctp/usrsctplib/netinet/sctp_output.c
+@@ -57,6 +57,11 @@
+ #if defined(__linux__)
+ #define __FAVOR_BSD    /* (on Ubuntu at least) enables UDP header field names like BSD in RFC 768 */
+ #endif
++#if defined(__Userspace__)
++/* The packet copy handed to conn_output: the callback copies what it keeps before it returns. */
++static __thread char sctp_conn_output_buffer[4096];
++#endif
++
+ #if defined(INET) || defined(INET6)
+ #if !defined(_WIN32)
+ #include <netinet/udp.h>
+@@ -5039,11 +5044,13 @@
+ 		if (ecn_ok) {
+ 			tos_value |= sctp_get_ect(stcb);
+ 		}
+-		/* Don't alloc/free for each packet */
+-		if ((buffer = malloc(packet_length)) != NULL) {
++		/* One buffer per thread for the packets that fit it, instead of a malloc and a free for each */
++		buffer = (size_t)packet_length <= sizeof(sctp_conn_output_buffer) ? sctp_conn_output_buffer : malloc(packet_length);
++		if (buffer != NULL) {
+ 			m_copydata(m, 0, packet_length, buffer);
+ 			ret = SCTP_BASE_VAR(conn_output)(sconn->sconn_addr, buffer, packet_length, tos_value, nofragment_flag);
+-			free(buffer);
++			if (buffer != sctp_conn_output_buffer)
++				free(buffer);
+ 		} else {
+ 			ret = ENOMEM;
+ 		}
+@@ -12084,11 +12091,13 @@
+ 			sctp_packet_log(mout);
+ 		}
+ #endif
+-		/* Don't alloc/free for each packet */
+-		if ((buffer = malloc(len)) != NULL) {
++		/* One buffer per thread for the packets that fit it, instead of a malloc and a free for each */
++		buffer = (size_t)len <= sizeof(sctp_conn_output_buffer) ? sctp_conn_output_buffer : malloc(len);
++		if (buffer != NULL) {
+ 			m_copydata(o_pak, 0, len, buffer);
+ 			ret = SCTP_BASE_VAR(conn_output)(sconn->sconn_addr, buffer, len, 0, 0);
+-			free(buffer);
++			if (buffer != sctp_conn_output_buffer)
++				free(buffer);
+ 		} else {
+ 			ret = ENOMEM;
+ 		}
+--- a/deps/usrsctp/usrsctplib/user_mbuf.c
++++ b/deps/usrsctp/usrsctplib/user_mbuf.c
+@@ -59,7 +59,68 @@
+  * Zones from which we allocate.
+  */
+ sctp_zone_t	zone_mbuf;
++
++/* Freed mbufs are kept for the next ones as well (up to 512): two or three for each packet. */
++static pthread_mutex_t mbuf_cache_mtx = PTHREAD_MUTEX_INITIALIZER;
++static struct mbuf *mbuf_cache[512];
++static int mbuf_cache_len;
++
++static struct mbuf *
++mbuf_get(void)
++{
++	struct mbuf *m = NULL;
++
++	pthread_mutex_lock(&mbuf_cache_mtx);
++	if (mbuf_cache_len > 0)
++		m = mbuf_cache[--mbuf_cache_len];
++	pthread_mutex_unlock(&mbuf_cache_mtx);
++	return m != NULL ? m : SCTP_ZONE_GET(zone_mbuf, struct mbuf);
++}
++
++static void
++mbuf_put(struct mbuf *m)
++{
++	pthread_mutex_lock(&mbuf_cache_mtx);
++	if (mbuf_cache_len < (int)(sizeof(mbuf_cache) / sizeof(mbuf_cache[0]))) {
++		mbuf_cache[mbuf_cache_len++] = m;
++		pthread_mutex_unlock(&mbuf_cache_mtx);
++		return;
++	}
++	pthread_mutex_unlock(&mbuf_cache_mtx);
++	SCTP_ZONE_FREE(zone_mbuf, m);
++}
+ sctp_zone_t	zone_clust;
++
++/* Freed clusters are kept for the next ones (up to 256) instead of going back to malloc: a data channel at full rate
++ * takes and frees one for each packet, and musl's allocator unmaps and maps their groups again each time. */
++static pthread_mutex_t clust_cache_mtx = PTHREAD_MUTEX_INITIALIZER;
++static char *clust_cache[256];
++static int clust_cache_len;
++
++static char *
++clust_get(void)
++{
++	char *c = NULL;
++
++	pthread_mutex_lock(&clust_cache_mtx);
++	if (clust_cache_len > 0)
++		c = clust_cache[--clust_cache_len];
++	pthread_mutex_unlock(&clust_cache_mtx);
++	return c != NULL ? c : SCTP_ZONE_GET(zone_clust, char);
++}
++
++static void
++clust_put(char *c)
++{
++	pthread_mutex_lock(&clust_cache_mtx);
++	if (clust_cache_len < (int)(sizeof(clust_cache) / sizeof(clust_cache[0]))) {
++		clust_cache[clust_cache_len++] = c;
++		pthread_mutex_unlock(&clust_cache_mtx);
++		return;
++	}
++	pthread_mutex_unlock(&clust_cache_mtx);
++	SCTP_ZONE_FREE(zone_clust, c);
++}
+ sctp_zone_t	zone_ext_refcnt;
+ 
+ /* __Userspace__ clust_mb_args will be passed as callback data to mb_ctor_clust
+@@ -123,7 +184,7 @@
+ #endif
+ 	/* Mbuf master zone, zone_mbuf, has already been
+ 	 * created in mbuf_initialize() */
+-	mret = SCTP_ZONE_GET(zone_mbuf, struct mbuf);
++	mret = mbuf_get();
+ #if defined(SCTP_SIMPLE_ALLOCATOR)
+ 	mb_ctor_mbuf(mret, &mbuf_mb_args, 0);
+ #endif
+@@ -163,7 +224,7 @@
+ 	mbuf_mb_args.flags = M_PKTHDR;
+ 	mbuf_mb_args.type = type;
+ #endif
+-	mret = SCTP_ZONE_GET(zone_mbuf, struct mbuf);
++	mret = mbuf_get();
+ #if defined(SCTP_SIMPLE_ALLOCATOR)
+ 	mb_ctor_mbuf(mret, &mbuf_mb_args, 0);
+ #endif
+@@ -198,7 +259,7 @@
+ #if defined(SCTP_SIMPLE_ALLOCATOR)
+ 		mb_dtor_mbuf(m, NULL);
+ #endif
+-		SCTP_ZONE_FREE(zone_mbuf, m);
++		mbuf_put(m);
+ 	}
+ 		/*umem_cache_free(zone_mbuf, m);*/
+ 	return (n);
+@@ -255,7 +316,7 @@
+ #if defined(SCTP_SIMPLE_ALLOCATOR)
+ 	clust_mb_args_l.parent_mbuf = m;
+ #endif
+-	mclust_ret = SCTP_ZONE_GET(zone_clust, char);
++	mclust_ret = clust_get();
+ #if defined(SCTP_SIMPLE_ALLOCATOR)
+ 	mb_ctor_clust(mclust_ret, &clust_mb_args_l, 0);
+ #endif
+@@ -779,7 +840,7 @@
+ #if defined(SCTP_SIMPLE_ALLOCATOR)
+ 			mb_dtor_clust(m->m_ext.ext_buf, &clust_mb_args);
+ #endif
+-			SCTP_ZONE_FREE(zone_clust, m->m_ext.ext_buf);
++			clust_put(m->m_ext.ext_buf);
+ 			SCTP_ZONE_FREE(zone_ext_refcnt, (u_int*)m->m_ext.ref_cnt);
+ 			m->m_ext.ref_cnt = NULL;
+ 		}
+@@ -803,7 +864,7 @@
+ #if defined(SCTP_SIMPLE_ALLOCATOR)
+ 	mb_dtor_mbuf(m, NULL);
+ #endif
+-	SCTP_ZONE_FREE(zone_mbuf, m);
++	mbuf_put(m);
+ 
+ 	/*umem_cache_free(zone_mbuf, m);*/
+ }
+--- a/src/impl/dtlstransport.cpp
++++ b/src/impl/dtlstransport.cpp
+@@ -1159,7 +1159,7 @@
+ 	if (!transport)
+ 		return -1;
+ 	auto b = reinterpret_cast<const byte *>(in);
+-	transport->outgoing(make_message(b, b + inl));
++	transport->outgoing(transport->spareMessage(b, size_t(inl)));
+ 	return inl; // can't fail
+ }
+ 
+--- a/src/impl/sctptransport.cpp
++++ b/src/impl/sctptransport.cpp
+@@ -771,7 +771,18 @@
+ 		std::unique_lock lock(mWriteMutex);
+ 		PLOG_VERBOSE << "Handle write, len=" << len;
+ 
+-		if (!outgoing(make_message(data, data + len)))
++		// One message, kept, for the packets usrsctp hands over one after another: DTLS seals the packet into a
++		// record of its own before this returns, so the message is free again unless a layer kept it.
++		message_ptr message;
++		if (mWriteMessage && mWriteMessage.use_count() == 1) {
++			message = mWriteMessage;
++			message->assign(data, data + len);
++			message->dscp = 0;
++		} else {
++			message = make_message(data, data + len);
++			mWriteMessage = message;
++		}
++		if (!outgoing(std::move(message)))
+ 			return -1;
+ 
+ 		mWritten = true;
+--- a/src/impl/sctptransport.hpp
++++ b/src/impl/sctptransport.hpp
+@@ -112,6 +112,7 @@
+ 	amount_callback mBufferedAmountCallback;
+ 
+ 	std::mutex mWriteMutex;
++	message_ptr mWriteMessage; // under mWriteMutex
+ 	std::condition_variable mWrittenCondition;
+ 	std::atomic<bool> mWritten = false;     // written outside lock
+ 	std::atomic<bool> mWrittenOnce = false; // same
+--- a/src/impl/transport.cpp
++++ b/src/impl/transport.cpp
+@@ -284,6 +284,36 @@
+ 		PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
+ 		             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
+ 	}
++	keepSpare(messages);
++}
++
++message_ptr Transport::spareMessage(const byte *data, size_t size) {
++	message_ptr message;
++	{
++		std::lock_guard lock(mSpareMutex);
++		if (mSpareCount)
++			message = std::move(mSpare[--mSpareCount]);
++	}
++	if (!message)
++		return make_message(data, data + size);
++	message->assign(data, data + size);
++	message->type = Message::Binary;
++	message->stream = 0;
++	message->dscp = 0;
++	message->reliability.reset();
++	message->frameInfo.reset();
++	return message;
++}
++
++void Transport::keepSpare(message_vector &messages) noexcept {
++	// Called from the burst send, which must not throw: moving a pointer into a slot allocates nothing. A
++	// message that finds no slot, or that something else still holds, is simply let go.
++	std::unique_lock lock(mSpareMutex, std::try_to_lock);
++	if (!lock.owns_lock())
++		return;
++	for (auto &m : messages)
++		if (m && m.use_count() == 1 && mSpareCount < maxSpare)
++			mSpare[mSpareCount++] = std::move(m);
+ }
+ 
+ int Transport::sendBatchPrefix(message_vector &messages, size_t from, size_t count, int /*waitMs*/) {
+--- a/src/impl/transport.hpp
++++ b/src/impl/transport.hpp
+@@ -14,6 +14,7 @@
+ #include "internals.hpp"
+ #include "message.hpp"
+ 
++#include <array>
+ #include <atomic>
+ #include <chrono>
+ #include <functional>
+@@ -74,6 +75,9 @@
+ 	bool outgoingBatch(message_vector &messages);
+ 	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs);
+ 	// Takes the message into this transport's queue: always while a BurstScope is open on the thread, and without
++	// A binary message holding a copy of the data: one this transport's bursts sent and nobody holds any more, or a
++	// new one.
++	message_ptr spareMessage(const byte *data, size_t size);
+ 	// one when older records are queued or being sent. false: nothing is, send it now and call endDirectBurst().
+ 	bool collectBurst(message_ptr &message);
+ 	// After that send. true: records were queued behind it, and continueBurst() must be called (from a thread that
+@@ -92,6 +96,14 @@
+ 	size_t mBurstReady = 0; // how many records at the front of the queue may leave
+ 	bool mBurstSending = false;
+ 
++	// Keeps the messages nobody else holds, in fixed slots: recycling allocates nothing and so cannot fail.
++	void keepSpare(message_vector &messages) noexcept;
++
++	static constexpr size_t maxSpare = 64;
++	std::mutex mSpareMutex;
++	std::array<message_ptr, maxSpare> mSpare;
++	size_t mSpareCount = 0;
++
+ private:
+ 	const init_token mInitToken = Init::Instance().token();
+ 

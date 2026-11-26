@@ -354,20 +354,30 @@ void Bridge::attach(Conn &c, const std::string &token)
 	if (!write_event(c, {.event = "ready"}, Clock::now() + 3s)) return;
 	// The daemon's messages onto the channel, in fragments, while the channel's queue has room.
 	std::thread sender([&c, s] {
+		// One buffer for every fragment: the daemon's bytes are read into it behind the flag byte, and the channel
+		// copies the fragment into its own message (no copy of the whole message first, no zero fill).
+		std::vector<std::byte> fragment(1 + wire::rtc_max_fragment);
 		for (;;) {
 			std::uint8_t head[4];
 			if (!c.read_byte(head[0], no_deadline)) break;
-			auto deadline = Clock::now() + 3s;
+			// The daemon has 3 s in all to deliver one message, its header and every fragment: only the time spent
+			// in its reads is taken from that. Waiting for the channel and sending fall between the reads and are
+			// not the daemon's time, so they do not count; nor does each fragment get a deadline of its own, which
+			// would give a message of 140 fragments minutes.
+			Clock::duration budget = 3s;
+			auto read_within_budget = [&c, &budget](void *out, std::size_t n) {
+				auto start = Clock::now();
+				bool ok = c.read_full(out, n, start + budget);
+				budget -= std::min(budget, Clock::now() - start);
+				return ok;
+			};
 			std::size_t width = wire::rustdesk_header_width(head[0]), length = 0;
-			if (!c.read_full(head + 1, width - 1, deadline) || !wire::rustdesk_frame_length(head, width, length)) break;
-			std::string payload(length, '\0');
-			if (!c.read_full(payload.data(), length, deadline)) break;
+			if (!read_within_budget(head + 1, width - 1) || !wire::rustdesk_frame_length(head, width, length)) break;
 			bool failed = false;
-			for (std::size_t offset = 0; offset < payload.size() || offset == 0;) {
-				std::size_t end = std::min(offset + wire::rtc_max_fragment, payload.size());
-				rtc::binary fragment(1 + end - offset);
-				fragment[0] = std::byte{static_cast<unsigned char>(end == payload.size() ? 0 : 1)};
-				std::memcpy(fragment.data() + 1, payload.data() + offset, end - offset);
+			for (std::size_t offset = 0; offset < length || offset == 0;) {
+				std::size_t end = std::min(offset + wire::rtc_max_fragment, length);
+				fragment[0] = std::byte{static_cast<unsigned char>(end == length ? 0 : 1)};
+				if (!read_within_budget(fragment.data() + 1, end - offset)) return s->close();
 				auto wait_until = Clock::now() + 3s;
 				while (s->channel->bufferedAmount() > max_channel_queue) {
 					{
@@ -377,12 +387,12 @@ void Bridge::attach(Conn &c, const std::string &token)
 					if (Clock::now() > wait_until) return s->close();
 				}
 				try {
-					s->channel->send(std::move(fragment));
+					s->channel->send(fragment.data(), 1 + end - offset);
 				} catch (const std::exception &) {
 					failed = true;
 					break;
 				}
-				if (end == payload.size()) break;
+				if (end == length) break;
 				offset = end;
 			}
 			if (failed) break;

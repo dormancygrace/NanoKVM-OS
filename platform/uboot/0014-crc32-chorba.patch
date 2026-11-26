@@ -13,7 +13,7 @@ loop.
 ---
 --- a/lib/crc32.c
 +++ b/lib/crc32.c
-@@ -191,6 +191,278 @@
+@@ -191,6 +191,300 @@
  	}
  	return (const uint32_t (*)[256])crc_slice;
  }
@@ -24,6 +24,28 @@ loop.
 + * shifts and XORs of words in registers rather than a table load per byte, about
 + * 1.7 times slicing-by-8 on the C906. crc as crc32() takes it (one's complement),
 + * buf 8-byte aligned. The tail goes through slicing-by-8.
++ *
++ * Adapted from zlib-ng. The upstream notice follows.
++ *
++ * (C) 1995-2024 Jean-loup Gailly and Mark Adler
++ *
++ * This software is provided 'as-is', without any express or implied
++ * warranty. In no event will the authors be held liable for any damages
++ * arising from the use of this software.
++ *
++ * Permission is granted to anyone to use this software for any purpose,
++ * including commercial applications, and to alter it and redistribute it
++ * freely, subject to the following restrictions:
++ *
++ * 1. The origin of this software must not be misrepresented; you must not
++ *    claim that you wrote the original software. If you use this software
++ *    in a product, an acknowledgment in the product documentation would be
++ *    appreciated but is not required.
++ *
++ * 2. Altered source versions must be plainly marked as such, and must not be
++ *    misrepresented as being the original software.
++ *
++ * 3. This notice may not be removed or altered from any source distribution.
 + */
 +static uint32_t crc32_slice8(uint32_t crc, const uint8_t *buf, size_t len)
 +{
@@ -292,7 +314,7 @@ loop.
  #endif
  
  /* ========================================================================= */
-@@ -232,6 +504,18 @@
+@@ -232,6 +526,18 @@
  
  #if __BYTE_ORDER == __LITTLE_ENDIAN && !defined(USE_HOSTCC)
      /*

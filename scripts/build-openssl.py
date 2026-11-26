@@ -12,9 +12,13 @@ import tarfile
 from nanokvm_cpu_profile import flags, record
 
 ROOT = Path(__file__).resolve().parents[1]
+# Not built: the FIPS provider (the runtime package never carried fips.so), kTLS (the kernel has no CONFIG_TLS) and
+# the AF_ALG, CryptoAPI and VIA PadLock engines (the kernel has no AF_ALG; the other two are empty on RISC-V). The
+# ENGINE API, loader_attic and the legacy provider stay: Alpine programs link the API, and the legacy provider has MD4,
+# DES and Blowfish for WPA-Enterprise (wpa_supplicant loads it) and old OpenVPN profiles.
 CONFIG = ['linux64-riscv64', '--prefix=/usr', '--libdir=lib', '--openssldir=/etc/ssl',
-          'enable-fips', 'enable-ktls', 'enable-ec_nistp_64_gcc_128', 'shared', 'no-zlib', 'no-async', 'no-comp',
-          'no-idea', 'no-mdc2', 'no-rc5', 'no-ec2m', 'no-ssl3', 'no-seed',
+          'no-afalgeng', 'no-capieng', 'no-padlockeng', 'enable-ec_nistp_64_gcc_128', 'shared', 'no-zlib',
+          'no-async', 'no-comp', 'no-idea', 'no-mdc2', 'no-rc5', 'no-ec2m', 'no-ssl3', 'no-seed',
           'no-weak-ssl-ciphers']
 
 
@@ -91,7 +95,7 @@ def build(archive, output, cross, jobs):
     check_hot_layout(order, source / 'libcrypto.so.3', str(cross) + 'nm')
     install = output / 'install'
     runtime = output / 'runtime'
-    # Development/static/FIPS artifacts are not part of this runtime package.
+    # Development and static artifacts are not part of this runtime package.
     for rel in ('usr/bin/openssl', 'usr/lib/libcrypto.so.3', 'usr/lib/libssl.so.3',
                 'etc/ssl/openssl.cnf', 'etc/ssl/ct_log_list.cnf'):
         dest = runtime / rel
@@ -99,8 +103,6 @@ def build(archive, output, cross, jobs):
         shutil.copy2(install / rel, dest)
     for directory in ('usr/lib/engines-3', 'usr/lib/ossl-modules'):
         for src in sorted((install / directory).glob('*.so')):
-            if src.name == 'fips.so':
-                continue
             dest = runtime / directory / src.name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(src, dest)

@@ -99,6 +99,21 @@ apply_reclaim() {
     { echo 0 > "$VM_SYSCTL/watermark_boost_factor"; } 2>/dev/null || true
 }
 
+# Transparent huge pages for madvise(MADV_HUGEPAGE) only: the Argon2 memory of
+# password hashing (OpenSSL patch 0017) takes 2 MiB pages, a hash about 140 ms
+# less; other memory keeps 4 KiB pages. Below 512 MiB of RAM the kernel starts
+# with them off. Turning them on raises min_free_kbytes from the kernel's own
+# value (about 2 MB) to 12 MB to keep huge pages free, which takes 26 MB from
+# MemAvailable; the value from before stays, and a huge page that cannot be had
+# falls back to small pages.
+THP=${NANOKVM_THP:-/sys/kernel/mm/transparent_hugepage}
+apply_huge_pages() {
+    grep -q '\[never\]' "$THP/enabled" 2>/dev/null || return 0
+    min_free=$(cat "$VM_SYSCTL/min_free_kbytes") || return 0
+    { echo madvise > "$THP/enabled"; } 2>/dev/null || return 0
+    { echo "$min_free" > "$VM_SYSCTL/min_free_kbytes"; } 2>/dev/null || true
+}
+
 apply_sd() {
     [ ! -L /swapfile ] || fail '/swapfile must not be a symbolic link.'
     if [ "$SD_ENABLED" = 0 ]; then
@@ -134,7 +149,7 @@ save_settings() {
 }
 
 case "${1:-}" in
-    start) apply_zram; apply_sd; apply_reclaim ;;
+    start) apply_zram; apply_sd; apply_reclaim; apply_huge_pages ;;
     stop) disable_device /swapfile; disable_device /dev/zram0; apply_reclaim ;;
     configure)
         # A fifth argument (recompression, gone) from a server from before.

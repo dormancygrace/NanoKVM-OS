@@ -24,10 +24,10 @@ def flags(kind='userspace'):
         raise ValueError('Production GCC kernel requires kernel_lto=none')
     isa_kind = 'userspace' if kind in ('audio', 'openssl', 'smallcore', 'tpu', 'server') else kind
     isa = PROFILE[isa_kind + '_isa']
-    if kind in ('openssl', 'smallcore'):
-        # openssl: no unconditional RVV instructions in general-purpose crypto
-        # code; vectorization/stringop switches alone do not restrict all
-        # expansions. smallcore: the second C906 (C906L) has no vector unit.
+    if kind == 'smallcore':
+        # The second C906 (C906L) has no vector unit. OpenSSL keeps
+        # xtheadvector for its intrinsic code (ML-KEM); compiler vectorization
+        # and vector stringops stay off below.
         isa = '_'.join(part for part in isa.split('_') if part != 'xtheadvector')
     result = [PROFILE.get(kind + '_optimization', PROFILE['optimization']),
               '-march=' + isa,

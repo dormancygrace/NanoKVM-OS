@@ -1,0 +1,365 @@
+diff --git a/crypto/ml_kem/build.info b/crypto/ml_kem/build.info
+--- a/crypto/ml_kem/build.info
++++ b/crypto/ml_kem/build.info
+@@ -1,6 +1,14 @@
+ LIBS = ../../libcrypto
+ 
++$MLKEMASM=
++IF[{- !$disabled{asm} && $target{asm_arch} eq 'riscv64' -}]
++    # NanoKVM OS: C906 vector transforms.
++    $MLKEMASM=ml_kem_c906.c
++    $MLKEMDEF=ML_KEM_C906
++ENDIF
++
+ IF[{- !$disabled{'ml-kem'} -}]
+-    SOURCE[../../libcrypto]=ml_kem.c
++    SOURCE[../../libcrypto]=ml_kem.c $MLKEMASM
++    DEFINE[../../libcrypto]=$MLKEMDEF
+     SOURCE[../../providers/libfips.a]=ml_kem.c
+ ENDIF
+diff --git a/crypto/ml_kem/ml_kem.c b/crypto/ml_kem/ml_kem.c
+--- a/crypto/ml_kem/ml_kem.c
++++ b/crypto/ml_kem/ml_kem.c
+@@ -19,6 +19,15 @@
+ #include <valgrind/memcheck.h>
+ #endif
+ 
++#if defined(ML_KEM_C906)
++/* NanoKVM OS: the transforms and products on the C906 vector unit (ml_kem_c906.c), bit-identical. */
++void ossl_ml_kem_ntt_c906(uint16_t c[256], const uint16_t roots[128]);
++void ossl_ml_kem_inverse_ntt_c906(uint16_t c[256], const uint16_t roots[128],
++    uint16_t inverse_degree);
++void ossl_ml_kem_mult_c906(uint16_t out[256], const uint16_t lhs[256],
++    const uint16_t rhs[256], const uint16_t mod_roots[128], int add);
++#endif
++
+ #if ML_KEM_SEED_BYTES != ML_KEM_SHARED_SECRET_BYTES + ML_KEM_RANDOM_BYTES
+ #error "ML-KEM keygen seed length != shared secret + random bytes length"
+ #endif
+@@ -834,6 +843,9 @@
+  */
+ static void scalar_ntt(scalar *s)
+ {
++#if defined(ML_KEM_C906)
++    ossl_ml_kem_ntt_c906(s->c, kNTTRoots);
++#else
+     const uint16_t *roots = kNTTRoots;
+     uint16_t *end = s->c + DEGREE;
+     int offset = DEGREE / 2;
+@@ -854,6 +866,7 @@
+             } while (curr < pause);
+         } while ((curr = peer) < end);
+     } while ((offset >>= 1) >= 2);
++#endif
+ }
+ 
+ /*-
+@@ -866,6 +879,9 @@
+  */
+ static void scalar_inverse_ntt(scalar *s)
+ {
++#if defined(ML_KEM_C906)
++    ossl_ml_kem_inverse_ntt_c906(s->c, kInverseNTTRoots, kInverseDegree);
++#else
+     const uint16_t *roots = kInverseNTTRoots;
+     uint16_t *end = s->c + DEGREE;
+     int offset = 2;
+@@ -887,6 +903,7 @@
+         } while ((curr = peer) < end);
+     } while ((offset <<= 1) < DEGREE);
+     scalar_mult_const(s, kInverseDegree);
++#endif
+ }
+ 
+ /* Addition updating the LHS scalar in-place. */
+@@ -921,6 +938,9 @@
+ static void scalar_mult(scalar *out, const scalar *lhs,
+     const scalar *rhs)
+ {
++#if defined(ML_KEM_C906)
++    ossl_ml_kem_mult_c906(out->c, lhs->c, rhs->c, kModRoots, 0);
++#else
+     uint16_t *curr = out->c, *end = curr + DEGREE;
+     const uint16_t *lc = lhs->c, *rc = rhs->c;
+     const uint16_t *roots = kModRoots;
+@@ -933,12 +953,16 @@
+         *curr++ = reduce(l0 * r0 + reduce(l1 * r1) * zetapow);
+         *curr++ = reduce(l0 * r1 + l1 * r0);
+     } while (curr < end);
++#endif
+ }
+ 
+ /* Above, but add the result to an existing scalar */
+ static ossl_inline void scalar_mult_add(scalar *out, const scalar *lhs,
+     const scalar *rhs)
+ {
++#if defined(ML_KEM_C906)
++    ossl_ml_kem_mult_c906(out->c, lhs->c, rhs->c, kModRoots, 1);
++#else
+     uint16_t *curr = out->c, *end = curr + DEGREE;
+     const uint16_t *lc = lhs->c, *rc = rhs->c;
+     const uint16_t *roots = kModRoots;
+@@ -953,6 +977,7 @@
+         *c0 = reduce(*c0 + l0 * r0 + reduce(l1 * r1) * zetapow);
+         *c1 = reduce(*c1 + l0 * r1 + l1 * r0);
+     } while (curr < end);
++#endif
+ }
+ 
+ /*-
+diff --git a/crypto/ml_kem/ml_kem_c906.c b/crypto/ml_kem/ml_kem_c906.c
+new file mode 100644
+--- /dev/null
++++ b/crypto/ml_kem/ml_kem_c906.c
+@@ -0,0 +1,251 @@
++/* SPDX-License-Identifier: Apache-2.0 */
++/*
++ * NanoKVM OS: ML-KEM's number theoretic transforms and base-case products on the C906 vector unit (XTheadVector,
++ * VLEN 128) for ml_kem.c, in RVV intrinsics, which GCC compiles to XTheadVector.
++ *
++ * The same arithmetic as the scalar code, so the results are the same bits: coefficients stay reduced (0 to q-1)
++ * after every step. Products of two reduced values are formed in 32-bit lanes (widening multiply) and reduced with
++ * the same Barrett multiplier (x * 5039 >> 24, as the high half of x * (5039 << 8)); reduce_once(x) is
++ * min(x, x - q) on unsigned lanes: below q the difference wraps around and the minimum is x. No branch or table
++ * look-up depends on the data.
++ *
++ * Layers with blocks of 8 or more coefficients run along the block, 16 at a time. In the last two layers a block
++ * has 4 or 2 coefficients and a root of its own, so the blocks are loaded as segments of 16-bit fields (field k
++ * holds coefficient k of each block): the even and odd halves are separate registers and the roots one vector,
++ * 8 or 16 blocks per instruction. All accesses are 16-bit, as the coefficients are aligned.
++ */
++#include <riscv_vector.h>
++#include <stddef.h>
++#include <stdint.h>
++
++#define DEGREE 256
++#define C906_Q 3329u
++#define C906_BARRETT (5039u << 8)
++
++void ossl_ml_kem_ntt_c906(uint16_t c[DEGREE], const uint16_t roots[128]);
++void ossl_ml_kem_inverse_ntt_c906(uint16_t c[DEGREE], const uint16_t roots[128], uint16_t inverse_degree);
++void ossl_ml_kem_mult_c906(uint16_t out[DEGREE], const uint16_t lhs[DEGREE], const uint16_t rhs[DEGREE],
++                           const uint16_t mod_roots[128], int add);
++
++/* reduce(x) for x below 2^25: a product of two reduced values, or such products summed with a reduced value. */
++static inline vuint16m2_t reduce_m4(vuint32m4_t x, size_t vl)
++{
++    vuint32m4_t q = __riscv_vmulhu_vx_u32m4(x, C906_BARRETT, vl);
++
++    x = __riscv_vnmsac_vx_u32m4(x, C906_Q, q, vl);
++    x = __riscv_vminu_vv_u32m4(x, __riscv_vsub_vx_u32m4(x, C906_Q, vl), vl);
++    return __riscv_vnsrl_wx_u16m2(x, 0, vl);
++}
++
++static inline vuint16m1_t reduce_m2(vuint32m2_t x, size_t vl)
++{
++    vuint32m2_t q = __riscv_vmulhu_vx_u32m2(x, C906_BARRETT, vl);
++
++    x = __riscv_vnmsac_vx_u32m2(x, C906_Q, q, vl);
++    x = __riscv_vminu_vv_u32m2(x, __riscv_vsub_vx_u32m2(x, C906_Q, vl), vl);
++    return __riscv_vnsrl_wx_u16m1(x, 0, vl);
++}
++
++/* reduce_once for values below 2q, in 16 bits. */
++static inline vuint16m2_t once_m2(vuint16m2_t x, size_t vl)
++{
++    return __riscv_vminu_vv_u16m2(x, __riscv_vsub_vx_u16m2(x, C906_Q, vl), vl);
++}
++
++static inline vuint16m1_t once_m1(vuint16m1_t x, size_t vl)
++{
++    return __riscv_vminu_vv_u16m1(x, __riscv_vsub_vx_u16m1(x, C906_Q, vl), vl);
++}
++
++/*
++ * Forward butterfly: odd' = reduce(odd * zeta); peer = reduce_once(even - odd' + q); curr = reduce_once(odd' + even).
++ * Inverse butterfly: peer = reduce(zeta * (even - odd + q)); curr = reduce_once(odd + even).
++ */
++#define FWD(M, W, even, odd, zmul, vl)                                                                              \
++    do {                                                                                                            \
++        vuint16##M##_t o_ = reduce_##W(zmul, vl);                                                                   \
++        vuint16##M##_t d_ = __riscv_vadd_vx_u16##M(__riscv_vsub_vv_u16##M(even, o_, vl), C906_Q, vl);               \
++        even = once_##M(__riscv_vadd_vv_u16##M(o_, even, vl), vl);                                                  \
++        odd = once_##M(d_, vl);                                                                                     \
++    } while (0)
++
++#define INV(M, W, even, odd, z, vl)                                                                                 \
++    do {                                                                                                            \
++        vuint16##M##_t d_ = __riscv_vadd_vx_u16##M(__riscv_vsub_vv_u16##M(even, odd, vl), C906_Q, vl);              \
++        even = once_##M(__riscv_vadd_vv_u16##M(odd, even, vl), vl);                                                 \
++        odd = reduce_##W(__riscv_vwmulu_vv_u32##W(d_, z, vl), vl);                                                  \
++    } while (0)
++
++/* One block of a wide layer: n even coefficients at curr, n odd ones at peer, one zeta. */
++static void ntt_block(uint16_t *curr, uint16_t *peer, size_t n, uint16_t zeta)
++{
++    while (n > 0) {
++        size_t vl = __riscv_vsetvl_e16m2(n);
++        vuint16m2_t even = __riscv_vle16_v_u16m2(curr, vl);
++        vuint16m2_t odd = __riscv_vle16_v_u16m2(peer, vl);
++
++        FWD(m2, m4, even, odd, __riscv_vwmulu_vx_u32m4(odd, zeta, vl), vl);
++        __riscv_vse16_v_u16m2(curr, even, vl);
++        __riscv_vse16_v_u16m2(peer, odd, vl);
++        curr += vl;
++        peer += vl;
++        n -= vl;
++    }
++}
++
++static void inverse_ntt_block(uint16_t *curr, uint16_t *peer, size_t n, uint16_t zeta)
++{
++    while (n > 0) {
++        size_t vl = __riscv_vsetvl_e16m2(n);
++        vuint16m2_t even = __riscv_vle16_v_u16m2(curr, vl);
++        vuint16m2_t odd = __riscv_vle16_v_u16m2(peer, vl);
++        vuint16m2_t diff = __riscv_vadd_vx_u16m2(__riscv_vsub_vv_u16m2(even, odd, vl), C906_Q, vl);
++
++        __riscv_vse16_v_u16m2(peer, reduce_m4(__riscv_vwmulu_vx_u32m4(diff, zeta, vl), vl), vl);
++        __riscv_vse16_v_u16m2(curr, once_m2(__riscv_vadd_vv_u16m2(odd, even, vl), vl), vl);
++        curr += vl;
++        peer += vl;
++        n -= vl;
++    }
++}
++
++/* The layer with blocks of 4 even and 4 odd coefficients: 32 blocks, roots[0..31]. */
++static void layer4(uint16_t c[DEGREE], const uint16_t *roots, int inverse)
++{
++    size_t b;
++
++    for (b = 0; b < DEGREE / 8;) {
++        size_t vl = __riscv_vsetvl_e16m1(DEGREE / 8 - b);
++        vuint16m1x8_t s = __riscv_vlseg8e16_v_u16m1x8(c + 8 * b, vl);
++        vuint16m1_t z = __riscv_vle16_v_u16m1(roots + b, vl);
++        vuint16m1_t e0 = __riscv_vget_v_u16m1x8_u16m1(s, 0), e1 = __riscv_vget_v_u16m1x8_u16m1(s, 1);
++        vuint16m1_t e2 = __riscv_vget_v_u16m1x8_u16m1(s, 2), e3 = __riscv_vget_v_u16m1x8_u16m1(s, 3);
++        vuint16m1_t o0 = __riscv_vget_v_u16m1x8_u16m1(s, 4), o1 = __riscv_vget_v_u16m1x8_u16m1(s, 5);
++        vuint16m1_t o2 = __riscv_vget_v_u16m1x8_u16m1(s, 6), o3 = __riscv_vget_v_u16m1x8_u16m1(s, 7);
++
++        if (!inverse) {
++            FWD(m1, m2, e0, o0, __riscv_vwmulu_vv_u32m2(o0, z, vl), vl);
++            FWD(m1, m2, e1, o1, __riscv_vwmulu_vv_u32m2(o1, z, vl), vl);
++            FWD(m1, m2, e2, o2, __riscv_vwmulu_vv_u32m2(o2, z, vl), vl);
++            FWD(m1, m2, e3, o3, __riscv_vwmulu_vv_u32m2(o3, z, vl), vl);
++        } else {
++            INV(m1, m2, e0, o0, z, vl);
++            INV(m1, m2, e1, o1, z, vl);
++            INV(m1, m2, e2, o2, z, vl);
++            INV(m1, m2, e3, o3, z, vl);
++        }
++        s = __riscv_vset_v_u16m1_u16m1x8(s, 0, e0);
++        s = __riscv_vset_v_u16m1_u16m1x8(s, 1, e1);
++        s = __riscv_vset_v_u16m1_u16m1x8(s, 2, e2);
++        s = __riscv_vset_v_u16m1_u16m1x8(s, 3, e3);
++        s = __riscv_vset_v_u16m1_u16m1x8(s, 4, o0);
++        s = __riscv_vset_v_u16m1_u16m1x8(s, 5, o1);
++        s = __riscv_vset_v_u16m1_u16m1x8(s, 6, o2);
++        s = __riscv_vset_v_u16m1_u16m1x8(s, 7, o3);
++        __riscv_vsseg8e16_v_u16m1x8(c + 8 * b, s, vl);
++        b += vl;
++    }
++}
++
++/* The layer with blocks of 2 even and 2 odd coefficients: 64 blocks, roots[0..63]. */
++static void layer2(uint16_t c[DEGREE], const uint16_t *roots, int inverse)
++{
++    size_t b;
++
++    for (b = 0; b < DEGREE / 4;) {
++        size_t vl = __riscv_vsetvl_e16m2(DEGREE / 4 - b);
++        vuint16m2x4_t s = __riscv_vlseg4e16_v_u16m2x4(c + 4 * b, vl);
++        vuint16m2_t z = __riscv_vle16_v_u16m2(roots + b, vl);
++        vuint16m2_t e0 = __riscv_vget_v_u16m2x4_u16m2(s, 0), e1 = __riscv_vget_v_u16m2x4_u16m2(s, 1);
++        vuint16m2_t o0 = __riscv_vget_v_u16m2x4_u16m2(s, 2), o1 = __riscv_vget_v_u16m2x4_u16m2(s, 3);
++
++        if (!inverse) {
++            FWD(m2, m4, e0, o0, __riscv_vwmulu_vv_u32m4(o0, z, vl), vl);
++            FWD(m2, m4, e1, o1, __riscv_vwmulu_vv_u32m4(o1, z, vl), vl);
++        } else {
++            INV(m2, m4, e0, o0, z, vl);
++            INV(m2, m4, e1, o1, z, vl);
++        }
++        s = __riscv_vset_v_u16m2_u16m2x4(s, 0, e0);
++        s = __riscv_vset_v_u16m2_u16m2x4(s, 1, e1);
++        s = __riscv_vset_v_u16m2_u16m2x4(s, 2, o0);
++        s = __riscv_vset_v_u16m2_u16m2x4(s, 3, o1);
++        __riscv_vsseg4e16_v_u16m2x4(c + 4 * b, s, vl);
++        b += vl;
++    }
++}
++
++/* scalar_ntt: roots are kNTTRoots, one per block in the scalar code's order from index 1. */
++void ossl_ml_kem_ntt_c906(uint16_t c[DEGREE], const uint16_t roots[128])
++{
++    const uint16_t *r = roots + 1;
++    size_t offset;
++
++    for (offset = DEGREE / 2; offset >= 8; offset >>= 1) {
++        uint16_t *curr;
++
++        for (curr = c; curr < c + DEGREE; curr += 2 * offset)
++            ntt_block(curr, curr + offset, offset, *r++);
++    }
++    layer4(c, r, 0);
++    layer2(c, r + 32, 0);
++}
++
++/* scalar_inverse_ntt (kInverseNTTRoots), including the final multiplication by inverse_degree. */
++void ossl_ml_kem_inverse_ntt_c906(uint16_t c[DEGREE], const uint16_t roots[128], uint16_t inverse_degree)
++{
++    const uint16_t *r = roots + 1;
++    size_t offset, n;
++    uint16_t *p;
++
++    layer2(c, r, 1);
++    layer4(c, r + 64, 1);
++    r += 96;
++    for (offset = 8; offset < DEGREE; offset <<= 1) {
++        uint16_t *curr;
++
++        for (curr = c; curr < c + DEGREE; curr += 2 * offset)
++            inverse_ntt_block(curr, curr + offset, offset, *r++);
++    }
++    for (p = c, n = DEGREE; n > 0;) {
++        size_t vl = __riscv_vsetvl_e16m2(n);
++        vuint16m2_t x = __riscv_vle16_v_u16m2(p, vl);
++
++        __riscv_vse16_v_u16m2(p, reduce_m4(__riscv_vwmulu_vx_u32m4(x, inverse_degree, vl), vl), vl);
++        p += vl;
++        n -= vl;
++    }
++}
++
++/*
++ * scalar_mult and scalar_mult_add (kModRoots): pairs (l0, l1), (r0, r1) as elements of GF(q)[X]/(X^2 - zeta), one
++ * zeta per pair. out0 = reduce([out0 +] l0 r0 + reduce(l1 r1) zeta), out1 = reduce([out1 +] l0 r1 + l1 r0): the
++ * sums stay below q + 2q^2, where the Barrett step is exact. The pairs are loaded as two 16-bit fields.
++ */
++void ossl_ml_kem_mult_c906(uint16_t out[DEGREE], const uint16_t lhs[DEGREE], const uint16_t rhs[DEGREE],
++                           const uint16_t mod_roots[128], int add)
++{
++    size_t i;
++
++    for (i = 0; i < DEGREE / 2;) {
++        size_t vl = __riscv_vsetvl_e16m2(DEGREE / 2 - i);
++        vuint16m2x2_t l = __riscv_vlseg2e16_v_u16m2x2(lhs + 2 * i, vl);
++        vuint16m2x2_t r = __riscv_vlseg2e16_v_u16m2x2(rhs + 2 * i, vl);
++        vuint16m2_t z = __riscv_vle16_v_u16m2(mod_roots + i, vl);
++        vuint16m2_t l0 = __riscv_vget_v_u16m2x2_u16m2(l, 0), l1 = __riscv_vget_v_u16m2x2_u16m2(l, 1);
++        vuint16m2_t r0 = __riscv_vget_v_u16m2x2_u16m2(r, 0), r1 = __riscv_vget_v_u16m2x2_u16m2(r, 1);
++        vuint16m2_t t = reduce_m4(__riscv_vwmulu_vv_u32m4(l1, r1, vl), vl);
++        vuint32m4_t x0 = __riscv_vwmaccu_vv_u32m4(__riscv_vwmulu_vv_u32m4(l0, r0, vl), t, z, vl);
++        vuint32m4_t x1 = __riscv_vwmaccu_vv_u32m4(__riscv_vwmulu_vv_u32m4(l0, r1, vl), l1, r0, vl);
++        vuint16m2x2_t o;
++
++        if (add) {
++            o = __riscv_vlseg2e16_v_u16m2x2(out + 2 * i, vl);
++            x0 = __riscv_vwaddu_wv_u32m4(x0, __riscv_vget_v_u16m2x2_u16m2(o, 0), vl);
++            x1 = __riscv_vwaddu_wv_u32m4(x1, __riscv_vget_v_u16m2x2_u16m2(o, 1), vl);
++        }
++        o = __riscv_vcreate_v_u16m2x2(reduce_m4(x0, vl), reduce_m4(x1, vl));
++        __riscv_vsseg2e16_v_u16m2x2(out + 2 * i, o, vl);
++        i += vl;
++    }
++}

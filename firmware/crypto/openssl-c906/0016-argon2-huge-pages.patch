@@ -1,0 +1,98 @@
+diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations/kdfs/argon2.c
+--- a/providers/implementations/kdfs/argon2.c
++++ b/providers/implementations/kdfs/argon2.c
+@@ -14,6 +14,10 @@
+ #include <stddef.h>
+ #include <stdarg.h>
+ #include <string.h>
++#if defined(__linux__)
++# include <sys/mman.h>
++# include <unistd.h>
++#endif
+ #include <openssl/e_os2.h>
+ #include <openssl/evp.h>
+ #include <openssl/objects.h>
+@@ -171,6 +175,7 @@
+     uint32_t early_clean;
+     ARGON2_TYPE type;
+     BLOCK *memory;
++    size_t memory_mapped; /* NanoKVM OS: length of its own mapping, or 0 */
+     uint32_t passes;
+     uint32_t memory_blocks;
+     uint32_t segment_length;
+@@ -761,6 +766,50 @@
+     EVP_MD_CTX_destroy(mdctx);
+ }
+ 
++/*
++ * NanoKVM OS: the memory of a hash from its own anonymous mapping, aligned to 2 MiB (a RISC-V Sv39 huge page) and
++ * marked MADV_HUGEPAGE: with transparent huge pages for madvise, its page faults are 2 MiB at a time instead of 4 KiB,
++ * and the pages come zeroed, so there is no memset either. Only when the secure heap is not in use; otherwise, or if
++ * the mapping fails, NULL and the allocation of OpenSSL. Freed like OPENSSL_clear_free: cleansed, then unmapped.
++ */
++static BLOCK *argon2_map_memory(size_t len, size_t *mapped)
++{
++#if defined(__linux__) && defined(MADV_HUGEPAGE)
++    const size_t huge = (size_t)2 << 20;
++    size_t page = (size_t)sysconf(_SC_PAGESIZE), total;
++    char *p, *a;
++
++    *mapped = 0;
++    if (CRYPTO_secure_malloc_initialized() || page == 0 || page > huge
++        || len > SIZE_MAX - 2 * huge)
++        return NULL;
++    len = (len + page - 1) / page * page;
++    total = len + huge;
++    p = mmap(NULL, total, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++    if (p == MAP_FAILED)
++        return NULL;
++    a = (char *)(((uintptr_t)p + huge - 1) & ~(uintptr_t)(huge - 1));
++    if (a > p)
++        munmap(p, (size_t)(a - p));
++    if (p + total > a + len)
++        munmap(a + len, (size_t)(p + total - (a + len)));
++    (void)madvise(a, len, MADV_HUGEPAGE);
++    *mapped = len;
++    return (BLOCK *)a;
++#else
++    *mapped = 0;
++    return NULL;
++#endif
++}
++
++static void argon2_unmap_memory(BLOCK *memory, size_t len, size_t mapped)
++{
++    OPENSSL_cleanse(memory, len);
++#if defined(__linux__)
++    munmap(memory, mapped);
++#endif
++}
++
+ static int initialize(KDF_ARGON2 *ctx)
+ {
+     uint8_t blockhash[ARGON2_PREHASH_SEED_LENGTH];
+@@ -771,7 +820,11 @@
+     if (ctx->memory_blocks * sizeof(BLOCK) / sizeof(BLOCK) != ctx->memory_blocks)
+         return 0;
+ 
+-    if (ctx->type != ARGON2_D)
++    ctx->memory = argon2_map_memory(ctx->memory_blocks * sizeof(BLOCK),
++        &ctx->memory_mapped);
++    if (ctx->memory != NULL)
++        ;
++    else if (ctx->type != ARGON2_D)
+         ctx->memory = OPENSSL_secure_zalloc(ctx->memory_blocks * sizeof(BLOCK));
+     else
+         ctx->memory = OPENSSL_zalloc(ctx->memory_blocks * sizeof(BLOCK));
+@@ -816,7 +869,10 @@
+     OPENSSL_cleanse(blockhash.v, ARGON2_BLOCK_SIZE);
+     OPENSSL_cleanse(blockhash_bytes, ARGON2_BLOCK_SIZE);
+ 
+-    if (ctx->type != ARGON2_D)
++    if (ctx->memory_mapped != 0)
++        argon2_unmap_memory(ctx->memory, ctx->memory_blocks * sizeof(BLOCK),
++            ctx->memory_mapped);
++    else if (ctx->type != ARGON2_D)
+         OPENSSL_secure_clear_free(ctx->memory,
+             ctx->memory_blocks * sizeof(BLOCK));
+     else

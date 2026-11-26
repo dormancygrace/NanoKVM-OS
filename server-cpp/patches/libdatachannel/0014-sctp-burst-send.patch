@@ -10,11 +10,153 @@ so the DATA that several SACKs let out leaves together. usrsctp's own timer thre
 or a heartbeat still leaves at once.
 
 Nothing is sent before the scope ends, and every scope is opened before its lock is taken: the send, and its wait
-for a full socket, run after the SCTP and DTLS locks are released. The layer below tells how many records the
-socket took (sendBatchPrefix). The SCTP stack was already told that all of them were sent, so the ones not taken are
-kept and given again, without the ones taken, until one second after the first shortfall; a transport that cannot
-send any more ends the burst at once. What is given up is counted in UnsentMediaDatagrams and logged.
+for a full socket, run after the SCTP and DTLS locks are released. An open scope collects every record, however
+many: there is no count past which a record is sent at once, under those locks and ahead of the ones collected
+before it. The layer below tells how many records the socket took (sendBatchPrefix). The SCTP stack was already told
+that all of them were sent, so the ones not taken are kept and given again, without the ones taken. The first
+shortfall sets one time, a second later, for the whole burst: every later call is made only before it and may wait
+for the socket only for what is left of it (juice_send_batch_within), so the burst cannot run past it. A transport
+that cannot send any more ends its records at once. What is given up is counted once in UnsentMediaDatagrams and
+logged.
 ---
+--- a/deps/libjuice/include/juice/juice.h
++++ b/deps/libjuice/include/juice/juice.h
+@@ -131,6 +131,9 @@
+ JUICE_EXPORT int juice_send_diffserv(juice_agent_t *agent, const char *data, size_t size, int ds);
+ // Sends count datagrams at once where the transport allows it (one sendmmsg on a direct UDP pair), in order;
+ // returns how many were sent, or a negative error when none was.
++// The same with a bound on the wait for a full socket buffer: at most wait_ms in this call (negative: the default).
++JUICE_EXPORT int juice_send_batch_within(juice_agent_t *agent, const char *const *data, const size_t *sizes,
++                                         int count, int ds, int wait_ms);
+ JUICE_EXPORT int juice_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count,
+                                   int ds);
+ JUICE_EXPORT juice_state_t juice_get_state(juice_agent_t *agent);
+--- a/deps/libjuice/src/agent.c
++++ b/deps/libjuice/src/agent.c
+@@ -693,7 +693,7 @@
+ }
+ 
+ int agent_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count,
+-                     int ds) {
++                     int ds, int wait_ms) {
+ 	agent_stun_entry_t *selected_entry = atomic_load(&agent->selected_entry);
+ 	if (!selected_entry) {
+ 		JLOG_ERROR("Send while ICE is not connected");
+@@ -710,7 +710,7 @@
+ 		}
+ 		return sent;
+ 	}
+-	return conn_send_batch(agent, &selected_entry->record, data, sizes, count, ds);
++	return conn_send_batch(agent, &selected_entry->record, data, sizes, count, ds, wait_ms);
+ }
+ 
+ int agent_direct_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+--- a/deps/libjuice/src/agent.h
++++ b/deps/libjuice/src/agent.h
+@@ -168,7 +168,7 @@
+ int agent_add_turn_server(juice_agent_t *agent, const juice_turn_server_t *turn_server);
+ int agent_set_remote_gathering_done(juice_agent_t *agent);
+ int agent_send(juice_agent_t *agent, const char *data, size_t size, int ds);
+-int agent_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count, int ds);
++int agent_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count, int ds, int wait_ms);
+ int agent_direct_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+                       int ds);
+ int agent_relay_send(juice_agent_t *agent, agent_stun_entry_t *entry, const addr_record_t *dst,
+--- a/deps/libjuice/src/conn.c
++++ b/deps/libjuice/src/conn.c
+@@ -252,11 +252,11 @@
+ }
+ 
+ int conn_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
+-                    const size_t *sizes, int count, int ds) {
++                    const size_t *sizes, int count, int ds, int wait_ms) {
+ 	if (!agent->conn_impl)
+ 		return -1;
+ 	if (agent->config.concurrency_mode == JUICE_CONCURRENCY_MODE_POLL)
+-		return conn_poll_send_batch(agent, dst, data, sizes, count, ds);
++		return conn_poll_send_batch(agent, dst, data, sizes, count, ds, wait_ms);
+ 	int sent = 0;
+ 	for (int i = 0; i < count; ++i) {
+ 		int ret = conn_send(agent, dst, data[i], sizes[i], ds);
+--- a/deps/libjuice/src/conn.h
++++ b/deps/libjuice/src/conn.h
+@@ -62,7 +62,7 @@
+ int conn_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+               int ds);
+ int conn_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
+-                    const size_t *sizes, int count, int ds);
++                    const size_t *sizes, int count, int ds, int wait_ms);
+ void conn_tcp_connect(juice_agent_t *agent, const addr_record_t *dst);
+ int conn_get_addrs(juice_agent_t *agent, addr_record_t *records, size_t size);
+ 
+--- a/deps/libjuice/src/conn_poll.c
++++ b/deps/libjuice/src/conn_poll.c
+@@ -690,7 +690,7 @@
+ }
+ 
+ int conn_poll_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
+-                         const size_t *sizes, int count, int ds) {
++                         const size_t *sizes, int count, int ds, int wait_ms) {
+ 	conn_impl_t *conn_impl = agent->conn_impl;
+ 	if (dst->socktype == SOCK_STREAM) {
+ 		int sent = 0;
+@@ -712,6 +712,8 @@
+ 	}
+ 	int sent = 0, ret = 0;
+ 	timestamp_t deadline = 0;
++	// The caller's bound on this call's wait for a full buffer, or the usual one.
++	const timediff_t budget = wait_ms < 0 ? BatchWaitMs : wait_ms;
+ 	while (sent < count) {
+ 		// Groups for UDP generic segmentation offload: consecutive datagrams of one size, and one shorter after
+ 		// them, go as one message whose payload the stack cuts into segments of that size (UDP_SEGMENT); the
+@@ -769,14 +771,14 @@
+ 		if (r < 0) {
+ 			if (sockerrno == SEINTR)
+ 				continue;
+-			if ((sockerrno == SEAGAIN || sockerrno == SEWOULDBLOCK) && wait_writable(conn_impl->udp_sock, &deadline, BatchWaitMs))
++			if ((sockerrno == SEAGAIN || sockerrno == SEWOULDBLOCK) && wait_writable(conn_impl->udp_sock, &deadline, budget))
+ 				continue;
+ 			ret = -sockerrno;
+ 			break;
+ 		}
+ 		for (int j = 0; j < r; ++j)
+ 			sent += segments[j];
+-		if (r < m && !wait_writable(conn_impl->udp_sock, &deadline, BatchWaitMs)) {
++		if (r < m && !wait_writable(conn_impl->udp_sock, &deadline, budget)) {
+ 			ret = -SEAGAIN; // the socket buffer stayed full
+ 			break;
+ 		}
+--- a/deps/libjuice/src/conn_poll.h
++++ b/deps/libjuice/src/conn_poll.h
+@@ -26,7 +26,7 @@
+ void conn_poll_unlock(juice_agent_t *agent);
+ int conn_poll_interrupt(juice_agent_t *agent);
+ int conn_poll_send_batch(juice_agent_t *agent, const addr_record_t *dst, const char *const *data,
+-                         const size_t *sizes, int count, int ds);
++                         const size_t *sizes, int count, int ds, int wait_ms);
+ int conn_poll_send(juice_agent_t *agent, const addr_record_t *dst, const char *data, size_t size,
+                         int ds);
+ void conn_poll_tcp_connect(juice_agent_t *agent, const addr_record_t *dst);
+--- a/deps/libjuice/src/juice.c
++++ b/deps/libjuice/src/juice.c
+@@ -90,11 +90,16 @@
+ 
+ JUICE_EXPORT int juice_send_batch(juice_agent_t *agent, const char *const *data, const size_t *sizes, int count,
+                                   int ds) {
++	return juice_send_batch_within(agent, data, sizes, count, ds, -1);
++}
++
++JUICE_EXPORT int juice_send_batch_within(juice_agent_t *agent, const char *const *data, const size_t *sizes,
++                                         int count, int ds, int wait_ms) {
+ 	if (!agent || count < 0 || (count && (!data || !sizes)))
+ 		return JUICE_ERR_INVALID;
+ 	if (count == 0)
+ 		return 0;
+-	int ret = agent_send_batch(agent, data, sizes, count, ds);
++	int ret = agent_send_batch(agent, data, sizes, count, ds, wait_ms);
+ 	if (ret > 0)
+ 		return ret;
+ 	if (ret == -SEAGAIN || ret == -SEWOULDBLOCK)
 --- a/src/impl/dtlstransport.cpp
 +++ b/src/impl/dtlstransport.cpp
 @@ -953,6 +953,11 @@
@@ -57,7 +199,7 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
  	return true;
  }
  
-+int IceTransport::sendBatchPrefix(message_vector &messages, size_t from, size_t count) {
++int IceTransport::sendBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs) {
 +	auto s = state();
 +	if (s != State::Connected && s != State::Completed)
 +		return -1;
@@ -73,9 +215,9 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
 +		sizes.push_back(m->size());
 +	}
 +	int ds = int(messages[from]->dscp << 2);
-+	// The datagrams the socket took, a prefix. JUICE_ERR_AGAIN: none, after the bounded wait for a full buffer.
-+	// The caller keeps the others, so nothing is counted as unsent here.
-+	int sent = juice_send_batch(mAgent.get(), data.data(), sizes.data(), int(count), ds);
++	// The datagrams the socket took, a prefix. JUICE_ERR_AGAIN: none, after waiting for a full buffer no longer
++	// than waitMs. The caller keeps the others, so nothing is counted as unsent here.
++	int sent = juice_send_batch_within(mAgent.get(), data.data(), sizes.data(), int(count), ds, waitMs);
 +	if (sent >= 0)
 +		return sent;
 +	return sent == JUICE_ERR_AGAIN ? 0 : -1;
@@ -90,7 +232,7 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
  	bool send(message_ptr message) override; // false if dropped
  #if !USE_NICE
  	bool sendBatch(message_vector &messages) override;
-+	int sendBatchPrefix(message_vector &messages, size_t from, size_t count) override;
++	int sendBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs) override;
  #endif
  
  	bool getSelectedCandidatePair(Candidate *local, Candidate *remote);
@@ -141,7 +283,7 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
  	try {
 --- a/src/impl/transport.cpp
 +++ b/src/impl/transport.cpp
-@@ -7,6 +7,10 @@
+@@ -7,6 +7,11 @@
   */
  
  #include "transport.hpp"
@@ -149,19 +291,26 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
 +
 +#include <algorithm>
 +#include <chrono>
++#include <vector>
  
  namespace rtc::impl {
  
-@@ -104,6 +108,101 @@
+@@ -104,6 +109,111 @@
  	return ret;
  }
  
 +namespace {
 +
++// What one thread has collected: runs of records, each of one transport, in the order they were collected. The
++// run objects are reused, so their vectors keep their capacity from burst to burst.
 +struct Burst {
++	struct Run {
++		Transport *owner = nullptr;
++		message_vector messages;
++	};
 +	int depth = 0;
-+	Transport *owner = nullptr;
-+	message_vector messages;
++	std::vector<Run> runs;
++	size_t used = 0;
 +};
 +
 +thread_local Burst tBurst;
@@ -169,11 +318,8 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
 +// A burst goes to the layer below this many records at a time: the largest batch the UDP send takes in one call is
 +// bounded anyway (UDP_SEGMENT).
 +constexpr size_t maxBurst = 32;
-+// One scope collects at most this many; beyond, a record is sent at once as without a scope. usrsctp emits what its
-+// congestion window allows in one call, far fewer.
-+constexpr size_t maxCollected = 512;
-+// Records the socket did not take are given again until this long after the first shortfall of a burst. Each
-+// attempt already waited in the layer below for the socket to drain.
++// From the first time the socket did not take everything, a burst has this long. It is an absolute time: every
++// later call is made only before it, and is told how long it may still wait for the socket.
 +constexpr auto burstRetry = std::chrono::seconds(1);
 +
 +} // namespace
@@ -188,67 +334,74 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
 +bool Transport::collectBurst(message_ptr &message) {
 +	if (tBurst.depth == 0 || !message)
 +		return false;
-+	// Never sent from here: the caller may hold the SCTP and DTLS locks, and a send can wait for the socket.
-+	if ((tBurst.owner && tBurst.owner != this) || tBurst.messages.size() >= maxCollected)
-+		return false;
-+	tBurst.owner = this;
-+	tBurst.messages.push_back(std::move(message));
++	// Always taken while a scope is open, however many there are already, and never sent from here: the caller
++	// may hold the SCTP and DTLS locks, where a send could wait for the socket, and a record sent now would
++	// overtake the ones collected before it. They are bounded by what the SCTP stack lets out in one scope.
++	if (tBurst.used == 0 || tBurst.runs[tBurst.used - 1].owner != this) {
++		if (tBurst.used == tBurst.runs.size())
++			tBurst.runs.emplace_back();
++		tBurst.runs[tBurst.used++].owner = this;
++	}
++	tBurst.runs[tBurst.used - 1].messages.push_back(std::move(message));
 +	return true;
 +}
 +
 +void Transport::flushBurst() noexcept {
-+	Transport *owner = std::exchange(tBurst.owner, nullptr);
-+	if (!owner || tBurst.messages.empty())
-+		return;
-+	message_vector messages;
-+	messages.swap(tBurst.messages);
-+	// The layer below tells how many records, in order, the socket took. A burst taken in part keeps the others:
++	// The layer below tells how many records, in order, the socket took. A run taken in part keeps the others:
 +	// collectBurst() already told the SCTP stack they were sent, so dropping them here would turn a full socket
-+	// buffer into packet loss. They are given again, without the ones already taken, until burstRetry has passed
-+	// since the first shortfall. A transport that cannot send any more ends the burst at once.
-+	size_t sent = 0;
-+	bool closed = false;
-+	try {
-+		std::chrono::steady_clock::time_point giveUp{};
-+		while (sent < messages.size()) {
-+			size_t count = std::min(maxBurst, messages.size() - sent);
-+			int took = owner->outgoingBatchPrefix(messages, sent, count);
-+			if (took < 0) {
-+				closed = true;
-+				break;
++	// buffer into packet loss. They are given again, without the ones already taken, until the burst's time is
++	// over. A transport that cannot send any more ends its run at once.
++	std::chrono::steady_clock::time_point giveUp{};
++	bool expired = false;
++	size_t used = std::exchange(tBurst.used, 0);
++	for (size_t r = 0; r < used; ++r) {
++		Transport *owner = std::exchange(tBurst.runs[r].owner, nullptr);
++		message_vector &messages = tBurst.runs[r].messages;
++		size_t sent = 0;
++		bool closed = false;
++		try {
++			while (owner && sent < messages.size() && !expired) {
++				int wait = -1; // the layer's own wait, while nothing has fallen short yet
++				if (giveUp != std::chrono::steady_clock::time_point{}) {
++					auto left = std::chrono::duration_cast<std::chrono::milliseconds>(giveUp - std::chrono::steady_clock::now());
++					if (left.count() <= 0) {
++						expired = true;
++						break;
++					}
++					wait = int(left.count());
++				}
++				size_t count = std::min(maxBurst, messages.size() - sent);
++				int took = owner->outgoingBatchPrefix(messages, sent, count, wait);
++				if (took < 0) {
++					closed = true;
++					break;
++				}
++				sent += size_t(took);
++				if (size_t(took) < count && giveUp == std::chrono::steady_clock::time_point{})
++					giveUp = std::chrono::steady_clock::now() + burstRetry;
 +			}
-+			sent += size_t(took);
-+			if (size_t(took) == count)
-+				continue;
-+			auto now = std::chrono::steady_clock::now();
-+			if (giveUp == std::chrono::steady_clock::time_point{})
-+				giveUp = now + burstRetry;
-+			else if (now >= giveUp)
-+				break;
++		} catch (const std::exception &e) {
++			PLOG_WARNING << "Burst send: " << e.what();
 +		}
-+	} catch (const std::exception &e) {
-+		PLOG_WARNING << "Burst send: " << e.what();
++		if (sent < messages.size()) {
++			// Given up, once: these are lost to the peer like packets lost on the way, and counted as not sent.
++			AddUnsentMediaDatagrams(messages.size() - sent);
++			PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
++			             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
++		}
++		messages.clear();
 +	}
-+	if (sent < messages.size()) {
-+		// Given up: these are lost to the peer like packets lost on the way, and counted as not sent.
-+		AddUnsentMediaDatagrams(messages.size() - sent);
-+		PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
-+		             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
-+	}
-+	messages.clear();
-+	if (tBurst.messages.empty())
-+		tBurst.messages.swap(messages); // keeps the capacity for the next burst
 +}
 +
-+int Transport::sendBatchPrefix(message_vector &messages, size_t from, size_t count) {
++int Transport::sendBatchPrefix(message_vector &messages, size_t from, size_t count, int /*waitMs*/) {
 +	size_t taken = 0;
 +	while (taken < count && send(messages[from + taken]))
 +		++taken;
 +	return int(taken);
 +}
 +
-+int Transport::outgoingBatchPrefix(message_vector &messages, size_t from, size_t count) {
-+	return mLower ? mLower->sendBatchPrefix(messages, from, count) : -1;
++int Transport::outgoingBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs) {
++	return mLower ? mLower->sendBatchPrefix(messages, from, count, waitMs) : -1;
 +}
 +
  bool Transport::outgoingBatch(message_vector &messages) {
@@ -256,20 +409,22 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
  		return mLower->sendBatch(messages);
 --- a/src/impl/transport.hpp
 +++ b/src/impl/transport.hpp
-@@ -42,6 +42,23 @@
+@@ -42,6 +42,25 @@
  	virtual bool send(message_ptr message);
  	// Several messages at once (the packets of a frame); by default one send each.
  	virtual bool sendBatch(message_vector &messages);
 +	// The same for count messages from index from, telling how many of them, in order, were taken: fewer than
 +	// count when the layer below stayed full past its own wait (the others were not sent and may be given again),
-+	// -1 when it cannot send at all (closed, failed). By default one send each, up to the first refused.
-+	virtual int sendBatchPrefix(message_vector &messages, size_t from, size_t count);
++	// -1 when it cannot send at all (closed, failed). waitMs is how long it may wait for a full socket in this call
++	// (negative: its usual wait). By default one send each, up to the first refused.
++	virtual int sendBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs);
 +
 +	// While a scope is open on a thread, the datagrams a transport collects with collectBurst() on that thread go to
 +	// its lower transport together when the outermost scope ends, maxBurst per send: the SCTP packets that one call
 +	// into usrsctp emits leave in a few system calls instead of one each. Nothing is sent before the scope ends, so
 +	// a scope opened before a lock is taken sends after it is released, and a wait for a full socket is never
-+	// under that lock. Records the socket did not take are kept and given again for a bounded time.
++	// under that lock. Every record is collected, however many, so they leave in the order they were made. Records
++	// the socket did not take are kept and given again until a fixed time after the first shortfall.
 +	class BurstScope {
 +	public:
 +		BurstScope();
@@ -280,11 +435,11 @@ send any more ends the burst at once. What is given up is counted in UnsentMedia
  
  protected:
  	void recv(message_ptr message);
-@@ -49,6 +66,12 @@
+@@ -49,6 +68,12 @@
  	virtual void incoming(message_ptr message);
  	virtual bool outgoing(message_ptr message);
  	bool outgoingBatch(message_vector &messages);
-+	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count);
++	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs);
 +	// Takes the message into this thread's burst when a BurstScope is open; false: send it now.
 +	bool collectBurst(message_ptr &message);
 +

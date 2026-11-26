@@ -227,14 +227,14 @@ transport for the next ones.
  	std::atomic<bool> mWrittenOnce = false; // same
 --- a/src/impl/transport.cpp
 +++ b/src/impl/transport.cpp
-@@ -187,11 +187,41 @@
- 		PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
- 		             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
+@@ -199,10 +199,41 @@
+ 			PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
+ 			             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
+ 		}
++		if (owner)
++			owner->keepSpare(messages);
+ 		messages.clear();
  	}
-+	owner->keepSpare(messages);
- 	messages.clear();
- 	if (tBurst.messages.empty())
- 		tBurst.messages.swap(messages); // keeps the capacity for the next burst
  }
  
 +message_ptr Transport::spareMessage(const byte *data, size_t size) {
@@ -266,7 +266,7 @@ transport for the next ones.
 +			mSpare[mSpareCount++] = std::move(m);
 +}
 +
- int Transport::sendBatchPrefix(message_vector &messages, size_t from, size_t count) {
+ int Transport::sendBatchPrefix(message_vector &messages, size_t from, size_t count, int /*waitMs*/) {
  	size_t taken = 0;
  	while (taken < count && send(messages[from + taken]))
 --- a/src/impl/transport.hpp
@@ -279,8 +279,8 @@ transport for the next ones.
  #include <atomic>
  #include <functional>
  #include <memory>
-@@ -69,9 +70,19 @@
- 	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count);
+@@ -71,9 +72,19 @@
+ 	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs);
  	// Takes the message into this thread's burst when a BurstScope is open; false: send it now.
  	bool collectBurst(message_ptr &message);
 +	// A binary message holding a copy of the data: one this transport's bursts sent and nobody holds any more, or a

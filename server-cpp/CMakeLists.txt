@@ -237,6 +237,7 @@ add_executable(NanoKVM-Server
   src/video/audio.cpp
   src/video/rtc_common.cpp
   src/video/srtp_frame.cpp
+  src/video/dtls_seal.cpp
   src/video/screen_text.cpp
   src/video/screen_watch.cpp
   src/video/screen_watch_core.cpp

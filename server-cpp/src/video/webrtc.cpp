@@ -14,6 +14,7 @@
 #include "video/hdmi.hpp"
 #include "video/rtc_common.hpp"
 #include "video/source.hpp"
+#include "video/dtls_seal.hpp"
 #include "video/srtp_frame.hpp"
 
 #include <glaze/glaze.hpp>
@@ -692,8 +693,10 @@ void stop()
 
 void add_routes(http::Router &router)
 {
-	// Outbound SRTP of every connection on the CryptoDMA engine, a frame per request.
+	// Outbound SRTP of every connection on the CryptoDMA engine, a frame per request; AES-128-GCM DTLS records of a
+	// data channel's burst likewise (the RustDesk bridge's connections use the same library).
 	srtp_frame::install();
+	dtls_seal::install();
 	rtc::InitLogger(rtc::LogLevel::Warning, [](rtc::LogLevel level, std::string message) {
 		if (level <= rtc::LogLevel::Error) log::error("webrtc: {}", message);
 		else log::debug("webrtc: {}", message);

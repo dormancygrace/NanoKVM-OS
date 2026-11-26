@@ -1,0 +1,335 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] lib: crc32: Chorba for 176 bytes and more
+
+U-Boot checks the kernel and the initramfs of boot.sd with crc32 (FIT
+hashes). Chorba (https://arxiv.org/abs/2412.16398), the small 64-bit
+variant from zlib-ng (zlib licence), does most of the work as shifts and
+XORs of words in registers instead of a table load per byte. On the C906:
+the 6 MB compressed kernel in 16.9 ms instead of 28.4 ms with
+slicing-by-8; inputs shorter than 176 bytes keep slicing-by-8, the tail
+of Chorba uses it too. Host tools and big-endian targets keep the old
+loop.
+
+---
+--- a/lib/crc32.c
++++ b/lib/crc32.c
+@@ -191,6 +191,300 @@
+ 	}
+ 	return (const uint32_t (*)[256])crc_slice;
+ }
++
++/*
++ * Chorba (https://arxiv.org/abs/2412.16398), the small 64-bit variant of
++ * zlib-ng's arch/generic/crc32_chorba_c.c (zlib licence): most of the work is
++ * shifts and XORs of words in registers rather than a table load per byte, about
++ * 1.7 times slicing-by-8 on the C906. crc as crc32() takes it (one's complement),
++ * buf 8-byte aligned. The tail goes through slicing-by-8.
++ *
++ * Adapted from zlib-ng. The upstream notice follows.
++ *
++ * (C) 1995-2024 Jean-loup Gailly and Mark Adler
++ *
++ * This software is provided 'as-is', without any express or implied
++ * warranty. In no event will the authors be held liable for any damages
++ * arising from the use of this software.
++ *
++ * Permission is granted to anyone to use this software for any purpose,
++ * including commercial applications, and to alter it and redistribute it
++ * freely, subject to the following restrictions:
++ *
++ * 1. The origin of this software must not be misrepresented; you must not
++ *    claim that you wrote the original software. If you use this software
++ *    in a product, an acknowledgment in the product documentation would be
++ *    appreciated but is not required.
++ *
++ * 2. Altered source versions must be plainly marked as such, and must not be
++ *    misrepresented as being the original software.
++ *
++ * 3. This notice may not be removed or altered from any source distribution.
++ */
++static uint32_t crc32_slice8(uint32_t crc, const uint8_t *buf, size_t len)
++{
++	const uint32_t (*t)[256] = crc_slice_table();
++
++	crc = ~crc;
++	for (; len >= 8; len -= 8, buf += 8) {
++		uint64_t w;
++
++		__builtin_memcpy(&w, buf, sizeof(w));
++		w ^= crc;
++		crc = t[7][w & 255] ^ t[6][(w >> 8) & 255] ^
++		      t[5][(w >> 16) & 255] ^ t[4][(w >> 24) & 255] ^
++		      t[3][(w >> 32) & 255] ^ t[2][(w >> 40) & 255] ^
++		      t[1][(w >> 48) & 255] ^ t[0][w >> 56];
++	}
++	while (len--)
++		crc = t[0][(crc ^ *buf++) & 255] ^ (crc >> 8);
++	return ~crc;
++}
++
++#define NEXT_ROUND(invec, a, b, c, d) \
++    do { \
++        a = ((invec) << 17) ^ ((invec) << 55); \
++        b = ((invec) >> 47) ^ ((invec) >> 9) ^ ((invec) << 19); \
++        c = ((invec) >> 45) ^ ((invec) << 44); \
++        d = (invec) >> 20; \
++    } while (0)
++
++#define ACCUM_ROUND(n1, n2, n3, n4, n5) \
++    do { \
++        n1 = n5 ^ (a3 ^ b2 ^ c1); \
++        n2 = a4 ^ b3 ^ c2 ^ d1; \
++        n3 = b4 ^ c3 ^ d2; \
++        n4 = c4 ^ d3; \
++        n5 = d4; \
++    } while (0)
++
++static uint32_t crc32_chorba_small(uint32_t crc, const uint8_t *buf, size_t len) {
++    /* The calling function ensured that this is aligned correctly */
++    const uint64_t* input = (const uint64_t*)buf;
++    uint64_t final[9] = {0};
++    uint64_t next1 = ~crc;
++    crc = 0;
++    uint64_t next2 = 0;
++    uint64_t next3 = 0;
++    uint64_t next4 = 0;
++    uint64_t next5 = 0;
++
++    size_t i = 0;
++
++    /* This is weird, doing for vs while drops 10% off the exec time */
++    for (; (i + 256 + 40 + 32 + 32) < len; i += 32) {
++        uint64_t in1;
++        uint64_t in2;
++        uint64_t in3;
++        uint64_t in4;
++        uint64_t a1, a2, a3, a4;
++        uint64_t b1, b2, b3, b4;
++        uint64_t c1, c2, c3, c4;
++        uint64_t d1, d2, d3, d4;
++
++
++        uint64_t chorba1 = (input[i / sizeof(uint64_t)]) ^ next1;
++        uint64_t chorba2 = (input[i / sizeof(uint64_t) + 1]) ^ next2;
++        uint64_t chorba3 = (input[i / sizeof(uint64_t) + 2]) ^ next3;
++        uint64_t chorba4 = (input[i / sizeof(uint64_t) + 3]) ^ next4;
++        uint64_t chorba5 = (input[i / sizeof(uint64_t) + 4]) ^ next5;
++        uint64_t chorba6 = (input[i / sizeof(uint64_t) + 5]);
++        uint64_t chorba7 = (input[i / sizeof(uint64_t) + 6]) ^ chorba1;
++        uint64_t chorba8 = (input[i / sizeof(uint64_t) + 7]) ^ chorba2;
++
++        i += 8 * 8;
++
++        /* 0-3 */
++        in1 = (input[i / sizeof(uint64_t)]) ^ chorba3;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ chorba4 ^ chorba1;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ a1 ^ chorba5 ^ chorba2 ^ chorba1;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ a2 ^ b1 ^ chorba6 ^ chorba3 ^ chorba2;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        /* chorba5 already consumed next5, clear it so ACCUM_ROUND
++           does not xor the stale value into next1 */
++        next5 = 0;
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++
++        i += 32;
++
++        /* 4-7 */
++        in1 = (input[i / sizeof(uint64_t)]) ^ next1 ^ chorba7 ^ chorba4 ^ chorba3;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ next2 ^ chorba8 ^ chorba5 ^ chorba4;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ next3 ^ a1 ^ chorba6 ^ chorba5;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ next4 ^ a2 ^ b1 ^ chorba7 ^ chorba6;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++
++        i += 32;
++
++        /* 8-11 */
++        in1 = (input[i / sizeof(uint64_t)]) ^ next1 ^ chorba8 ^ chorba7 ^ chorba1;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ next2 ^ chorba8 ^ chorba2;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ next3 ^ a1 ^ chorba3;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ next4 ^ a2 ^ b1 ^ chorba4;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++
++        i += 32;
++
++        /* 12-15 */
++        in1 = (input[i / sizeof(uint64_t)]) ^ next1 ^ chorba5 ^ chorba1;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ next2 ^ chorba6 ^ chorba2 ^ chorba1;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ next3 ^ a1 ^ chorba7 ^ chorba3 ^ chorba2 ^ chorba1;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ next4 ^ a2 ^ b1 ^ chorba8 ^ chorba4 ^ chorba3 ^ chorba2;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++
++        i += 32;
++
++        /* 16-19 */
++        in1 = (input[i / sizeof(uint64_t)]) ^ next1 ^ chorba5 ^ chorba4 ^ chorba3 ^ chorba1;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ next2 ^ chorba6 ^ chorba5 ^ chorba4 ^ chorba1 ^ chorba2;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ next3 ^ a1 ^ chorba7 ^ chorba6 ^ chorba5 ^ chorba2 ^ chorba3;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ next4 ^ a2 ^ b1 ^ chorba8 ^ chorba7 ^ chorba6 ^ chorba3 ^ chorba4 ^ chorba1;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++
++        i += 32;
++
++        /* 20-23 */
++        in1 = (input[i / sizeof(uint64_t)]) ^ next1 ^ chorba8 ^ chorba7 ^ chorba4 ^ chorba5 ^ chorba2 ^ chorba1;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ next2 ^ chorba8 ^ chorba5 ^ chorba6 ^ chorba3 ^ chorba2;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ next3 ^ a1 ^ chorba7 ^ chorba6 ^ chorba4 ^ chorba3 ^ chorba1;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ next4 ^ a2 ^ b1 ^ chorba8 ^ chorba7 ^ chorba5 ^ chorba4 ^ chorba2 ^ chorba1;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++
++        i += 32;
++
++        /* 24-27 */
++        in1 = (input[i / sizeof(uint64_t)]) ^ next1 ^ chorba8 ^ chorba6 ^ chorba5 ^ chorba3 ^ chorba2 ^ chorba1;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ next2 ^ chorba7 ^ chorba6 ^ chorba4 ^ chorba3 ^ chorba2;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ next3 ^ a1 ^ chorba8 ^ chorba7 ^ chorba5 ^ chorba4 ^ chorba3;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ next4 ^ a2 ^ b1 ^ chorba8 ^ chorba6 ^ chorba5 ^ chorba4;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++
++        i += 32;
++
++        /* 28-31 */
++        in1 = (input[i / sizeof(uint64_t)]) ^ next1 ^ chorba7 ^ chorba6 ^ chorba5;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ next2 ^ chorba8 ^ chorba7 ^ chorba6;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ next3 ^ a1 ^ chorba8 ^ chorba7;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ next4 ^ a2 ^ b1 ^ chorba8;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++    }
++
++    for (; (i + 40 + 32) < len; i += 32) {
++        uint64_t in1;
++        uint64_t in2;
++        uint64_t in3;
++        uint64_t in4;
++        uint64_t a1, a2, a3, a4;
++        uint64_t b1, b2, b3, b4;
++        uint64_t c1, c2, c3, c4;
++        uint64_t d1, d2, d3, d4;
++
++
++        in1 = (input[i / sizeof(uint64_t)]) ^ next1;
++        in2 = (input[i / sizeof(uint64_t) + 1]) ^ next2;
++
++        NEXT_ROUND(in1, a1, a2, a3, a4);
++
++        NEXT_ROUND(in2, b1, b2, b3, b4);
++
++        in3 = (input[i / sizeof(uint64_t) + 2]) ^ next3 ^ a1;
++        in4 = (input[i / sizeof(uint64_t) + 3]) ^ next4 ^ a2 ^ b1;
++
++        NEXT_ROUND(in3, c1, c2, c3, c4);
++
++        NEXT_ROUND(in4, d1, d2, d3, d4);
++
++        ACCUM_ROUND(next1, next2, next3, next4, next5);
++    }
++
++    __builtin_memcpy(final, input+(i / sizeof(uint64_t)), len-i);
++    final[0] ^= (next1);
++    final[1] ^= (next2);
++    final[2] ^= (next3);
++    final[3] ^= (next4);
++    final[4] ^= (next5);
++
++    return crc32_slice8(~crc, (uint8_t *)final, len - i);
++}
+ #endif
+ 
+ /* ========================================================================= */
+@@ -232,6 +526,18 @@
+ 
+ #if __BYTE_ORDER == __LITTLE_ENDIAN && !defined(USE_HOSTCC)
+     /*
++     * From 176 bytes on (the length where it overtakes slicing-by-8 on the
++     * C906), Chorba from an 8-byte boundary: the kernel and initramfs of
++     * boot.sd are checked in about 60 % of the time.
++     */
++    if (len >= 176) {
++	 const uint8_t *p = (const uint8_t *)b;
++
++	 for (; ((long)p) & 7; len--)
++	      DO_CRC(*p++);
++	 return le32_to_cpu(~crc32_chorba_small(~crc, p, len));
++    }
++    /*
+      * Slicing-by-8: eight bytes per step through eight tables, built once
+      * from crc_table (8 KiB of BSS rather than of the image, which the boot
+      * ROM reads). About 3x the byte-table loop on the C906: FIT images are

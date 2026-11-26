@@ -7,7 +7,7 @@ optimization level.
 | --- | --- | --- |
 | Linux and matching modules, including UAC | GCC 16.2, -O3, thead-c906, lp64 | Compiler vectorization off; LTO off |
 | Media libraries, MMF/capture, JSON/miniz and kvm_system | GCC 16.2, -O2, thead-c906, lp64d | Compiler vectorization off |
-| NanoKVM-Server and its helpers (server-cpp), with libdatachannel, libwebsockets, curl, libjpeg-turbo, libspng and live555 | GCC 16.2, -O3 server profile, thead-c906, lp64d | Compiler vectorization off |
+| NanoKVM-Server and its helpers (server-cpp), with libdatachannel, libwebsockets, libjpeg-turbo, libspng and live555 | GCC 16.2, -O3 server profile, thead-c906, lp64d | Compiler vectorization off. The build uses the same profile for its link-time copy of libcurl. The device loads Alpine’s libcurl.so.4. |
 | Source-owned network tools and private musl | GCC -O2 source profile | Compiler vectorization off |
 | BusyBox of the initramfs | GCC -Oz (BusyBox's own Makefile.flags comes after the profile) | Compiler vectorization off |
 | tinyalsa and usb-audio-capture | GCC -O2 audio profile | Compiler vectorization off |

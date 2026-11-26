@@ -1,0 +1,151 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: The SCTP packets of one usrsctp call leave in one batched send
+
+usrsctp hands each packet to the write callback on its own, and each became one DTLS record and one sendto: a data
+channel at full rate spent a fifth of its CPU in those system calls. While a BurstScope is open on a thread,
+DtlsTransport collects its records there, and the outermost scope sends them through sendBatch (juice_send_batch,
+UDP_SEGMENT), every 32 at the latest. SctpTransport opens a scope around each call into usrsctp that sends: a send,
+a flush, and the input of a received packet (a SACK lets the next DATA out). usrsctp's own timer thread opens none,
+so a retransmission or a heartbeat still leaves at once. The burst is sent after the send lock is released.
+UnsentMediaDatagrams now also counts the datagrams of such bursts that the socket did not take.
+---
+--- a/src/impl/dtlstransport.cpp
++++ b/src/impl/dtlstransport.cpp
+@@ -953,6 +953,11 @@ void DtlsTransport::incoming(message_ptr message) {
+ bool DtlsTransport::outgoing(message_ptr message) {
+ 	message->dscp = mCurrentDscp;
+ 
++	if (collectBurst(message)) {
++		mOutgoingResult = true;
++		return true;
++	}
++
+ 	bool result = Transport::outgoing(std::move(message));
+ 	mOutgoingResult = result;
+ 	return result;
+--- a/src/impl/sctptransport.cpp
++++ b/src/impl/sctptransport.cpp
+@@ -372,6 +372,7 @@ void SctpTransport::connect() {
+ }
+ 
+ bool SctpTransport::send(message_ptr message) {
++	BurstScope burst; // ends after the lock: the burst leaves outside it
+ 	std::lock_guard lock(mSendMutex);
+ 	if (state() != State::Connected)
+ 		return false;
+@@ -395,6 +396,7 @@ bool SctpTransport::send(message_ptr message) {
+ 
+ bool SctpTransport::flush() {
+ 	try {
++		BurstScope burst;
+ 		std::lock_guard lock(mSendMutex);
+ 		if (state() != State::Connected)
+ 			return false;
+@@ -464,6 +466,8 @@ void SctpTransport::incoming(message_ptr message) {
+ 
+ 	PLOG_VERBOSE << "Incoming size=" << message->size();
+ 
++	// A SACK opens the window: the DATA it lets out, and the SACK of incoming data, leave as one burst.
++	BurstScope burst;
+ 	usrsctp_conninput(this, message->data(), message->size(), 0);
+ }
+ 
+@@ -538,6 +542,7 @@ void SctpTransport::doRecv() {
+ }
+ 
+ void SctpTransport::doFlush() {
++	BurstScope burst;
+ 	std::lock_guard lock(mSendMutex);
+ 	--mPendingFlushCount;
+ 	try {
+--- a/src/impl/transport.cpp
++++ b/src/impl/transport.cpp
+@@ -104,6 +104,57 @@ bool Transport::sendBatch(message_vector &messages) {
+ 	return ret;
+ }
+ 
++namespace {
++
++struct Burst {
++	int depth = 0;
++	Transport *owner = nullptr;
++	message_vector messages;
++};
++
++thread_local Burst tBurst;
++
++// A burst is cut here: the largest batch the UDP send takes in one call is bounded anyway (UDP_SEGMENT), and a
++// longer wait would only delay the first packets.
++constexpr size_t maxBurst = 32;
++
++} // namespace
++
++Transport::BurstScope::BurstScope() { ++tBurst.depth; }
++
++Transport::BurstScope::~BurstScope() {
++	if (--tBurst.depth == 0)
++		Transport::flushBurst();
++}
++
++bool Transport::collectBurst(message_ptr &message) {
++	if (tBurst.depth == 0 || !message)
++		return false;
++	if (tBurst.owner && tBurst.owner != this)
++		flushBurst();
++	tBurst.owner = this;
++	tBurst.messages.push_back(std::move(message));
++	if (tBurst.messages.size() >= maxBurst)
++		flushBurst();
++	return true;
++}
++
++void Transport::flushBurst() noexcept {
++	Transport *owner = std::exchange(tBurst.owner, nullptr);
++	if (!owner || tBurst.messages.empty())
++		return;
++	message_vector messages;
++	messages.swap(tBurst.messages);
++	try {
++		owner->outgoingBatch(messages);
++	} catch (const std::exception &e) {
++		PLOG_WARNING << "Burst send: " << e.what();
++	}
++	messages.clear();
++	if (tBurst.messages.empty())
++		tBurst.messages.swap(messages); // keeps the capacity for the next burst
++}
++
+ bool Transport::outgoingBatch(message_vector &messages) {
+ 	if (mLower)
+ 		return mLower->sendBatch(messages);
+--- a/src/impl/transport.hpp
++++ b/src/impl/transport.hpp
+@@ -43,12 +43,28 @@ public:
+ 	// Several messages at once (the packets of a frame); by default one send each.
+ 	virtual bool sendBatch(message_vector &messages);
+ 
++	// While a scope is open on a thread, the datagrams a transport collects with collectBurst() on that thread go to
++	// its lower transport together, as one sendBatch(), when the outermost scope ends (or every maxBurst of them):
++	// the SCTP packets that one call into usrsctp emits leave in one system call instead of one each.
++	class BurstScope {
++	public:
++		BurstScope();
++		~BurstScope();
++		BurstScope(const BurstScope &) = delete;
++		BurstScope &operator=(const BurstScope &) = delete;
++	};
++
+ protected:
+ 	void recv(message_ptr message);
+ 	void changeState(State state);
+ 	virtual void incoming(message_ptr message);
+ 	virtual bool outgoing(message_ptr message);
+ 	bool outgoingBatch(message_vector &messages);
++	// Takes the message into this thread's burst when a BurstScope is open; false: send it now.
++	bool collectBurst(message_ptr &message);
++
++private:
++	static void flushBurst() noexcept;
+ 
+ private:
+ 	const init_token mInitToken = Init::Instance().token();

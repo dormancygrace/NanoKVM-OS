@@ -1,0 +1,467 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: DTLS 1.2 AES-128-GCM records sealed by the transport, a burst's together
+
+OpenSSL seals each application record on its own: one request to the crypto engine, GHASH on the CPU and its record
+layer around them, about a quarter of a data channel's CPU at full rate. With a DtlsRecordSealer installed
+(rtc::SetDtlsRecordSealer), a DTLS 1.2 connection that negotiated ECDHE-ECDSA- or ECDHE-RSA-AES128-GCM-SHA256
+derives its write key and salt from the session (RFC 5246 key expansion) and proves them: one of OpenSSL's own
+application records must open with them, or OpenSSL keeps every record. Once the peer's first application record
+has arrived, so OpenSSL no longer resends its Finished, the transport builds the records itself, numbering on from
+the last one OpenSSL wrote; the takeover happens under the SSL lock, so no SSL_write is under way. A burst's records
+(BurstScope) are numbered, sealed by the sealer in one call and handed down under one lock, so their order on the
+wire is the order of their numbers; a record outside a burst goes the same way alone. Records the sealer does not
+take are sealed with EVP. Renegotiation is off already (SSL_OP_NO_RENEGOTIATION); OpenSSL's close_notify after the
+takeover carries an old sequence number and is ignored by the peer. Other suites, DTLS versions and TLS libraries
+are unchanged.
+---
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -123,6 +123,7 @@ set(LIBDATACHANNEL_HEADERS
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/rtp.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/track.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/srtpprotector.hpp
++	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/dtlsrecordsealer.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/websocket.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/websocketserver.hpp
+ 	${CMAKE_CURRENT_SOURCE_DIR}/include/rtc/rtppacketizationconfig.hpp
+--- /dev/null
++++ b/include/rtc/dtlsrecordsealer.hpp
+@@ -0,0 +1,38 @@
++/**
++ * A sealer of DTLS 1.2 AES-128-GCM records, installed for the whole process: a crypto engine encrypts the records of
++ * a data channel's burst in one request instead of one each.
++ */
++
++#ifndef RTC_DTLS_RECORD_SEALER_H
++#define RTC_DTLS_RECORD_SEALER_H
++
++#include "common.hpp"
++
++#include <cstddef>
++#include <cstdint>
++#include <memory>
++
++namespace rtc {
++
++struct DtlsSealRecord {
++	uint8_t nonce[12];
++	uint8_t aad[13];
++	uint8_t *data; // length bytes encrypted in place, then the 16-byte tag written after them
++	size_t length;
++};
++
++class RTC_CPP_EXPORT DtlsRecordSealer {
++public:
++	virtual ~DtlsRecordSealer() = default;
++	// Seals records with the 16-byte key, in order, and returns how many it sealed; the data of the others is
++	// unchanged, and the transport seals them in software.
++	virtual size_t seal(const uint8_t *key, DtlsSealRecord *records, size_t count) = 0;
++};
++
++// With a sealer installed, a DTLS 1.2 connection that negotiated AES-128-GCM seals its own application records once
++// its keys are proven; nullptr leaves every record to OpenSSL.
++RTC_CPP_EXPORT void SetDtlsRecordSealer(std::shared_ptr<DtlsRecordSealer> sealer);
++
++} // namespace rtc
++
++#endif
+--- a/include/rtc/rtc.hpp
++++ b/include/rtc/rtc.hpp
+@@ -17,6 +17,7 @@
+ #include "peerconnection.hpp"
+ #include "track.hpp"
+ #include "srtpprotector.hpp"
++#include "dtlsrecordsealer.hpp"
+ #include "iceudpmuxlistener.hpp"
+ 
+ #if RTC_ENABLE_WEBSOCKET
+--- a/src/impl/dtlstransport.cpp
++++ b/src/impl/dtlstransport.cpp
+@@ -17,6 +17,13 @@
+ #include <cstring>
+ #include <exception>
+ 
++#include "rtc/dtlsrecordsealer.hpp"
++
++#if !USE_GNUTLS && !USE_MBEDTLS
++#include <openssl/core_names.h>
++#include <openssl/kdf.h>
++#endif
++
+ #if !USE_GNUTLS
+ #ifdef _WIN32
+ #include <winsock2.h> // for timeval
+@@ -32,6 +39,14 @@ namespace {
+ std::mutex dtlsCipherListMutex;
+ std::string dtlsCipherList;
+ 
++std::mutex recordSealerMutex;
++std::shared_ptr<rtc::DtlsRecordSealer> recordSealer;
++
++std::shared_ptr<rtc::DtlsRecordSealer> currentRecordSealer() {
++	std::lock_guard lock(recordSealerMutex);
++	return recordSealer;
++}
++
+ } // namespace
+ 
+ namespace rtc {
+@@ -41,6 +56,11 @@ void SetDtlsCipherList(string list) {
+ 	dtlsCipherList = std::move(list);
+ }
+ 
++void SetDtlsRecordSealer(std::shared_ptr<DtlsRecordSealer> sealer) {
++	std::lock_guard lock(recordSealerMutex);
++	recordSealer = std::move(sealer);
++}
++
+ } // namespace rtc
+ 
+ namespace rtc::impl {
+@@ -923,7 +943,12 @@ bool DtlsTransport::send(message_ptr message) {
+ 
+ 	int ret, err;
+ 	{
+-		std::lock_guard lock(mSslMutex);
++		std::unique_lock lock(mSslMutex);
++		// Decided under the SSL lock, so no SSL_write is under way when the transport takes over the numbering.
++		if (sealTakeover()) {
++			lock.unlock();
++			return sendSealed(message);
++		}
+ 		mCurrentDscp = message->dscp;
+ 		ret = SSL_write(mSsl, message->data(), int(message->size()));
+ 		err = SSL_get_error(mSsl, ret);
+@@ -1018,6 +1043,7 @@ void DtlsTransport::doRecv() {
+ 					{
+ 						std::lock_guard lock(mSslMutex);
+ 						SSL_set_mtu(mSsl, bufferSize + 1);
++						setupSealer();
+ 					}
+ 
+ 					PLOG_INFO << "DTLS handshake finished";
+@@ -1041,8 +1067,11 @@ void DtlsTransport::doRecv() {
+ 					break;
+ 				}
+ 
+-				if (openssl::check_error(err))
++				if (openssl::check_error(err)) {
++					if (ret > 0)
++						mPeerApplicationData = true;
+ 					recv(make_message(buffer, buffer + ret));
++				}
+ 			}
+ 		}
+ 
+@@ -1130,6 +1159,217 @@ int DtlsTransport::BioMethodFree(BIO *bio) {
+ 	return 1;
+ }
+ 
++namespace {
++
++constexpr size_t RecordHeader = 13, ExplicitNonce = 8, GcmTag = 16;
++constexpr unsigned int UnsealedRecord = 0xFFFFFFFF; // Message::stream of a record built here, still to be sealed
++
++uint64_t loadBe48(const uint8_t *p) {
++	uint64_t v = 0;
++	for (int i = 0; i < 6; i++)
++		v = (v << 8) | p[i];
++	return v;
++}
++
++void storeBe48(uint8_t *p, uint64_t v) {
++	for (int i = 5; i >= 0; i--, v >>= 8)
++		p[i] = uint8_t(v);
++}
++
++// AES-128-GCM in software, in place: the fallback, and the proof of the derived keys.
++bool gcm128(bool encrypt, const uint8_t *key, const uint8_t *nonce, const uint8_t *aad, size_t aadLength,
++            uint8_t *data, size_t length, uint8_t *tag) {
++	EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
++	if (!ctx)
++		return false;
++	int n = 0;
++	bool ok = (encrypt ? EVP_EncryptInit_ex(ctx, EVP_aes_128_gcm(), nullptr, key, nonce)
++	                   : EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), nullptr, key, nonce)) == 1;
++	ok = ok && (encrypt ? EVP_EncryptUpdate(ctx, nullptr, &n, aad, int(aadLength))
++	                    : EVP_DecryptUpdate(ctx, nullptr, &n, aad, int(aadLength))) == 1;
++	ok = ok && (encrypt ? EVP_EncryptUpdate(ctx, data, &n, data, int(length))
++	                    : EVP_DecryptUpdate(ctx, data, &n, data, int(length))) == 1;
++	if (ok && !encrypt)
++		ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, int(GcmTag), tag) == 1;
++	ok = ok && (encrypt ? EVP_EncryptFinal_ex(ctx, data + n, &n) : EVP_DecryptFinal_ex(ctx, data + n, &n)) == 1;
++	if (ok && encrypt)
++		ok = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, int(GcmTag), tag) == 1;
++	EVP_CIPHER_CTX_free(ctx);
++	return ok;
++}
++
++} // namespace
++
++void DtlsTransport::setupSealer() {
++	// Called with mSslMutex held.
++	if (!currentRecordSealer() || SSL_version(mSsl) != DTLS1_2_VERSION)
++		return;
++	const SSL_CIPHER *cipher = SSL_get_current_cipher(mSsl);
++	// TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 and TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
++	uint32_t id = cipher ? (SSL_CIPHER_get_id(cipher) & 0xFFFF) : 0;
++	if (id != 0xC02B && id != 0xC02F)
++		return;
++
++	// RFC 5246 6.3: key_block = PRF(master_secret, "key expansion", server_random + client_random), for this suite
++	// client_write_key[16], server_write_key[16], client_write_IV[4], server_write_IV[4].
++	uint8_t master[SSL_MAX_MASTER_KEY_LENGTH], seed[13 + 64], block[40];
++	size_t masterLength = SSL_SESSION_get_master_key(SSL_get_session(mSsl), master, sizeof(master));
++	std::memcpy(seed, "key expansion", 13);
++	if (masterLength == 0 || SSL_get_server_random(mSsl, seed + 13, 32) != 32 ||
++	    SSL_get_client_random(mSsl, seed + 45, 32) != 32)
++		return;
++	EVP_KDF *kdf = EVP_KDF_fetch(nullptr, "TLS1-PRF", nullptr);
++	EVP_KDF_CTX *kctx = kdf ? EVP_KDF_CTX_new(kdf) : nullptr;
++	char digest[] = "SHA256";
++	OSSL_PARAM params[] = {
++	    OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_DIGEST, digest, 0),
++	    OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SECRET, master, masterLength),
++	    OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SEED, seed, sizeof(seed)),
++	    OSSL_PARAM_construct_end()};
++	bool ok = kctx && EVP_KDF_derive(kctx, block, sizeof(block), params) == 1;
++	EVP_KDF_CTX_free(kctx);
++	EVP_KDF_free(kdf);
++	OPENSSL_cleanse(master, sizeof(master));
++	if (!ok)
++		return;
++
++	bool server = SSL_is_server(mSsl) == 1;
++	std::lock_guard lock(mSealMutex);
++	std::memcpy(mSealKey, block + (server ? 16 : 0), 16);
++	std::memcpy(mSealSalt, block + 32 + (server ? 4 : 0), 4);
++	OPENSSL_cleanse(block, sizeof(block));
++	mSealState = SealState::Proving;
++	PLOG_DEBUG << "DTLS records: keys derived, waiting for proof";
++}
++
++void DtlsTransport::watchOutgoing(const byte *data, size_t size) {
++	// Called with mSslMutex held, for every datagram OpenSSL writes.
++	std::lock_guard lock(mSealMutex);
++	if (mSealState != SealState::Proving && mSealState != SealState::Proven)
++		return;
++	auto p = reinterpret_cast<const uint8_t *>(data);
++	for (size_t offset = 0; offset + RecordHeader <= size;) {
++		const uint8_t *r = p + offset;
++		size_t length = (size_t(r[11]) << 8) | r[12];
++		if (offset + RecordHeader + length > size)
++			break;
++		uint16_t epoch = uint16_t((r[3] << 8) | r[4]);
++		uint64_t seq = loadBe48(r + 5);
++		if (r[0] == 23 && !mSealEpochKnown) { // the first application record fixes the epoch
++			mSealEpoch = epoch;
++			mSealEpochKnown = true;
++		}
++		if (mSealEpochKnown && epoch == mSealEpoch) {
++			mSealLastSeq = std::max(mSealLastSeq, seq);
++			if (mSealState == SealState::Proving && r[0] == 23 && length > ExplicitNonce + GcmTag) {
++				// The proof: this record opens with the derived key.
++				size_t plain = length - ExplicitNonce - GcmTag;
++				std::vector<uint8_t> copy(r + RecordHeader + ExplicitNonce, r + RecordHeader + length);
++				uint8_t nonce[12], aad[13], tag[GcmTag];
++				std::memcpy(nonce, mSealSalt, 4);
++				std::memcpy(nonce + 4, r + RecordHeader, ExplicitNonce);
++				std::memcpy(aad, r + 3, 8);
++				aad[8] = r[0];
++				aad[9] = r[1];
++				aad[10] = r[2];
++				aad[11] = uint8_t(plain >> 8);
++				aad[12] = uint8_t(plain);
++				std::memcpy(tag, copy.data() + plain, GcmTag);
++				if (gcm128(false, mSealKey, nonce, aad, sizeof(aad), copy.data(), plain, tag)) {
++					mSealState = SealState::Proven;
++					PLOG_DEBUG << "DTLS records: keys proven";
++				} else {
++					mSealState = SealState::Off;
++					PLOG_WARNING << "DTLS records: derived keys do not open OpenSSL's record, left to OpenSSL";
++				}
++			}
++		}
++		offset += RecordHeader + length;
++	}
++}
++
++bool DtlsTransport::sealTakeover() {
++	// Called with mSslMutex held.
++	std::lock_guard lock(mSealMutex);
++	if (mSealState == SealState::Proven && mPeerApplicationData && mSealEpochKnown) {
++		mSealNextSeq = mSealLastSeq + 1;
++		mSealState = SealState::Active;
++		PLOG_DEBUG << "DTLS records: sealed here from sequence number " << mSealNextSeq;
++	}
++	return mSealState == SealState::Active;
++}
++
++bool DtlsTransport::sendSealed(const message_ptr &message) {
++	if (message->size() > 16384)
++		return false; // larger than a DTLS record; SCTP never sends one
++	std::unique_lock lock(mSealMutex);
++
++	// The record, its sequence number and seal still to come: type, version, epoch, length; the plaintext after the
++	// explicit nonce, room for the tag.
++	auto record = spareMessage(RecordHeader + ExplicitNonce + message->size() + GcmTag);
++	auto r = reinterpret_cast<uint8_t *>(record->data());
++	size_t length = ExplicitNonce + message->size() + GcmTag;
++	r[0] = 23;
++	r[1] = 0xFE;
++	r[2] = 0xFD;
++	r[3] = uint8_t(mSealEpoch >> 8);
++	r[4] = uint8_t(mSealEpoch);
++	r[11] = uint8_t(length >> 8);
++	r[12] = uint8_t(length);
++	std::memcpy(r + RecordHeader + ExplicitNonce, message->data(), message->size());
++	record->dscp = message->dscp;
++	record->stream = UnsealedRecord;
++	lock.unlock();
++
++	if (collectBurst(record)) // sealed and sent with its burst
++		return true;
++	message_vector one{std::move(record)};
++	return flushBurstMessages(one);
++}
++
++void DtlsTransport::sealRecords(message_vector &messages) {
++	// Called with mSealMutex held: numbers the unsealed records in their order and seals them together.
++	std::vector<DtlsSealRecord> records;
++	std::vector<uint8_t *> tags;
++	for (auto &m : messages) {
++		if (!m || m->stream != UnsealedRecord)
++			continue;
++		auto r = reinterpret_cast<uint8_t *>(m->data());
++		size_t plain = m->size() - RecordHeader - ExplicitNonce - GcmTag;
++		uint64_t seq = mSealNextSeq++;
++		storeBe48(r + 5, seq);
++		std::memcpy(r + RecordHeader, r + 3, 8); // explicit nonce: epoch and sequence number
++		DtlsSealRecord s;
++		std::memcpy(s.nonce, mSealSalt, 4);
++		std::memcpy(s.nonce + 4, r + 3, 8);
++		std::memcpy(s.aad, r + 3, 8);
++		s.aad[8] = r[0];
++		s.aad[9] = r[1];
++		s.aad[10] = r[2];
++		s.aad[11] = uint8_t(plain >> 8);
++		s.aad[12] = uint8_t(plain);
++		s.data = r + RecordHeader + ExplicitNonce;
++		s.length = plain;
++		records.push_back(s);
++		m->stream = 0;
++	}
++	if (records.empty())
++		return;
++	auto sealer = currentRecordSealer();
++	size_t sealed = sealer ? std::min(sealer->seal(mSealKey, records.data(), records.size()), records.size()) : 0;
++	for (size_t i = sealed; i < records.size(); i++) {
++		auto &s = records[i];
++		if (!gcm128(true, mSealKey, s.nonce, s.aad, sizeof(s.aad), s.data, s.length, s.data + s.length))
++			throw std::runtime_error("DTLS record sealing failed");
++	}
++}
++
++bool DtlsTransport::flushBurstMessages(message_vector &messages) {
++	std::lock_guard lock(mSealMutex);
++	sealRecords(messages);
++	return outgoingBatch(messages);
++}
++
+ int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
+ 	if (inl <= 0)
+ 		return inl;
+@@ -1137,6 +1377,7 @@ int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
+ 	if (!transport)
+ 		return -1;
+ 	auto b = reinterpret_cast<const byte *>(in);
++	transport->watchOutgoing(b, size_t(inl));
+ 	transport->outgoing(transport->spareMessage(b, size_t(inl)));
+ 	return inl; // can't fail
+ }
+--- a/src/impl/dtlstransport.hpp
++++ b/src/impl/dtlstransport.hpp
+@@ -104,6 +104,30 @@ protected:
+ 	BIO *mInBio, *mOutBio;
+ 	std::mutex mSslMutex;
+ 
++	// Application records sealed here instead of by OpenSSL (DTLS 1.2, AES-128-GCM, a DtlsRecordSealer installed).
++	// Proving: keys derived, waiting for one of OpenSSL's own records to open with them. Proven: they did; the
++	// transport takes over at its next send once the peer's first application record has arrived (OpenSSL can then
++	// no longer have to resend its Finished), numbering on from the last record OpenSSL wrote. From then on every
++	// application record goes through here, numbered, sealed and handed down under mSealMutex, so the order on the
++	// wire is the order of the sequence numbers. OpenSSL's own later records (its close_notify) carry an old number
++	// and are ignored by the peer.
++	enum class SealState { Off, Proving, Proven, Active };
++	std::mutex mSealMutex; // taken after mSslMutex when both are held
++	SealState mSealState = SealState::Off;
++	uint8_t mSealKey[16] = {}, mSealSalt[4] = {};
++	uint16_t mSealEpoch = 0;
++	bool mSealEpochKnown = false;
++	uint64_t mSealLastSeq = 0; // the last sequence number OpenSSL wrote in mSealEpoch
++	uint64_t mSealNextSeq = 0;
++	std::atomic<bool> mPeerApplicationData = false;
++
++	void setupSealer();                                 // under mSslMutex, when the handshake has finished
++	void watchOutgoing(const byte *data, size_t size);  // a datagram OpenSSL wrote, under mSslMutex
++	bool sealTakeover();                                // under mSslMutex: true once the records are sealed here
++	bool sendSealed(const message_ptr &message);
++	void sealRecords(message_vector &messages);         // under mSealMutex
++	bool flushBurstMessages(message_vector &messages) override;
++
+ 	void handleTimeout();
+ 
+ 	static BIO_METHOD *BioMethods;
+--- a/src/impl/transport.cpp
++++ b/src/impl/transport.cpp
+@@ -146,7 +146,7 @@ void Transport::flushBurst() noexcept {
+ 	message_vector messages;
+ 	messages.swap(tBurst.messages);
+ 	try {
+-		owner->outgoingBatch(messages);
++		owner->flushBurstMessages(messages);
+ 	} catch (const std::exception &e) {
+ 		PLOG_WARNING << "Burst send: " << e.what();
+ 	}
+@@ -176,6 +176,28 @@ message_ptr Transport::spareMessage(const byte *data, size_t size) {
+ 	return message;
+ }
+ 
++message_ptr Transport::spareMessage(size_t size) {
++	message_ptr message;
++	{
++		std::lock_guard lock(mSpareMutex);
++		if (!mSpare.empty()) {
++			message = std::move(mSpare.back());
++			mSpare.pop_back();
++		}
++	}
++	if (!message)
++		return make_message(size);
++	message->resize(size);
++	message->type = Message::Binary;
++	message->stream = 0;
++	message->dscp = 0;
++	message->reliability.reset();
++	message->frameInfo.reset();
++	return message;
++}
++
++bool Transport::flushBurstMessages(message_vector &messages) { return outgoingBatch(messages); }
++
+ void Transport::keepSpare(message_vector &messages) {
+ 	std::lock_guard lock(mSpareMutex);
+ 	for (auto &m : messages)
+--- a/src/impl/transport.hpp
++++ b/src/impl/transport.hpp
+@@ -65,6 +65,10 @@ protected:
+ 	// A binary message holding a copy of the data: one this transport's bursts sent and nobody holds any more, or a
+ 	// new one.
+ 	message_ptr spareMessage(const byte *data, size_t size);
++	// The same with size bytes of unspecified content.
++	message_ptr spareMessage(size_t size);
++	// Sends the messages of a burst this transport collected; by default as they are.
++	virtual bool flushBurstMessages(message_vector &messages);
+ 
+ private:
+ 	static void flushBurst() noexcept;

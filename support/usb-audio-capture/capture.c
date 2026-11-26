@@ -6,6 +6,8 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <math.h>
+#include <poll.h>
+#include <sound/asound.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,6 +26,52 @@ static int write_all(const void *buffer, size_t size) {
     }
     return 0;
 }
+
+// The gadget's "Capture Rate" control reads 0 while the host's playback is off, and the kernel
+// notifies its changes: the helper waits for the host in poll() instead of failing and being
+// started again every two seconds.
+struct host_rate { int fd; struct snd_ctl_elem_id id; };
+
+static int host_rate_open(struct host_rate *h, unsigned int card) {
+    char path[32];
+    snprintf(path, sizeof(path), "/dev/snd/controlC%u", card);
+    h->fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (h->fd < 0) return -1;
+    struct snd_ctl_elem_id ids[64];
+    struct snd_ctl_elem_list list = {.space = 64, .pids = ids};
+    if (ioctl(h->fd, SNDRV_CTL_IOCTL_ELEM_LIST, &list) < 0) return -1;
+    for (unsigned int i = 0; i < list.used; i++) {
+        if (strcmp((const char *)ids[i].name, "Capture Rate")) continue;
+        h->id = ids[i];
+        int subscribe = 1;
+        return ioctl(h->fd, SNDRV_CTL_IOCTL_SUBSCRIBE_EVENTS, &subscribe);
+    }
+    errno = ENOENT;
+    return -1;
+}
+
+static long host_rate_read(struct host_rate *h) {
+    struct snd_ctl_elem_value value = {.id = h->id};
+    if (ioctl(h->fd, SNDRV_CTL_IOCTL_ELEM_READ, &value) < 0) return -1;
+    return value.value.integer.value[0];
+}
+
+// Subscribed before the first read, so a change between the read and poll() is not lost.
+static int host_rate_wait(struct host_rate *h) {
+    for (;;) {
+        long rate = host_rate_read(h);
+        if (rate < 0) return -1;
+        if (rate > 0) return 0;
+        struct pollfd p = {.fd = h->fd, .events = POLLIN};
+        if (poll(&p, 1, -1) < 0) {
+            if (errno == EINTR) continue;
+            return -1;
+        }
+        struct snd_ctl_event events[8];
+        if ((p.revents & POLLIN) && read(h->fd, events, sizeof(events)) < 0 && errno != EINTR) return -1;
+    }
+}
+
 int main(int argc, char **argv) {
     if (argc != 2) return 2;
     pid_t parent = getppid();
@@ -32,19 +80,20 @@ int main(int argc, char **argv) {
     int benchmark = strcmp(argv[1], "--benchmark") == 0;
     unsigned int count = 0;
     long long encode_ns = 0;
+    unsigned long card = 0;
     struct pcm *pcm = NULL;
+    struct host_rate host = {.fd = -1};
+    struct pcm_config config = {
+        .channels = 2, .rate = 48000, .period_size = 960,
+        .period_count = 4, .format = PCM_FORMAT_S16_LE,
+    };
     if (!from_stdin && !benchmark) {
         char *end;
-        unsigned long card = strtoul(argv[1], &end, 10);
+        card = strtoul(argv[1], &end, 10);
         if (*end || end == argv[1] || card > 255) return 2;
-        struct pcm_config config = {
-            .channels = 2, .rate = 48000, .period_size = 960,
-            .period_count = 4, .format = PCM_FORMAT_S16_LE,
-        };
-        pcm = pcm_open((unsigned int)card, 0, PCM_IN, &config);
-        if (!pcm || !pcm_is_ready(pcm)) {
-            fprintf(stderr, "USB audio: %s\n", pcm ? pcm_get_error(pcm) : "open failed");
-            if (pcm) pcm_close(pcm);
+        if (host_rate_open(&host, (unsigned int)card) < 0) {
+            fprintf(stderr, "USB audio: Capture Rate control: %s\n", strerror(errno));
+            if (host.fd >= 0) close(host.fd);
             return 1;
         }
     }
@@ -76,12 +125,34 @@ int main(int argc, char **argv) {
                 size_t n = fread(buffer + filled * 2, 4, 960 - filled, stdin);
                 if (n == 0) { status = ferror(stdin) || filled != 0; goto done; }
                 filled += n;
-            } else {
-                int frames = pcm_readi(pcm, buffer + filled * 2, 960 - filled);
-                if (frames == -EPIPE && pcm_prepare(pcm) == 0) { filled = 0; continue; }
-                if (frames <= 0) { fprintf(stderr, "USB audio: %s\n", pcm_get_error(pcm)); goto done; }
-                filled += (size_t)frames;
+                continue;
             }
+            if (!pcm) {
+                if (host_rate_wait(&host) < 0) {
+                    fprintf(stderr, "USB audio: Capture Rate control: %s\n", strerror(errno));
+                    goto done;
+                }
+                pcm = pcm_open((unsigned int)card, 0, PCM_IN, &config);
+                if (!pcm || !pcm_is_ready(pcm)) {
+                    fprintf(stderr, "USB audio: %s\n", pcm ? pcm_get_error(pcm) : "open failed");
+                    goto done;
+                }
+            }
+            int frames = pcm_readi(pcm, buffer + filled * 2, 960 - filled);
+            if (frames == -EPIPE && pcm_prepare(pcm) == 0) { filled = 0; continue; }
+            if (frames <= 0) {
+                // Only a host that stopped playing is waited for again; any other error ends the
+                // helper as before.
+                if (host_rate_read(&host) != 0) {
+                    fprintf(stderr, "USB audio: %s\n", pcm_get_error(pcm));
+                    goto done;
+                }
+                pcm_close(pcm);
+                pcm = NULL;
+                filled = 0;
+                continue;
+            }
+            filled += (size_t)frames;
         }
         struct timespec before, after;
         if (benchmark) clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &before);
@@ -101,5 +172,6 @@ int main(int argc, char **argv) {
 done:
     if (encoder >= 0) close(encoder);
     if (pcm) pcm_close(pcm);
+    if (host.fd >= 0) close(host.fd);
     return status;
 }

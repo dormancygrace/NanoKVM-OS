@@ -1,0 +1,217 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] clocksource: riscv: program the C9xx CLINT's S-mode timer
+ compare
+
+The C906 has no Sstc, so the timer driver used sbi_set_timer(). Every timer
+event then entered M-mode three times: the machine timer interrupt, which the
+firmware turns into a supervisor one, the stop in the interrupt handler and
+the next event. Through OpenSBI 1.9 that is about 410 instructions for the
+interrupt and about 470 for each call.
+
+The CLINT of the T-Head C9xx cores has a compare register for S-mode,
+STIMECMP (two 32-bit words for each hart from 0xd000). With CLINTEE set by
+the firmware, which sxstatus shows, the CLINT raises the supervisor timer
+interrupt itself. The driver now writes that register: three stores, no
+trap. The interrupt handler no longer stops the timer before the event
+handler runs: the next event's compare value withdraws the interrupt, and
+the timer is stopped only when the handler set none.
+
+It is used with a "thead,c900-clint" node (this kernel runs on the SG2002
+only, so the node names the core) and CLINTEE set, and only after the
+register answered. CLINTEE does not make it writable: a firmware may keep
+that part of the CLINT for M-mode with PMP, as the vendor's OpenSBI does, and
+the stock installer's recovery kernel runs under that firmware. So the first
+store is made with a fixup, after the firmware's timer was stopped once with
+sbi_set_timer(); if it faults nothing else is written and the SBI timer
+stays. Then, with interrupts off, a compare value in the past must make the
+supervisor timer interrupt pending and one in the far future must withdraw
+it; otherwise the driver says so and keeps the SBI timer.
+---
+--- a/drivers/clocksource/timer-riscv.c
++++ b/drivers/clocksource/timer-riscv.c
+@@ -19,8 +19,10 @@
+ #include <linux/irqdomain.h>
+ #include <linux/module.h>
+ #include <linux/sched_clock.h>
++#include <linux/uaccess.h>
+ #include <linux/io-64-nonatomic-lo-hi.h>
+ #include <linux/interrupt.h>
++#include <linux/of_address.h>
+ #include <linux/of_irq.h>
+ #include <linux/limits.h>
+ #include <clocksource/timer-riscv.h>
+@@ -32,12 +34,43 @@
+ static DEFINE_STATIC_KEY_FALSE(riscv_sstc_available);
+ static bool riscv_timer_cannot_wake_cpu;
+ 
++/*
++ * The CLINT of the T-Head C9xx cores has a timer compare register for S-mode
++ * next to the M-mode one: STIMECMP, two 32-bit words for each hart from
++ * 0xd000. When the firmware has set CLINTEE (sxstatus shows it), S-mode may
++ * write it and the CLINT raises the supervisor timer interrupt itself. The
++ * timer then needs no SBI call: with sbi_set_timer() every event enters
++ * M-mode three times (the machine timer interrupt that the firmware turns
++ * into a supervisor one, the stop and the next event).
++ */
++#define THEAD_C9XX_CSR_SXSTATUS		0x5c0
++#define THEAD_C9XX_SXSTATUS_CLINTEE	BIT(17)
++#define THEAD_C9XX_CLINT_STIMECMP	0xd000
++
++static DEFINE_STATIC_KEY_FALSE(riscv_clint_stimecmp_available);
++static void __iomem *riscv_clint_stimecmp;
++/* Set by a new compare value: the interrupt handler then has nothing to stop. */
++static DEFINE_PER_CPU(bool, riscv_clint_event_set);
++
++static void riscv_clint_stimecmp_write(u64 val)
++{
++	u32 __iomem *reg = riscv_clint_stimecmp +
++			   8 * cpuid_to_hartid_map(smp_processor_id());
++
++	/* No value the register holds on the way is earlier than both. */
++	writel_relaxed(U32_MAX, reg);
++	writel_relaxed(val >> 32, reg + 1);
++	writel_relaxed(val, reg);
++}
++
+ static void riscv_clock_event_stop(void)
+ {
+ 	if (static_branch_likely(&riscv_sstc_available)) {
+ 		csr_write(CSR_STIMECMP, ULONG_MAX);
+ 		if (IS_ENABLED(CONFIG_32BIT))
+ 			csr_write(CSR_STIMECMPH, ULONG_MAX);
++	} else if (static_branch_likely(&riscv_clint_stimecmp_available)) {
++		riscv_clint_stimecmp_write(U64_MAX);
+ 	} else {
+ 		sbi_set_timer(U64_MAX);
+ 	}
+@@ -56,6 +89,9 @@
+ #else
+ 		csr_write(CSR_STIMECMP, next_tval);
+ #endif
++	} else if (static_branch_likely(&riscv_clint_stimecmp_available)) {
++		riscv_clint_stimecmp_write(next_tval);
++		__this_cpu_write(riscv_clint_event_set, true);
+ 	} else
+ 		sbi_set_timer(next_tval);
+ 
+@@ -112,7 +148,8 @@
+ 	ce->irq = riscv_clock_event_irq;
+ 	if (riscv_timer_cannot_wake_cpu)
+ 		ce->features |= CLOCK_EVT_FEAT_C3STOP;
+-	if (static_branch_likely(&riscv_sstc_available))
++	if (static_branch_likely(&riscv_sstc_available) ||
++	    static_branch_likely(&riscv_clint_stimecmp_available))
+ 		ce->rating = 450;
+ 	clockevents_config_and_register(ce, riscv_timebase, 100, ULONG_MAX);
+ 
+@@ -145,12 +182,101 @@
+ {
+ 	struct clock_event_device *evdev = this_cpu_ptr(&riscv_clock_event);
+ 
++	if (static_branch_likely(&riscv_clint_stimecmp_available)) {
++		/*
++		 * The interrupt stays pending until the compare value is later
++		 * than the time. The handler nearly always sets the next event,
++		 * which does that; only when it set none is the timer stopped.
++		 */
++		__this_cpu_write(riscv_clint_event_set, false);
++		evdev->event_handler(evdev);
++		if (!__this_cpu_read(riscv_clint_event_set))
++			riscv_clock_event_stop();
++		return IRQ_HANDLED;
++	}
++
+ 	riscv_clock_event_stop();
+ 	evdev->event_handler(evdev);
+ 
+ 	return IRQ_HANDLED;
+ }
+ 
++/* Whether the supervisor timer interrupt becomes (or stops being) pending. */
++static bool __init riscv_clint_stimecmp_pending(bool pending)
++{
++	int i;
++
++	for (i = 0; i < 1000; i++) {
++		if (!!(csr_read(CSR_IP) & IE_TIE) == pending)
++			return true;
++		cpu_relax();
++	}
++	return false;
++}
++
++/*
++ * Called with interrupts off, before the clock event device exists. The
++ * register is tried before it is relied on: a compare value in the past must
++ * make the interrupt pending and one in the far future must withdraw it.
++ */
++static void __init riscv_clint_stimecmp_init(void)
++{
++	struct device_node *np;
++	void __iomem *base;
++	u32 max = U32_MAX;
++
++	/* The node names the core, so sxstatus exists. */
++	np = of_find_compatible_node(NULL, NULL, "thead,c900-clint");
++	if (!np)
++		return;
++	if (!(csr_read(THEAD_C9XX_CSR_SXSTATUS) & THEAD_C9XX_SXSTATUS_CLINTEE)) {
++		of_node_put(np);
++		return;
++	}
++	base = of_iomap(np, 0);
++	of_node_put(np);
++	if (!base)
++		return;
++	riscv_clint_stimecmp = base + THEAD_C9XX_CLINT_STIMECMP;
++
++	/* The firmware's timer off, and the interrupt it may have left pending. */
++	sbi_set_timer(U64_MAX);
++
++	/*
++	 * CLINTEE and the mapping do not make the register writable: a firmware
++	 * may keep this part of the CLINT for M-mode with PMP (the vendor's
++	 * OpenSBI, under which the stock installer's recovery kernel runs), and
++	 * a store then raises an access fault. The first store, the first of
++	 * riscv_clint_stimecmp_write(U64_MAX), is made with a fixup; if it is
++	 * refused nothing else is written there.
++	 */
++	if (copy_to_kernel_nofault((void __force *)riscv_clint_stimecmp +
++				   8 * cpuid_to_hartid_map(smp_processor_id()),
++				   &max, sizeof(max))) {
++		riscv_clint_stimecmp = NULL;
++		iounmap(base);
++		pr_info("T-Head CLINT: the firmware keeps the S-mode timer compare, using the SBI timer\n");
++		return;
++	}
++	riscv_clint_stimecmp_write(U64_MAX);
++	if (riscv_clint_stimecmp_pending(false)) {
++		riscv_clint_stimecmp_write(0);
++		if (riscv_clint_stimecmp_pending(true)) {
++			riscv_clint_stimecmp_write(U64_MAX);
++			if (riscv_clint_stimecmp_pending(false)) {
++				pr_info("Timer interrupt in S-mode is available via the T-Head CLINT\n");
++				static_branch_enable(&riscv_clint_stimecmp_available);
++				return;
++			}
++		}
++	}
++
++	riscv_clint_stimecmp_write(U64_MAX);
++	riscv_clint_stimecmp = NULL;
++	iounmap(base);
++	pr_warn("T-Head CLINT: the S-mode timer compare does not answer, using the SBI timer\n");
++}
++
+ static int __init riscv_timer_init_common(void)
+ {
+ 	int error;
+@@ -189,6 +315,8 @@
+ 	if (riscv_isa_extension_available(NULL, SSTC)) {
+ 		pr_info("Timer interrupt in S-mode is available via sstc extension\n");
+ 		static_branch_enable(&riscv_sstc_available);
++	} else {
++		riscv_clint_stimecmp_init();
+ 	}
+ 
+ 	error = cpuhp_setup_state(CPUHP_AP_RISCV_TIMER_STARTING,

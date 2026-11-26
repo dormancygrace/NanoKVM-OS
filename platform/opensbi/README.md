@@ -33,6 +33,7 @@ The FSBL passes `fw_dynamic_info` with U-Boot's entry and S-mode, so use FW_DYNA
 | Vendor custom PMU SBI extension `0x09000001` | Use upstream SBI PMU with the SG2002 override in `platform/generic/thead/thead-generic.c`. Current mainline Linux uses standard SBI PMU. |
 | SBI 3.0 PMU event discovery | The M-mode DT explicitly maps event 1 to counter 0 (mcycle) and event 2 to counter 2 (minstret). Without this table, EVENT_GET_INFO makes Linux reject cycles/instructions despite registering the PMU. Raw events (`perf stat -e rN`, the C906 mhpmevent codes 0x1-0x2a) may use any programmable counter the hart has (the bitmap allows mhpmcounter3-17; on SG2002 eight raw events count at once, more are multiplexed); the mask is non-zero so the entry does not overlap the two fixed ones. Generic cache events are not mapped. |
 | Old CLINT binding / access width | Use mainline `thead,c900-clint`: 32-bit MMIO accesses and time CSR instead of an MMIO mtime. |
+| Timer for Linux | The C906 has no Sstc. Linux does not use SBI `set_timer`: kernel patch `0093` writes the CLINT's S-mode compare register (STIMECMP, `0x7400d000`) and the CLINT raises the supervisor timer interrupt itself. This needs CLINTEE (mxstatus bit 17), which the FSBL's `0xc0638000` sets and nothing later clears, and S-mode access to that register: OpenSBI keeps only MSWI (`0x74000000`, 16 KiB) and MTIMECMP (`0x74004000`, 32 KiB) for M-mode. The kernel tries the register at boot and logs `Timer interrupt in S-mode is available via the T-Head CLINT`; if it does not answer it warns and uses SBI `set_timer`, which OpenSBI still provides. The first store of that trial is made with a fixup, because the same kernel also runs under the vendor's OpenSBI 0.9 (the stock installer's recovery kernel, [docs/STOCK-INSTALL.md](../../docs/STOCK-INSTALL.md)), whose PMP region for the CLINT (`0x7400bff8`, 16 KiB, no S-mode access) covers the register: a refused store leaves that kernel on SBI `set_timer` with `T-Head CLINT: the firmware keeps the S-mode timer compare, using the SBI timer`. |
 | PLIC | Use mainline `thead,c900-plic`, 101 sources, M/S contexts. Upstream handles T-Head delegation. |
 | Vendor `thead,reset-sample` ebreak reset | Do not carry the sample reset handler; it is not matched by the stock DT. System reset is advertised only if an upstream backend supports it. Linux/U-Boot have the SoC reset driver. |
 | T-Head TH1520 TLB erratum | Retain upstream's model-specific selection; do not apply an unrelated workaround to SG2002. |
@@ -80,6 +81,8 @@ The `nanokvm-bootloader` package replaces `/boot/fip.bin`; the new FIP
 takes effect at the next boot. How the ROM behaves with a missing or damaged `fip.bin`, how to
 replace it and how to recover without a card reader are in
 [docs/BOOT.md](../../docs/BOOT.md).
+
+A FIP whose FSBL or OpenSBI clears CLINTEE, or closes `0x7400d000` to S-mode, puts Linux back on SBI `set_timer` (three M-mode entries for each timer event): check the kernel's timer line after such a change.
 
 When testing a new OpenSBI, capture the full boot from FSBL through OpenSBI
 and U-Boot to Linux. Check the OpenSBI version, timer/PLIC initialization, both

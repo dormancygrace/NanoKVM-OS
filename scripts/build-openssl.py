@@ -56,6 +56,8 @@ def build(archive, output, cross, jobs):
     subprocess.run(['python3', str(ROOT / 'firmware/cpu/go-crypto-c906/gen_poly1305_vector.py'),
                     '--binutils', str(cross), '--openssl', '--check',
                     str(ROOT / 'firmware/crypto/openssl-c906/0012-poly1305-c906.patch')], check=True)
+    subprocess.run(['python3', str(ROOT / 'firmware/crypto/openssl-c906/generate-ml-kem.py'),
+                    '--cross', str(cross), '--check'], check=True)
     patch_records = []
     for patch in patches:
         subprocess.run(['patch', '--batch', '--forward', '--fuzz=0', '-p1',

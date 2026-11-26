@@ -276,3 +276,37 @@ permutation against a plain FIPS 202 reference on 20,000 random, all-zero and al
 (and a build with one round constant changed fails it); SHA3-224/256/384/512 and SHAKE128/256 of 306 inputs from 0
 to 65,537 bytes at several output lengths against another OpenSSL (5,508 values); ML-KEM-768 keys of each build
 encapsulated by the other and decapsulated to the same secret.
+
+## ML-KEM
+
+OpenSSL 3.5's ML-KEM (`crypto/ml_kem/ml_kem.c`) computes its number theoretic transforms and base-case products one
+16-bit coefficient at a time; they took about 40 % of a key generation. `0014-ml-kem-c906.patch` replaces
+`scalar_ntt`, `scalar_inverse_ntt`, `scalar_mult` and `scalar_mult_add` on `riscv64` with XTheadVector code in
+`crypto/ml_kem/ml_kem-c906.S` (`ML_KEM_C906`, set by `build.info`). The arithmetic is the scalar code's, so the
+results are the same bits: products of reduced values in 32-bit lanes, the same Barrett step (`x * 5039 >> 24` as
+the high half of a multiply by `5039 << 8`), `reduce_once` as an unsigned minimum with `x - q`. Layers with blocks
+of 8 or more coefficients run along the block; in the last two layers, and in the products, the coefficients are
+loaded as segments, so each block's even and odd halves land in separate registers next to a vector of its roots.
+No branch or address depends on the data.
+
+The source is `ml-kem-c906.c` (RVV intrinsics, which GCC compiles to XTheadVector). OpenSSL's CPU profile has no
+vector extension and GCC cannot switch it on for one function, so `generate-ml-kem.py` compiles the file with the
+userspace profile and puts the assembly into the patch under `.option arch, +xtheadvector`; it checks that the
+output has only text, calls only its own functions, exports three hidden symbols and assembles with OpenSSL's
+profile. The output depends on the GCC version; the build runs the check:
+
+    generate-ml-kem.py --cross <riscv64 prefix> --check
+
+On the device (`openssl speed`, microseconds for keygen / encapsulation / decapsulation):
+
+| | ML-KEM-512 | ML-KEM-768 | ML-KEM-1024 |
+|---|---|---|---|
+| Keccak only | 539 / 399 / 556 | 801 / 554 / 780 | 1117 / 735 / 1035 |
+| with this patch | 367 / 212 / 262 | 521 / 257 / 339 | 716 / 322 / 434 |
+
+One transform takes 6.4 us instead of 38.8 us, the inverse 6.5 us instead of 35.7 us, a product with sum 2.1 us
+instead of 7.5 us. Checked on the device: the four functions against the scalar ones on 200,000 random polynomials
+and products (with the edge cases 0 and q-1); ML-KEM-512/768/1024 keys of each build encapsulated by the other and
+decapsulated to the same secret; SHA-3/SHAKE digests unchanged. The patch moves unordered code (see Function order):
+16-byte digests changed by -24 % (SHA-1) to +37 % (SHA-256), SHA3-256 by -14 %; ChaCha20-Poly1305 and AES-GCM
+records and digests from 1 KiB on are unchanged.

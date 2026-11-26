@@ -153,7 +153,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi; `hwcrypto/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
 | `lolcat/` | Byte I/O and terminal-output fixes for lolcat 1.5, the rainbow SSH shell's filter (original 1.4 optimization: 15 times faster on the C906) |
-| `zlib-ng/` | zlib-ng for the C906: the hash table slides four entries at a time (deflate level 1 about 13 % faster), and CRC-32 uses the small Chorba variant at every length (about twice as fast for 32 KiB and longer); output unchanged |
+| `zlib-ng/` | zlib-ng for the C906: the hash table slides four entries at a time (deflate level 1 about 13 % faster), CRC-32 uses the small Chorba variant at every length (about twice as fast for 32 KiB and longer), and slicing-by-8 below 176 bytes and for Chorba's tails (calls of 8 to 128 bytes 1.5 to 1.7 times as fast); output unchanged |
 | `fsbl/` | Patches for the Sipeed SDK's FSBL (BL2) and its board memory map; see [fsbl/README.md](fsbl/README.md) |
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
 | `native/cvi_mpi/` | Patches for the SOPHGO media libraries (`cvi_mpi`) |

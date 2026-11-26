@@ -28,52 +28,22 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
  
      t = OPENSSL_zalloc(sizeof(void *) * ctx->lanes);
      t_data = OPENSSL_zalloc(ctx->lanes * sizeof(ARGON2_THREAD_DATA));
-@@ -614,8 +620,10 @@
-             for (l = 0; l < ctx->lanes; ++l) {
-                 ARGON2_POS p;
-                 if (l >= ctx->threads) {
--                    if (ossl_crypto_thread_join(t[l - ctx->threads], NULL) == 0)
-+                    if (ossl_crypto_thread_join(t[l - ctx->threads], NULL) == 0) {
-+                        stopped = 0;
-                         goto fail;
-+                    }
-                     if (ossl_crypto_thread_clean(t[l - ctx->threads]) == 0)
-                         goto fail;
-                     t[l] = NULL;
-@@ -632,8 +640,10 @@
-                     (void *)&t_data[l]);
-                 if (t[l] == NULL) {
-                     for (ll = 0; ll < l; ++ll) {
--                        if (ossl_crypto_thread_join(t[ll], NULL) == 0)
-+                        if (ossl_crypto_thread_join(t[ll], NULL) == 0) {
-+                            stopped = 0;
-                             goto fail;
-+                        }
-                         if (ossl_crypto_thread_clean(t[ll]) == 0)
-                             goto fail;
-                         t[ll] = NULL;
-@@ -642,8 +652,10 @@
-                 }
-             }
-             for (l = ctx->lanes - ctx->threads; l < ctx->lanes; ++l) {
--                if (ossl_crypto_thread_join(t[l], NULL) == 0)
-+                if (ossl_crypto_thread_join(t[l], NULL) == 0) {
-+                    stopped = 0;
-                     goto fail;
-+                }
-                 if (ossl_crypto_thread_clean(t[l]) == 0)
-                     goto fail;
-                 t[l] = NULL;
-@@ -661,7 +673,7 @@
-         OPENSSL_free(t_data);
-     if (t != NULL)
-         OPENSSL_free(t);
--    return 0;
-+    return stopped ? 0 : -1;
- }
+@@ -658,10 +664,14 @@
+                 continue;
+             if (ossl_crypto_thread_join(t[ll], NULL) != 0)
+                 (void)ossl_crypto_thread_clean(t[ll]);
++            else
++                stopped = 0;
+             t[ll] = NULL;
+         }
+     }
  
- #endif /* !defined(ARGON2_NO_THREADS) */
-@@ -761,6 +773,69 @@
++    if (!stopped)
++        return -1;
+     OPENSSL_free(t_data);
+     OPENSSL_free(t);
+     return 0;
+@@ -764,6 +774,69 @@
      EVP_MD_CTX_destroy(mdctx);
  }
  
@@ -143,7 +113,7 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
  static int initialize(KDF_ARGON2 *ctx)
  {
      uint8_t blockhash[ARGON2_PREHASH_SEED_LENGTH];
-@@ -771,7 +846,11 @@
+@@ -774,7 +847,11 @@
      if (ctx->memory_blocks * sizeof(BLOCK) / sizeof(BLOCK) != ctx->memory_blocks)
          return 0;
  
@@ -156,7 +126,7 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
          ctx->memory = OPENSSL_secure_zalloc(ctx->memory_blocks * sizeof(BLOCK));
      else
          ctx->memory = OPENSSL_zalloc(ctx->memory_blocks * sizeof(BLOCK));
-@@ -815,13 +894,6 @@
+@@ -818,13 +895,6 @@
          ARGON2_BLOCK_SIZE);
      OPENSSL_cleanse(blockhash.v, ARGON2_BLOCK_SIZE);
      OPENSSL_cleanse(blockhash_bytes, ARGON2_BLOCK_SIZE);
@@ -170,7 +140,7 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
  }
  
  static int blake2b_mac(EVP_MAC *mac, void *out, size_t outlen, const void *in,
-@@ -1056,6 +1128,7 @@
+@@ -1059,6 +1129,7 @@
  {
      KDF_ARGON2 *ctx;
      uint32_t memory_blocks, segment_length;
@@ -178,18 +148,24 @@ diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations
  
      ctx = (KDF_ARGON2 *)vctx;
  
-@@ -1147,10 +1220,16 @@
+@@ -1150,17 +1221,16 @@
      if (initialize(ctx) != 1)
          return 0;
  
--    if (fill_memory_blocks(ctx) != 1)
+-    if (fill_memory_blocks(ctx) != 1) {
+-        if (ctx->type != ARGON2_D)
+-            OPENSSL_secure_clear_free(ctx->memory,
+-                ctx->memory_blocks * sizeof(BLOCK));
+-        else
+-            OPENSSL_clear_free(ctx->memory,
+-                ctx->memory_blocks * sizeof(BLOCK));
 +    ret = fill_memory_blocks(ctx);
 +    if (ret != 1) {
 +        /* -1: a worker could not be joined and may still use the memory. */
 +        if (ret == 0)
 +            argon2_release_memory(ctx);
          return 0;
-+    }
+     }
  
      finalize(ctx, out);
 +    argon2_release_memory(ctx);

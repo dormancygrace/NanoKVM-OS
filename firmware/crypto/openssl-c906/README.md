@@ -326,9 +326,13 @@ on the device: Argon2id, Argon2i and Argon2d with 1, 2 and 4 lanes, 1 to 3 passe
 (108 sets), and the server's parameters, give the same key as the build without the patch; 20,000 blocks with and
 without XOR and 2,000 with `ref` and `next` the same block equal the reference function.
 
-`0016-argon2-huge-pages.patch` maps the memory of a hash itself, aligned to 2 MiB and marked `MADV_HUGEPAGE`, when
-the secure heap is not in use (the server does not set one up); it is cleansed and unmapped like
-`OPENSSL_clear_free`. The kernel has transparent huge pages for madvise only, and `S38memory` turns them on at boot
+`0016-argon2-worker-cleanup.patch` is OpenSSL's own fix from its 3.5 branch, after 3.5.9 (commit `5a9068ccd9`):
+after a failure the threaded fill joins only the workers still outstanding, and the memory of the hash is freed.
+`0017-argon2-huge-pages.patch` maps the memory of a hash itself, aligned to 2 MiB and marked `MADV_HUGEPAGE`, with
+OpenSSL's own memory functions and without the secure heap (the server sets up neither; an application's memory
+functions keep seeing the allocation). One function cleanses and releases it the way it was allocated, after a hash
+and after a failed fill; when a worker could not be joined it may still use the memory and its arguments, so then
+nothing of either is freed. The kernel has transparent huge pages for madvise only, and `S38memory` turns them on at boot
 (below 512 MiB the kernel starts with them off) and keeps `min_free_kbytes` at the kernel's own value, which turning
 them on would raise from about 2 MB to 12 MB (26 MB less MemAvailable). A hash then takes 9 huge pages for its
 19 MiB instead of about 4,900 small page faults, and needs no memset: 440 ms instead of 580 ms with 0015 alone

@@ -1,0 +1,24 @@
+crc32_chorba: the small variant at every length
+
+On the C906 (64 KiB data cache) the large variant, with its 118960-byte reach, and the medium one, which
+clears a 32 KiB buffer on every call, are slower than the small variant at any length: CRC-32 of a 22 MB
+buffer 341 MB/s instead of 160, of 32 KiB calls 474 instead of 242, of 1 KiB calls the same. The CRC is
+unchanged.
+
+--- a/arch/generic/crc32_chorba_c.c
++++ b/arch/generic/crc32_chorba_c.c
+@@ -1017,11 +1017,10 @@
+         len -= align_diff;
+         buf += align_diff;
+     }
+-    if (len > CHORBA_LARGE_THRESHOLD)
+-        return crc32_chorba_118960_nondestructive(crc, buf, len);
++    /* The large (118960-byte reach) and medium (32 KiB buffer cleared per call) variants are slower than the small
++     * one on the C906, whose data cache is 64 KiB: the small variant takes every length (CRC-32 of a 22 MB buffer
++     * 341 MB/s instead of 160, of 32 KiB calls 474 instead of 242). */
+ #if CHORBA_W == 8
+-    if (len > CHORBA_MEDIUM_LOWER_THRESHOLD && len <= CHORBA_MEDIUM_UPPER_THRESHOLD)
+-        return crc32_chorba_32768_nondestructive(crc, buf, len);
+     return crc32_chorba_small_nondestructive(crc, buf, len);
+ #else
+     return crc32_chorba_small_nondestructive_32bit(crc, buf, len);

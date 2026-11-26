@@ -49,7 +49,7 @@ COMPONENTS = {
                'firmware/mpi/nanokvm_i2c.h', 'firmware/mpi/nanokvm_receiver_lock.h',
                'firmware/mpi/nanokvm_receiver_timing.h',
                'firmware/services/nanokvm-serial-console.sh', 'firmware/crypto/openssl-c906',
-               'firmware/cpu/go-crypto-c906', 'platform/lolcat',
+               'firmware/cpu/go-crypto-c906', 'platform/lolcat', 'platform/zlib-ng',
                'firmware/alpine/packages/nanokvm-zlib/zlib-1.3.2.symbols',
                'support/usb-audio-capture', 'platform/modules/c906l/nanokvm_opus.h',
                'scripts/build-busybox-devmem.sh', 'scripts/build-serial-console-disk.py',

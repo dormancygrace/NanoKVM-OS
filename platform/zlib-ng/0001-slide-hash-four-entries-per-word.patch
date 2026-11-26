@@ -1,0 +1,38 @@
+slide_hash: the default window four entries at a time
+
+With a 32 KiB window an entry at least w_size has its top bit set, and m - w_size is m with that bit
+cleared; any other entry becomes 0. On a 64-bit target with fast unaligned access (OPTIMAL_CMP >= 64) the
+generic slide_hash_c and slide_hash_head_c do that for four 16-bit entries in a 64-bit word: about two
+instructions per entry instead of seven. Other window sizes keep the per-entry loop. Output is unchanged.
+
+--- a/arch/generic/slide_hash_c.c
++++ b/arch/generic/slide_hash_c.c
+@@ -5,6 +5,7 @@
+  */
+ 
+ #include "zbuild.h"
++#include <string.h>
+ #include "arch_functions.h"
+ 
+ #ifdef SLIDE_HASH_FALLBACK
+@@ -16,6 +17,20 @@
+  */
+ static inline void slide_hash_c_chain(Pos *table, uint32_t entries, Pos wsize) {
+     Pos *q = table;
++#if OPTIMAL_CMP >= 64
++    /* The default window (32 KiB) four entries at a time: an entry with its top bit set is at least wsize and keeps
++     * its low 15 bits (m - wsize), any other becomes 0. The tables are 64-byte aligned and their sizes multiples of 4. */
++    if (wsize == 32768 && (entries & 3) == 0) {
++        for (uint32_t i = 0; i < entries; i += 4, q += 4) {
++            uint64_t v, hi;
++            memcpy(&v, q, sizeof(v));
++            hi = v & 0x8000800080008000ULL;
++            v &= hi - (hi >> 15);
++            memcpy(q, &v, sizeof(v));
++        }
++        return;
++    }
++#endif
+     for (uint32_t i = 0; i < entries; i++) {
+         Pos m = *q;
+         *q++ = (m >= wsize) ? m - wsize : 0;

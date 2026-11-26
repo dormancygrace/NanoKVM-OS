@@ -16,7 +16,9 @@ there is no count past which a record is sent at once, under those locks and ahe
 A record goes to the end of its transport's queue when it is made, so the queue has the records of all threads in
 the order they were made. When a scope ends, what the queue holds may leave, and one thread at a time sends it from
 the front: the records leave in that order whichever threads made them, and a thread that finds another one sending
-leaves its records to it.
+leaves its records to it. A record made on a thread without a scope (usrsctp's timer thread) leaves at once only when
+nothing of the transport is queued or being sent, and holds the sender's place while it does; otherwise it goes
+behind the queued records and leaves with them.
 
 The layer below tells how many records the socket took (sendBatchPrefix). The SCTP stack was already told that all
 of them were sent, so the ones not taken are kept and given again, without the ones taken. The first shortfall sets
@@ -248,7 +250,7 @@ returns, after its lock.
  	if (ret == -SEAGAIN || ret == -SEWOULDBLOCK)
 --- a/src/impl/dtlstransport.cpp
 +++ b/src/impl/dtlstransport.cpp
-@@ -953,6 +953,11 @@
+@@ -953,6 +953,24 @@
  bool DtlsTransport::outgoing(message_ptr message) {
  	message->dscp = mCurrentDscp;
  
@@ -257,10 +259,23 @@ returns, after its lock.
 +		return true;
 +	}
 +
++	// Sent now: nothing older is queued, and nothing newer leaves before endDirectBurst().
++	struct DirectBurst {
++		DtlsTransport *transport;
++		~DirectBurst() {
++			if (!transport->endDirectBurst())
++				return;
++			// This thread may hold the SSL lock: the records queued behind leave from a pool thread.
++			ThreadPool::Instance().enqueue([weak = transport->weak_from_this()]() {
++				if (auto locked = weak.lock())
++					locked->continueBurst();
++			});
++		}
++	} direct{this};
  	bool result = Transport::outgoing(std::move(message));
  	mOutgoingResult = result;
  	return result;
-@@ -968,6 +973,8 @@
+@@ -968,6 +986,8 @@
  }
  
  void DtlsTransport::doRecv() {
@@ -269,7 +284,7 @@ returns, after its lock.
  	std::lock_guard lock(mRecvMutex);
  	--mPendingRecvCount;
  
-@@ -978,8 +985,17 @@
+@@ -978,8 +998,17 @@
  		const size_t bufferSize = 4096;
  		byte buffer[bufferSize];
  
@@ -404,7 +419,7 @@ returns, after its lock.
  
  namespace rtc::impl {
  
-@@ -104,6 +110,161 @@
+@@ -104,6 +110,193 @@
  	return ret;
  }
  
@@ -435,8 +450,21 @@ returns, after its lock.
 +}
 +
 +bool Transport::collectBurst(message_ptr &message) {
-+	if (tBurst.depth == 0 || !message)
-+		return false;
++	if (tBurst.depth == 0) {
++		// No scope on this thread (usrsctp's timer thread: a retransmission, a heartbeat). The record leaves at
++		// once only if nothing of this transport is queued or being sent: it then takes the sender's place
++		// until endDirectBurst(), so nothing made after it can leave before it. Otherwise it goes behind the
++		// records made before it, and may leave with them: the thread that is sending takes it, or the scope
++		// that queued them does when it ends.
++		std::lock_guard lock(mBurstMutex);
++		if (mBurstQueue.empty() && !mBurstSending) {
++			mBurstSending = true;
++			return false;
++		}
++		mBurstQueue.push_back(std::move(message));
++		mBurstReady = mBurstQueue.size();
++		return true;
++	}
 +	// Always taken while a scope is open, however many there are already, and never sent from here: the caller
 +	// may hold the SCTP and SSL locks, where a send could wait for the socket. The record goes to the end of
 +	// this transport's queue at once, so the queue has the records of all threads in the order they were made.
@@ -450,6 +478,17 @@ returns, after its lock.
 +	return true;
 +}
 +
++bool Transport::endDirectBurst() noexcept {
++	// The record sent outside a scope has left. Records queued behind it meanwhile were left to this thread as
++	// the sender (true): the caller, which may hold the SSL lock, has another thread call continueBurst().
++	std::lock_guard lock(mBurstMutex);
++	if (mBurstReady == 0)
++		mBurstSending = false;
++	return mBurstSending;
++}
++
++void Transport::continueBurst() noexcept { sendBurst(true); }
++
 +void Transport::flushBurst() noexcept {
 +	// No lock of the caller is held here. The list is emptied first: a transport is named in it once.
 +	for (size_t i = 0; i < tBurst.owners.size(); ++i)
@@ -457,7 +496,7 @@ returns, after its lock.
 +	tBurst.owners.clear();
 +}
 +
-+void Transport::sendBurst() noexcept {
++void Transport::sendBurst(bool sender) noexcept {
 +	// A scope has ended: what the queue holds now may leave, the records other threads put before this thread's
 +	// included (they are older). What comes later waits for the end of a scope again, so that a thread still
 +	// making records has them sent together, not one by one as they appear.
@@ -467,10 +506,18 @@ returns, after its lock.
 +	thread_local message_vector batch;
 +	{
 +		std::lock_guard lock(mBurstMutex);
-+		mBurstReady = mBurstQueue.size();
-+		if (mBurstSending || !takeBurst(batch))
-+			return;
-+		mBurstSending = true;
++		if (sender) {
++			// Taking over from a record sent outside a scope (endDirectBurst).
++			if (!takeBurst(batch)) {
++				mBurstSending = false;
++				return;
++			}
++		} else {
++			mBurstReady = mBurstQueue.size();
++			if (mBurstSending || !takeBurst(batch))
++				return;
++			mBurstSending = true;
++		}
 +	}
 +	// The time the socket has to take what it refused. It is one for everything this thread sends here: records
 +	// queued while a batch waited are not given a second of their own behind it.
@@ -576,7 +623,7 @@ returns, after its lock.
  #include <functional>
  #include <memory>
  #include <mutex>
-@@ -42,6 +43,27 @@
+@@ -42,6 +43,28 @@
  	virtual bool send(message_ptr message);
  	// Several messages at once (the packets of a frame); by default one send each.
  	virtual bool sendBatch(message_vector &messages);
@@ -592,7 +639,8 @@ returns, after its lock.
 +	// a scope opened before a lock is taken sends after it is released, and a wait for a full socket is never
 +	// under that lock. Every record is taken, however many, into one queue of the transport, in the order the
 +	// records were made, and one thread at a time sends from its front what was queued when a scope ended: they
-+	// leave in that order, whichever threads made them. Records the socket did not take are kept and given again until a fixed time after the
++	// leave in that order, whichever threads made them. A record made on a thread without a scope leaves at once
++	// when the queue is empty and nothing is being sent, and behind the queued ones otherwise. Records the socket did not take are kept and given again until a fixed time after the
 +	// first shortfall.
 +	class BurstScope {
 +	public:
@@ -604,17 +652,22 @@ returns, after its lock.
  
  protected:
  	void recv(message_ptr message);
-@@ -49,6 +71,20 @@
+@@ -49,6 +72,25 @@
  	virtual void incoming(message_ptr message);
  	virtual bool outgoing(message_ptr message);
  	bool outgoingBatch(message_vector &messages);
 +	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs);
-+	// Takes the message into this thread's burst when a BurstScope is open; false: send it now.
++	// Takes the message into this transport's queue: always while a BurstScope is open on the thread, and without
++	// one when older records are queued or being sent. false: nothing is, send it now and call endDirectBurst().
 +	bool collectBurst(message_ptr &message);
++	// After that send. true: records were queued behind it, and continueBurst() must be called (from a thread that
++	// holds no lock of the layers above) to send them.
++	bool endDirectBurst() noexcept;
++	void continueBurst() noexcept;
 +
 +private:
 +	static void flushBurst() noexcept;
-+	void sendBurst() noexcept;
++	void sendBurst(bool sender = false) noexcept;
 +	bool takeBurst(message_vector &batch) noexcept;
 +	void sendBurstBatch(message_vector &messages, std::chrono::steady_clock::time_point &giveUp) noexcept;
 +

@@ -1,0 +1,89 @@
+diff --git a/providers/implementations/kdfs/argon2.c b/providers/implementations/kdfs/argon2.c
+--- a/providers/implementations/kdfs/argon2.c
++++ b/providers/implementations/kdfs/argon2.c
+@@ -366,27 +366,71 @@
+     OPENSSL_cleanse(blockhash_bytes, ARGON2_BLOCK_SIZE);
+ }
+ 
++/*
++ * NanoKVM OS: the 16 words of each permutation in registers, addressed with constant offsets (a column is 16
++ * consecutive words, a row two words every 16), without the block copies of the reference form, whose loads and
++ * stores took most of its time on the C906. Same results. ref and next may be the same block (next_addresses):
++ * each word of next is written after the last read of ref.
++ */
++#define BLAMKA(x, y) ((x) + (y) + 2 * ((uint64_t)(uint32_t)(x) * (uint32_t)(y)))
++#define GB(a, b, c, d)                  \
++    do {                                \
++        a = BLAMKA(a, b);               \
++        d = rotr64(d ^ a, 32);          \
++        c = BLAMKA(c, d);               \
++        b = rotr64(b ^ c, 24);          \
++        a = BLAMKA(a, b);               \
++        d = rotr64(d ^ a, 16);          \
++        c = BLAMKA(c, d);               \
++        b = rotr64(b ^ c, 63);          \
++    } while (0)
++/* The 16 words at offsets o0..o15 (o(k) = base + k / 2 * s + k % 2): s = 2 for a column, 16 for a row. LOAD(o) gives
++ * a word, STORE(o, v) puts the result. */
++#define BLAMKA_P(base, s, LOAD, STORE)                                                              \
++    do {                                                                                           \
++        uint64_t v0 = LOAD(base), v1 = LOAD(base + 1), v2 = LOAD(base + s), v3 = LOAD(base + s + 1); \
++        uint64_t v4 = LOAD(base + 2 * s), v5 = LOAD(base + 2 * s + 1), v6 = LOAD(base + 3 * s);     \
++        uint64_t v7 = LOAD(base + 3 * s + 1), v8 = LOAD(base + 4 * s), v9 = LOAD(base + 4 * s + 1); \
++        uint64_t v10 = LOAD(base + 5 * s), v11 = LOAD(base + 5 * s + 1), v12 = LOAD(base + 6 * s);  \
++        uint64_t v13 = LOAD(base + 6 * s + 1), v14 = LOAD(base + 7 * s), v15 = LOAD(base + 7 * s + 1); \
++        GB(v0, v4, v8, v12); GB(v1, v5, v9, v13); GB(v2, v6, v10, v14); GB(v3, v7, v11, v15);      \
++        GB(v0, v5, v10, v15); GB(v1, v6, v11, v12); GB(v2, v7, v8, v13); GB(v3, v4, v9, v14);      \
++        STORE(base, v0); STORE(base + 1, v1); STORE(base + s, v2); STORE(base + s + 1, v3);         \
++        STORE(base + 2 * s, v4); STORE(base + 2 * s + 1, v5); STORE(base + 3 * s, v6);              \
++        STORE(base + 3 * s + 1, v7); STORE(base + 4 * s, v8); STORE(base + 4 * s + 1, v9);          \
++        STORE(base + 5 * s, v10); STORE(base + 5 * s + 1, v11); STORE(base + 6 * s, v12);           \
++        STORE(base + 6 * s + 1, v13); STORE(base + 7 * s, v14); STORE(base + 7 * s + 1, v15);       \
++    } while (0)
++
++/*
++ * R = ref ^ prev; next = R ^ P(R) [^ next]. The column permutations read R straight from the input blocks; next is
++ * written in one sequential pass at the end (in row order its misses cost more than the arithmetic saved), with R
++ * recomputed from the inputs, which are still in the cache.
++ */
+ static void fill_block(const BLOCK *prev, const BLOCK *ref,
+     BLOCK *next, int with_xor)
+ {
+-    BLOCK blockR, tmp;
++    uint64_t r[ARGON2_QWORDS_IN_BLOCK];
++    const uint64_t *pv = prev->v, *rv = ref->v;
++    uint64_t *nv = next->v;
+     unsigned i;
+ 
+-    copy_block(&blockR, ref);
+-    xor_block(&blockR, prev);
+-    copy_block(&tmp, &blockR);
+-
+-    if (with_xor)
+-        xor_block(&tmp, next);
+-
++#define LOAD_IN(o) (rv[o] ^ pv[o])
++#define LOAD_R(o) (r[o])
++#define STORE_R(o, v) (r[o] = (v))
+     for (i = 0; i < 8; ++i)
+-        PERMUTATION_P_COLUMN(blockR.v, i);
+-
++        BLAMKA_P(16 * i, 2, LOAD_IN, STORE_R);
+     for (i = 0; i < 8; ++i)
+-        PERMUTATION_P_ROW(blockR.v, i);
+-
+-    copy_block(next, &tmp);
+-    xor_block(next, &blockR);
++        BLAMKA_P(2 * i, 16, LOAD_R, STORE_R);
++#undef LOAD_IN
++#undef LOAD_R
++#undef STORE_R
++    if (with_xor)
++        for (i = 0; i < ARGON2_QWORDS_IN_BLOCK; i++)
++            nv[i] ^= rv[i] ^ pv[i] ^ r[i];
++    else
++        for (i = 0; i < ARGON2_QWORDS_IN_BLOCK; i++)
++            nv[i] = rv[i] ^ pv[i] ^ r[i];
+ }
+ 
+ static void next_addresses(BLOCK *address_block, BLOCK *input_block,

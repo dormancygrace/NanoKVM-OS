@@ -306,3 +306,22 @@ and products (with the edge cases 0 and q-1); ML-KEM-512/768/1024 keys of each b
 decapsulated to the same secret; SHA-3/SHAKE digests unchanged. The patch moves unordered code (see Function order):
 16-byte digests changed by -24 % (SHA-1) to +37 % (SHA-256), SHA3-256 by -14 %; ChaCha20-Poly1305 and AES-GCM
 records and digests from 1 KiB on are unchanged.
+
+## Argon2
+
+NanoKVM-Server hashes passwords with OpenSSL's `ARGON2ID` KDF (19 MiB, 2 passes, 1 lane). Its compression function,
+`fill_block` in `providers/implementations/kdfs/argon2.c`, copies and XORs whole 1 KiB blocks four times and runs the
+BlaMka permutations on words addressed through pointers into a block on the stack: on the C906 the loads and stores
+took most of the time, not the arithmetic (16 permutations alone take 4.6 us, the function 8.5-9.5 us).
+`0015-argon2-fill-block.patch` keeps the 16 words of each permutation in registers with constant offsets, reads
+`ref ^ prev` straight from the input blocks in the column permutations, and writes `next` in one sequential pass at
+the end. Writing `next` from the row permutations instead saves another pass in the cache but loses it all again over
+19 MiB: the stride-128 stores miss in a worse order. The results are the same; `ref` and `next` may be the same
+block (`next_addresses`), and every word of `next` is written after the last read of `ref`.
+
+On the device: `fill_block` 8.5 to 6.4 us in the cache; over the server's 19 MiB one pass takes 180 ms instead of
+215 ms, and a whole hash about 500 ms instead of 550 ms. The rest is fixed: the first pass writes 19 MiB of fresh
+memory, about 115 ms more than a later one, mostly page faults (the kernel has no transparent huge pages). Checked
+on the device: Argon2id, Argon2i and Argon2d with 1, 2 and 4 lanes, 1 to 3 passes and 32 KiB to 1 MiB of memory
+(108 sets), and the server's parameters, give the same key as the build without the patch; 20,000 blocks with and
+without XOR and 2,000 with `ref` and `next` the same block equal the reference function.

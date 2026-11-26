@@ -184,7 +184,7 @@ transport for the next ones.
  }
 --- a/src/impl/dtlstransport.cpp
 +++ b/src/impl/dtlstransport.cpp
-@@ -1137,7 +1137,7 @@
+@@ -1159,7 +1159,7 @@
  	if (!transport)
  		return -1;
  	auto b = reinterpret_cast<const byte *>(in);
@@ -227,16 +227,13 @@ transport for the next ones.
  	std::atomic<bool> mWrittenOnce = false; // same
 --- a/src/impl/transport.cpp
 +++ b/src/impl/transport.cpp
-@@ -199,10 +199,41 @@
- 			PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
- 			             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
- 		}
-+		if (owner)
-+			owner->keepSpare(messages);
- 		messages.clear();
+@@ -284,6 +284,36 @@
+ 		PLOG_WARNING << "Burst send: " << (messages.size() - sent) << " of " << messages.size()
+ 		             << (closed ? " records dropped, the transport is closed" : " records dropped, the socket stayed full");
  	}
- }
- 
++	keepSpare(messages);
++}
++
 +message_ptr Transport::spareMessage(const byte *data, size_t size) {
 +	message_ptr message;
 +	{
@@ -256,19 +253,17 @@ transport for the next ones.
 +}
 +
 +void Transport::keepSpare(message_vector &messages) noexcept {
-+	// Called from flushBurst(), which must not throw: moving a pointer into a slot allocates nothing. A message
-+	// that finds no slot, or that something else still holds, is simply let go.
++	// Called from the burst send, which must not throw: moving a pointer into a slot allocates nothing. A
++	// message that finds no slot, or that something else still holds, is simply let go.
 +	std::unique_lock lock(mSpareMutex, std::try_to_lock);
 +	if (!lock.owns_lock())
 +		return;
 +	for (auto &m : messages)
 +		if (m && m.use_count() == 1 && mSpareCount < maxSpare)
 +			mSpare[mSpareCount++] = std::move(m);
-+}
-+
+ }
+ 
  int Transport::sendBatchPrefix(message_vector &messages, size_t from, size_t count, int /*waitMs*/) {
- 	size_t taken = 0;
- 	while (taken < count && send(messages[from + taken]))
 --- a/src/impl/transport.hpp
 +++ b/src/impl/transport.hpp
 @@ -14,6 +14,7 @@
@@ -277,18 +272,22 @@ transport for the next ones.
  
 +#include <array>
  #include <atomic>
+ #include <chrono>
  #include <functional>
- #include <memory>
-@@ -71,9 +72,19 @@
+@@ -74,6 +75,9 @@
+ 	bool outgoingBatch(message_vector &messages);
  	int outgoingBatchPrefix(message_vector &messages, size_t from, size_t count, int waitMs);
- 	// Takes the message into this thread's burst when a BurstScope is open; false: send it now.
- 	bool collectBurst(message_ptr &message);
+ 	// Takes the message into this transport's queue: always while a BurstScope is open on the thread, and without
 +	// A binary message holding a copy of the data: one this transport's bursts sent and nobody holds any more, or a
 +	// new one.
 +	message_ptr spareMessage(const byte *data, size_t size);
+ 	// one when older records are queued or being sent. false: nothing is, send it now and call endDirectBurst().
+ 	bool collectBurst(message_ptr &message);
+ 	// After that send. true: records were queued behind it, and continueBurst() must be called (from a thread that
+@@ -92,6 +96,14 @@
+ 	size_t mBurstReady = 0; // how many records at the front of the queue may leave
+ 	bool mBurstSending = false;
  
- private:
- 	static void flushBurst() noexcept;
 +	// Keeps the messages nobody else holds, in fixed slots: recycling allocates nothing and so cannot fail.
 +	void keepSpare(message_vector &messages) noexcept;
 +
@@ -296,6 +295,7 @@ transport for the next ones.
 +	std::mutex mSpareMutex;
 +	std::array<message_ptr, maxSpare> mSpare;
 +	size_t mSpareCount = 0;
- 
++
  private:
  	const init_token mInitToken = Init::Instance().token();
+ 

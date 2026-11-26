@@ -185,6 +185,30 @@ list: appending them moved the earlier functions through linker relaxation
 (shorter calls) and cost the pipe, open and fork paths far more than the
 1.6 % it saved on the stream.
 
+## Re-pinned after the CLINT timer and huge pages
+
+The S-mode CLINT timer (patch `0093`) made the timer functions in the list longer, and transparent huge pages
+(`CONFIG_TRANSPARENT_HUGEPAGE`) made the memory functions of the write and page-fault paths longer. Each pushed
+the functions after it: of the 396 pinned entries only 113 stayed at their offsets, the end of the list moved by
+up to 3 KiB, and two entries (`shmem_get_folio_gfp.isra.0`, `free_one_page.constprop.1`) matched nothing any more
+because GCC named those functions differently. The list was then pinned again to the layout the kernel had (those two
+entries removed: the functions lie outside the list in the measured kernel); the pinned kernel is byte-identical to
+it.
+
+That layout was measured against the kernels before both changes and with the timer alone, each booted twice on
+the same device (pathbench and a pipe/page-fault bench, three passes per boot, ranges over all six):
+
+| Path | before both | timer only | timer + huge pages (pinned now) |
+| --- | ---: | ---: | ---: |
+| pipe round trip | 29.0–30.4 µs | 28.5–31.0 µs | 23.0–24.7 µs |
+| `open()`+`close()`, 1 / 4 / 8 components | 5.90–6.03 / 6.63–6.82 / 7.53–7.63 µs | 5.89–6.00 / 6.58–6.73 / 7.57–7.71 µs | 5.50–5.71 / 6.26–6.44 / 7.13–7.29 µs |
+| `stat()` of a missing name | 5.74–5.88 µs | 6.41–6.62 µs | 5.30–5.34 µs |
+| `stat()`, 1 / 4 / 8 components | 3.46–3.53 / 4.17–4.27 / 5.09–5.15 µs | 3.43–3.46 / 4.14–4.24 / 5.10–5.15 µs | 3.46–3.51 / 4.14–4.21 / 5.08–5.22 µs |
+| anonymous page fault | 18.5–18.8 µs | 18.4–18.6 µs | 20.8–21.0 µs |
+
+The page fault is the one path that got slower; whether from the huge-page code in the fault path or from the
+moved functions is not separated here.
+
 ## Changing the list
 
 The list is measured, not derived: a pipe round trip moved by 15 % when a few

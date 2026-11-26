@@ -9,17 +9,20 @@ application records must open with them, or OpenSSL keeps every record. Once the
 has arrived, so OpenSSL no longer resends its Finished, the transport builds the records itself; the takeover
 happens under the SSL lock, so no SSL_write is under way.
 
-From then on the transport alone gives the epoch's sequence numbers and nonces. It numbers on from the last record
-OpenSSL wrote, and it goes on with OpenSSL's nonce counter: OpenSSL starts the explicit nonce at a random value and
-advances it by one with every record of the key, as it does the sequence number, so their difference is one number
-for the whole epoch. The transport checks that on every record OpenSSL writes before the takeover (a record that
-does not follow it leaves all records to OpenSSL) and uses the same difference afterwards: one rule gives every
-nonce of the key, and two records have the same nonce only with the same sequence number. A sequence number has 48
-bits; the transport seals no record past the last one.
+From then on the transport gives the epoch's sequence numbers, and every nonce comes from one counter with two
+disjoint ranges. OpenSSL starts the explicit nonce at a random value and advances it by one with every record of the
+key, as it does the sequence number, so their difference is one number for the whole epoch; the transport checks
+that on every record OpenSSL writes before the takeover (a record that does not follow it leaves all records to
+OpenSSL). OpenSSL's counter cannot be moved, and OpenSSL seals a record of its own (an alert: close_notify, a fatal
+alert) under it before the transport sees the result. So at the takeover the next 65536 values of that counter stay
+OpenSSL's, and the transport's nonces begin after them: the same difference plus 65536, plus the sequence number.
+No nonce is used for two encryptions, neither on the wire nor inside the process. Before OpenSSL could leave its
+range (64 values before the end) the transport stops calling it: it reads nothing more and the connection ends. A
+sequence number has 48 bits; the transport seals no record past the last one.
 
-OpenSSL keeps its own counters after the takeover, so a record of its own in that epoch (an alert: close_notify, a
-fatal alert) would repeat a number and a nonce. It is not sent as written: the transport opens it with the write key
-and sends its content as its own next record, so the peer still gets an authenticated alert.
+OpenSSL also keeps its own sequence numbers after the takeover, so its alert would repeat one the transport gave.
+It is not sent as written: the transport opens it with the write key and sends its content as its own next record,
+so the peer still gets an authenticated alert.
 
 A record is numbered and sealed by the thread that sends it: a batch of the transport's queue in one call of the
 sealer, before its first send (Transport::prepareBurst), so a retry sends the same sealed bytes; a record sent
@@ -154,7 +157,7 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
  		mCurrentDscp = message->dscp;
  		ret = SSL_write(mSsl, message->data(), int(message->size()));
  		err = SSL_get_error(mSsl, ret);
-@@ -950,10 +977,20 @@
+@@ -950,10 +977,24 @@
  	}
  }
  
@@ -163,6 +166,10 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
 +constexpr size_t RecordHeader = 13, ExplicitNonce = 8, GcmTag = 16;
 +constexpr unsigned int UnsealedRecord = 0xFFFFFFFF; // Message::stream of a record built here, still to be sealed
 +constexpr uint64_t LastSequenceNumber = (uint64_t(1) << 48) - 1;
++// After the takeover OpenSSL may still seal records of its own in the epoch (alerts), with nonces from where its
++// counter stood. That many nonces stay OpenSSL's; the transport's begin after them. OpenSSL is not called again once
++// it has come within SealNonceMargin of using them up.
++constexpr uint64_t SealNonceReserve = uint64_t(1) << 16, SealNonceMargin = 64;
 +
 +} // namespace
 +
@@ -177,7 +184,7 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
  		mOutgoingResult = true;
  		return true;
  	}
-@@ -971,6 +1008,10 @@
+@@ -971,6 +1012,10 @@
  			});
  		}
  	} direct{this};
@@ -188,7 +195,7 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
  	bool result = Transport::outgoing(std::move(message));
  	mOutgoingResult = result;
  	return result;
-@@ -1040,6 +1081,7 @@
+@@ -1040,6 +1085,7 @@
  					{
  						std::lock_guard lock(mSslMutex);
  						SSL_set_mtu(mSsl, bufferSize + 1);
@@ -196,7 +203,17 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
  					}
  
  					PLOG_INFO << "DTLS handshake finished";
-@@ -1063,8 +1105,11 @@
+@@ -1049,6 +1095,9 @@
+ 			}
+ 
+ 			if (state() == State::Connected) {
++				// OpenSSL may answer what it reads with an alert, sealed under a nonce of its own.
++				if (mSealSpent)
++					throw std::runtime_error("OpenSSL's nonces of the sealed epoch are used up");
+ 				int ret, err;
+ 				{
+ 					std::lock_guard lock(mSslMutex);
+@@ -1063,13 +1112,17 @@
  					break;
  				}
  
@@ -209,7 +226,14 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
  			}
  		}
  
-@@ -1152,6 +1197,294 @@
+ 		std::lock_guard lock(mSslMutex);
+-		SSL_shutdown(mSsl);
++		if (!mSealSpent)
++			SSL_shutdown(mSsl);
+ 
+ 	} catch (const std::exception &e) {
+ 		PLOG_ERROR << "DTLS recv: " << e.what();
+@@ -1152,6 +1205,302 @@
  	return 1;
  }
  
@@ -310,11 +334,13 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
 +	auto p = reinterpret_cast<const uint8_t *>(data);
 +	std::unique_lock lock(mSealMutex);
 +	if (mSealState == SealState::Active) {
-+		// OpenSSL still numbers its records, and counts its nonces, from where it stopped: a record of its own in
-+		// the epoch the transport seals (an alert: its close_notify) would repeat a sequence number and a nonce
-+		// already used here. It is not sent as it is: it is opened and sealed again as the transport's next
-+		// record, so the peer still gets an authenticated alert. Records of another epoch go out as they are.
++		// OpenSSL still numbers its records from where it stopped: a record of its own in the epoch the transport
++		// seals (an alert: its close_notify) repeats a sequence number given here. It is not sent as it is: it is
++		// opened and sealed again as the transport's next record, so the peer still gets an authenticated alert.
++		// Its nonce is from the range left to OpenSSL at the takeover, which no nonce of the transport is in.
++		// Records of another epoch go out as they are.
 +		uint16_t sealed = mSealEpoch;
++		uint64_t first = mSealNonceDelta + mSealFirstSeq; // OpenSSL's next nonce at the takeover
 +		lock.unlock();
 +		bool own = false;
 +		for (size_t offset = 0; offset + RecordHeader <= size;) {
@@ -332,9 +358,14 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
 +			if (offset + RecordHeader + length > size)
 +				break;
 +			try {
-+				if (uint16_t((r[3] << 8) | r[4]) == sealed)
-+					resealRecord(r, length);
-+				else
++				if (uint16_t((r[3] << 8) | r[4]) == sealed) {
++					// How far OpenSSL's counter has come; outside its range nothing of it is used.
++					uint64_t used = length >= ExplicitNonce ? loadBe64(r + RecordHeader) - first : SealNonceReserve;
++					if (used + SealNonceMargin >= SealNonceReserve)
++						mSealSpent = true;
++					if (used < SealNonceReserve)
++						resealRecord(r, length);
++				} else
 +					outgoing(spareMessage(data + offset, RecordHeader + length));
 +			} catch (const std::exception &e) { // not through OpenSSL's frames
 +				PLOG_WARNING << "DTLS records: " << e.what();
@@ -409,8 +440,8 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
 +}
 +
 +void DtlsTransport::resealRecord(const uint8_t *r, size_t length) {
-+	// A record OpenSSL wrote after the takeover: the same content as the transport's next record. What OpenSSL
-+	// sealed never leaves, so the nonce it used there (one the transport has used too) seals nothing that is sent.
++	// A record OpenSSL wrote after the takeover, under a nonce of its own range: the same content as the
++	// transport's next record, under the transport's next sequence number and nonce.
 +	std::vector<uint8_t> plain;
 +	if (!openRecord(r, length, plain)) {
 +		PLOG_WARNING << "DTLS records: a record of OpenSSL's after the takeover does not open, dropped";
@@ -423,7 +454,7 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
 +	// Called with mSslMutex held.
 +	std::lock_guard lock(mSealMutex);
 +	if (mSealState == SealState::Proven && mPeerApplicationData && mSealEpochKnown && mSealNonceKnown) {
-+		mSealNextSeq = mSealLastSeq + 1;
++		mSealFirstSeq = mSealNextSeq = mSealLastSeq + 1;
 +		mSealState = SealState::Active;
 +		PLOG_DEBUG << "DTLS records: sealed here from sequence number " << mSealNextSeq;
 +	}
@@ -468,7 +499,8 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
 +		size_t plain = m->size() - RecordHeader - ExplicitNonce - GcmTag;
 +		uint64_t seq = mSealNextSeq++;
 +		storeBe48(r + 5, seq);
-+		storeBe64(r + RecordHeader, mSealNonceDelta + seq); // OpenSSL's nonce counter, continued
++		// OpenSSL's nonce counter, continued past the nonces left to OpenSSL itself.
++		storeBe64(r + RecordHeader, mSealNonceDelta + SealNonceReserve + seq);
 +		DtlsSealRecord s;
 +		std::memcpy(s.nonce, mSealSalt, 4);
 +		std::memcpy(s.nonce + 4, r + RecordHeader, ExplicitNonce);
@@ -504,7 +536,7 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
  int DtlsTransport::BioMethodWrite(BIO *bio, const char *in, int inl) {
  	if (inl <= 0)
  		return inl;
-@@ -1159,6 +1492,8 @@
+@@ -1159,6 +1508,8 @@
  	if (!transport)
  		return -1;
  	auto b = reinterpret_cast<const byte *>(in);
@@ -524,7 +556,7 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
  #include <atomic>
  #include <functional>
  #include <memory>
-@@ -104,6 +106,37 @@
+@@ -104,6 +106,42 @@
  	BIO *mInBio, *mOutBio;
  	std::mutex mSslMutex;
  
@@ -534,7 +566,10 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
 +	// no longer have to resend its Finished). From then on the transport is the one that gives the epoch's
 +	// sequence numbers and nonces, to application records and to OpenSSL's own later records (alerts) alike: it
 +	// numbers on from the last record OpenSSL wrote and goes on with OpenSSL's nonce counter, whose distance from
-+	// the sequence number (mSealNonceDelta) is the same for every record of the key. A record is numbered and
++	// the sequence number (mSealNonceDelta) is the same for every record of the key. OpenSSL's own counter stays
++	// where it was, and OpenSSL seals an alert under it before the transport sees it: the next SealNonceReserve
++	// nonces are therefore left to OpenSSL and the transport's begin after them, so the two never seal under the
++	// same nonce. OpenSSL is not called any more (mSealSpent) before it could leave that range. A record is numbered and
 +	// sealed by the thread that sends it (one at a time, Transport's queue), so the order on the wire is the
 +	// order of the numbers.
 +	enum class SealState { Off, Proving, Proven, Active };
@@ -546,7 +581,9 @@ their numbers. Records the sealer does not take are sealed with EVP. Renegotiati
 +	uint64_t mSealLastSeq = 0;    // the last sequence number OpenSSL wrote in mSealEpoch
 +	uint64_t mSealNonceDelta = 0; // explicit nonce minus sequence number, of every record in mSealEpoch
 +	bool mSealNonceKnown = false;
++	uint64_t mSealFirstSeq = 0; // the first sequence number given here
 +	uint64_t mSealNextSeq = 0;
++	std::atomic<bool> mSealSpent = false;
 +	std::atomic<bool> mPeerApplicationData = false;
 +
 +	void setupSealer();                                // under mSslMutex, when the handshake has finished

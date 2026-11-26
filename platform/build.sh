@@ -872,12 +872,18 @@ tools() {
     # -mno-strict-align states it for this library. The C906 has neither
     # RVV 1.0 nor Zbc. Without XTheadVector, which GCC would use for
     # inline copies, so that the many processes loading this library keep no
-    # vector state.
+    # vector state. platform/zlib-ng/*.patch: the hash table slides four entries
+    # at a time, and CRC-32 takes the variant of Chorba that is fastest on the
+    # C906 at every length (platform/README.md).
+    # Without the runtime CPU dispatch: on the C906 every function is the
+    # generic one, called directly.
     unpack_git zlib-ng . "$t/zlib-ng"
+    apply_patches "$t/zlib-ng" "$here/zlib-ng"
     "$host/cmake" -S "$t/zlib-ng" -B "$t/zlib-ng/build" -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=riscv64 \
         -DCMAKE_C_COMPILER="${cross}gcc" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-DNDEBUG \
         -DCMAKE_C_FLAGS="${cpu_flags[*]/_xtheadvector/} -mno-strict-align -ffile-prefix-map=$t/zlib-ng=zlib-ng" \
-        -DZLIB_COMPAT=ON -DWITH_RVV=OFF -DWITH_RISCV_ZBC=OFF -DWITH_GTEST=OFF -DBUILD_TESTING=OFF
+        -DZLIB_COMPAT=ON -DWITH_RVV=OFF -DWITH_RISCV_ZBC=OFF -DWITH_RUNTIME_CPU_DETECTION=OFF \
+        -DWITH_GTEST=OFF -DBUILD_TESTING=OFF
     "$host/cmake" --build "$t/zlib-ng/build" -j "$jobs"
     mkdir -p "$img/tools/zlib-ng"
     "${cross}strip" --strip-unneeded --remove-section=.comment --remove-section=.note \

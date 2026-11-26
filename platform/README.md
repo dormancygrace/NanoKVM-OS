@@ -22,7 +22,7 @@ Every upstream input is pinned in `sources.lock` and checked when it is download
 | `images/server/NanoKVM-Server`, `nkos-update`, `nkos-apply-updates`, `nkos-usb-internet`, `nkos-standby` | `nanokvm`, `nanokvm-base` |
 | `images/web/` | `nanokvm-web`, `/kvmapp/server/web` |
 | `images/tools/` (devmem, `nanokvm_update_edid`, `nkos-board-probe`, `usb-audio-capture`, EDID profiles) | `nanokvm-base`, `nanokvm`, `nanokvm-firmware` |
-| `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, its license; zlib-ng is also linked statically into NanoKVM-Server for its gzip reader) | `nanokvm-zlib`, in place of Alpine's `zlib`; the license also in `nanokvm`, `/usr/share/licenses/nanokvm` |
+| `images/tools/zlib-ng/` (zlib-ng as `libz.so.1`, used by NanoKVM-Server at runtime, and its license) | `nanokvm-zlib`, in place of Alpine's `zlib`; the license also in `nanokvm`, `/usr/share/licenses/nanokvm` |
 | `images/tools/exfatprogs/` (exfatprogs 1.4.5 and its license) | `nanokvm-exfatprogs1` |
 | `fip.bin`, `fip-licenses/` | `nanokvm-bootloader`; its trigger puts `fip.bin` on the boot partition |
 | `images/firmware/` (AIC8800 Wi-Fi, regulatory database, video codec) | `nanokvm-firmware` |
@@ -153,6 +153,7 @@ The root file system uses official Alpine packages (`BUILD_PROFILE="stock"`), wi
 | `modules/<name>/` | Patches for the SOPHGO media drivers (`osdrv`), AIC8800 and RTL8733BS Wi-Fi; `hwcrypto/` is the CryptoDMA driver source |
 | `uboot/` | `defconfig` and patches for U-Boot 2026.10 |
 | `lolcat/` | Byte I/O and terminal-output fixes for lolcat 1.5, the rainbow SSH shell's filter (original 1.4 optimization: 15 times faster on the C906) |
+| `zlib-ng/` | zlib-ng for the C906: the hash table slides four entries at a time (deflate level 1 about 13 % faster), and CRC-32 uses the small Chorba variant at every length (about twice as fast for 32 KiB and longer); output unchanged |
 | `fsbl/` | Patches for the Sipeed SDK's FSBL (BL2) and its board memory map; see [fsbl/README.md](fsbl/README.md) |
 | `boot/` | FIT template, initramfs file list and `init`; `stock-init` is the stock Sipeed initramfs init, and `stock-init.diff` turns it into `init` |
 | `native/cvi_mpi/` | Patches for the SOPHGO media libraries (`cvi_mpi`) |

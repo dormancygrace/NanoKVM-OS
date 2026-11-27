@@ -222,12 +222,10 @@
 		KEEP(*(.text.noop_dirty_folio))
 		. = MAX(., __hot_list + 0x11600);
 		KEEP(*(.text.shmem_write_begin))
-		. = MAX(., __hot_list + 0x11680);
+		. = MAX(., __hot_list + 0x116c0);
 		KEEP(*(.text.shmem_write_end))
-		. = MAX(., __hot_list + 0x11840);
+		. = MAX(., __hot_list + 0x11880);
 		KEEP(*(.text.folio_mark_dirty))
-		. = MAX(., __hot_list + 0x118c0);
-		KEEP(*(.text.shmem_get_folio_gfp.isra.0))
 		. = MAX(., __hot_list + 0x11f80);
 		KEEP(*(.text.kfree))
 		. = MAX(., __hot_list + 0x12200);
@@ -241,37 +239,37 @@
 		KEEP(*(.text.generic_write_checks))
 		. = MAX(., __hot_list + 0x12680);
 		KEEP(*(.text.generic_perform_write))
-		. = MAX(., __hot_list + 0x12840);
+		. = MAX(., __hot_list + 0x12880);
 		KEEP(*(.text.up_write))
-		. = MAX(., __hot_list + 0x128c0);
+		. = MAX(., __hot_list + 0x12900);
 		KEEP(*(.text.shmem_file_write_iter))
-		. = MAX(., __hot_list + 0x12940);
+		. = MAX(., __hot_list + 0x12980);
 		KEEP(*(.text.vfs_writev))
-		. = MAX(., __hot_list + 0x12c00);
+		. = MAX(., __hot_list + 0x12c40);
 		KEEP(*(.text.do_iter_readv_writev))
-		. = MAX(., __hot_list + 0x12d80);
-		KEEP(*(.text.riscv_clocksource_rdtime))
 		. = MAX(., __hot_list + 0x12dc0);
+		KEEP(*(.text.riscv_clocksource_rdtime))
+		. = MAX(., __hot_list + 0x12e00);
 		KEEP(*(.text.xas_find_conflict))
-		. = MAX(., __hot_list + 0x12f40);
+		. = MAX(., __hot_list + 0x12f80);
 		KEEP(*(.text.copy_iovec_from_user))
-		. = MAX(., __hot_list + 0x12fc0);
+		. = MAX(., __hot_list + 0x13000);
 		KEEP(*(.text.__bitmap_clear))
-		. = MAX(., __hot_list + 0x13040);
-		KEEP(*(.text.radix_tree_node_rcu_free))
 		. = MAX(., __hot_list + 0x13080);
+		KEEP(*(.text.radix_tree_node_rcu_free))
+		. = MAX(., __hot_list + 0x130c0);
 		KEEP(*(.text.xas_init_marks))
-		. = MAX(., __hot_list + 0x13180);
+		. = MAX(., __hot_list + 0x131c0);
 		KEEP(*(.text.xas_nomem))
-		. = MAX(., __hot_list + 0x13200);
+		. = MAX(., __hot_list + 0x13240);
 		KEEP(*(.text._find_next_bit))
-		. = MAX(., __hot_list + 0x13280);
+		. = MAX(., __hot_list + 0x132c0);
 		KEEP(*(.text.copy_folio_from_iter_atomic))
-		. = MAX(., __hot_list + 0x13a00);
+		. = MAX(., __hot_list + 0x13a40);
 		KEEP(*(.text.iov_iter_advance))
-		. = MAX(., __hot_list + 0x13b40);
+		. = MAX(., __hot_list + 0x13b80);
 		KEEP(*(.text.iov_iter_revert))
-		. = MAX(., __hot_list + 0x13c40);
+		. = MAX(., __hot_list + 0x13c80);
 		KEEP(*(.text.xas_create))
 		. = MAX(., __hot_list + 0x14100);
 		KEEP(*(.text.fault_in_iov_iter_readable))
@@ -283,538 +281,536 @@
 		KEEP(*(.text.import_iovec))
 		. = MAX(., __hot_list + 0x14940);
 		KEEP(*(.text.shmem_getattr))
-		. = MAX(., __hot_list + 0x14a00);
+		. = MAX(., __hot_list + 0x14a80);
 		KEEP(*(.text.vfs_getattr_nosec))
-		. = MAX(., __hot_list + 0x14ac0);
+		. = MAX(., __hot_list + 0x14b40);
 		KEEP(*(.text.generic_fillattr))
-		. = MAX(., __hot_list + 0x14c00);
+		. = MAX(., __hot_list + 0x14c80);
 		KEEP(*(.text.__riscv_sys_newfstatat))
-		. = MAX(., __hot_list + 0x14c40);
-		KEEP(*(.text.fill_mg_cmtime))
 		. = MAX(., __hot_list + 0x14cc0);
+		KEEP(*(.text.fill_mg_cmtime))
+		. = MAX(., __hot_list + 0x14d40);
 		KEEP(*(.text.path_put))
-		. = MAX(., __hot_list + 0x14d00);
+		. = MAX(., __hot_list + 0x14d80);
 		KEEP(*(.text.filename_lookup))
-		. = MAX(., __hot_list + 0x14e00);
+		. = MAX(., __hot_list + 0x14e80);
 		KEEP(*(.text.cp_new_stat))
-		. = MAX(., __hot_list + 0x14f00);
+		. = MAX(., __hot_list + 0x14f80);
 		KEEP(*(.text.path_lookupat))
-		. = MAX(., __hot_list + 0x15240);
+		. = MAX(., __hot_list + 0x152c0);
 		KEEP(*(.text._copy_to_user))
-		. = MAX(., __hot_list + 0x15280);
+		. = MAX(., __hot_list + 0x15300);
 		KEEP(*(.text.__riscv_sys_close))
-		. = MAX(., __hot_list + 0x15340);
+		. = MAX(., __hot_list + 0x153c0);
 		KEEP(*(.text.module_put))
-		. = MAX(., __hot_list + 0x15380);
+		. = MAX(., __hot_list + 0x15400);
 		KEEP(*(.text.locks_remove_file))
-		. = MAX(., __hot_list + 0x15780);
+		. = MAX(., __hot_list + 0x15800);
 		KEEP(*(.text.shmem_file_open))
-		. = MAX(., __hot_list + 0x157c0);
+		. = MAX(., __hot_list + 0x15840);
 		KEEP(*(.text.fput_close_sync))
-		. = MAX(., __hot_list + 0x15880);
+		. = MAX(., __hot_list + 0x15900);
 		KEEP(*(.text.__fput))
-		. = MAX(., __hot_list + 0x15ac0);
+		. = MAX(., __hot_list + 0x15b40);
 		KEEP(*(.text.locks_remove_posix))
-		. = MAX(., __hot_list + 0x15bc0);
+		. = MAX(., __hot_list + 0x15c40);
 		KEEP(*(.text.dnotify_flush))
-		. = MAX(., __hot_list + 0x15d40);
+		. = MAX(., __hot_list + 0x15dc0);
 		KEEP(*(.text.file_close_fd))
-		. = MAX(., __hot_list + 0x15e00);
-		KEEP(*(.text.file_f_owner_release))
-		. = MAX(., __hot_list + 0x15e40);
-		KEEP(*(.text.generic_file_open))
 		. = MAX(., __hot_list + 0x15e80);
-		KEEP(*(.text.try_module_get))
+		KEEP(*(.text.file_f_owner_release))
 		. = MAX(., __hot_list + 0x15ec0);
+		KEEP(*(.text.generic_file_open))
+		. = MAX(., __hot_list + 0x15f00);
+		KEEP(*(.text.try_module_get))
+		. = MAX(., __hot_list + 0x15f40);
 		KEEP(*(.text.alloc_fd))
-		. = MAX(., __hot_list + 0x16080);
+		. = MAX(., __hot_list + 0x16100);
 		KEEP(*(.text.file_ra_state_init))
-		. = MAX(., __hot_list + 0x160c0);
-		KEEP(*(.text.fd_install))
 		. = MAX(., __hot_list + 0x16140);
+		KEEP(*(.text.fd_install))
+		. = MAX(., __hot_list + 0x161c0);
 		KEEP(*(.text.mntget))
-		. = MAX(., __hot_list + 0x16180);
+		. = MAX(., __hot_list + 0x16200);
 		KEEP(*(.text.do_dentry_open))
-		. = MAX(., __hot_list + 0x16500);
+		. = MAX(., __hot_list + 0x16580);
 		KEEP(*(.text.generic_permission))
-		. = MAX(., __hot_list + 0x16780);
+		. = MAX(., __hot_list + 0x16800);
 		KEEP(*(.text.may_open))
-		. = MAX(., __hot_list + 0x16980);
+		. = MAX(., __hot_list + 0x16a00);
 		KEEP(*(.text.alloc_empty_file))
-		. = MAX(., __hot_list + 0x16ac0);
+		. = MAX(., __hot_list + 0x16b40);
 		KEEP(*(.text.__riscv_sys_openat))
-		. = MAX(., __hot_list + 0x16cc0);
+		. = MAX(., __hot_list + 0x16d40);
 		KEEP(*(.text.vfs_open))
-		. = MAX(., __hot_list + 0x16d80);
+		. = MAX(., __hot_list + 0x16e00);
 		KEEP(*(.text.path_openat))
-		. = MAX(., __hot_list + 0x17500);
+		. = MAX(., __hot_list + 0x17580);
 		KEEP(*(.text.path_get))
-		. = MAX(., __hot_list + 0x17540);
+		. = MAX(., __hot_list + 0x175c0);
 		KEEP(*(.text.do_file_open))
-		. = MAX(., __hot_list + 0x17640);
-		KEEP(*(.text.get_unused_fd_flags))
-		. = MAX(., __hot_list + 0x17680);
-		KEEP(*(.text.mutex_init_generic))
 		. = MAX(., __hot_list + 0x176c0);
-		KEEP(*(.text.errseq_sample))
+		KEEP(*(.text.get_unused_fd_flags))
 		. = MAX(., __hot_list + 0x17700);
-		KEEP(*(.text.__riscv_sys_getppid))
+		KEEP(*(.text.mutex_init_generic))
 		. = MAX(., __hot_list + 0x17740);
+		KEEP(*(.text.errseq_sample))
+		. = MAX(., __hot_list + 0x17780);
+		KEEP(*(.text.__riscv_sys_getppid))
+		. = MAX(., __hot_list + 0x177c0);
 		KEEP(*(.text.__task_pid_nr_ns))
-		. = MAX(., __hot_list + 0x17800);
+		. = MAX(., __hot_list + 0x17880);
 		KEEP(*(.text.pte_offset_map_lock))
-		. = MAX(., __hot_list + 0x17900);
+		. = MAX(., __hot_list + 0x17980);
 		KEEP(*(.text.split_large_buddy))
-		. = MAX(., __hot_list + 0x17f40);
-		KEEP(*(.text.up_read))
-		. = MAX(., __hot_list + 0x17fc0);
-		KEEP(*(.text.prep_new_page))
 		. = MAX(., __hot_list + 0x18140);
+		KEEP(*(.text.up_read))
+		. = MAX(., __hot_list + 0x181c0);
+		KEEP(*(.text.prep_new_page))
+		. = MAX(., __hot_list + 0x18340);
 		KEEP(*(.text.__alloc_frozen_pages_noprof))
-		. = MAX(., __hot_list + 0x18380);
+		. = MAX(., __hot_list + 0x18580);
 		KEEP(*(.text.get_page_from_freelist))
-		. = MAX(., __hot_list + 0x1ab40);
+		. = MAX(., __hot_list + 0x1adc0);
 		KEEP(*(.text.p4d_offset))
-		. = MAX(., __hot_list + 0x1ab80);
+		. = MAX(., __hot_list + 0x1ae00);
 		KEEP(*(.text.pud_offset))
-		. = MAX(., __hot_list + 0x1abc0);
-		KEEP(*(.text.free_one_page.constprop.1))
-		. = MAX(., __hot_list + 0x1acc0);
+		. = MAX(., __hot_list + 0x1ae40);
 		KEEP(*(.text.handle_page_fault))
-		. = MAX(., __hot_list + 0x1afc0);
+		. = MAX(., __hot_list + 0x1b140);
 		KEEP(*(.text.__handle_mm_fault))
-		. = MAX(., __hot_list + 0x1bd00);
-		KEEP(*(.text.pte_offset_map_rw_nolock))
-		. = MAX(., __hot_list + 0x1bd80);
-		KEEP(*(.text.handle_mm_fault))
-		. = MAX(., __hot_list + 0x1bec0);
-		KEEP(*(.text.lock_mm_and_find_vma))
-		. = MAX(., __hot_list + 0x1c000);
-		KEEP(*(.text.find_vma))
-		. = MAX(., __hot_list + 0x1c040);
-		KEEP(*(.text.down_read_trylock))
-		. = MAX(., __hot_list + 0x1c0c0);
-		KEEP(*(.text.folio_add_lru_vma))
-		. = MAX(., __hot_list + 0x1c100);
-		KEEP(*(.text.map_anon_folio_pte_nopf))
-		. = MAX(., __hot_list + 0x1c300);
-		KEEP(*(.text.__vmf_anon_prepare))
-		. = MAX(., __hot_list + 0x1c380);
-		KEEP(*(.text.folio_add_lru))
 		. = MAX(., __hot_list + 0x1c480);
-		KEEP(*(.text.__folio_alloc_noprof))
+		KEEP(*(.text.pte_offset_map_rw_nolock))
+		. = MAX(., __hot_list + 0x1c500);
+		KEEP(*(.text.handle_mm_fault))
 		. = MAX(., __hot_list + 0x1c640);
-		KEEP(*(.text.folio_add_new_anon_rmap))
+		KEEP(*(.text.lock_mm_and_find_vma))
 		. = MAX(., __hot_list + 0x1c780);
-		KEEP(*(.text.pte_mkwrite))
+		KEEP(*(.text.find_vma))
 		. = MAX(., __hot_list + 0x1c7c0);
-		KEEP(*(.text.folio_remove_rmap_ptes))
+		KEEP(*(.text.down_read_trylock))
+		. = MAX(., __hot_list + 0x1c840);
+		KEEP(*(.text.folio_add_lru_vma))
 		. = MAX(., __hot_list + 0x1c880);
+		KEEP(*(.text.map_anon_folio_pte_nopf))
+		. = MAX(., __hot_list + 0x1ca80);
+		KEEP(*(.text.__vmf_anon_prepare))
+		. = MAX(., __hot_list + 0x1cb00);
+		KEEP(*(.text.folio_add_lru))
+		. = MAX(., __hot_list + 0x1cc00);
+		KEEP(*(.text.__folio_alloc_noprof))
+		. = MAX(., __hot_list + 0x1ce00);
+		KEEP(*(.text.folio_add_new_anon_rmap))
+		. = MAX(., __hot_list + 0x1d100);
+		KEEP(*(.text.pte_mkwrite))
+		. = MAX(., __hot_list + 0x1d140);
+		KEEP(*(.text.folio_remove_rmap_ptes))
+		. = MAX(., __hot_list + 0x1d300);
 		KEEP(*(.text.__tlb_remove_folio_pages))
-		. = MAX(., __hot_list + 0x1c940);
-		KEEP(*(.text.__page_cache_release.part.0))
-		. = MAX(., __hot_list + 0x1ccc0);
-		KEEP(*(.text.lru_add))
-		. = MAX(., __hot_list + 0x1d040);
-		KEEP(*(.text.mt_find))
 		. = MAX(., __hot_list + 0x1d3c0);
+		KEEP(*(.text.__page_cache_release.part.0))
+		. = MAX(., __hot_list + 0x1d740);
+		KEEP(*(.text.lru_add))
+		. = MAX(., __hot_list + 0x1dac0);
+		KEEP(*(.text.mt_find))
+		. = MAX(., __hot_list + 0x1de40);
 		KEEP(*(.text.mas_next_slot))
-		. = MAX(., __hot_list + 0x1de80);
+		. = MAX(., __hot_list + 0x1e900);
 		KEEP(*(.text.mas_state_walk.constprop.0.isra.0))
-		. = MAX(., __hot_list + 0x1e100);
+		. = MAX(., __hot_list + 0x1eb80);
 		KEEP(*(.text.flush_icache_pte))
-		. = MAX(., __hot_list + 0x1e180);
-		KEEP(*(.text.mas_ascend))
-		. = MAX(., __hot_list + 0x1e300);
-		KEEP(*(.text.ktime_get))
-		. = MAX(., __hot_list + 0x1e440);
-		KEEP(*(.text.arch_sync_dma_for_cpu))
-		. = MAX(., __hot_list + 0x1e4c0);
-		KEEP(*(.text.arch_sync_dma_for_device))
-		. = MAX(., __hot_list + 0x1e540);
-		KEEP(*(.text.ndesc_set_addr))
-		. = MAX(., __hot_list + 0x1e580);
-		KEEP(*(.text.ktime_get_update_offsets_now))
-		. = MAX(., __hot_list + 0x1e740);
-		KEEP(*(.text.next_uptodate_folio))
-		. = MAX(., __hot_list + 0x1e940);
-		KEEP(*(.text.set_pte_range))
-		. = MAX(., __hot_list + 0x1eb00);
-		KEEP(*(.text.folio_add_file_rmap_ptes))
 		. = MAX(., __hot_list + 0x1ec00);
-		KEEP(*(.text.resched_curr_lazy))
-		. = MAX(., __hot_list + 0x1ec40);
-		KEEP(*(.text.riscv_clock_next_event))
-		. = MAX(., __hot_list + 0x1ec80);
-		KEEP(*(.text.clockevents_program_event))
-		. = MAX(., __hot_list + 0x1edc0);
-		KEEP(*(.text.tick_program_event))
-		. = MAX(., __hot_list + 0x1ee40);
-		KEEP(*(.text.ndesc_get_tx_status))
-		. = MAX(., __hot_list + 0x1ef00);
-		KEEP(*(.text.dma_unmap_page_attrs))
-		. = MAX(., __hot_list + 0x1f040);
-		KEEP(*(.text.dma_unmap_phys))
-		. = MAX(., __hot_list + 0x1f180);
-		KEEP(*(.text.ndesc_release_tx_desc))
+		KEEP(*(.text.mas_ascend))
+		. = MAX(., __hot_list + 0x1ed80);
+		KEEP(*(.text.ktime_get))
+		. = MAX(., __hot_list + 0x1eec0);
+		KEEP(*(.text.arch_sync_dma_for_cpu))
+		. = MAX(., __hot_list + 0x1ef40);
+		KEEP(*(.text.arch_sync_dma_for_device))
+		. = MAX(., __hot_list + 0x1efc0);
+		KEEP(*(.text.ndesc_set_addr))
+		. = MAX(., __hot_list + 0x1f000);
+		KEEP(*(.text.ktime_get_update_offsets_now))
 		. = MAX(., __hot_list + 0x1f1c0);
-		KEEP(*(.text.ndesc_prepare_tx_desc))
-		. = MAX(., __hot_list + 0x1f240);
-		KEEP(*(.text.dma_map_page_attrs))
-		. = MAX(., __hot_list + 0x1f2c0);
-		KEEP(*(.text.dma_direct_map_phys))
-		. = MAX(., __hot_list + 0x1f4c0);
-		KEEP(*(.text.clean_desc3))
-		. = MAX(., __hot_list + 0x1f540);
-		KEEP(*(.text.dma_map_phys))
+		KEEP(*(.text.next_uptodate_folio))
+		. = MAX(., __hot_list + 0x1f3c0);
+		KEEP(*(.text.set_pte_range))
 		. = MAX(., __hot_list + 0x1f580);
-		KEEP(*(.text.skb_release_data))
-		. = MAX(., __hot_list + 0x1f700);
-		KEEP(*(.text.skb_free_head))
-		. = MAX(., __hot_list + 0x1f7c0);
-		KEEP(*(.text.__local_bh_enable_ip))
-		. = MAX(., __hot_list + 0x1f880);
-		KEEP(*(.text.skb_release_head_state))
-		. = MAX(., __hot_list + 0x1f980);
-		KEEP(*(.text.kfree_skbmem))
-		. = MAX(., __hot_list + 0x1fa00);
-		KEEP(*(.text.is_vmalloc_addr))
-		. = MAX(., __hot_list + 0x1fa40);
-		KEEP(*(.text.idle_cpu))
+		KEEP(*(.text.folio_add_file_rmap_ptes))
+		. = MAX(., __hot_list + 0x1f740);
+		KEEP(*(.text.resched_curr_lazy))
+		. = MAX(., __hot_list + 0x1f780);
+		KEEP(*(.text.riscv_clock_next_event))
+		. = MAX(., __hot_list + 0x1f800);
+		KEEP(*(.text.clockevents_program_event))
+		. = MAX(., __hot_list + 0x1f940);
+		KEEP(*(.text.tick_program_event))
+		. = MAX(., __hot_list + 0x1f9c0);
+		KEEP(*(.text.ndesc_get_tx_status))
 		. = MAX(., __hot_list + 0x1fa80);
-		KEEP(*(.text.generic_handle_domain_irq))
-		. = MAX(., __hot_list + 0x1fac0);
-		KEEP(*(.text.__irq_resolve_mapping))
-		. = MAX(., __hot_list + 0x1fb40);
-		KEEP(*(.text.add_interrupt_randomness))
+		KEEP(*(.text.dma_unmap_page_attrs))
+		. = MAX(., __hot_list + 0x1fbc0);
+		KEEP(*(.text.dma_unmap_phys))
 		. = MAX(., __hot_list + 0x1fd00);
-		KEEP(*(.text.irq_exit_rcu))
-		. = MAX(., __hot_list + 0x1fe00);
-		KEEP(*(.text.riscv_intc_irq_eoi))
+		KEEP(*(.text.ndesc_release_tx_desc))
+		. = MAX(., __hot_list + 0x1fd40);
+		KEEP(*(.text.ndesc_prepare_tx_desc))
+		. = MAX(., __hot_list + 0x1fdc0);
+		KEEP(*(.text.dma_map_page_attrs))
 		. = MAX(., __hot_list + 0x1fe40);
-		KEEP(*(.text.riscv_intc_irq))
-		. = MAX(., __hot_list + 0x1fec0);
-		KEEP(*(.text.irq_enter_rcu))
-		. = MAX(., __hot_list + 0x1ff40);
-		KEEP(*(.text.__hrtimer_run_queues.constprop.0))
-		. = MAX(., __hot_list + 0x20180);
-		KEEP(*(.text.__hrtimer_cb_get_time))
-		. = MAX(., __hot_list + 0x20200);
-		KEEP(*(.text.riscv_timer_interrupt))
-		. = MAX(., __hot_list + 0x20240);
-		KEEP(*(.text.hrtimer_interrupt))
+		KEEP(*(.text.dma_direct_map_phys))
+		. = MAX(., __hot_list + 0x20040);
+		KEEP(*(.text.clean_desc3))
+		. = MAX(., __hot_list + 0x200c0);
+		KEEP(*(.text.dma_map_phys))
+		. = MAX(., __hot_list + 0x20100);
+		KEEP(*(.text.skb_release_data))
+		. = MAX(., __hot_list + 0x20280);
+		KEEP(*(.text.skb_free_head))
+		. = MAX(., __hot_list + 0x20340);
+		KEEP(*(.text.__local_bh_enable_ip))
+		. = MAX(., __hot_list + 0x20400);
+		KEEP(*(.text.skb_release_head_state))
+		. = MAX(., __hot_list + 0x20500);
+		KEEP(*(.text.kfree_skbmem))
 		. = MAX(., __hot_list + 0x20580);
-		KEEP(*(.text.handle_percpu_devid_irq))
+		KEEP(*(.text.is_vmalloc_addr))
+		. = MAX(., __hot_list + 0x205c0);
+		KEEP(*(.text.idle_cpu))
+		. = MAX(., __hot_list + 0x20600);
+		KEEP(*(.text.generic_handle_domain_irq))
+		. = MAX(., __hot_list + 0x20640);
+		KEEP(*(.text.__irq_resolve_mapping))
 		. = MAX(., __hot_list + 0x206c0);
+		KEEP(*(.text.add_interrupt_randomness))
+		. = MAX(., __hot_list + 0x20880);
+		KEEP(*(.text.irq_exit_rcu))
+		. = MAX(., __hot_list + 0x20980);
+		KEEP(*(.text.riscv_intc_irq_eoi))
+		. = MAX(., __hot_list + 0x209c0);
+		KEEP(*(.text.riscv_intc_irq))
+		. = MAX(., __hot_list + 0x20a40);
+		KEEP(*(.text.irq_enter_rcu))
+		. = MAX(., __hot_list + 0x20ac0);
+		KEEP(*(.text.__hrtimer_run_queues.constprop.0))
+		. = MAX(., __hot_list + 0x20d00);
+		KEEP(*(.text.__hrtimer_cb_get_time))
+		. = MAX(., __hot_list + 0x20d80);
+		KEEP(*(.text.riscv_timer_interrupt))
+		. = MAX(., __hot_list + 0x20e00);
+		KEEP(*(.text.hrtimer_interrupt))
+		. = MAX(., __hot_list + 0x21140);
+		KEEP(*(.text.handle_percpu_devid_irq))
+		. = MAX(., __hot_list + 0x21280);
 		KEEP(*(.text.__hrtimer_rearm_deferred))
-		. = MAX(., __hot_list + 0x207c0);
+		. = MAX(., __hot_list + 0x21380);
 		KEEP(*(.text.kmem_cache_alloc_node_noprof))
-		. = MAX(., __hot_list + 0x20940);
+		. = MAX(., __hot_list + 0x21500);
 		KEEP(*(.text.hrtimer_start_range_ns_common))
-		. = MAX(., __hot_list + 0x20c40);
+		. = MAX(., __hot_list + 0x21800);
 		KEEP(*(.text.hrtimer_active))
 		KEEP(*(.text.ttwu_do_activate.constprop.0))
-		. = MAX(., __hot_list + 0x20cc0);
+		. = MAX(., __hot_list + 0x21880);
 		KEEP(*(.text.kmalloc_reserve))
-		. = MAX(., __hot_list + 0x20e00);
+		. = MAX(., __hot_list + 0x219c0);
 		KEEP(*(.text.__alloc_skb))
-		. = MAX(., __hot_list + 0x21000);
+		. = MAX(., __hot_list + 0x21bc0);
 		KEEP(*(.text.__copy_skb_header))
-		. = MAX(., __hot_list + 0x21180);
+		. = MAX(., __hot_list + 0x21d40);
 		KEEP(*(.text.wake_up_process))
-		. = MAX(., __hot_list + 0x211c0);
+		. = MAX(., __hot_list + 0x21d80);
 		KEEP(*(.text.sk_free))
-		. = MAX(., __hot_list + 0x21200);
+		. = MAX(., __hot_list + 0x21dc0);
 		KEEP(*(.text.sk_skb_reason_drop))
-		. = MAX(., __hot_list + 0x21380);
+		. = MAX(., __hot_list + 0x21f40);
 		KEEP(*(.text.stmmac_xmit))
-		. = MAX(., __hot_list + 0x22ac0);
+		. = MAX(., __hot_list + 0x23680);
 		KEEP(*(.text.ndesc_set_tx_owner))
-		. = MAX(., __hot_list + 0x22b00);
+		. = MAX(., __hot_list + 0x236c0);
 		KEEP(*(.text.dev_kfree_skb_any_reason))
-		. = MAX(., __hot_list + 0x22bc0);
+		. = MAX(., __hot_list + 0x23780);
 		KEEP(*(.text.dwmac_enable_dma_transmission))
-		. = MAX(., __hot_list + 0x22c00);
+		. = MAX(., __hot_list + 0x237c0);
 		KEEP(*(.text.tcp_wfree))
-		. = MAX(., __hot_list + 0x22d80);
+		. = MAX(., __hot_list + 0x23940);
 		KEEP(*(.text.skb_zerocopy_clone))
-		. = MAX(., __hot_list + 0x22e80);
+		. = MAX(., __hot_list + 0x23a40);
 		KEEP(*(.text.ip_send_check))
-		. = MAX(., __hot_list + 0x22ec0);
+		. = MAX(., __hot_list + 0x23a80);
 		KEEP(*(.text.get_timespec64))
-		. = MAX(., __hot_list + 0x22f40);
+		. = MAX(., __hot_list + 0x23b00);
 		KEEP(*(.text.hrtimer_start_range_ns_user))
-		. = MAX(., __hot_list + 0x23100);
+		. = MAX(., __hot_list + 0x23cc0);
 		KEEP(*(.text.hrtimer_nanosleep))
-		. = MAX(., __hot_list + 0x23280);
+		. = MAX(., __hot_list + 0x23e40);
 		KEEP(*(.text.__riscv_sys_nanosleep))
 		KEEP(*(.text.do_nanosleep))
-		. = MAX(., __hot_list + 0x23340);
-		KEEP(*(.text.hrtimer_wakeup))
-		. = MAX(., __hot_list + 0x23380);
-		KEEP(*(.text.hrtimer_reprogram.constprop.0))
-		. = MAX(., __hot_list + 0x23400);
-		KEEP(*(.text.vm_normal_page))
-		. = MAX(., __hot_list + 0x23480);
-		KEEP(*(.text.ndesc_get_rx_status))
-		. = MAX(., __hot_list + 0x23580);
-		KEEP(*(.text.__usecs_to_jiffies))
-		. = MAX(., __hot_list + 0x235c0);
-		KEEP(*(.text.ipv4_dst_check))
-		. = MAX(., __hot_list + 0x23640);
-		KEEP(*(.text.eth_header_parse_protocol))
-		. = MAX(., __hot_list + 0x23680);
-		KEEP(*(.text.skb_put))
-		. = MAX(., __hot_list + 0x23700);
-		KEEP(*(.text.ktime_get_with_offset))
-		. = MAX(., __hot_list + 0x23880);
-		KEEP(*(.text.__dma_sync_single_for_cpu))
-		. = MAX(., __hot_list + 0x23940);
-		KEEP(*(.text.__dma_sync_single_for_device))
-		. = MAX(., __hot_list + 0x23a00);
-		KEEP(*(.text.sk_filter_trim_cap))
-		. = MAX(., __hot_list + 0x23c80);
-		KEEP(*(.text.__inet_lookup_established))
-		. = MAX(., __hot_list + 0x23e80);
-		KEEP(*(.text.ndesc_set_rx_owner))
-		. = MAX(., __hot_list + 0x23ec0);
-		KEEP(*(.text.ndesc_get_rx_frame_len))
 		. = MAX(., __hot_list + 0x23f00);
-		KEEP(*(.text.inet_gro_receive))
-		. = MAX(., __hot_list + 0x24100);
-		KEEP(*(.text.tcp_inbound_hash))
-		. = MAX(., __hot_list + 0x24140);
-		KEEP(*(.text.napi_build_skb))
+		KEEP(*(.text.hrtimer_wakeup))
+		. = MAX(., __hot_list + 0x23f40);
+		KEEP(*(.text.hrtimer_reprogram.constprop.0))
+		. = MAX(., __hot_list + 0x23fc0);
+		KEEP(*(.text.vm_normal_page))
+		. = MAX(., __hot_list + 0x24080);
+		KEEP(*(.text.ndesc_get_rx_status))
+		. = MAX(., __hot_list + 0x24180);
+		KEEP(*(.text.__usecs_to_jiffies))
+		. = MAX(., __hot_list + 0x241c0);
+		KEEP(*(.text.ipv4_dst_check))
+		. = MAX(., __hot_list + 0x24240);
+		KEEP(*(.text.eth_header_parse_protocol))
 		. = MAX(., __hot_list + 0x24280);
-		KEEP(*(.text.tcp4_gro_receive))
-		. = MAX(., __hot_list + 0x24640);
-		KEEP(*(.text.gro_receive_skb))
-		. = MAX(., __hot_list + 0x247c0);
-		KEEP(*(.text.refill_desc3))
-		. = MAX(., __hot_list + 0x24840);
-		KEEP(*(.text.tcp_gro_receive))
+		KEEP(*(.text.skb_put))
+		. = MAX(., __hot_list + 0x24300);
+		KEEP(*(.text.ktime_get_with_offset))
+		. = MAX(., __hot_list + 0x24480);
+		KEEP(*(.text.__dma_sync_single_for_cpu))
+		. = MAX(., __hot_list + 0x24540);
+		KEEP(*(.text.__dma_sync_single_for_device))
+		. = MAX(., __hot_list + 0x24600);
+		KEEP(*(.text.sk_filter_trim_cap))
+		. = MAX(., __hot_list + 0x24880);
+		KEEP(*(.text.__inet_lookup_established))
+		. = MAX(., __hot_list + 0x24a80);
+		KEEP(*(.text.ndesc_set_rx_owner))
+		. = MAX(., __hot_list + 0x24ac0);
+		KEEP(*(.text.ndesc_get_rx_frame_len))
+		. = MAX(., __hot_list + 0x24b00);
+		KEEP(*(.text.inet_gro_receive))
+		. = MAX(., __hot_list + 0x24d00);
+		KEEP(*(.text.tcp_inbound_hash))
 		. = MAX(., __hot_list + 0x24d40);
-		KEEP(*(.text.tcp_v4_rcv))
+		KEEP(*(.text.napi_build_skb))
+		. = MAX(., __hot_list + 0x24e80);
+		KEEP(*(.text.tcp4_gro_receive))
+		. = MAX(., __hot_list + 0x25240);
+		KEEP(*(.text.gro_receive_skb))
+		. = MAX(., __hot_list + 0x253c0);
+		KEEP(*(.text.refill_desc3))
+		. = MAX(., __hot_list + 0x25440);
+		KEEP(*(.text.tcp_gro_receive))
 		. = MAX(., __hot_list + 0x25940);
-		KEEP(*(.text.page_pool_alloc_pages))
-		. = MAX(., __hot_list + 0x259c0);
-		KEEP(*(.text.stmmac_rx_buf1_len))
-		. = MAX(., __hot_list + 0x25ac0);
-		KEEP(*(.text.tcp_v4_fill_cb))
-		. = MAX(., __hot_list + 0x25b80);
-		KEEP(*(.text.ip_local_deliver))
-		. = MAX(., __hot_list + 0x25cc0);
-		KEEP(*(.text.dev_gro_receive))
+		KEEP(*(.text.tcp_v4_rcv))
 		. = MAX(., __hot_list + 0x26540);
-		KEEP(*(.text.ip_rcv_core))
-		. = MAX(., __hot_list + 0x267c0);
-		KEEP(*(.text.ip_local_deliver_finish))
+		KEEP(*(.text.page_pool_alloc_pages))
+		. = MAX(., __hot_list + 0x265c0);
+		KEEP(*(.text.stmmac_rx_buf1_len))
+		. = MAX(., __hot_list + 0x266c0);
+		KEEP(*(.text.tcp_v4_fill_cb))
+		. = MAX(., __hot_list + 0x26780);
+		KEEP(*(.text.ip_local_deliver))
 		. = MAX(., __hot_list + 0x268c0);
+		KEEP(*(.text.dev_gro_receive))
+		. = MAX(., __hot_list + 0x27140);
+		KEEP(*(.text.ip_rcv_core))
+		. = MAX(., __hot_list + 0x273c0);
+		KEEP(*(.text.ip_local_deliver_finish))
+		. = MAX(., __hot_list + 0x274c0);
 		KEEP(*(.text.ip_rcv_finish_core))
-		. = MAX(., __hot_list + 0x26cc0);
+		. = MAX(., __hot_list + 0x278c0);
 		KEEP(*(.text.__build_skb_around))
-		. = MAX(., __hot_list + 0x26dc0);
+		. = MAX(., __hot_list + 0x279c0);
 		KEEP(*(.text.stmmac_get_rx_hwtstamp))
-		. = MAX(., __hot_list + 0x26e80);
+		. = MAX(., __hot_list + 0x27a80);
 		KEEP(*(.text.ip_protocol_deliver_rcu))
-		. = MAX(., __hot_list + 0x26f80);
+		. = MAX(., __hot_list + 0x27b80);
 		KEEP(*(.text.raw_local_deliver))
-		. = MAX(., __hot_list + 0x27240);
+		. = MAX(., __hot_list + 0x27e40);
 		KEEP(*(.text.eth_type_trans))
-		. = MAX(., __hot_list + 0x27380);
-		KEEP(*(.text.page_pool_put_unrefed_netmem))
-		. = MAX(., __hot_list + 0x27600);
-		KEEP(*(.text.napi_pp_put_page))
-		. = MAX(., __hot_list + 0x276c0);
-		KEEP(*(.text.__netif_receive_skb_core.constprop.0))
-		. = MAX(., __hot_list + 0x27e00);
-		KEEP(*(.text.pskb_trim_rcsum_slow))
-		. = MAX(., __hot_list + 0x27f00);
-		KEEP(*(.text.skb_condense))
 		. = MAX(., __hot_list + 0x27f80);
+		KEEP(*(.text.page_pool_put_unrefed_netmem))
+		. = MAX(., __hot_list + 0x28200);
+		KEEP(*(.text.napi_pp_put_page))
+		. = MAX(., __hot_list + 0x282c0);
+		KEEP(*(.text.__netif_receive_skb_core.constprop.0))
+		. = MAX(., __hot_list + 0x28a00);
+		KEEP(*(.text.pskb_trim_rcsum_slow))
+		. = MAX(., __hot_list + 0x28b00);
+		KEEP(*(.text.skb_condense))
+		. = MAX(., __hot_list + 0x28b80);
 		KEEP(*(.text.tcp_add_backlog))
-		. = MAX(., __hot_list + 0x28380);
+		. = MAX(., __hot_list + 0x28f80);
 		KEEP(*(.text.anon_rmap_tree_insert))
-		. = MAX(., __hot_list + 0x28440);
+		. = MAX(., __hot_list + 0x29040);
 		KEEP(*(.text.anon_rmap_tree_remove))
-		. = MAX(., __hot_list + 0x28640);
-		KEEP(*(.text.hrtimer_try_to_cancel))
-		. = MAX(., __hot_list + 0x28700);
-		KEEP(*(.text.kfree_skb_partial))
-		. = MAX(., __hot_list + 0x28780);
-		KEEP(*(.text.skb_try_coalesce))
-		. = MAX(., __hot_list + 0x28c40);
-		KEEP(*(.text.__napi_poll))
-		. = MAX(., __hot_list + 0x28e80);
-		KEEP(*(.text.napi_complete_done))
-		. = MAX(., __hot_list + 0x29080);
-		KEEP(*(.text.handle_softirqs))
 		. = MAX(., __hot_list + 0x29240);
-		KEEP(*(.text.timerqueue_linked_add))
+		KEEP(*(.text.hrtimer_try_to_cancel))
 		. = MAX(., __hot_list + 0x29300);
+		KEEP(*(.text.kfree_skb_partial))
+		. = MAX(., __hot_list + 0x29380);
+		KEEP(*(.text.skb_try_coalesce))
+		. = MAX(., __hot_list + 0x29840);
+		KEEP(*(.text.__napi_poll))
+		. = MAX(., __hot_list + 0x29a80);
+		KEEP(*(.text.napi_complete_done))
+		. = MAX(., __hot_list + 0x29c80);
+		KEEP(*(.text.handle_softirqs))
+		. = MAX(., __hot_list + 0x29e40);
+		KEEP(*(.text.timerqueue_linked_add))
+		. = MAX(., __hot_list + 0x29f00);
 		KEEP(*(.text.sbi_set_timer))
-		. = MAX(., __hot_list + 0x29340);
+		. = MAX(., __hot_list + 0x29f40);
 		KEEP(*(.text.___ratelimit))
-		. = MAX(., __hot_list + 0x294c0);
+		. = MAX(., __hot_list + 0x2a0c0);
 		KEEP(*(.text.rcuref_get_slowpath))
-		. = MAX(., __hot_list + 0x29540);
+		. = MAX(., __hot_list + 0x2a140);
 		KEEP(*(.text.rb_erase_linked))
-		. = MAX(., __hot_list + 0x29580);
-		KEEP(*(.text.radix_tree_lookup))
-		. = MAX(., __hot_list + 0x29600);
-		KEEP(*(.text.rb_insert_color))
-		. = MAX(., __hot_list + 0x296c0);
-		KEEP(*(.text.rb_erase))
-		. = MAX(., __hot_list + 0x29900);
-		KEEP(*(.text.memcmp))
-		. = MAX(., __hot_list + 0x29940);
-		KEEP(*(.text.csum_tcpudp_nofold))
-		. = MAX(., __hot_list + 0x29980);
-		KEEP(*(.text._copy_from_user))
-		. = MAX(., __hot_list + 0x29a00);
-		KEEP(*(.text.skb_gro_receive))
-		. = MAX(., __hot_list + 0x29e80);
-		KEEP(*(.text.napi_skb_free_stolen_head))
-		. = MAX(., __hot_list + 0x29fc0);
-		KEEP(*(.text.fput))
 		. = MAX(., __hot_list + 0x2a180);
-		KEEP(*(.text.call_rcu))
-		. = MAX(., __hot_list + 0x2a1c0);
-		KEEP(*(.text.__skb_datagram_iter.constprop.0))
-		. = MAX(., __hot_list + 0x2a440);
-		KEEP(*(.text.skb_push))
-		. = MAX(., __hot_list + 0x2a480);
-		KEEP(*(.text.skb_pull))
-		. = MAX(., __hot_list + 0x2a4c0);
-		KEEP(*(.text.do_csum))
+		KEEP(*(.text.radix_tree_lookup))
+		. = MAX(., __hot_list + 0x2a200);
+		KEEP(*(.text.rb_insert_color))
+		. = MAX(., __hot_list + 0x2a2c0);
+		KEEP(*(.text.rb_erase))
+		. = MAX(., __hot_list + 0x2a500);
+		KEEP(*(.text.memcmp))
+		. = MAX(., __hot_list + 0x2a540);
+		KEEP(*(.text.csum_tcpudp_nofold))
+		. = MAX(., __hot_list + 0x2a580);
+		KEEP(*(.text._copy_from_user))
 		. = MAX(., __hot_list + 0x2a600);
+		KEEP(*(.text.skb_gro_receive))
+		. = MAX(., __hot_list + 0x2aa80);
+		KEEP(*(.text.napi_skb_free_stolen_head))
+		. = MAX(., __hot_list + 0x2abc0);
+		KEEP(*(.text.fput))
+		. = MAX(., __hot_list + 0x2ad80);
+		KEEP(*(.text.call_rcu))
+		. = MAX(., __hot_list + 0x2adc0);
+		KEEP(*(.text.__skb_datagram_iter.constprop.0))
+		. = MAX(., __hot_list + 0x2b040);
+		KEEP(*(.text.skb_push))
+		. = MAX(., __hot_list + 0x2b080);
+		KEEP(*(.text.skb_pull))
+		. = MAX(., __hot_list + 0x2b0c0);
+		KEEP(*(.text.do_csum))
+		. = MAX(., __hot_list + 0x2b200);
 		KEEP(*(.text.sdhci_adma_write_desc))
-		. = MAX(., __hot_list + 0x2a640);
+		. = MAX(., __hot_list + 0x2b240);
 		KEEP(*(.text.dwcmshc_adma_write_desc))
-		. = MAX(., __hot_list + 0x2a700);
+		. = MAX(., __hot_list + 0x2b300);
 		KEEP(*(.text.skb_checksum))
-		. = MAX(., __hot_list + 0x2a980);
+		. = MAX(., __hot_list + 0x2b580);
 		KEEP(*(.text.complete))
 		KEEP(*(.text.consume_skb))
-		. = MAX(., __hot_list + 0x2aa40);
+		. = MAX(., __hot_list + 0x2b640);
 		KEEP(*(.text.skb_queue_tail))
-		. = MAX(., __hot_list + 0x2aa80);
+		. = MAX(., __hot_list + 0x2b680);
 		KEEP(*(.text.skb_ensure_writable))
-		. = MAX(., __hot_list + 0x2ab80);
+		. = MAX(., __hot_list + 0x2b780);
 		KEEP(*(.text.skb_checksum_help))
-		. = MAX(., __hot_list + 0x2ad40);
+		. = MAX(., __hot_list + 0x2b940);
 		KEEP(*(.text.mod_timer))
-		. = MAX(., __hot_list + 0x2afc0);
+		. = MAX(., __hot_list + 0x2bbc0);
 		KEEP(*(.text.lock_timer_base))
-		. = MAX(., __hot_list + 0x2b080);
+		. = MAX(., __hot_list + 0x2bc80);
 		KEEP(*(.text.detach_if_pending))
-		. = MAX(., __hot_list + 0x2b100);
+		. = MAX(., __hot_list + 0x2bd00);
 		KEEP(*(.text.sk_reset_timer))
-		. = MAX(., __hot_list + 0x2b180);
+		. = MAX(., __hot_list + 0x2bd80);
 		KEEP(*(.text.update_curr_common))
-		. = MAX(., __hot_list + 0x2b200);
+		. = MAX(., __hot_list + 0x2be00);
 		KEEP(*(.text.csum_partial))
-		. = MAX(., __hot_list + 0x2b240);
+		. = MAX(., __hot_list + 0x2be40);
 		KEEP(*(.text.skb_copy_datagram_iter))
-		. = MAX(., __hot_list + 0x2b280);
+		. = MAX(., __hot_list + 0x2be80);
 		KEEP(*(.text.tcp_rcv_space_adjust))
-		. = MAX(., __hot_list + 0x2b380);
+		. = MAX(., __hot_list + 0x2bf80);
 		KEEP(*(.text.tcp_v4_do_rcv))
-		. = MAX(., __hot_list + 0x2b580);
+		. = MAX(., __hot_list + 0x2c180);
 		KEEP(*(.text.tcp_rcv_established))
-		. = MAX(., __hot_list + 0x2bf00);
-		KEEP(*(.text.__tcp_ack_snd_check))
-		. = MAX(., __hot_list + 0x2c0c0);
-		KEEP(*(.text.tcp_data_ecn_check))
-		. = MAX(., __hot_list + 0x2c200);
-		KEEP(*(.text.sock_rfree))
-		. = MAX(., __hot_list + 0x2c280);
-		KEEP(*(.text.skb_attempt_defer_free))
-		. = MAX(., __hot_list + 0x2c380);
-		KEEP(*(.text.__kmalloc_node_track_caller_noprof))
-		. = MAX(., __hot_list + 0x2c540);
-		KEEP(*(.text.kmalloc_size_roundup))
-		. = MAX(., __hot_list + 0x2c5c0);
-		KEEP(*(.text.tcp_grow_window))
-		. = MAX(., __hot_list + 0x2c700);
-		KEEP(*(.text.__netdev_alloc_skb))
-		. = MAX(., __hot_list + 0x2ca00);
-		KEEP(*(.text.netif_receive_skb))
 		. = MAX(., __hot_list + 0x2cb00);
-		KEEP(*(.text.ip_rcv))
-		. = MAX(., __hot_list + 0x2cc00);
-		KEEP(*(.text.__skb_checksum_complete))
+		KEEP(*(.text.__tcp_ack_snd_check))
 		. = MAX(., __hot_list + 0x2ccc0);
-		KEEP(*(.text.sock_def_readable))
-		. = MAX(., __hot_list + 0x2cd40);
-		KEEP(*(.text.__tcp_select_window))
+		KEEP(*(.text.tcp_data_ecn_check))
+		. = MAX(., __hot_list + 0x2ce00);
+		KEEP(*(.text.sock_rfree))
+		. = MAX(., __hot_list + 0x2ce80);
+		KEEP(*(.text.skb_attempt_defer_free))
 		. = MAX(., __hot_list + 0x2cf80);
-		KEEP(*(.text.tcp_queue_rcv))
-		. = MAX(., __hot_list + 0x2d100);
-		KEEP(*(.text.tcp_data_ready))
-		. = MAX(., __hot_list + 0x2d180);
-		KEEP(*(.text.tcp_event_data_recv))
-		. = MAX(., __hot_list + 0x2d4c0);
-		KEEP(*(.text.ep_poll_callback))
-		. = MAX(., __hot_list + 0x2d740);
-		KEEP(*(.text.tcp_send_delayed_ack))
+		KEEP(*(.text.__kmalloc_node_track_caller_noprof))
+		. = MAX(., __hot_list + 0x2d140);
+		KEEP(*(.text.kmalloc_size_roundup))
+		. = MAX(., __hot_list + 0x2d1c0);
+		KEEP(*(.text.tcp_grow_window))
+		. = MAX(., __hot_list + 0x2d300);
+		KEEP(*(.text.__netdev_alloc_skb))
+		. = MAX(., __hot_list + 0x2d600);
+		KEEP(*(.text.netif_receive_skb))
+		. = MAX(., __hot_list + 0x2d700);
+		KEEP(*(.text.ip_rcv))
+		. = MAX(., __hot_list + 0x2d800);
+		KEEP(*(.text.__skb_checksum_complete))
 		. = MAX(., __hot_list + 0x2d8c0);
+		KEEP(*(.text.sock_def_readable))
+		. = MAX(., __hot_list + 0x2d940);
+		KEEP(*(.text.__tcp_select_window))
+		. = MAX(., __hot_list + 0x2db80);
+		KEEP(*(.text.tcp_queue_rcv))
+		. = MAX(., __hot_list + 0x2dd00);
+		KEEP(*(.text.tcp_data_ready))
+		. = MAX(., __hot_list + 0x2dd80);
+		KEEP(*(.text.tcp_event_data_recv))
+		. = MAX(., __hot_list + 0x2e0c0);
+		KEEP(*(.text.ep_poll_callback))
+		. = MAX(., __hot_list + 0x2e340);
+		KEEP(*(.text.tcp_send_delayed_ack))
+		. = MAX(., __hot_list + 0x2e4c0);
 		KEEP(*(.text.tcp_ack))
-		. = MAX(., __hot_list + 0x2f140);
+		. = MAX(., __hot_list + 0x2fd40);
 		KEEP(*(.text.tcp_data_queue))
-		. = MAX(., __hot_list + 0x2ff00);
+		. = MAX(., __hot_list + 0x30b00);
 		KEEP(*(.text.tcp_urg))
-		. = MAX(., __hot_list + 0x300c0);
+		. = MAX(., __hot_list + 0x30cc0);
 		KEEP(*(.text.tcp_try_rmem_schedule))
-		. = MAX(., __hot_list + 0x30b80);
+		. = MAX(., __hot_list + 0x31780);
 		KEEP(*(.text.tcp_leave_memory_pressure))
-		. = MAX(., __hot_list + 0x30c00);
+		. = MAX(., __hot_list + 0x31800);
 		KEEP(*(.text.__sk_mem_schedule))
-		. = MAX(., __hot_list + 0x30e80);
-		KEEP(*(.text.__sk_mem_raise_allocated))
-		. = MAX(., __hot_list + 0x31100);
-		KEEP(*(.text.__sk_mem_reduce_allocated.part.0))
-		. = MAX(., __hot_list + 0x31180);
-		KEEP(*(.text.__init_swait_queue_head))
-		. = MAX(., __hot_list + 0x311c0);
-		KEEP(*(.text.led_trigger_event))
-		. = MAX(., __hot_list + 0x31240);
-		KEEP(*(.text.sdhci_led_control))
-		. = MAX(., __hot_list + 0x31300);
-		KEEP(*(.text.led_set_brightness))
-		. = MAX(., __hot_list + 0x313c0);
-		KEEP(*(.text.handle_irq_event))
-		. = MAX(., __hot_list + 0x31440);
-		KEEP(*(.text.note_interrupt))
-		. = MAX(., __hot_list + 0x31740);
-		KEEP(*(.text.handle_fasteoi_irq))
-		. = MAX(., __hot_list + 0x31940);
-		KEEP(*(.text.plic_irq_eoi))
 		. = MAX(., __hot_list + 0x31a80);
+		KEEP(*(.text.__sk_mem_raise_allocated))
+		. = MAX(., __hot_list + 0x31d00);
+		KEEP(*(.text.__sk_mem_reduce_allocated.part.0))
+		. = MAX(., __hot_list + 0x31d80);
+		KEEP(*(.text.__init_swait_queue_head))
+		. = MAX(., __hot_list + 0x31dc0);
+		KEEP(*(.text.led_trigger_event))
+		. = MAX(., __hot_list + 0x31e40);
+		KEEP(*(.text.sdhci_led_control))
+		. = MAX(., __hot_list + 0x31f00);
+		KEEP(*(.text.led_set_brightness))
+		. = MAX(., __hot_list + 0x31fc0);
+		KEEP(*(.text.handle_irq_event))
+		. = MAX(., __hot_list + 0x32040);
+		KEEP(*(.text.note_interrupt))
+		. = MAX(., __hot_list + 0x32340);
+		KEEP(*(.text.handle_fasteoi_irq))
+		. = MAX(., __hot_list + 0x32540);
+		KEEP(*(.text.plic_irq_eoi))
+		. = MAX(., __hot_list + 0x32680);
 		KEEP(*(.text.__handle_irq_event_percpu))
-		. = MAX(., __hot_list + 0x31c00);
+		. = MAX(., __hot_list + 0x32800);
 		KEEP(*(.text.sdhci_irq))
-		. = MAX(., __hot_list + 0x32740);
+		. = MAX(., __hot_list + 0x33340);
 		KEEP(*(.text.plic_handle_irq))
-		. = MAX(., __hot_list + 0x328c0);
+		. = MAX(., __hot_list + 0x334c0);
 		KEEP(*(.text.update_rt_rq_load_avg))
-		. = MAX(., __hot_list + 0x32b40);
+		. = MAX(., __hot_list + 0x33740);
 		KEEP(*(.text.calc_wheel_index))
-		. = MAX(., __hot_list + 0x32c80);
+		. = MAX(., __hot_list + 0x33880);
 		KEEP(*(.text.enqueue_timer))
-		. = MAX(., __hot_list + 0x32d00);
+		. = MAX(., __hot_list + 0x33900);
 		KEEP(*(.text.dequeue_rt_stack))
-		. = MAX(., __hot_list + 0x33000);
+		. = MAX(., __hot_list + 0x33c00);
 		KEEP(*(.text.sg_miter_stop))
-		. = MAX(., __hot_list + 0x330c0);
+		. = MAX(., __hot_list + 0x33cc0);
 		KEEP(*(.text.minmax_running_min))
-		. = MAX(., __hot_list + 0x33180);
+		. = MAX(., __hot_list + 0x33d80);
 		KEEP(*(.text.sg_miter_next))
-		. = MAX(., __hot_list + 0x332c0);
+		. = MAX(., __hot_list + 0x33ec0);
 		KEEP(*(.text.rb_replace_node))
-		. = MAX(., __hot_list + 0x33300);
+		. = MAX(., __hot_list + 0x33f00);
 		KEEP(*(.text.udelay))
-		. = MAX(., __hot_list + 0x333c0);
+		. = MAX(., __hot_list + 0x33fc0);
 		KEEP(*:arch/riscv/lib/memmove.o(.text))
 		/*
 		 * stat() of a missing name: the slow lookup and the negative dentry, not in the measured

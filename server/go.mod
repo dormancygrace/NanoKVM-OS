@@ -19,7 +19,7 @@ require (
 	github.com/pion/rtcp v1.2.20
 	github.com/pion/rtp v1.10.6
 	github.com/pion/srtp/v3 v3.1.3
-	github.com/pion/transport/v5 v5.1.5
+	github.com/pion/transport/v5 v5.1.6
 	github.com/pion/webrtc/v4 v4.2.29
 	github.com/rs/cors/wrapper/gin v0.0.0-20261119124737-ae205904e3ce
 	github.com/sirupsen/logrus v1.10.2
@@ -56,7 +56,7 @@ require (
 	github.com/pion/stun/v4 v4.0.1 // indirect
 	github.com/pion/turn/v5 v5.1.3 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
-	github.com/quic-go/quic-go v0.65.0 // indirect
+	github.com/quic-go/quic-go v0.66.0 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect

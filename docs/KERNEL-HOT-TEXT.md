@@ -206,8 +206,14 @@ the same device (pathbench and a pipe/page-fault bench, three passes per boot, r
 | `stat()`, 1 / 4 / 8 components | 3.46–3.53 / 4.17–4.27 / 5.09–5.15 µs | 3.43–3.46 / 4.14–4.24 / 5.10–5.15 µs | 3.46–3.51 / 4.14–4.21 / 5.08–5.22 µs |
 | anonymous page fault | 18.5–18.8 µs | 18.4–18.6 µs | 20.8–21.0 µs |
 
-The page fault is the one path that got slower; whether from the huge-page code in the fault path or from the
-moved functions is not separated here.
+The page fault is the one path that got slower. A kernel with the same list and without transparent huge pages
+keeps every pinned function at its offset (the memory functions are shorter again, so the space before each pin
+grows). Booted four times in turn with the kernel above, it takes 18.6–18.9 µs per page fault against
+20.8–20.9 µs, and a pipe round trip of 22.4–26.3 µs (mean 24.7) against 21.5–24.9 µs (mean 23.5); `open()` and
+`stat()` stay within the ranges above. Turning huge pages off at run time (`never`) on the kernel above leaves the
+fault at 20.8–20.9 µs: the cost is in the code built in. The kernel is built without transparent huge pages,
+trading about 1.2 µs per pipe round trip for 2 µs per page fault; the web server's CPU for new TLS connections and
+for downloads is the same with both.
 
 ## Changing the list
 

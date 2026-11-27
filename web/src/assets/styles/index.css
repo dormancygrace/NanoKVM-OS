@@ -41,15 +41,15 @@ body {
   line-height: 1.5;
 }
 
-/* The icon of a confirmation sits on the middle of the first line of its
- * title. The letters of that line are below the middle of their line box, so
- * the icon looked raised. Outside the layers: the styles of a static
- * confirmation are not in the antd layer. */
-.ant-modal-confirm .ant-modal-confirm-body > .anticon {
-  margin-top: 2px;
-}
-
 @layer components {
+  /* The icon of a confirmation sits on the middle of the first line of its
+   * title. The letters of that line are below the middle of their line box,
+   * so the icon looked raised. Static confirmations use the antd layer too,
+   * so this layer wins over Ant Design's own margin. */
+  .ant-modal-confirm .ant-modal-confirm-body > .anticon {
+    margin-top: 2px;
+  }
+
   .nanokvm-button-base {
     -webkit-appearance: none;
     appearance: none;

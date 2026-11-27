@@ -21,22 +21,22 @@ applyTheme(storedTheme());
 const renderApp = () => {
   return ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <Suspense
-        fallback={
-          <div className="flex h-screen w-screen items-center justify-center">
-            <Spin size="large" />
-          </div>
-        }
-      >
-        <ErrorBoundary FallbackComponent={MainError}>
-          <StyleProvider layer>
+      <StyleProvider layer>
+        <Suspense
+          fallback={
+            <div className="flex h-screen w-screen items-center justify-center">
+              <Spin size="large" />
+            </div>
+          }
+        >
+          <ErrorBoundary FallbackComponent={MainError}>
             <AppTheme>
               <RouterProvider router={router} />
               <RecheckDialog />
             </AppTheme>
-          </StyleProvider>
-        </ErrorBoundary>
-      </Suspense>
+          </ErrorBoundary>
+        </Suspense>
+      </StyleProvider>
     </React.StrictMode>
   );
 };

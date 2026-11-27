@@ -1,4 +1,5 @@
 import { PropsWithChildren, ReactNode, useEffect, useLayoutEffect, useMemo } from 'react';
+import { StyleProvider } from '@ant-design/cssinjs';
 import { theme as antdTheme, ConfigProvider } from 'antd';
 import { useAtomValue } from 'jotai';
 
@@ -45,11 +46,14 @@ export const AppTheme = ({ children }: PropsWithChildren) => {
     document.documentElement.style.setProperty('--color-accent', colorPrimary);
   }, [colorPrimary]);
 
-  // Static message, Modal.confirm and notification calls render outside this
-  // provider; give them the same theme and colours.
+  // Ant Design mounts static dialogs and messages in separate React roots.
   useEffect(() => {
     ConfigProvider.config({
-      holderRender: (node: ReactNode) => <ConfigProvider theme={themeConfig}>{node}</ConfigProvider>
+      holderRender: (node: ReactNode) => (
+        <StyleProvider layer>
+          <ConfigProvider theme={themeConfig}>{node}</ConfigProvider>
+        </StyleProvider>
+      )
     });
   }, [themeConfig]);
 

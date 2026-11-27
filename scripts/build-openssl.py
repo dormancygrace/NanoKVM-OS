@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build the pinned OpenSSL source with reviewed NanoKVM patches for NanoKVM's C906/musl runtime."""
 import argparse
+import collections
 import hashlib
 import json
 import os
@@ -92,7 +93,7 @@ def build(archive, output, cross, jobs):
                     ['make', 'DESTDIR=' + str(output / 'install'), 'install_sw', 'install_ssldirs']):
             subprocess.run(cmd, cwd=source, env=env, stdout=stream,
                            stderr=subprocess.STDOUT, check=True)
-    check_hot_layout(order, source / 'libcrypto.so.3', str(cross) + 'nm')
+    check_hot_layout(order, [source / 'libcrypto.so.3', source / 'libssl.so.3'], str(cross) + 'nm')
     install = output / 'install'
     runtime = output / 'runtime'
     # Development and static artifacts are not part of this runtime package.
@@ -127,21 +128,29 @@ def build(archive, output, cross, jobs):
     return runtime
 
 
-def check_hot_layout(order, library, nm):
-    """hot-sections.ld names functions; a new OpenSSL may rename or inline
-    them, and the linker ignores a pattern that matches nothing. Most names
-    must still be functions of libcrypto, next to each other."""
-    names = {line.strip()[8:-1] for line in order.read_text().splitlines()
-             if line.strip().startswith('*(.text.')}
-    out = subprocess.run([nm, '-n', str(library)], check=True, capture_output=True, text=True).stdout
-    hot = [int(row[0], 16) for row in (line.split() for line in out.splitlines())
-           if len(row) == 3 and row[1] in 'tT' and row[2] in names]
-    found = len({row[2] for row in (line.split() for line in out.splitlines())
-                 if len(row) == 3 and row[1] in 'tT' and row[2] in names})
-    if found < len(names) * 0.6 or max(hot) - min(hot) > 320 * 1024:
-        raise SystemExit('hot-sections.ld no longer matches libcrypto: %d of %d functions, span %d KiB; '
+def check_hot_layout(order, libraries, nm):
+    """hot-sections.ld names functions of libcrypto and libssl; a new OpenSSL
+    may rename or inline them, and the linker ignores a pattern that matches
+    nothing. Nearly all names must still be functions of one of the two
+    libraries, and those of each library next to each other."""
+    names = {line.split('(.text.', 1)[1].rstrip(')') for line in
+             (line.strip() for line in order.read_text().splitlines()) if '(.text.' in line}
+    found, spans = set(), []
+    for library in libraries:
+        out = subprocess.run([nm, '-n', str(library)], check=True, capture_output=True, text=True).stdout
+        rows = [row for row in (line.split() for line in out.splitlines())
+                if len(row) == 3 and row[1] in 'tT' and row[2] in names]
+        found.update(row[2] for row in rows)
+        # A static name of several files (the NIST curves) is listed for one of them only.
+        count = collections.Counter(row[2] for row in rows)
+        hot = [int(row[0], 16) for row in rows if count[row[2]] == 1]
+        spans.append(max(hot) - min(hot) if hot else 0)
+    if not names:
+        raise SystemExit('%s lists no function; regenerate it (firmware/crypto/openssl-c906/README.md)' % order)
+    if len(found) < len(names) * 0.9 or max(spans) > 320 * 1024:
+        raise SystemExit('hot-sections.ld no longer matches libcrypto and libssl: %d of %d functions, span %d KiB; '
                          'regenerate it (firmware/crypto/openssl-c906/README.md)'
-                         % (found, len(names), (max(hot) - min(hot)) // 1024))
+                         % (len(found), len(names), max(spans) // 1024))
 
 
 def main():

@@ -87,12 +87,13 @@ in the GHASH code, with 1.2 and 2.0 million instruction-cache misses (about
 
 `scripts/build-openssl.py` therefore compiles with `-ffunction-sections` and
 links with `--section-ordering-file=hot-sections.ld`. The file lists the
-assembly kernels and about 530 C functions by workload class, so that the
-code one workload touches is contiguous: functions common to several classes,
-ChaCha20-Poly1305 records, AES-GCM records, SHA-256, the other hashes, TLS
-connections. After the build the script checks that most listed names are
-still functions of libcrypto and close together; a new OpenSSL version that
-renames or inlines them fails the build instead of silently losing the order.
+assembly kernels and about 620 C functions of libcrypto and libssl by workload
+class, so that the code one workload touches is contiguous: functions common
+to several classes, ChaCha20-Poly1305 records with the TLS record path,
+AES-GCM records, SHA-256, the other hashes, TLS connections. After the build
+the script checks that nearly all listed names are still functions and close
+together; a new OpenSSL version that renames or inlines them fails the build
+instead of silently losing the order.
 
 With the order, a 1400-byte ChaCha20-Poly1305 record takes 24.6 us instead of
 28.5 us, and a 16-byte SHA-1 digest 1-4 instruction-cache misses instead of
@@ -106,13 +107,47 @@ digest (4300 instructions over about a hundred functions) takes 27-31
 instruction-cache misses instead of 10. After a change of OpenSSL, of the
 patches or of the flags, measure records and small digests again.
 
-To regenerate `hot-sections.ld`: build OpenSSL with `-finstrument-functions`
-and link `hot-sections/callcount.c` into it (it counts calls per function and
-writes "module offset count" lines at exit), run the workloads on a device,
-turn each output into "calls symbol" lines with `nm`, and run
-`hot-sections/mkorder.py OUT` in the directory holding `chacha.txt`,
-`gcm.txt` (records), `hash1.txt`... (`openssl speed` of sha256, sha1, sha512,
-HMAC, md5 at 64 and 1024 bytes) and `tls*.txt` (`openssl s_time`).
+To regenerate `hot-sections.ld`:
+
+1. Build OpenSSL with `-finstrument-functions
+   -finstrument-functions-exclude-file-list=test/,include/openssl/`,
+   `no-tests`, and `hot-sections/hooks.c` compiled into `LDFLAGS`.
+2. On a device, run each workload with `LD_PRELOAD=callcount.so`
+   (`hot-sections/callcount.c`, built with `-pthread`; it counts the calls of
+   all threads and writes "module offset count" lines to `$CYG_OUT.<pid>`):
+   `openssl speed -bytes 1400 -aead` of
+   chacha20-poly1305 and aes-128-gcm, encryption (`chacha.txt`, `gcm.txt`) and
+   `-decrypt` (`chachad.txt`, `gcmd.txt`); `openssl speed -evp` of sha256 and
+   `-hmac sha256` (`hash1.txt`, `hash2.txt`), of sha1, sha512, md5, sha3-256
+   and shake128 (`hash3.txt` to `hash6.txt`, `hash9.txt`); ML-KEM-768
+   (`kem.txt`); an `openssl s_server` with a P-256 certificate taking TLS 1.3
+   handshakes with X25519MLKEM768 and ChaCha20-Poly1305 (`tls1.txt`); and the
+   web server itself, its counts cleared with SIGUSR1 and written with SIGUSR2
+   around 200 new connections (`shs.txt`) and around tens of MB over one
+   connection (`srec.txt`). A signal only queues the request: start the load
+   after `cleared N` in `$CYG_OUT.<pid>.state` has grown, and read the profile
+   after `written M` has grown. A completed empty sample leaves no profile
+   file. If writing fails, the counter stays at its previous value.
+3. Turn each output into "calls symbol" lines with `nm` of the instrumented
+   libraries and run `hot-sections/mkorder.py OUT BUILD READELF PROFILES`,
+   with `BUILD` the tree of a normal build and `PROFILES` the directory
+   holding them. It stops without writing `OUT` when one of the profiles
+   named above is missing or names no function of the build.
+
+The instrumented build counts functions the normal build inlines, so
+`mkorder.py` keeps only names that have a section of their own in `BUILD`
+(the code of libcrypto and libssl and of the providers built into libcrypto).
+After the build, nearly all listed names must still be functions of the two
+libraries.
+
+The list from these profiles, against the one before it (three alternated
+runs each, same patches): AES-128-GCM records +11 %, ChaCha20-Poly1305 records
+the same; 64-byte digests SHA-256 +7 %, HMAC-SHA-256 +6 %, SHA-1 +104 %,
+SHA-512 +56 %, SHA3-256 +36 %, MD5 +27 %; ML-KEM-768 key generation +10 %,
+encapsulation +9 %, decapsulation +4 %; P-256 signatures and X25519 the same.
+The web server's CPU for new TLS connections and for downloads shows no
+measurable change. A quarter of the names of the list before were no longer functions
+(inlined or renamed).
 
 ## NIST curves
 

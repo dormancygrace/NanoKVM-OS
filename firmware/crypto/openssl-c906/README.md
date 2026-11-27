@@ -124,7 +124,9 @@ To regenerate `hot-sections.ld`:
    handshakes with X25519MLKEM768 and ChaCha20-Poly1305 (`tls1.txt`); and the
    web server itself, its counts cleared with SIGUSR1 and written with SIGUSR2
    around 200 new connections (`shs.txt`) and around tens of MB over one
-   connection (`srec.txt`).
+   connection (`srec.txt`). A signal only queues the request: start the load
+   after `cleared N` in `$CYG_OUT.<pid>.state` has grown, and read the profile
+   after `written M` has grown.
 3. Turn each output into "calls symbol" lines with `nm` of the instrumented
    libraries and run `hot-sections/mkorder.py OUT BUILD READELF PROFILES`,
    with `BUILD` the tree of a normal build and `PROFILES` the directory

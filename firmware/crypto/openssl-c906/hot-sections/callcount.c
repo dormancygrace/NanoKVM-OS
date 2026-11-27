@@ -6,7 +6,12 @@
  * keeps its function for the life of the process and clearing zeroes only the counts, so no call is lost or counted
  * for another function. The signal handlers only write a byte to a pipe; a thread of the shim, started by the first
  * counted call of the process, clears or writes on that. A process that counted nothing writes no file, and a child
- * of fork() starts from zero. The file appears under its name once it is complete. */
+ * of fork() starts from zero. The file appears under its name once it is complete.
+ *
+ * A signal returns before that thread has acted. The thread keeps $CYG_OUT.<pid>.state, one line
+ * "cleared N written M", replaced whole: it appears when the thread starts, and N or M grows once a clear or a write
+ * is complete (M also when nothing was counted and no file was written). A driver reads N, sends SIGUSR1 and waits
+ * until N has grown before it starts the load; likewise with M around SIGUSR2. */
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
@@ -26,6 +31,7 @@ static atomic_int unstarted = 1;                          /* this process has no
 static atomic_int wake = -1;                              /* write end of the pipe to that thread */
 static int wake_read = -1;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; /* clear, write, fork */
+static unsigned long cleared, written;                   /* requests the signal thread has completed */
 
 static void start(void);
 
@@ -71,17 +77,34 @@ static int add_mod(struct dl_phdr_info *i, size_t size, void *data)
 	return 0;
 }
 
+static void out_path(char *path, size_t size, const char *suffix)
+{
+	const char *out = getenv("CYG_OUT");
+	snprintf(path, size, "%s.%d%s", out ? out : "/var/tmp/cyg.out", (int)getpid(), suffix);
+}
+
+/* Called with the lock held: tell a waiting driver what is complete. */
+static void state(void)
+{
+	char path[256], tmp[264];
+	out_path(path, sizeof path, ".state");
+	snprintf(tmp, sizeof tmp, "%s.tmp", path);
+	FILE *f = fopen(tmp, "w");
+	if (!f) return;
+	fprintf(f, "cleared %lu written %lu\n", cleared, written);
+	if (fclose(f) == 0) rename(tmp, path);
+}
+
 /* Called with the lock held. */
 static void dump(void)
 {
 	static unsigned long snap[SLOTS];
-	const char *out = getenv("CYG_OUT");
 	char path[256], tmp[264];
 	struct mods mods = { 0 };
 	int any = 0;
 	for (int s = 0; s < SLOTS; s++) any |= (snap[s] = atomic_load(&slot_n[s])) != 0;
 	if (!any) return;
-	snprintf(path, sizeof path, "%s.%d", out ? out : "/var/tmp/cyg.out", (int)getpid());
+	out_path(path, sizeof path, "");
 	snprintf(tmp, sizeof tmp, "%s.tmp", path);
 	FILE *f = fopen(tmp, "w");
 	if (!f) return;
@@ -101,13 +124,23 @@ static void dump(void)
 static void *serve(void *arg)
 {
 	int fd = (int)(intptr_t)arg;
+	pthread_mutex_lock(&lock);
+	state();
+	pthread_mutex_unlock(&lock);
 	for (;;) {
 		char c;
 		ssize_t r = read(fd, &c, 1);
 		if (r < 0 && errno == EINTR) continue;
 		if (r != 1) break;
 		pthread_mutex_lock(&lock);
-		if (c == 'c') clear(); else dump();
+		if (c == 'c') {
+			clear();
+			cleared++;
+		} else {
+			dump();
+			written++;
+		}
+		state();
 		pthread_mutex_unlock(&lock);
 	}
 	close(fd);
@@ -155,6 +188,7 @@ static void after_fork_child(void)
 		close(wake_read);
 	}
 	clear();
+	cleared = written = 0;
 	atomic_store(&unstarted, 1);
 	pthread_mutex_unlock(&lock);
 }

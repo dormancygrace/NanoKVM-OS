@@ -139,8 +139,8 @@ runs each, same patches): AES-128-GCM records +11 %, ChaCha20-Poly1305 records
 the same; 64-byte digests SHA-256 +7 %, HMAC-SHA-256 +6 %, SHA-1 +104 %,
 SHA-512 +56 %, SHA3-256 +36 %, MD5 +27 %; ML-KEM-768 key generation +10 %,
 encapsulation +9 %, decapsulation +4 %; P-256 signatures and X25519 the same.
-The web server takes about 1 % less CPU for new TLS connections and for
-downloads. A quarter of the names of the list before were no longer functions
+The web server's CPU for new TLS connections and for downloads shows no
+measurable change. A quarter of the names of the list before were no longer functions
 (inlined or renamed).
 
 ## NIST curves

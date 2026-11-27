@@ -325,3 +325,9 @@ memory, about 115 ms more than a later one, mostly page faults (the kernel has n
 on the device: Argon2id, Argon2i and Argon2d with 1, 2 and 4 lanes, 1 to 3 passes and 32 KiB to 1 MiB of memory
 (108 sets), and the server's parameters, give the same key as the build without the patch; 20,000 blocks with and
 without XOR and 2,000 with `ref` and `next` the same block equal the reference function.
+
+`0016-argon2-worker-cleanup.patch` is OpenSSL's own fix from its 3.5 branch, after 3.5.9 (commit `5a9068ccd9`):
+after a failure the threaded fill joins only the workers still outstanding, and the memory of the hash is freed.
+The memory of a hash is not mapped with 2 MiB pages: with transparent huge pages a hash took about 110 ms less,
+but the huge-page code in the kernel's fault path makes every anonymous page fault of every process
+slower (20.8 µs instead of 18.8 µs), and without them a mapping of its own saves nothing over OpenSSL's allocation.

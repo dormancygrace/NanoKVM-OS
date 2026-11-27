@@ -113,8 +113,9 @@ To regenerate `hot-sections.ld`:
    -finstrument-functions-exclude-file-list=test/,include/openssl/`,
    `no-tests`, and `hot-sections/hooks.c` compiled into `LDFLAGS`.
 2. On a device, run each workload with `LD_PRELOAD=callcount.so`
-   (`hot-sections/callcount.c`; it writes "module offset count" lines to
-   `$CYG_OUT.<pid>`): `openssl speed -bytes 1400 -aead` of
+   (`hot-sections/callcount.c`, built with `-pthread`; it counts the calls of
+   all threads and writes "module offset count" lines to `$CYG_OUT.<pid>`):
+   `openssl speed -bytes 1400 -aead` of
    chacha20-poly1305 and aes-128-gcm, encryption (`chacha.txt`, `gcm.txt`) and
    `-decrypt` (`chachad.txt`, `gcmd.txt`); `openssl speed -evp` of sha256 and
    `-hmac sha256` (`hash1.txt`, `hash2.txt`), of sha1, sha512, md5, sha3-256
@@ -125,8 +126,10 @@ To regenerate `hot-sections.ld`:
    around 200 new connections (`shs.txt`) and around tens of MB over one
    connection (`srec.txt`).
 3. Turn each output into "calls symbol" lines with `nm` of the instrumented
-   libraries and run `hot-sections/mkorder.py OUT BUILD READELF` in the
-   directory holding them, with `BUILD` the tree of a normal build.
+   libraries and run `hot-sections/mkorder.py OUT BUILD READELF PROFILES`,
+   with `BUILD` the tree of a normal build and `PROFILES` the directory
+   holding them. It stops without writing `OUT` when one of the profiles
+   named above is missing or names no function of the build.
 
 The instrumented build counts functions the normal build inlines, so
 `mkorder.py` keeps only names that have a section of their own in `BUILD`

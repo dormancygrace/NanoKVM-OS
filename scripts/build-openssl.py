@@ -145,6 +145,8 @@ def check_hot_layout(order, libraries, nm):
         count = collections.Counter(row[2] for row in rows)
         hot = [int(row[0], 16) for row in rows if count[row[2]] == 1]
         spans.append(max(hot) - min(hot) if hot else 0)
+    if not names:
+        raise SystemExit('%s lists no function; regenerate it (firmware/crypto/openssl-c906/README.md)' % order)
     if len(found) < len(names) * 0.9 or max(spans) > 320 * 1024:
         raise SystemExit('hot-sections.ld no longer matches libcrypto and libssl: %d of %d functions, span %d KiB; '
                          'regenerate it (firmware/crypto/openssl-c906/README.md)'

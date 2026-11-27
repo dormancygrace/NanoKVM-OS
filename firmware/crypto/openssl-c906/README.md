@@ -126,7 +126,8 @@ To regenerate `hot-sections.ld`:
    around 200 new connections (`shs.txt`) and around tens of MB over one
    connection (`srec.txt`). A signal only queues the request: start the load
    after `cleared N` in `$CYG_OUT.<pid>.state` has grown, and read the profile
-   after `written M` has grown.
+   after `written M` has grown. A completed empty sample leaves no profile
+   file. If writing fails, the counter stays at its previous value.
 3. Turn each output into "calls symbol" lines with `nm` of the instrumented
    libraries and run `hot-sections/mkorder.py OUT BUILD READELF PROFILES`,
    with `BUILD` the tree of a normal build and `PROFILES` the directory

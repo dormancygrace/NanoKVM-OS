@@ -10,7 +10,7 @@
  *
  * A signal returns before that thread has acted. The thread keeps $CYG_OUT.<pid>.state, one line
  * "cleared N written M", replaced whole: it appears when the thread starts, and N or M grows once a clear or a write
- * is complete (M also when nothing was counted and no file was written). A driver reads N, sends SIGUSR1 and waits
+ * is complete (an empty sample removes the previous profile). A driver reads N, sends SIGUSR1 and waits
  * until N has grown before it starts the load; likewise with M around SIGUSR2. */
 #define _GNU_SOURCE
 #include <errno.h>
@@ -96,18 +96,18 @@ static void state(void)
 }
 
 /* Called with the lock held. */
-static void dump(void)
+static int dump(int requested)
 {
 	static unsigned long snap[SLOTS];
 	char path[256], tmp[264];
 	struct mods mods = { 0 };
 	int any = 0;
 	for (int s = 0; s < SLOTS; s++) any |= (snap[s] = atomic_load(&slot_n[s])) != 0;
-	if (!any) return;
 	out_path(path, sizeof path, "");
+	if (!any) return !requested || unlink(path) == 0 || errno == ENOENT;
 	snprintf(tmp, sizeof tmp, "%s.tmp", path);
 	FILE *f = fopen(tmp, "w");
-	if (!f) return;
+	if (!f) return 0;
 	dl_iterate_phdr(add_mod, &mods);
 	for (int s = 0; s < SLOTS; s++) {
 		uintptr_t fn = atomic_load(&slot_fn[s]);
@@ -118,7 +118,10 @@ static void dump(void)
 				break;
 			}
 	}
-	if (fclose(f) == 0) rename(tmp, path);
+	int ok = !ferror(f);
+	if (fclose(f) == 0 && ok && rename(tmp, path) == 0) return 1;
+	unlink(tmp);
+	return 0;
 }
 
 static void *serve(void *arg)
@@ -136,8 +139,7 @@ static void *serve(void *arg)
 		if (c == 'c') {
 			clear();
 			cleared++;
-		} else {
-			dump();
+		} else if (dump(1)) {
 			written++;
 		}
 		state();
@@ -205,6 +207,6 @@ __attribute__((constructor)) static void init(void)
 __attribute__((destructor)) static void at_exit(void)
 {
 	pthread_mutex_lock(&lock);
-	dump();
+	dump(0);
 	pthread_mutex_unlock(&lock);
 }

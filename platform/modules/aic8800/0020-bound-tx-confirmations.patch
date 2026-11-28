@@ -1,0 +1,54 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: TX confirmations: check the length, no NULL skb for an empty slot
+
+A TX confirmation from the firmware is two 32-bit words, the status and the
+descriptor index, but the SDIO receive paths passed any configuration
+message of that type to aicwf_sdio_host_tx_cfm_handler(), which reads both
+words, also when the message is shorter.
+
+For a confirmation whose descriptor slot holds no frame (host_id 0: a
+repeated or stray confirmation) the handler logged an error and went on:
+skb was NULL and skb->data was read, an oops in the RX thread.
+
+Confirmations shorter than 8 bytes are now dropped, and a confirmation for
+an empty slot returns after the log line.
+
+diff --git a/aic8800_fdrv/aicwf_txrxif.c b/aic8800_fdrv/aicwf_txrxif.c
+index ff1c729..5d0d357 100644
+--- a/aic8800_fdrv/aicwf_txrxif.c
++++ b/aic8800_fdrv/aicwf_txrxif.c
+@@ -404,7 +404,8 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+ 				    aicwf_e2a_msg_fits(msg, aggr_len))
+ 					rwnx_rx_handle_msg(rx_priv->sdiodev->rwnx_hw, (struct ipc_e2a_msg *)(msg + 4));
+ 
+-				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_DATA_CFM)
++				/* A confirmation is two words: status, descriptor index. */
++				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_DATA_CFM && aggr_len >= 2 * sizeof(u32))
+ 					aicwf_sdio_host_tx_cfm_handler(&(rx_priv->sdiodev->rwnx_hw->sdio_env), (u32 *)(msg + 4));
+ 
+ 				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_PRINT)
+@@ -486,7 +487,8 @@ int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv)
+ 				    aicwf_e2a_msg_fits(msg, aggr_len))
+ 					rwnx_rx_handle_msg(rx_priv->sdiodev->rwnx_hw, (struct ipc_e2a_msg *)(msg + 4));
+ 
+-				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_DATA_CFM)
++				/* A confirmation is two words: status, descriptor index. */
++				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_DATA_CFM && aggr_len >= 2 * sizeof(u32))
+ 					aicwf_sdio_host_tx_cfm_handler(&(rx_priv->sdiodev->rwnx_hw->sdio_env), (u32 *)(msg + 4));
+ 
+ 				if ((*(msg + 2) & 0x7f) == SDIO_TYPE_CFG_PRINT)
+diff --git a/aic8800_fdrv/sdio_host.c b/aic8800_fdrv/sdio_host.c
+index f594099..c697867 100644
+--- a/aic8800_fdrv/sdio_host.c
++++ b/aic8800_fdrv/sdio_host.c
+@@ -98,7 +98,9 @@ void aicwf_sdio_host_tx_cfm_handler(struct sdio_host_env_tag *env, u32 *data)
+ 			// No more confirmations, so put back the used index at its initial value
+ 			env->txdesc_used_idx[queue_idx] = used_idx;
+ 			AICWFDBG(LOGERROR, "ERROR:No more confirmations\r\n");
+-			//break;
++			/* No frame waits in this slot (a repeated or stray confirmation):
++			 * there is no skb to complete. */
++			return;
+ 		}
+ 		// set the cfm status
+ 		skb = (struct sk_buff *)host_id;

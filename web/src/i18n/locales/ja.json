@@ -1711,7 +1711,15 @@
         "joinConfirm": "{{ssid}} に接続しますか?",
         "joinOverWifi": "このページは Wi-Fi 経由です。別のネットワークに接続するとこの接続は切れ、デバイスは新しいネットワークで割り当てられたアドレスで応答します。",
         "autoConnect": "自動的に接続する",
-        "savedTag": "保存済み"
+        "savedTag": "保存済み",
+        "advanced": "詳細設定",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "オフ: このチップは Wi-Fi 4 で接続します。Wi-Fi 5 と Wi-Fi 6 では映像が 1 秒ずつ止まることがあります。",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Wi-Fi 5 が必要です。既定はオフ: このチップでは Wi-Fi 6 の通信が数秒ずつ止まります。",
+        "standardsConfirm": "Wi-Fi 規格を変更しますか？",
+        "standardsRestart": "Wi-Fi ドライバーを再読み込みし、数秒で Wi-Fi が再接続します。",
+        "standardsPending": "保存しました。次に Wi-Fi ドライバーを読み込んだときに有効になります。"
       },
       "wifiSaved": {
         "title": "保存済みネットワーク",

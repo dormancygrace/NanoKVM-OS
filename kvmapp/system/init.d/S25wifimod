@@ -7,13 +7,39 @@ set -eu
 [ "${1:-}" = start ] || exit 0
 SDIO_DEVICES_DIR=${NANOKVM_SDIO_DEVICES_DIR:-/sys/bus/sdio/devices}
 MODPROBE=${NANOKVM_MODPROBE:-modprobe}
+WIFI_ETC_DIR=${NANOKVM_WIFI_ETC_DIR:-/etc/kvm}
+MODPROBE_DIR=${NANOKVM_MODPROBE_DIR:-/etc/modprobe.d}
+STANDARDS_CONF=$MODPROBE_DIR/nanokvm-wifi-standards.conf
+
+# The AIC8801 (the original AIC8800) stalls its transmissions for one to two
+# seconds at a time in Wi-Fi 6 (HE) links; Wi-Fi 5 (VHT) and Wi-Fi 4 (HT)
+# links do not. Its Wi-Fi 5 and Wi-Fi 6 are off unless the web interface
+# turned them on (wifi.vht, wifi.he). The options go to a modprobe.d file,
+# not to this modprobe: the Bluetooth module loads the driver as a dependency
+# too. The other chips of the driver keep its defaults (no file).
+aic8801_standards() {
+    vht=N he=N
+    [ ! -e "$WIFI_ETC_DIR/wifi.vht" ] || vht=Y
+    # Wi-Fi 6 on 5 GHz needs the Wi-Fi 5 capabilities.
+    [ "$vht" = N ] || [ ! -e "$WIFI_ETC_DIR/wifi.he" ] || he=Y
+    mkdir -p "$MODPROBE_DIR"
+    temporary=$(mktemp "$MODPROBE_DIR/.nanokvm-wifi-standards.XXXXXX")
+    printf '%s\n' '# Managed by S25wifimod from /etc/kvm/wifi.vht and wifi.he (AIC8801 only).' \
+        "options aic8800_fdrv vht_on=$vht he_on=$he" > "$temporary"
+    chmod 644 "$temporary"
+    mv -f "$temporary" "$STANDARDS_CONF"
+}
+
 for alias in "$SDIO_DEVICES_DIR"/*/modalias; do
     id=
     [ ! -r "$alias" ] || read -r id < "$alias" || true
     case "$id" in
-        sdio:c*v5449d0145*|sdio:c*v5449d0146*|sdio:c*v544Ad0146*|\
+        sdio:c*v5449d0145*|sdio:c*v5449d0146*|sdio:c*v544Ad0146*)
+            aic8801_standards
+            exec "$MODPROBE" aic8800_fdrv ;;
         sdio:c*vC8A1dC08D*|sdio:c*vC8A1d0082*|sdio:c*vC8A1d0182*|\
         sdio:c*vC8A1d908[1-6]*|sdio:c*vC8A1d2082*)
+            rm -f "$STANDARDS_CONF"
             exec "$MODPROBE" aic8800_fdrv ;;
         sdio:c*v024CdB733*|sdio:c*v024CdB73A*)
             exec "$MODPROBE" 8733bs ;;

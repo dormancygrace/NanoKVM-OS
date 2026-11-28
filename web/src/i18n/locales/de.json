@@ -1711,7 +1711,15 @@
         "joinConfirm": "Mit {{ssid}} verbinden?",
         "joinOverWifi": "Diese Seite nutzt WLAN. Ein anderes Netz beendet ihre Verbindung; das Gerät antwortet dann im neuen Netz unter der Adresse, die es dort erhält.",
         "autoConnect": "Automatisch verbinden",
-        "savedTag": "Gespeichert"
+        "savedTag": "Gespeichert",
+        "advanced": "Erweitert",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "Aus: Dieser Chip verbindet sich mit Wi-Fi 4. Bei Wi-Fi 5 und Wi-Fi 6 kann das Video jeweils für eine Sekunde einfrieren.",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Erfordert Wi-Fi 5. Standardmäßig aus: Auf diesem Chip stocken Wi-Fi-6-Verbindungen sekundenlang.",
+        "standardsConfirm": "WLAN-Standards ändern?",
+        "standardsRestart": "Der WLAN-Treiber wird neu geladen, und das WLAN verbindet sich in wenigen Sekunden neu.",
+        "standardsPending": "Gespeichert; wird beim nächsten Laden des WLAN-Treibers wirksam."
       },
       "wifiSaved": {
         "title": "Gespeicherte Netzwerke",

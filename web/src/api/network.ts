@@ -377,6 +377,25 @@ export function setWifiCountry(country: string) {
     country
   });
 }
+// Wi-Fi 5 / Wi-Fi 6 of the AIC8801 (off by default: its Wi-Fi 6 links stall).
+// supported: this device has that chip. active: what the loaded driver runs
+// with (missing while it is not loaded).
+export type WifiStandards = {
+  supported: boolean;
+  wifi5: boolean;
+  wifi6: boolean;
+  active?: { wifi5: boolean; wifi6: boolean };
+};
+export function getWifiStandards() {
+  return http.get<WifiStandards>('/api/network/wifi/standards');
+}
+export function setWifiStandards(wifi5: boolean, wifi6: boolean) {
+  // A trial when the request came over Wi-Fi and the driver reloads.
+  return http.post<WifiStandards & { trial?: NetworkTrial }>('/api/network/wifi/standards', {
+    wifi5,
+    wifi6
+  });
+}
 export function scanWifi(band: WifiBand | 'all' = 'all') {
   return http.get<WifiNetwork[]>('/api/network/wifi/scan', { band });
 }

@@ -317,6 +317,23 @@ Error restart_wifi_country();
 std::string wifi_country_json(const std::string &country, const std::string &active,
                               const std::optional<std::vector<std::string>> &supported, const std::string &trial_json);
 
+// --- Wi-Fi 5 / Wi-Fi 6 of the AIC8801 -------------------------------------------------------------------------------
+// Its Wi-Fi 6 (HE) links stall transmissions for seconds; both standards are off unless turned on here (flag files
+// wifi.vht and wifi.he in /etc/kvm). S25wifimod turns them into driver options; they take effect on a driver reload.
+
+struct WifiStandards {
+	bool wifi5 = false, wifi6 = false;
+};
+bool wifi_standards_supported();
+WifiStandards wifi_standards();
+// What the loaded driver runs with; nullopt when it is not loaded.
+std::optional<WifiStandards> wifi_standards_active();
+std::vector<std::string> wifi_standards_paths();
+// Wi-Fi 6 without Wi-Fi 5 is saved as both off: Wi-Fi 6 on 5 GHz needs the Wi-Fi 5 capabilities.
+Error save_wifi_standards(const WifiStandards &s);
+Error apply_wifi_standards();
+std::string wifi_standards_json(const WifiStandards &saved, const std::string &trial_json);
+
 // --- network changes on trial (trial.go) ----------------------------------------------------------------------------
 
 using FileSnapshot = std::map<std::string, std::optional<std::string>>;
@@ -646,6 +663,7 @@ Decoded<std::string> decode_set_wifi_band_preference(const RequestData &data);
 Decoded<WifiProfile> decode_configure_wifi(const RequestData &data);
 Decoded<std::string> decode_saved_wifi(const RequestData &data);
 Decoded<std::string> decode_set_wifi_country(const RequestData &data);
+Decoded<WifiStandards> decode_set_wifi_standards(const RequestData &data);
 Decoded<WifiAP> decode_set_wifi_ap(const RequestData &data);
 Decoded<std::string> decode_confirm_trial(const RequestData &data);
 Decoded<WebRTCServersRequest> decode_set_webrtc_servers(const RequestData &data);

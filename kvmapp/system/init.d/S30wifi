@@ -27,6 +27,7 @@
 : "${NANOKVM_WIFI_NET_DIR:=/sys/class/net/wlan0}"
 : "${NANOKVM_WIFI_DRIVER_LOADER:=/usr/libexec/nanokvm/legacy/S25wifimod}"
 : "${NANOKVM_WIFI_DRIVER_WAIT:=50}"
+: "${NANOKVM_MODPROBE:=modprobe}"
 : "${NANOKVM_WIFI_REG_WAIT:=20}"
 : "${NANOKVM_LOGGER:=logger}"
 : "${NANOKVM_WIFI_DHCP_PID:=/run/udhcpc.wlan0.pid}"
@@ -1053,6 +1054,28 @@ restart() {
     start
 }
 
+# The driver's options (S25wifimod: the AIC8801's Wi-Fi 5 / Wi-Fi 6) take
+# effect only when it loads: Wi-Fi stops, the driver and the Bluetooth module
+# on it unload, and Wi-Fi starts again with them reloaded. Bluetooth turned on
+# comes back with them, also with Wi-Fi off.
+reload_driver() {
+    bt=
+    [ ! -d "$NANOKVM_WIFI_NET_DIR" ] || stop
+    if [ -d /sys/module/aic8800_btsdio ]; then
+        bt=1
+        "$NANOKVM_MODPROBE" -r aic8800_btsdio || return 1
+    fi
+    if [ -d /sys/module/aic8800_fdrv ]; then
+        "$NANOKVM_MODPROBE" -r aic8800_fdrv || return 1
+    fi
+    if [ -e "$NANOKVM_WIFI_ETC_DIR/wifi.disabled" ]; then
+        [ -z "$bt" ] || "$NANOKVM_WIFI_DRIVER_LOADER" start || return 1
+    else
+        start || return 1
+    fi
+    [ -z "$bt" ] || "$NANOKVM_MODPROBE" aic8800_btsdio
+}
+
 case "${1:-}" in
     start) start ;;
     stop)
@@ -1073,6 +1096,7 @@ case "${1:-}" in
         ap_start
         ;;
     restart) restart ;;
+    reload-driver) reload_driver ;;
     ap-internet) ap_internet_apply ;;
     ap-uplinks) ap_uplinks_apply ;;
     # Run by wpa_cli -a (start_event_handler).

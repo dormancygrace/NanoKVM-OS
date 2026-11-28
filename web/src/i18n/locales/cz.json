@@ -827,7 +827,15 @@
         "joinConfirm": "Připojit k {{ssid}}?",
         "joinOverWifi": "Tato stránka používá Wi-Fi. Připojení k jiné síti ukončí její spojení; zařízení pak odpoví v nové síti na adrese, kterou mu daná síť přidělí.",
         "autoConnect": "Připojovat automaticky",
-        "savedTag": "Uložená"
+        "savedTag": "Uložená",
+        "advanced": "Pokročilé",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "Vypnuto: tento čip se připojuje přes Wi-Fi 4. Při Wi-Fi 5 a Wi-Fi 6 může video na sekundu zamrznout.",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Vyžaduje Wi-Fi 5. Ve výchozím stavu vypnuto: na tomto čipu se spojení Wi-Fi 6 na několik sekund zastavuje.",
+        "standardsConfirm": "Změnit standardy Wi-Fi?",
+        "standardsRestart": "Ovladač Wi-Fi se znovu načte a Wi-Fi se během několika sekund znovu připojí.",
+        "standardsPending": "Uloženo; projeví se při příštím načtení ovladače Wi-Fi."
       },
       "wifiSaved": {
         "title": "Uložené sítě",

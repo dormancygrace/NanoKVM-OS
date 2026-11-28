@@ -539,4 +539,70 @@ std::string wifi_country_json(const std::string &country, const std::string &act
 	return out + "}";
 }
 
+// --- Wi-Fi 5 / Wi-Fi 6 of the AIC8801 ---------------------------------------------------------------------------------
+
+namespace {
+
+std::string json_bool(bool v) { return v ? "true" : "false"; }
+std::string vht_path() { return path_join(wifi_control.etc, "wifi.vht"); }
+std::string he_path() { return path_join(wifi_control.etc, "wifi.he"); }
+
+Error set_flag(const std::string &path, bool on)
+{
+	if (on) return write_file_atomic(path, "1\n");
+	auto err = remove(path);
+	return err && !err.not_exist() ? err : Error{};
+}
+
+// A driver parameter: "Y" or "N" (a bool module parameter), nullopt when the driver is not loaded.
+std::optional<bool> driver_flag(const char *name)
+{
+	auto data = read_file(std::string("/sys/module/aic8800_fdrv/parameters/") + name);
+	if (!data || data->empty()) return std::nullopt;
+	return (*data)[0] == 'Y' || (*data)[0] == '1';
+}
+
+} // namespace
+
+bool wifi_standards_supported() { return wifi_control.model() == "AIC8801"; }
+
+WifiStandards wifi_standards()
+{
+	WifiStandards s;
+	s.wifi5 = exists(vht_path());
+	s.wifi6 = s.wifi5 && exists(he_path());
+	return s;
+}
+
+std::optional<WifiStandards> wifi_standards_active()
+{
+	auto vht = driver_flag("vht_on"), he = driver_flag("he_on");
+	if (!vht || !he) return std::nullopt;
+	return WifiStandards{*vht, *he};
+}
+
+std::vector<std::string> wifi_standards_paths() { return {vht_path(), he_path()}; }
+
+Error save_wifi_standards(const WifiStandards &s)
+{
+	if (auto err = set_flag(vht_path(), s.wifi5)) return err;
+	return set_flag(he_path(), s.wifi5 && s.wifi6);
+}
+
+Error apply_wifi_standards()
+{
+	auto r = wifi_control.run(wifi_script, {"reload-driver"});
+	return r.ok() ? Error{} : make_error(r.error);
+}
+
+std::string wifi_standards_json(const WifiStandards &saved, const std::string &trial_json)
+{
+	std::string out = "{\"supported\":" + json_bool(wifi_standards_supported()) + ",\"wifi5\":" + json_bool(saved.wifi5) +
+	                  ",\"wifi6\":" + json_bool(saved.wifi6);
+	if (auto active = wifi_standards_active())
+		out += ",\"active\":{\"wifi5\":" + json_bool(active->wifi5) + ",\"wifi6\":" + json_bool(active->wifi6) + "}";
+	if (!trial_json.empty()) out += ",\"trial\":" + trial_json;
+	return out + "}";
+}
+
 } // namespace nkos::network

@@ -582,6 +582,71 @@ void set_wifi_country(const Call &call, http::Response &res)
 	});
 }
 
+// --- Wi-Fi 5 / Wi-Fi 6 of the AIC8801 ---------------------------------------------------------------------------------
+
+void get_wifi_standards(const Call &call, http::Response &res)
+{
+	defer_call(call, res, [](http::Response &out) { ok(out, wifi_standards_json(wifi_standards(), "")); });
+}
+
+void set_wifi_standards(const Call &call, http::Response &res)
+{
+	auto decoded = decode_set_wifi_standards(call.data);
+	if (!decoded.value) return refuse(res, decoded.refusal);
+	defer_call(call, res, [want = *decoded.value, o = call](http::Response &out) {
+		if (!wifi_standards_supported()) return fail(out, -1, "the Wi-Fi chip has no Wi-Fi 5 / Wi-Fi 6 setting");
+		if (!check_radio(out, false)) return;
+		// The loaded driver (Wi-Fi on, or Bluetooth on it) takes the options on a reload; else at its next load.
+		auto active = wifi_standards_active();
+		bool reload = active && (active->wifi5 != want.wifi5 || active->wifi6 != want.wifi6);
+		auto save_failed = [&](const Error &err) {
+			log::error("failed to save the Wi-Fi standards: {}", err.text);
+			finish_wifi(err);
+			fail(out, -2, "failed to save the Wi-Fi standards");
+		};
+		if (!reload || !wifi_control.enabled() || !request_may_ride_wifi(o.local)) {
+			auto err = without_trial([&] { return save_wifi_standards(want); });
+			if (trial_blocking_error(err)) {
+				finish_wifi({});
+				return fail(out, -3, err.text);
+			}
+			if (err) return save_failed(err);
+			(void)sync_files();
+			log::info("set the Wi-Fi standards: wifi5={} wifi6={}", want.wifi5, want.wifi6);
+			ok(out, wifi_standards_json(want, ""));
+			if (!reload) return finish_wifi({});
+			auto release = trial_work_begin();
+			go_after(restart_delay, [release] {
+				finish_wifi(apply_wifi_standards());
+				release();
+			});
+			return;
+		}
+		Error err;
+		auto trial = begin_trial("wifi-standards", wifi_standards_paths(), err);
+		if (!trial) {
+			finish_wifi({});
+			return fail(out, -3, err.text);
+		}
+		if (auto e = save_wifi_standards(want)) {
+			trial_abandon(trial);
+			return save_failed(e);
+		}
+		(void)sync_files();
+		trial_start(trial);
+		// Acknowledge before the driver reloads: the association carrying this request drops with it.
+		ok(out, wifi_standards_json(want, trial_info_json(trial, trial_hosts("", o.host))));
+		auto release = trial_work_begin();
+		go_after(restart_delay, [trial, release] {
+			Error e = apply_wifi_standards();
+			trial_restarted(trial, e);
+			finish_wifi(e);
+			release();
+		});
+		log::info("set the Wi-Fi standards on trial: wifi5={} wifi6={}", want.wifi5, want.wifi6);
+	});
+}
+
 // --- trials -------------------------------------------------------------------------------------------------------------
 
 // Off the loop like every operation that takes the trial's lock: a confirmation holds it across a sync.
@@ -1004,6 +1069,24 @@ Decoded<std::string> decode_set_wifi_country(const RequestData &data)
 	return d;
 }
 
+Decoded<WifiStandards> decode_set_wifi_standards(const RequestData &data)
+{
+	Decoded<WifiStandards> d;
+	auto b = Binder::bind(data, true);
+	WifiStandards s;
+	if (b.ok()) {
+		b.boolean("wifi5", "", s.wifi5);
+		b.boolean("wifi6", "", s.wifi6);
+	}
+	if (!b.ok()) {
+		d.refusal = {-1, "invalid parameters"};
+		return d;
+	}
+	s.wifi6 = s.wifi5 && s.wifi6;
+	d.value = s;
+	return d;
+}
+
 Decoded<WifiAP> decode_set_wifi_ap(const RequestData &data)
 {
 	Decoded<WifiAP> d;
@@ -1074,6 +1157,8 @@ void add_routes(http::Router &router)
 	router.add("POST", "/api/network/wifi/band-preference", auth::guarded(handler(set_wifi_band_preference), admin));
 	router.add("GET", "/api/network/wifi/country", auth::guarded(handler(get_wifi_country), admin));
 	router.add("POST", "/api/network/wifi/country", auth::guarded(handler(set_wifi_country), admin));
+	router.add("GET", "/api/network/wifi/standards", auth::guarded(handler(get_wifi_standards), admin));
+	router.add("POST", "/api/network/wifi/standards", auth::guarded(handler(set_wifi_standards), admin));
 	router.add("POST", "/api/network/wifi/configure", auth::guarded(handler(configure_wifi), admin));
 	router.add("GET", "/api/network/wifi", auth::guarded(handler(get_wifi), admin));
 	router.add("POST", "/api/network/wifi/disconnect", auth::guarded(handler(disconnect_wifi), admin));

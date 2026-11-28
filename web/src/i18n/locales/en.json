@@ -1901,7 +1901,15 @@
         "joinConfirm": "Join {{ssid}}?",
         "joinOverWifi": "This page uses Wi-Fi. Joining another network ends its connection; the device then answers on the new network, at the address that network gives it.",
         "autoConnect": "Connect automatically",
-        "savedTag": "Saved"
+        "savedTag": "Saved",
+        "advanced": "Advanced",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "Off: this chip connects with Wi-Fi 4. Its Wi-Fi 5 and Wi-Fi 6 links can make the video freeze for a second at a time.",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Needs Wi-Fi 5. Off by default: on this chip Wi-Fi 6 links stall for seconds at a time.",
+        "standardsConfirm": "Change the Wi-Fi standards?",
+        "standardsRestart": "The Wi-Fi driver reloads, and Wi-Fi reconnects within a few seconds.",
+        "standardsPending": "Saved; takes effect when the Wi-Fi driver loads next."
       },
       "wifiSaved": {
         "title": "Saved networks",

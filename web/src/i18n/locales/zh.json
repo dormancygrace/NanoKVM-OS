@@ -1711,7 +1711,15 @@
         "joinConfirm": "加入 {{ssid}}？",
         "joinOverWifi": "此页面通过 Wi-Fi 访问。加入其他网络会断开此连接；之后设备将在新网络中、以新网络分配的地址响应。",
         "autoConnect": "自动连接",
-        "savedTag": "已保存"
+        "savedTag": "已保存",
+        "advanced": "高级",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "关闭：此芯片以 Wi-Fi 4 连接。使用 Wi-Fi 5 和 Wi-Fi 6 时视频可能每次卡顿一秒。",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "需要 Wi-Fi 5。默认关闭：此芯片的 Wi-Fi 6 连接会停顿数秒。",
+        "standardsConfirm": "更改 Wi-Fi 标准？",
+        "standardsRestart": "Wi-Fi 驱动将重新加载，Wi-Fi 会在几秒内重新连接。",
+        "standardsPending": "已保存；下次加载 Wi-Fi 驱动时生效。"
       },
       "wifiSaved": {
         "title": "已保存的网络",

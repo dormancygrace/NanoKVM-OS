@@ -1711,7 +1711,15 @@
         "joinConfirm": "¿Conectar a {{ssid}}?",
         "joinOverWifi": "Esta página usa Wi-Fi. Conectarse a otra red corta su conexión; después el dispositivo responde en la nueva red, en la dirección que esa red le dé.",
         "autoConnect": "Conectar automáticamente",
-        "savedTag": "Guardada"
+        "savedTag": "Guardada",
+        "advanced": "Avanzado",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "Desactivado: este chip se conecta con Wi-Fi 4. Con Wi-Fi 5 y Wi-Fi 6 el vídeo puede congelarse un segundo cada vez.",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Requiere Wi-Fi 5. Desactivado por defecto: en este chip los enlaces Wi-Fi 6 se detienen durante segundos.",
+        "standardsConfirm": "¿Cambiar los estándares Wi-Fi?",
+        "standardsRestart": "El controlador Wi-Fi se recarga y el Wi-Fi se vuelve a conectar en unos segundos.",
+        "standardsPending": "Guardado; se aplica la próxima vez que se cargue el controlador Wi-Fi."
       },
       "wifiSaved": {
         "title": "Redes guardadas",

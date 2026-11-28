@@ -1,0 +1,30 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: turn off the AIC8801 firmware's 5 GHz link detection
+
+With link_det_5g set (the firmware image default), the firmware keeps a table
+of 5 GHz access points it joined with VHT or HE. A second join to the same
+BSSID before a link check passed (at least 50 received data frames in a 30 s
+window, at most half of them retries) is made with HT only, and nothing clears
+the entry for the rest of the firmware run, so the link stays Wi-Fi 4 until
+the chip is restarted. The test is made at the join, so a deauthentication
+and reconnect soon after the first association (for example while
+wpa_supplicant settles) is enough to keep a 5 GHz link at HT.
+
+The vendor build sets CONFIG_LINK_DET_5G = y, which leaves the boot patch
+entry {0x104 link_det_5g = 0} out of patch_tbl. Build without it.
+
+The firmware applies boot patch entries when it starts, after its .data is
+initialised. Reloading the modules does not restart a running chip, so the
+change takes effect at the next power-on of the chip (a reboot).
+---
+--- a/aic8800_bsp/Makefile
++++ b/aic8800_bsp/Makefile
+@@ -16,7 +16,7 @@
+ CONFIG_GPIO_WAKEUP ?= n
+ CONFIG_M2D_OTA_AUTO_SUPPORT = n
+ CONFIG_M2D_OTA_LZMA_SUPPORT = n
+-CONFIG_LINK_DET_5G = y
++CONFIG_LINK_DET_5G = n
+ CONFIG_MCU_MESSAGE = n
+ CONFIG_FIRMWARE_ARRAY = n
+ # Need to set fw path in BOARD_KERNEL_CMDLINE

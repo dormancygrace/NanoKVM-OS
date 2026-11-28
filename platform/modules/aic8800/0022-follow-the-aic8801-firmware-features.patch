@@ -15,9 +15,32 @@ On the AIC8801, read the word in the firmware's numbering before the
 capabilities are built and switch off the parameters for the features it
 lacks. The word is logged once. The other chips are unchanged.
 ---
+diff --git a/aic8800_fdrv/rwnx_main.c b/aic8800_fdrv/rwnx_main.c
+--- a/aic8800_fdrv/rwnx_main.c
++++ b/aic8800_fdrv/rwnx_main.c
+@@ -6211,10 +6211,6 @@
+ 	wiphy->features |= NL80211_FEATURE_SAE;
+ #endif
+ 
+-	if (rwnx_mod_params.tdls)
+-		/* TDLS support */
+-		wiphy->features |= NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
+-
+ 	wiphy->iface_combinations   = rwnx_combinations;
+ 	/* -1 not to include combination with radar detection, will be re-added in
+ 	   rwnx_handle_dynparams if supported */
+diff --git a/aic8800_fdrv/rwnx_mod_params.c b/aic8800_fdrv/rwnx_mod_params.c
 --- a/aic8800_fdrv/rwnx_mod_params.c
 +++ b/aic8800_fdrv/rwnx_mod_params.c
-@@ -1721,8 +1721,52 @@
+@@ -1566,6 +1566,7 @@
+ 
+ 	if (rwnx_hw->mod_params->tdls) {
+ 		/* TDLS support */
++		wiphy->features |= NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
+ 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
+ #ifdef CONFIG_RWNX_FULLMAC
+ 		/* TDLS external setup support */
+@@ -1721,8 +1722,52 @@
  }
  #endif
  

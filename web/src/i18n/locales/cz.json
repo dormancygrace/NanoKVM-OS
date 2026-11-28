@@ -823,11 +823,20 @@
         "countryNeededTitle": "Vyberte zemi Wi-Fi",
         "countryNeeded": "Přístupový bod v pásmu 5 GHz potřebuje zemi, která ho povoluje. Dokud ji nevyberete, běží přístupový bod v pásmu 2,4 GHz.",
         "countryNoChannels": "Země Wi-Fi nepovoluje pro přístupový bod žádný kanál 5 GHz, proto běží v pásmu 2,4 GHz. Pokud je zařízení jinde, vyberte jeho zemi.",
+        "countryUnsetClient": "Bez země lze kanály 5 GHz pouze poslouchat, takže připojení k síti 5 GHz může selhat a přejít na 2,4 GHz.",
         "connectionTimeout": "Připojení nebylo potvrzeno. Zkontrolujte síť a v případě, že adresa zařízení byla změněna, znovu se k němu připojte.",
         "joinConfirm": "Připojit k {{ssid}}?",
         "joinOverWifi": "Tato stránka používá Wi-Fi. Připojení k jiné síti ukončí její spojení; zařízení pak odpoví v nové síti na adrese, kterou mu daná síť přidělí.",
         "autoConnect": "Připojovat automaticky",
-        "savedTag": "Uložená"
+        "savedTag": "Uložená",
+        "advanced": "Pokročilé",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "Vypnuto: Wi-Fi se připojuje jako Wi-Fi 4 (802.11n).",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Vyžaduje Wi-Fi 5. Na čipu AIC8801 je ve výchozím stavu vypnuto: jeho spojení Wi-Fi 6 se na sekundy zastavují a video zamrzá.",
+        "standardsConfirm": "Změnit standardy Wi-Fi?",
+        "standardsRestart": "Ovladač Wi-Fi se znovu načte a Wi-Fi se během několika sekund znovu připojí.",
+        "standardsPending": "Uloženo; projeví se při příštím načtení ovladače Wi-Fi."
       },
       "wifiSaved": {
         "title": "Uložené sítě",

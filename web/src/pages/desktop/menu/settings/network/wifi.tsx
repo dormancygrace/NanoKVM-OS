@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Checkbox, Input, message, Modal, Select, Switch, Tabs } from 'antd';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Collapse,
+  Input,
+  message,
+  Modal,
+  Select,
+  Switch,
+  Tabs
+} from 'antd';
 import i18n from 'i18next';
 import { useTranslation } from 'react-i18next';
 
@@ -17,6 +28,8 @@ import { groupWifiNetworks, type WifiGroup } from './wifi-networks';
 import { operationDone, type Pending } from './wifi-pending.ts';
 import { SavedWifi } from './wifi-saved.tsx';
 import { WifiSignal } from './wifi-signal';
+import { useWifiStandards } from './wifi-standards-state.ts';
+import { WifiStandards } from './wifi-standards.tsx';
 
 // wpa_supplicant's key management of the association, as users know it.
 function keyMgmtLabel(keyMgmt: string, open: string) {
@@ -71,6 +84,7 @@ export const Wifi = () => {
     return security === 'open' || security === 'unsupported' ? tr(security) : labels[security];
   }
   const [state, setState] = useState<api.WifiStatus>();
+  const [standards, setStandards] = useWifiStandards(state);
   const autoScanStarted = useRef(false);
   const scanInFlight = useRef(false);
   const [networks, setNetworks] = useState<api.WifiNetwork[]>([]);
@@ -543,6 +557,19 @@ export const Wifi = () => {
         )}
       </SettingsSection>
 
+      {/* The regulatory country applies to both roles: without one the
+          world domain allows 5 GHz only passively, and joins fall back to
+          2.4 GHz. */}
+      {state?.supported && !state.apMode && (
+        <SettingsSection>
+          <WifiCountry
+            state={state}
+            locked={locked}
+            onRestarting={() => track({ enabled: true })}
+          />
+        </SettingsSection>
+      )}
+
       {/* The two roles of the radio: joining a network, or serving one. */}
       {state?.supported && !state.apMode && (
         <Tabs
@@ -586,11 +613,6 @@ export const Wifi = () => {
               label: t('settings.network.wifiAp.title'),
               children: (
                 <div className="space-y-6">
-                  <WifiCountry
-                    state={state}
-                    locked={locked}
-                    onRestarting={() => track({ enabled: true })}
-                  />
                   <WifiAccessPoint />
                 </div>
               )
@@ -600,6 +622,29 @@ export const Wifi = () => {
       )}
 
       {state?.supported && state.apMode && <IPv6 name="wlan0" />}
+
+      {/* Rarely needed radio settings, at the bottom and folded. */}
+      {state?.supported && standards?.supported && (
+        <Collapse
+          items={[
+            {
+              key: 'advanced',
+              label: tr('advanced'),
+              children: (
+                <div className="space-y-4 px-1 py-1">
+                  <WifiStandards
+                    state={state}
+                    value={standards}
+                    setValue={setStandards}
+                    locked={locked}
+                    onRestarting={() => track({ enabled: true })}
+                  />
+                </div>
+              )
+            }
+          ]}
+        />
+      )}
 
       <Modal
         title={tr('connect')}

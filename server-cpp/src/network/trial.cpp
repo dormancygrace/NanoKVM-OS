@@ -97,6 +97,8 @@ Error restart_service(const std::string &service)
 	if (service == "wifi-ap") return restart_wifi_ap();
 	// The country restored: iw sets it, and Wi-Fi restarts with it.
 	if (service == "wifi-country") return restart_wifi_country();
+	// The previous Wi-Fi 5 / Wi-Fi 6 flags: the driver reloads with them.
+	if (service == "wifi-standards") return apply_wifi_standards();
 	return {};
 }
 

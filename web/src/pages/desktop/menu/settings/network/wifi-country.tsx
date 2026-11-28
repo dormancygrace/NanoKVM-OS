@@ -162,13 +162,23 @@ export const WifiCountry = ({
     ap?.bandFallback ?? (value?.country === '00' && ap?.band === '5' ? 'country_unset' : undefined);
   return (
     <>
-      {fallback && (
+      {fallback ? (
         <Alert
           type="warning"
           showIcon
           message={tr('countryNeededTitle')}
           description={tr(fallback === 'country_unset' ? 'countryNeeded' : 'countryNoChannels')}
         />
+      ) : (
+        // Joining networks: the world domain allows 5 GHz only passively.
+        value?.country === '00' && (
+          <Alert
+            type="warning"
+            showIcon
+            message={tr('countryNeededTitle')}
+            description={tr('countryUnsetClient')}
+          />
+        )
       )}
       <SettingRow
         label={tr('country')}

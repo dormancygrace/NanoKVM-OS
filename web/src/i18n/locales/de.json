@@ -1671,6 +1671,7 @@
         "countryNeededTitle": "Wi-Fi-Land auswählen",
         "countryNeeded": "Ein Zugangspunkt auf 5 GHz benötigt ein Land, das ihn erlaubt. Bis eines ausgewählt ist, läuft der Zugangspunkt auf 2,4 GHz.",
         "countryNoChannels": "Das Wi-Fi-Land erlaubt keinen 5-GHz-Kanal für einen Zugangspunkt, daher läuft er auf 2,4 GHz. Steht das Gerät anderswo, wählen Sie dessen Land.",
+        "countryUnsetClient": "Ohne Land dürfen 5-GHz-Kanäle nur abgehört werden, daher kann die Verbindung mit einem 5-GHz-Netz fehlschlagen und auf 2,4 GHz ausweichen.",
         "scan": "Netzwerke suchen",
         "scanFailed": "Netzwerke konnten nicht gesucht werden. Versuchen Sie es erneut.",
         "availableNetworks": "Verfügbare Netzwerke",
@@ -1711,7 +1712,15 @@
         "joinConfirm": "Mit {{ssid}} verbinden?",
         "joinOverWifi": "Diese Seite nutzt WLAN. Ein anderes Netz beendet ihre Verbindung; das Gerät antwortet dann im neuen Netz unter der Adresse, die es dort erhält.",
         "autoConnect": "Automatisch verbinden",
-        "savedTag": "Gespeichert"
+        "savedTag": "Gespeichert",
+        "advanced": "Erweitert",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "Aus: WLAN verbindet sich als Wi-Fi 4 (802.11n).",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Benötigt Wi-Fi 5. Beim Chip AIC8801 standardmäßig aus: seine Wi-Fi-6-Verbindungen stocken sekundenlang, und das Video friert ein.",
+        "standardsConfirm": "WLAN-Standards ändern?",
+        "standardsRestart": "Der WLAN-Treiber wird neu geladen, und das WLAN verbindet sich in wenigen Sekunden neu.",
+        "standardsPending": "Gespeichert; wird beim nächsten Laden des WLAN-Treibers wirksam."
       },
       "wifiSaved": {
         "title": "Gespeicherte Netzwerke",

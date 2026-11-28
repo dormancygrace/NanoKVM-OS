@@ -1671,6 +1671,7 @@
         "countryNeededTitle": "Choisissez le pays Wi-Fi",
         "countryNeeded": "Un point d'accès 5 GHz nécessite un pays qui l'autorise. Tant qu'aucun n'est choisi, le point d'accès fonctionne en 2,4 GHz.",
         "countryNoChannels": "Le pays Wi-Fi n'autorise aucun canal 5 GHz pour un point d'accès : il fonctionne donc en 2,4 GHz. Si l'appareil se trouve ailleurs, choisissez son pays.",
+        "countryUnsetClient": "Sans pays, les canaux 5 GHz ne peuvent être qu'écoutés : la connexion à un réseau 5 GHz peut échouer et basculer en 2,4 GHz.",
         "scan": "Rechercher des réseaux",
         "scanFailed": "Impossible de rechercher des réseaux. Réessayez.",
         "availableNetworks": "Réseaux disponibles",
@@ -1711,7 +1712,15 @@
         "joinConfirm": "Rejoindre {{ssid}} ?",
         "joinOverWifi": "Cette page utilise le Wi-Fi. Rejoindre un autre réseau coupe sa connexion ; l'appareil répond ensuite sur le nouveau réseau, à l'adresse que celui-ci lui donne.",
         "autoConnect": "Se connecter automatiquement",
-        "savedTag": "Enregistré"
+        "savedTag": "Enregistré",
+        "advanced": "Avancé",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "Désactivé : le Wi-Fi se connecte en Wi-Fi 4 (802.11n).",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Nécessite le Wi-Fi 5. Désactivé par défaut sur la puce AIC8801 : ses liaisons Wi-Fi 6 se bloquent plusieurs secondes et la vidéo se fige.",
+        "standardsConfirm": "Modifier les normes Wi-Fi ?",
+        "standardsRestart": "Le pilote Wi-Fi se recharge et le Wi-Fi se reconnecte en quelques secondes.",
+        "standardsPending": "Enregistré ; prend effet au prochain chargement du pilote Wi-Fi."
       },
       "wifiSaved": {
         "title": "Réseaux enregistrés",

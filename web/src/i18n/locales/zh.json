@@ -1671,6 +1671,7 @@
         "countryNeededTitle": "请选择 Wi-Fi 国家/地区",
         "countryNeeded": "5 GHz 接入点需要设置允许它的国家/地区。在选择之前，接入点将在 2.4 GHz 上运行。",
         "countryNoChannels": "当前 Wi-Fi 国家/地区不允许接入点使用 5 GHz 信道，因此它在 2.4 GHz 上运行。如果设备位于其他地方，请选择所在国家/地区。",
+        "countryUnsetClient": "未设置国家时，5 GHz 信道只能被动监听，因此连接 5 GHz 网络可能失败并回落到 2.4 GHz。",
         "scan": "扫描网络",
         "scanFailed": "无法扫描网络，请重试。",
         "availableNetworks": "可用网络",
@@ -1711,7 +1712,15 @@
         "joinConfirm": "加入 {{ssid}}？",
         "joinOverWifi": "此页面通过 Wi-Fi 访问。加入其他网络会断开此连接；之后设备将在新网络中、以新网络分配的地址响应。",
         "autoConnect": "自动连接",
-        "savedTag": "已保存"
+        "savedTag": "已保存",
+        "advanced": "高级",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "关闭：Wi-Fi 以 Wi-Fi 4 (802.11n) 连接。",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "需要 Wi-Fi 5。AIC8801 芯片上默认关闭：其 Wi-Fi 6 连接会停顿数秒，导致视频卡住。",
+        "standardsConfirm": "更改 Wi-Fi 标准？",
+        "standardsRestart": "Wi-Fi 驱动将重新加载，Wi-Fi 会在几秒内重新连接。",
+        "standardsPending": "已保存；下次加载 Wi-Fi 驱动时生效。"
       },
       "wifiSaved": {
         "title": "已保存的网络",

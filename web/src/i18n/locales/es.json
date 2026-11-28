@@ -1671,6 +1671,7 @@
         "countryNeededTitle": "Elija el país Wi-Fi",
         "countryNeeded": "Un punto de acceso de 5 GHz necesita un país que lo permita. Hasta que se elija uno, el punto de acceso funciona en 2,4 GHz.",
         "countryNoChannels": "El país Wi-Fi no permite ningún canal de 5 GHz para un punto de acceso, por lo que funciona en 2,4 GHz. Si el dispositivo está en otro lugar, elija su país.",
+        "countryUnsetClient": "Sin país, los canales de 5 GHz solo pueden escucharse, así que la conexión a una red de 5 GHz puede fallar y pasar a 2,4 GHz.",
         "scan": "Buscar redes",
         "scanFailed": "No se pudieron buscar redes. Vuelve a intentarlo.",
         "availableNetworks": "Redes disponibles",
@@ -1711,7 +1712,15 @@
         "joinConfirm": "¿Conectar a {{ssid}}?",
         "joinOverWifi": "Esta página usa Wi-Fi. Conectarse a otra red corta su conexión; después el dispositivo responde en la nueva red, en la dirección que esa red le dé.",
         "autoConnect": "Conectar automáticamente",
-        "savedTag": "Guardada"
+        "savedTag": "Guardada",
+        "advanced": "Avanzado",
+        "wifi5": "Wi-Fi 5 (802.11ac)",
+        "wifi5Hint": "Desactivado: el Wi-Fi se conecta como Wi-Fi 4 (802.11n).",
+        "wifi6": "Wi-Fi 6 (802.11ax)",
+        "wifi6Hint": "Requiere Wi-Fi 5. Desactivado por defecto en el chip AIC8801: sus enlaces Wi-Fi 6 se detienen durante segundos y el vídeo se congela.",
+        "standardsConfirm": "¿Cambiar los estándares Wi-Fi?",
+        "standardsRestart": "El controlador Wi-Fi se recarga y el Wi-Fi se vuelve a conectar en unos segundos.",
+        "standardsPending": "Guardado; se aplica la próxima vez que se cargue el controlador Wi-Fi."
       },
       "wifiSaved": {
         "title": "Redes guardadas",

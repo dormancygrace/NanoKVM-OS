@@ -1861,6 +1861,7 @@
         "countryNeededTitle": "Choose the Wi-Fi country",
         "countryNeeded": "A 5 GHz access point needs a country that allows it. Until one is chosen, the access point runs on 2.4 GHz.",
         "countryNoChannels": "The Wi-Fi country allows no 5 GHz channel for an access point, so it runs on 2.4 GHz. If the device is elsewhere, choose its country.",
+        "countryUnsetClient": "Without a country, 5 GHz channels may only be listened to, so joining a 5 GHz network can fail and fall back to 2.4 GHz.",
         "scan": "Scan networks",
         "scanFailed": "Could not scan networks. Try again.",
         "availableNetworks": "Available networks",

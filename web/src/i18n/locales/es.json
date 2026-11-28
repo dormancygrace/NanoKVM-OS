@@ -1671,6 +1671,7 @@
         "countryNeededTitle": "Elija el país Wi-Fi",
         "countryNeeded": "Un punto de acceso de 5 GHz necesita un país que lo permita. Hasta que se elija uno, el punto de acceso funciona en 2,4 GHz.",
         "countryNoChannels": "El país Wi-Fi no permite ningún canal de 5 GHz para un punto de acceso, por lo que funciona en 2,4 GHz. Si el dispositivo está en otro lugar, elija su país.",
+        "countryUnsetClient": "Sin país, los canales de 5 GHz solo pueden escucharse, así que la conexión a una red de 5 GHz puede fallar y pasar a 2,4 GHz.",
         "scan": "Buscar redes",
         "scanFailed": "No se pudieron buscar redes. Vuelve a intentarlo.",
         "availableNetworks": "Redes disponibles",

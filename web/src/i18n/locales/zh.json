@@ -1671,6 +1671,7 @@
         "countryNeededTitle": "请选择 Wi-Fi 国家/地区",
         "countryNeeded": "5 GHz 接入点需要设置允许它的国家/地区。在选择之前，接入点将在 2.4 GHz 上运行。",
         "countryNoChannels": "当前 Wi-Fi 国家/地区不允许接入点使用 5 GHz 信道，因此它在 2.4 GHz 上运行。如果设备位于其他地方，请选择所在国家/地区。",
+        "countryUnsetClient": "未设置国家时，5 GHz 信道只能被动监听，因此连接 5 GHz 网络可能失败并回落到 2.4 GHz。",
         "scan": "扫描网络",
         "scanFailed": "无法扫描网络，请重试。",
         "availableNetworks": "可用网络",

@@ -557,6 +557,19 @@ export const Wifi = () => {
         )}
       </SettingsSection>
 
+      {/* The regulatory country applies to both roles: without one the
+          world domain allows 5 GHz only passively, and joins fall back to
+          2.4 GHz. */}
+      {state?.supported && !state.apMode && (
+        <SettingsSection>
+          <WifiCountry
+            state={state}
+            locked={locked}
+            onRestarting={() => track({ enabled: true })}
+          />
+        </SettingsSection>
+      )}
+
       {/* The two roles of the radio: joining a network, or serving one. */}
       {state?.supported && !state.apMode && (
         <Tabs
@@ -600,11 +613,6 @@ export const Wifi = () => {
               label: t('settings.network.wifiAp.title'),
               children: (
                 <div className="space-y-6">
-                  <WifiCountry
-                    state={state}
-                    locked={locked}
-                    onRestarting={() => track({ enabled: true })}
-                  />
                   <WifiAccessPoint />
                 </div>
               )

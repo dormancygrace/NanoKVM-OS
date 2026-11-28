@@ -1671,6 +1671,7 @@
         "countryNeededTitle": "Wi-Fi-Land auswählen",
         "countryNeeded": "Ein Zugangspunkt auf 5 GHz benötigt ein Land, das ihn erlaubt. Bis eines ausgewählt ist, läuft der Zugangspunkt auf 2,4 GHz.",
         "countryNoChannels": "Das Wi-Fi-Land erlaubt keinen 5-GHz-Kanal für einen Zugangspunkt, daher läuft er auf 2,4 GHz. Steht das Gerät anderswo, wählen Sie dessen Land.",
+        "countryUnsetClient": "Ohne Land dürfen 5-GHz-Kanäle nur abgehört werden, daher kann die Verbindung mit einem 5-GHz-Netz fehlschlagen und auf 2,4 GHz ausweichen.",
         "scan": "Netzwerke suchen",
         "scanFailed": "Netzwerke konnten nicht gesucht werden. Versuchen Sie es erneut.",
         "availableNetworks": "Verfügbare Netzwerke",

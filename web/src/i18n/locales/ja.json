@@ -1715,7 +1715,7 @@
         "savedTag": "保存済み",
         "advanced": "詳細設定",
         "wifi5": "Wi-Fi 5 (802.11ac)",
-        "wifi5Hint": "オフ: Wi-Fi は Wi-Fi 4 (802.11n) で接続します。AIC8801 チップでは既定でオフです。",
+        "wifi5Hint": "オフ: Wi-Fi は Wi-Fi 4 (802.11n) で接続します。",
         "wifi6": "Wi-Fi 6 (802.11ax)",
         "wifi6Hint": "Wi-Fi 5 が必要です。AIC8801 チップでは既定でオフ: Wi-Fi 6 接続が数秒間止まり、映像が固まります。",
         "standardsConfirm": "Wi-Fi 規格を変更しますか？",

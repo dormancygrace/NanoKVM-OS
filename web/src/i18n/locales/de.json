@@ -1715,7 +1715,7 @@
         "savedTag": "Gespeichert",
         "advanced": "Erweitert",
         "wifi5": "Wi-Fi 5 (802.11ac)",
-        "wifi5Hint": "Aus: WLAN verbindet sich als Wi-Fi 4 (802.11n). Beim Chip AIC8801 standardmäßig aus.",
+        "wifi5Hint": "Aus: WLAN verbindet sich als Wi-Fi 4 (802.11n).",
         "wifi6": "Wi-Fi 6 (802.11ax)",
         "wifi6Hint": "Benötigt Wi-Fi 5. Beim Chip AIC8801 standardmäßig aus: seine Wi-Fi-6-Verbindungen stocken sekundenlang, und das Video friert ein.",
         "standardsConfirm": "WLAN-Standards ändern?",

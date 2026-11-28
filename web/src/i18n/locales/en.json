@@ -1905,7 +1905,7 @@
         "savedTag": "Saved",
         "advanced": "Advanced",
         "wifi5": "Wi-Fi 5 (802.11ac)",
-        "wifi5Hint": "Off: Wi-Fi connects as Wi-Fi 4 (802.11n). Off by default on the AIC8801 chip.",
+        "wifi5Hint": "Off: Wi-Fi connects as Wi-Fi 4 (802.11n).",
         "wifi6": "Wi-Fi 6 (802.11ax)",
         "wifi6Hint": "Needs Wi-Fi 5. Off by default on the AIC8801 chip: its Wi-Fi 6 links stall for seconds at a time, which freezes the video.",
         "standardsConfirm": "Change the Wi-Fi standards?",

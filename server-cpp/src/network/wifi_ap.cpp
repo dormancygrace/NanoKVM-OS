@@ -547,14 +547,11 @@ std::string json_bool(bool v) { return v ? "true" : "false"; }
 std::string vht_path() { return path_join(wifi_control.etc, "wifi.vht"); }
 std::string he_path() { return path_join(wifi_control.etc, "wifi.he"); }
 
-// Without a saved choice: off on the AIC8801 (its Wi-Fi 6 links stall), on for the AIC8800D80 (the driver default).
-// S25wifimod applies the same defaults.
-bool default_on() { return wifi_control.model() == "AIC8800D80"; }
-
-// A flag file: absent = the chip's default, "0" = off, anything else = on.
-bool flag(const std::string &path)
+// A flag file: absent = the default, "0" = off, anything else = on. Defaults (S25wifimod applies the same): Wi-Fi 5
+// on; Wi-Fi 6 off on the AIC8801 (its Wi-Fi 6 links stall), on for the AIC8800D80 (the driver default).
+bool flag(const std::string &path, bool default_on)
 {
-	if (!exists(path)) return default_on();
+	if (!exists(path)) return default_on;
 	auto data = read_file(path);
 	return !(data && !data->empty() && (*data)[0] == '0');
 }
@@ -580,8 +577,8 @@ bool wifi_standards_supported()
 WifiStandards wifi_standards()
 {
 	WifiStandards s;
-	s.wifi5 = flag(vht_path());
-	s.wifi6 = s.wifi5 && flag(he_path());
+	s.wifi5 = flag(vht_path(), true);
+	s.wifi6 = s.wifi5 && flag(he_path(), wifi_control.model() == "AIC8800D80");
 	return s;
 }
 

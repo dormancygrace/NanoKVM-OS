@@ -1715,7 +1715,7 @@
         "savedTag": "Guardada",
         "advanced": "Avanzado",
         "wifi5": "Wi-Fi 5 (802.11ac)",
-        "wifi5Hint": "Desactivado: el Wi-Fi se conecta como Wi-Fi 4 (802.11n). Desactivado por defecto en el chip AIC8801.",
+        "wifi5Hint": "Desactivado: el Wi-Fi se conecta como Wi-Fi 4 (802.11n).",
         "wifi6": "Wi-Fi 6 (802.11ax)",
         "wifi6Hint": "Requiere Wi-Fi 5. Desactivado por defecto en el chip AIC8801: sus enlaces Wi-Fi 6 se detienen durante segundos y el vídeo se congela.",
         "standardsConfirm": "¿Cambiar los estándares Wi-Fi?",

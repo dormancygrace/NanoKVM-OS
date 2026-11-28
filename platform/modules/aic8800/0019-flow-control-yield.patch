@@ -1,0 +1,81 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: the flow-control wait yields the TX lock and does not spin on read errors
+
+While the chip has two or fewer free TX buffers, the TX thread holds
+txctl_sema and calls aicwf_sdio_flow_ctrl() again and again: each call
+polls for about 130 ms (50 reads), with no limit on the calls. Firmware
+commands wait for the same semaphore until the current call ends, and a
+failing register read returns at once, so the loop calls it again without
+sleeping, at real-time priority on the single core.
+
+- A failed read sleeps 10 ms before it returns.
+- A pending command ends the wait at the next poll.
+- When a whole wait finds no buffer, the TX thread releases the lock and
+  triggers itself again, so commands and the RX path run between waits.
+diff --git a/aic8800_fdrv/aicwf_sdio.c b/aic8800_fdrv/aicwf_sdio.c
+--- a/aic8800_fdrv/aicwf_sdio.c
++++ b/aic8800_fdrv/aicwf_sdio.c
+@@ -361,6 +361,8 @@
+     while (true) {
+         ret = aicwf_sdio_readb(sdiodev, sdiodev->sdio_reg.flow_ctrl_reg, &fc_reg);
+         if (ret) {
++            /* The TX thread (real-time priority) asks again: not at once. */
++            msleep(10);
+             return -1;
+         }
+ 
+@@ -377,6 +379,11 @@
+             return ret;
+         } else {
+             if (count >= FLOW_CTRL_RETRY_COUNT) {
++                ret = -fc_reg;
++                break;
++            }
++            /* A command waits for the TX lock this wait holds: it goes first. */
++            if (sdiodev->tx_priv->cmd_txstate) {
+                 ret = -fc_reg;
+                 break;
+             }
+@@ -1877,6 +1884,7 @@
+ 
+ static void aicwf_sdio_tx_process(struct aic_sdio_dev *sdiodev)
+ {
++	bool full = false;
+ #ifdef CONFIG_TX_NETIF_FLOWCTRL
+ 	unsigned long flags;
+ #endif
+@@ -1922,9 +1930,8 @@
+ 		return;
+ 	}
+ 
+-	if (!aicwf_is_framequeue_empty(&sdiodev->tx_priv->txq)){
+-		sdiodev->tx_priv->fw_avail_bufcnt = aicwf_sdio_flow_ctrl(sdiodev);
+-	}
++	/* Start with fresh credits; the loop releases the lock after one failed poll. */
++	sdiodev->tx_priv->fw_avail_bufcnt = 0;
+ 	while (!aicwf_is_framequeue_empty(&sdiodev->tx_priv->txq)) {
+ 		if(sdiodev->bus_if->state == BUS_DOWN_ST) {
+ 			break;
+@@ -1938,6 +1945,12 @@
+         	    if (sdiodev->tx_priv->cmd_txstate)
+                 	break;
+             	    sdiodev->tx_priv->fw_avail_bufcnt = aicwf_sdio_flow_ctrl(sdiodev);
++		    /* Still full after a whole wait (about 130 ms): the TX lock goes to
++		     * the commands and the RX path, and the thread comes back below. */
++		    if (sdiodev->tx_priv->fw_avail_bufcnt <= DATA_FLOW_CTRL_THRESH) {
++			    full = true;
++			    break;
++		    }
+         	} else {
+             		if (sdiodev->tx_priv->cmd_txstate) {
+                 		aicwf_sdio_send(sdiodev->tx_priv, 1);
+@@ -1962,6 +1975,9 @@
+ #endif
+ 
+ 	up(&sdiodev->tx_priv->txctl_sema);
++	/* The frames left queued: the thread runs again once the lock is free. */
++	if (full)
++		complete(&sdiodev->bus_if->bustx_trgg);
+ }
+ 
+ /* Wake the TX thread for what is queued: the end of a burst whose frames

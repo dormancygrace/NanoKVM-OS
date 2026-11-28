@@ -1715,9 +1715,9 @@
         "savedTag": "Enregistré",
         "advanced": "Avancé",
         "wifi5": "Wi-Fi 5 (802.11ac)",
-        "wifi5Hint": "Désactivé : cette puce se connecte en Wi-Fi 4. En Wi-Fi 5 et Wi-Fi 6, la vidéo peut se figer une seconde à la fois.",
+        "wifi5Hint": "Désactivé : le Wi-Fi se connecte en Wi-Fi 4 (802.11n). Désactivé par défaut sur la puce AIC8801.",
         "wifi6": "Wi-Fi 6 (802.11ax)",
-        "wifi6Hint": "Nécessite le Wi-Fi 5. Désactivé par défaut : sur cette puce, les liaisons Wi-Fi 6 se bloquent plusieurs secondes.",
+        "wifi6Hint": "Nécessite le Wi-Fi 5. Désactivé par défaut sur la puce AIC8801 : ses liaisons Wi-Fi 6 se bloquent plusieurs secondes et la vidéo se fige.",
         "standardsConfirm": "Modifier les normes Wi-Fi ?",
         "standardsRestart": "Le pilote Wi-Fi se recharge et le Wi-Fi se reconnecte en quelques secondes.",
         "standardsPending": "Enregistré ; prend effet au prochain chargement du pilote Wi-Fi."

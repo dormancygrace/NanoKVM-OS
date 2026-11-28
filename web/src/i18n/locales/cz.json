@@ -831,9 +831,9 @@
         "savedTag": "Uložená",
         "advanced": "Pokročilé",
         "wifi5": "Wi-Fi 5 (802.11ac)",
-        "wifi5Hint": "Vypnuto: tento čip se připojuje přes Wi-Fi 4. Při Wi-Fi 5 a Wi-Fi 6 může video na sekundu zamrznout.",
+        "wifi5Hint": "Vypnuto: Wi-Fi se připojuje jako Wi-Fi 4 (802.11n). Na čipu AIC8801 je ve výchozím stavu vypnuto.",
         "wifi6": "Wi-Fi 6 (802.11ax)",
-        "wifi6Hint": "Vyžaduje Wi-Fi 5. Ve výchozím stavu vypnuto: na tomto čipu se spojení Wi-Fi 6 na několik sekund zastavuje.",
+        "wifi6Hint": "Vyžaduje Wi-Fi 5. Na čipu AIC8801 je ve výchozím stavu vypnuto: jeho spojení Wi-Fi 6 se na sekundy zastavují a video zamrzá.",
         "standardsConfirm": "Změnit standardy Wi-Fi?",
         "standardsRestart": "Ovladač Wi-Fi se znovu načte a Wi-Fi se během několika sekund znovu připojí.",
         "standardsPending": "Uloženo; projeví se při příštím načtení ovladače Wi-Fi."

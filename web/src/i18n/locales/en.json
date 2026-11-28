@@ -1905,9 +1905,9 @@
         "savedTag": "Saved",
         "advanced": "Advanced",
         "wifi5": "Wi-Fi 5 (802.11ac)",
-        "wifi5Hint": "Off: this chip connects with Wi-Fi 4. Its Wi-Fi 5 and Wi-Fi 6 links can make the video freeze for a second at a time.",
+        "wifi5Hint": "Off: Wi-Fi connects as Wi-Fi 4 (802.11n). Off by default on the AIC8801 chip.",
         "wifi6": "Wi-Fi 6 (802.11ax)",
-        "wifi6Hint": "Needs Wi-Fi 5. Off by default: on this chip Wi-Fi 6 links stall for seconds at a time.",
+        "wifi6Hint": "Needs Wi-Fi 5. Off by default on the AIC8801 chip: its Wi-Fi 6 links stall for seconds at a time, which freezes the video.",
         "standardsConfirm": "Change the Wi-Fi standards?",
         "standardsRestart": "The Wi-Fi driver reloads, and Wi-Fi reconnects within a few seconds.",
         "standardsPending": "Saved; takes effect when the Wi-Fi driver loads next."

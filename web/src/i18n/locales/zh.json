@@ -1715,9 +1715,9 @@
         "savedTag": "已保存",
         "advanced": "高级",
         "wifi5": "Wi-Fi 5 (802.11ac)",
-        "wifi5Hint": "关闭：此芯片以 Wi-Fi 4 连接。使用 Wi-Fi 5 和 Wi-Fi 6 时视频可能每次卡顿一秒。",
+        "wifi5Hint": "关闭：Wi-Fi 以 Wi-Fi 4 (802.11n) 连接。AIC8801 芯片上默认关闭。",
         "wifi6": "Wi-Fi 6 (802.11ax)",
-        "wifi6Hint": "需要 Wi-Fi 5。默认关闭：此芯片的 Wi-Fi 6 连接会停顿数秒。",
+        "wifi6Hint": "需要 Wi-Fi 5。AIC8801 芯片上默认关闭：其 Wi-Fi 6 连接会停顿数秒，导致视频卡住。",
         "standardsConfirm": "更改 Wi-Fi 标准？",
         "standardsRestart": "Wi-Fi 驱动将重新加载，Wi-Fi 会在几秒内重新连接。",
         "standardsPending": "已保存；下次加载 Wi-Fi 驱动时生效。"

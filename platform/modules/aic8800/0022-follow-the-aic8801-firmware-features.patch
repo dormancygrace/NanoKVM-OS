@@ -1,0 +1,95 @@
+From: Gleb Pesin <dormancygrace@gmail.com>
+Subject: [PATCH] aic8800: follow the AIC8801 firmware's feature bits
+
+The driver never reads the feature word the firmware returns in
+MM_VERSION_CFM: rwnx_check_fw_hw_feature() is compiled out, and the
+driver's enum mm_features leaves out the DPSM, CHNL_CTXT and REORD bits, so
+from AMPDU on its numbers do not match the AIC8801 firmware.
+
+The capabilities then come from the module parameter defaults, which turn
+on features this firmware is built without: antenna diversity (ant_div is
+sent in ME_CONFIG), MU-MIMO TX (MU beamformer in the VHT capabilities),
+mesh point and AP-side U-APSD.
+
+On the AIC8801, read the word in the firmware's numbering before the
+capabilities are built and switch off the parameters for the features it
+lacks. The word is logged once. The other chips are unchanged.
+---
+diff --git a/aic8800_fdrv/rwnx_main.c b/aic8800_fdrv/rwnx_main.c
+--- a/aic8800_fdrv/rwnx_main.c
++++ b/aic8800_fdrv/rwnx_main.c
+@@ -6211,10 +6211,6 @@
+ 	wiphy->features |= NL80211_FEATURE_SAE;
+ #endif
+ 
+-	if (rwnx_mod_params.tdls)
+-		/* TDLS support */
+-		wiphy->features |= NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
+-
+ 	wiphy->iface_combinations   = rwnx_combinations;
+ 	/* -1 not to include combination with radar detection, will be re-added in
+ 	   rwnx_handle_dynparams if supported */
+diff --git a/aic8800_fdrv/rwnx_mod_params.c b/aic8800_fdrv/rwnx_mod_params.c
+--- a/aic8800_fdrv/rwnx_mod_params.c
++++ b/aic8800_fdrv/rwnx_mod_params.c
+@@ -1566,6 +1566,7 @@
+ 
+ 	if (rwnx_hw->mod_params->tdls) {
+ 		/* TDLS support */
++		wiphy->features |= NL80211_FEATURE_TDLS_CHANNEL_SWITCH;
+ 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS;
+ #ifdef CONFIG_RWNX_FULLMAC
+ 		/* TDLS external setup support */
+@@ -1721,8 +1722,52 @@
+ }
+ #endif
+ 
++/*
++ * Feature bits of the AIC8801 firmware's MM_VERSION_CFM, in the full
++ * RivieraWaves numbering. The driver's enum mm_features leaves out DPSM,
++ * CHNL_CTXT and REORD, so from AMPDU on its bit numbers do not match this
++ * firmware.
++ */
++enum aic8801_fw_feat {
++	AIC8801_FEAT_UAPSD = 7,
++	AIC8801_FEAT_BFMER = 18,
++	AIC8801_FEAT_MU_MIMO_TX = 22,
++	AIC8801_FEAT_MESH = 23,
++	AIC8801_FEAT_TDLS = 24,
++	AIC8801_FEAT_ANT_DIV = 25,
++};
++
++/*
++ * The driver's defaults enable features this firmware is built without
++ * (antenna diversity, MU-MIMO TX, mesh, AP-side U-APSD). Turn them off so
++ * the capabilities and ME_CONFIG follow the firmware.
++ */
++static void aic8801_apply_fw_features(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
++{
++	struct rwnx_mod_params *p = rwnx_hw->mod_params;
++	u32 feat = rwnx_hw->version_cfm.features;
++
++	wiphy_info(wiphy, "firmware features 0x%08x\n", feat);
++	if (!(feat & BIT(AIC8801_FEAT_UAPSD))) {
++		p->ap_uapsd_on = false;
++		p->uapsd_timeout = 0;
++	}
++	if (!(feat & BIT(AIC8801_FEAT_BFMER)))
++		p->bfmer = false;
++	if (!(feat & BIT(AIC8801_FEAT_MU_MIMO_TX)))
++		p->mutx = false;
++	if (!(feat & BIT(AIC8801_FEAT_MESH)))
++		p->mesh = false;
++	if (!(feat & BIT(AIC8801_FEAT_TDLS)))
++		p->tdls = false;
++	if (!(feat & BIT(AIC8801_FEAT_ANT_DIV)))
++		p->ant_div = false;
++}
++
+ int rwnx_handle_dynparams(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
+ {
++	if (rwnx_hw->sdiodev->chipid == PRODUCT_ID_AIC8801)
++		aic8801_apply_fw_features(rwnx_hw, wiphy);
+ #if 0
+ 	/* Check compatibility between requested parameters and HW/SW features */
+ 	int ret;
